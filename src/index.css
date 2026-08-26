@@ -1,0 +1,114 @@
+:root {
+  /* Color tokens */
+  --bg: #0a0a0b;
+  --bg-raised: #131215;
+  --card: #131215;
+  --card-hover: #17161a;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.06);
+
+  --ink: #f1efe9;        /* warm ivory for headings */
+  --ink-dim: #d8d6d0;
+  --body: #a2a1a8;       /* secondary text */
+  --muted: #77767d;      /* tertiary / mono labels */
+  --faint: #55545a;
+
+  --cream: #eae6dc;      /* primary button surface */
+  --cream-ink: #16151a;  /* text on cream */
+
+  --accent-green-bg: rgba(96, 185, 128, 0.14);
+  --accent-green-border: rgba(96, 185, 128, 0.28);
+  --accent-green-text: #86d6a4;
+
+  --pill-bg: #18171b;
+  --pill-border: rgba(255, 255, 255, 0.09);
+
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+
+  --font-serif: "Newsreader", "Georgia", serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--body);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+::selection {
+  background: rgba(234, 230, 220, 0.25);
+}
+
+/* Focus visibility for keyboard users */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-green-text);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 88px;
+}
+
+@media (max-width: 900px) {
+  .container {
+    padding: 0 24px;
+  }
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
