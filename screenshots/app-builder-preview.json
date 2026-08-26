@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Helix",
+      "hasCanvas": false,
+      "bodyTextLen": 3326,
+      "bodyTextHash": "823071af4cbc176b64881c3e0d6772bace178ce4cd66277283820e855d2ae18d",
+      "bodyTextPrefix": "Helix 1 REEL Scan signals SCIENCE & TECH AUTO-DIRECTOR Pick a si",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Helix",
+      "hasCanvas": false,
+      "bodyTextLen": 3319,
+      "bodyTextHash": "1c3d6ba747932e31866dd421512f08052218102ea22eaa8ec5a4fd247bd285c2",
+      "bodyTextPrefix": "Helix Scan signals SCIENCE & TECH AUTO-DIRECTOR Pick a signal. H",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
