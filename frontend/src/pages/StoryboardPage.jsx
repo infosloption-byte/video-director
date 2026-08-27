@@ -18,15 +18,21 @@ const TABS = [
   { n: "03", label: "Preview" },
 ];
 
+function normalizeStage(value) {
+  if (!value) return null;
+  const normalized = String(value).trim().toLowerCase();
+  return TABS.find((tab) => tab.label.toLowerCase() === normalized)?.label || null;
+}
+
 export default function StoryboardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const legacyBoard = storyboards[id];
   const [project, setProject] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [tab, setTab] = useState(searchParams.get("stage") || (legacyBoard ? "Storyboard" : "Setup"));
+  const [tab, setTab] = useState(() => normalizeStage(searchParams.get("stage")) || (legacyBoard ? "Storyboard" : "Setup"));
   const [published, setPublished] = useState(false);
 
   useEffect(() => {
@@ -49,8 +55,20 @@ export default function StoryboardPage() {
   const realProject = Boolean(project);
 
   useEffect(() => {
+    const requestedStage = normalizeStage(searchParams.get("stage"));
+    if (requestedStage && requestedStage !== tab) setTab(requestedStage);
+  }, [searchParams, tab]);
+
+  useEffect(() => {
     if (realProject && project?.setup && tab === "Setup") setTab("Storyboard");
   }, [realProject, project?.setup, tab]);
+
+  function changeTab(nextTab) {
+    setTab(nextTab);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("stage", nextTab.toLowerCase());
+    setSearchParams(nextParams, { replace: true });
+  }
 
   if (!board && !realProject) {
     return (
@@ -76,7 +94,7 @@ export default function StoryboardPage() {
             </div>
             <div className="hx-tabs" role="tablist" aria-label="Reel stages">
               {TABS.map((t) => (
-                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => setTab(t.label)}>
+                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => changeTab(t.label)}>
                   <span className="mono-label hx-tab__n">{t.n}</span> {t.label}
                 </button>
               ))}
@@ -89,18 +107,18 @@ export default function StoryboardPage() {
               <h2>What Helix found</h2>
               <p>{project.research?.summary}</p>
               {project.research?.sources?.length > 0 && <div><h3>Supporting sources</h3><ul>{project.research.sources.map((source, index) => <li key={`${source.url}-${index}`}><strong>{source.title}</strong><span>{source.note}</span><small>{source.source_reliability}</small></li>)}</ul></div>}
-              <div className="setup-actions"><button className="btn btn-cream" onClick={() => setTab("Setup")}>Continue to setup <IconArrowRight className="btn-icon" /></button></div>
+              <div className="setup-actions"><button className="btn btn-cream" onClick={() => changeTab("Setup")}>Continue to setup <IconArrowRight className="btn-icon" /></button></div>
             </section>
           )}
 
-          {tab === "Setup" && <SetupPanel projectId={id} onComplete={(updated) => { setProject((current) => ({ ...current, ...updated })); setTab("Storyboard"); }} />}
+          {tab === "Setup" && <SetupPanel projectId={id} onComplete={(updated) => { setProject((current) => ({ ...current, ...updated })); changeTab("Storyboard"); }} />}
 
           {tab === "Storyboard" && (
             <section className="research-brief">
               <p className="eyebrow">Storyboard stage</p>
               <h2>Setup is locked. Ready to direct the scenes.</h2>
               <p>Length: {project.setup?.length || "—"}s · Framework: {project.setup?.framework || "—"} · Tone: {project.setup?.tone || "—"} · Audience: {project.setup?.audienceLevel || "—"}</p>
-              <div className="setup-actions"><button className="btn btn-cream" onClick={() => setTab("Preview")}>Preview <IconArrowRight className="btn-icon" /></button></div>
+              <div className="setup-actions"><button className="btn btn-cream" onClick={() => changeTab("Preview")}>Preview <IconArrowRight className="btn-icon" /></button></div>
             </section>
           )}
 
@@ -109,7 +127,7 @@ export default function StoryboardPage() {
               <p className="eyebrow">Finalize</p>
               <h2>Preview arrives with storyboard generation.</h2>
               <p>Your guided setup is saved. Scene generation and the live preview will be connected in the next stage.</p>
-              <div className="setup-actions"><button className="btn btn-ghost" onClick={() => setTab("Setup")}>Back to setup</button></div>
+              <div className="setup-actions"><button className="btn btn-ghost" onClick={() => changeTab("Setup")}>Back to setup</button></div>
             </section>
           )}
         </main>
@@ -125,8 +143,8 @@ export default function StoryboardPage() {
         <div className="hx-board__head">
           <div><p className="eyebrow">{board.framework} · {board.frameworkName}</p><h1 className="hx-board__title">{board.title}</h1></div>
           <div className="hx-tabs" role="tablist" aria-label="Storyboard stage">
-            <button className={`hx-tab ${tab === "Storyboard" ? "is-active" : ""}`} onClick={() => setTab("Storyboard")}><span className="mono-label hx-tab__n">02</span> Storyboard</button>
-            <button className={`hx-tab ${tab === "Preview" ? "is-active" : ""}`} onClick={() => setTab("Preview")}><span className="mono-label hx-tab__n">03</span> Preview</button>
+            <button className={`hx-tab ${tab === "Storyboard" ? "is-active" : ""}`} onClick={() => changeTab("Storyboard")}><span className="mono-label hx-tab__n">02</span> Storyboard</button>
+            <button className={`hx-tab ${tab === "Preview" ? "is-active" : ""}`} onClick={() => changeTab("Preview")}><span className="mono-label hx-tab__n">03</span> Preview</button>
           </div>
         </div>
         <div className="hx-board__layout">
@@ -135,7 +153,7 @@ export default function StoryboardPage() {
             {tab === "Storyboard" && <>
               <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {board.hook}</p></div>
               <div className="hx-steps">{board.steps.map((step, i) => <StepCard key={step.n} step={step} active={activeStep === i} onFocus={() => { setActiveStep(i); setPlaying(false); }} />)}</div>
-              <div className="hx-board__actions"><button className="btn btn-ghost" onClick={() => navigate("/")}><IconArrowLeft className="btn-icon" /> Back</button><button className="btn btn-cream" onClick={() => setTab("Preview")}>Preview &amp; publish pack <IconArrowRight className="btn-icon" /></button></div>
+              <div className="hx-board__actions"><button className="btn btn-ghost" onClick={() => navigate("/")}><IconArrowLeft className="btn-icon" /> Back</button><button className="btn btn-cream" onClick={() => changeTab("Preview")}>Preview &amp; publish pack <IconArrowRight className="btn-icon" /></button></div>
             </>}
             {tab === "Preview" && (published ? <div className="hx-published"><span className="hx-published__icon"><IconCheck /></span><h3>Reel pack published</h3><p>"{board.title}" is queued for export at {board.duration}, {board.cuts} cuts.</p><div className="hx-board__actions" style={{ justifyContent: "center", gap: 12 }}><button className="btn btn-ghost" onClick={() => setPublished(false)}><IconArrowLeft className="btn-icon" /> Back to preview</button><button className="btn btn-cream" onClick={() => navigate("/")}>Done</button></div></div> : <div className="hx-published"><h3>Preview &amp; publish pack</h3><p>Legacy demo storyboard preview.</p><button className="btn btn-cream" onClick={() => setPublished(true)}>Publish pack</button></div>)}
           </div>
