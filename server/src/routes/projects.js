@@ -12,6 +12,7 @@ function publicProject(project, job) {
     signalId: project.signalId,
     title: project.title,
     status: project.status,
+    renderUrl: project.renderUrl || null,
     setup: project.scriptLengthSeconds ? {
       length: project.scriptLengthSeconds,
       framework: project.selectedFramework,
