@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import path from "node:path";
 import signalsRouter from "./routes/signals.js";
 import projectsRouter from "./routes/projects.js";
 import storyboardRouter from "./routes/storyboard.js";
@@ -10,6 +11,10 @@ app.use(express.json());
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/signals", signalsRouter);
 app.use("/api/projects", projectsRouter);
+app.use("/api/audio", express.static(path.resolve(process.cwd(), "storage", "audio"), {
+  fallthrough: false,
+  maxAge: "1h",
+}));
 app.use("/api", storyboardRouter);
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found." }));
 export default app;
