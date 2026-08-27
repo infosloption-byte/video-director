@@ -1,128 +1,25 @@
-.fw-panel__intro {
-  font-size: 14.5px;
-  line-height: 1.65;
-  color: var(--body);
-  max-width: 640px;
-  margin: 0 0 24px;
-}
-
-.fw-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.fw-card {
-  position: relative;
-  background: var(--card);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-lg);
-  padding: 22px;
-}
-
-.fw-card.is-selected {
-  border-color: rgba(134, 214, 164, 0.4);
-  background: var(--card-hover);
-}
-
-.fw-card__badge {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--accent-green-text);
-  background: var(--accent-green-bg);
-  border: 1px solid var(--accent-green-border);
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-}
-
-.fw-card__name {
-  font-family: var(--font-serif);
-  font-weight: 500;
-  font-size: 22px;
-  color: var(--ink);
-  margin: 0 0 4px;
-  padding-right: 90px;
-}
-
-.fw-card__subtitle {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 0 0 14px;
-}
-
-.fw-card__desc {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--body);
-  margin: 0;
-}
-
-.fw-detail {
-  background: var(--card);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-lg);
-  padding: 24px 26px;
-  margin-bottom: 28px;
-}
-
-.fw-detail__title {
-  font-family: var(--font-serif);
-  font-weight: 500;
-  font-size: 18px;
-  color: var(--ink);
-  margin: 0 0 18px;
-}
-
-.fw-detail__name {
-  color: var(--accent-green-text);
-}
-
-.fw-detail__list {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.fw-detail__row {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 16px;
-}
-
-.fw-detail__row dt {
-  color: var(--muted);
-  padding-top: 1px;
-}
-
-.fw-detail__row dd {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--ink-dim);
-}
-
-.fw-panel__actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
+.fw-panel__intro { font-size: 14.5px; line-height: 1.65; color: var(--body); max-width: 640px; margin: 0 0 24px; }
+.fw-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 32px; }
+.fw-card { position: relative; min-width: 0; background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 22px; }
+.fw-card.is-selected { border-color: rgba(134, 214, 164, 0.4); background: var(--card-hover); }
+.fw-card__badge { position: absolute; top: 20px; right: 20px; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--accent-green-text); background: var(--accent-green-bg); border: 1px solid var(--accent-green-border); padding: 4px 10px; border-radius: var(--radius-pill); }
+.fw-card__name { font-family: var(--font-serif); font-weight: 500; font-size: 22px; color: var(--ink); margin: 0 0 4px; padding-right: 90px; overflow-wrap: break-word; }
+.fw-card__subtitle { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; overflow-wrap: break-word; }
+.fw-card__desc { font-size: 14px; line-height: 1.6; color: var(--body); margin: 0; overflow-wrap: break-word; }
+.fw-detail { min-width: 0; background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 24px 26px; margin-bottom: 28px; }
+.fw-detail__title { font-family: var(--font-serif); font-weight: 500; font-size: 18px; color: var(--ink); margin: 0 0 18px; overflow-wrap: break-word; }
+.fw-detail__name { color: var(--accent-green-text); }
+.fw-detail__list { margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.fw-detail__row { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; }
+.fw-detail__row dt { color: var(--muted); padding-top: 1px; }
+.fw-detail__row dd { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-dim); overflow-wrap: break-word; }
+.fw-panel__actions { display: flex; justify-content: flex-end; }
 @media (max-width: 640px) {
-  .fw-grid {
-    grid-template-columns: 1fr;
-  }
-  .fw-detail__row {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
+  .fw-grid { grid-template-columns: 1fr; }
+  .fw-card__badge { position: static; margin-bottom: 12px; }
+  .fw-card__name { padding-right: 0; }
+  .fw-detail { padding: 20px; }
+  .fw-detail__row { grid-template-columns: 1fr; gap: 6px; }
+  .fw-panel__actions { width: 100%; }
+  .fw-panel__actions .btn { width: 100%; justify-content: center; }
 }
