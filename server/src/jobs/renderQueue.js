@@ -14,18 +14,9 @@ function redisUrl() {
 function parseRedisConfig() {
   const raw = redisUrl();
   if (!raw) throw new Error("Render queue is not configured. Set REDIS_URL in server/.env.");
-
   let parsed;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    throw new Error("Invalid REDIS_URL. Use redis://127.0.0.1:6379 or rediss://...");
-  }
-
-  if (!['redis:', 'rediss:'].includes(parsed.protocol)) {
-    throw new Error("Invalid REDIS_URL protocol. Use redis:// or rediss://.");
-  }
-
+  try { parsed = new URL(raw); } catch { throw new Error("Invalid REDIS_URL. Use redis://127.0.0.1:6379 or rediss://..."); }
+  if (!["redis:", "rediss:"].includes(parsed.protocol)) throw new Error("Invalid REDIS_URL protocol. Use redis:// or rediss://.");
   const config = {
     host: parsed.hostname,
     port: Number(parsed.port || 6379),
@@ -34,7 +25,6 @@ function parseRedisConfig() {
     connectTimeout: 1500,
     retryStrategy: () => null,
   };
-
   if (parsed.username) config.username = decodeURIComponent(parsed.username);
   if (parsed.password) config.password = decodeURIComponent(parsed.password);
   if (parsed.pathname && parsed.pathname !== "/") config.db = Number(parsed.pathname.slice(1));
@@ -55,38 +45,26 @@ function workerConnection() {
 export function getRenderQueue() {
   if (!queue) {
     queue = new Queue(QUEUE_NAME, { connection: parseRedisConfig() });
-    queue.on("error", (error) => {
-      console.warn(`[render] Queue Redis error: ${error.message}`);
-    });
+    queue.on("error", (error) => console.warn(`[render] Queue Redis error: ${error.message}`));
   }
   return queue;
 }
 
 export async function enqueueRender(projectId) {
   const renderQueue = getRenderQueue();
-  const job = await renderQueue.add(
-    "render-project",
-    { projectId },
-    {
-      jobId: projectId,
-      removeOnComplete: { count: 20 },
-      removeOnFail: { count: 50 },
-      attempts: 1,
-    },
-  );
+  const job = await renderQueue.add("render-project", { projectId }, {
+    jobId: projectId,
+    removeOnComplete: { count: 20 },
+    removeOnFail: { count: 50 },
+    attempts: 1,
+  });
   return job;
 }
 
 async function canReachRedis() {
   const raw = redisUrl();
   if (!raw) return false;
-  const client = new IORedis(raw, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    enableOfflineQueue: false,
-    connectTimeout: 1500,
-    retryStrategy: () => null,
-  });
+  const client = new IORedis(raw, { lazyConnect: true, maxRetriesPerRequest: 1, enableOfflineQueue: false, connectTimeout: 1500, retryStrategy: () => null });
   try {
     await client.connect();
     await client.ping();
@@ -104,7 +82,6 @@ export async function startRenderWorker() {
     console.log("[render] Redis is not configured; render worker is disabled.");
     return null;
   }
-
   const available = await canReachRedis();
   if (!available) {
     console.warn("[render] Redis is unavailable; render worker is disabled for this process. Start Redis and run `npm run render:worker` again.");
@@ -119,7 +96,11 @@ export async function startRenderWorker() {
       await job.updateProgress(5);
       await prisma.project.update({ where: { id: projectId }, data: { status: "rendering" } });
       await job.updateProgress(15);
-      const result = await renderProject(projectId);
+      const result = await renderProject(projectId, {
+        onProgress: async (progress) => {
+          await job.updateProgress(progress);
+        },
+      });
       await job.updateProgress(100);
       return result;
     },
@@ -140,7 +121,5 @@ export async function startRenderWorker() {
 }
 
 if (process.argv[1] && process.argv[1].endsWith("renderQueue.js")) {
-  startRenderWorker().catch((error) => {
-    console.error(`[render] Worker startup failed: ${error.message}`);
-  });
+  startRenderWorker().catch((error) => console.error(`[render] Worker startup failed: ${error.message}`));
 }
