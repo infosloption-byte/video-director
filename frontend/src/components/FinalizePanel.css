@@ -10,8 +10,9 @@
 .finalize-panel__summary > div:last-child { border-right: 0; }
 .finalize-panel__summary span, .finalize-panel__summary strong { display: block; }
 .finalize-panel__summary strong { margin-top: 8px; color: var(--ink); font-family: var(--font-serif); font-size: 22px; font-weight: 500; }
-.finalize-panel__warning, .finalize-panel__error { border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 20px; color: var(--body); line-height: 1.6; }
-.finalize-panel__error strong { display: block; color: var(--ink); margin-bottom: 4px; }
+.finalize-panel__warning, .finalize-panel__error, .finalize-panel__success { border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 20px; color: var(--body); line-height: 1.6; }
+.finalize-panel__error strong, .finalize-panel__success strong { display: block; color: var(--ink); margin-bottom: 4px; }
+.finalize-panel__success { border-color: var(--ink-dim); }
 .finalize-panel__render, .finalize-panel__exports { border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; background: rgba(255,255,255,.012); }
 .finalize-panel__render { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
 .finalize-panel__render h3, .finalize-panel__exports h3 { margin: 8px 0 6px; }
