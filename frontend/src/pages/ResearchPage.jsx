@@ -23,12 +23,15 @@ export default function ResearchPage() {
     }
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
+
+  const researchStatus = project?.researchStatus;
+  const finished = researchStatus === "ready" || researchStatus === "error";
   useEffect(() => {
-    if (!project || ["ready", "error"].includes(project.researchStatus)) return undefined;
-    const timer = window.setInterval(load, 1800);
+    if (finished) return undefined;
+    const timer = window.setInterval(() => { void load(); }, 1200);
     return () => window.clearInterval(timer);
-  }, [project, load]);
+  }, [finished, load]);
 
   const researchError = error || project?.error;
   const research = project?.research;
@@ -38,11 +41,14 @@ export default function ResearchPage() {
       <Header right={<button className="btn btn-ghost" onClick={() => navigate("/")}>Signals</button>} />
       <main className="container">
         <ResearchProgress
-          status={researchError ? "error" : project?.researchStatus || "queued"}
+          status={researchError ? "error" : researchStatus || "queued"}
+          progress={project?.researchProgress ?? 0}
+          stageLabel={project?.researchStageLabel}
+          stageDetail={project?.researchStageDetail}
           error={researchError}
           onBack={() => navigate("/")}
         />
-        {project?.researchStatus === "ready" && research && (
+        {researchStatus === "ready" && research && (
           <section className="research-brief" aria-labelledby="research-brief-title">
             <p className="eyebrow">Research brief</p>
             <h2 id="research-brief-title">What Helix found</h2>
