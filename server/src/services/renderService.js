@@ -1,8 +1,9 @@
-import { mkdir } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import { prisma } from "../db/client.js";
+import { getNarrationFilePath } from "./ttsService.js";
 
 const RENDER_ROOT = path.resolve(process.cwd(), "storage", "renders");
 const ENTRY_POINT = path.resolve(process.cwd(), "src", "remotion", "index.jsx");
@@ -13,7 +14,17 @@ function getBaseUrl() {
   return String(process.env.REMOTION_BASE_URL || `http://127.0.0.1:${process.env.PORT || 4000}`).replace(/\/$/, "");
 }
 
-function toRenderScene(scene) {
+async function narrationIsAvailable(projectId, scene) {
+  if (!scene.audioUrl) return false;
+  try {
+    await access(getNarrationFilePath(projectId, scene.id));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function toRenderScene(scene, projectId) {
   const selectedAsset = scene.assets?.find((asset) => asset.isSelected) || scene.assets?.[0] || null;
   return {
     id: scene.id,
@@ -22,11 +33,9 @@ function toRenderScene(scene) {
     spokenText: scene.spokenText,
     durationSeconds: Number(scene.durationSeconds || 1),
     wordTimestamps: scene.wordTimestamps || [],
-    selectedAsset: selectedAsset ? {
-      videoUrl: selectedAsset.videoUrl,
-      thumbnailUrl: selectedAsset.thumbnailUrl,
-    } : null,
+    selectedAsset: selectedAsset ? { videoUrl: selectedAsset.videoUrl, thumbnailUrl: selectedAsset.thumbnailUrl } : null,
     audioUrl: scene.audioUrl ? `${getBaseUrl()}${scene.audioUrl}` : null,
+    narrationAvailable: scene.audioUrl ? undefined : await narrationIsAvailable(projectId, scene),
   };
 }
 
@@ -57,7 +66,15 @@ export async function renderProject(projectId) {
   if (!project) throw new Error("Project not found.");
   if (!project.scenes.length) throw new Error("Generate the storyboard before rendering.");
 
-  const scenes = project.scenes.map(toRenderScene);
+  const missingNarration = [];
+  for (const scene of project.scenes) {
+    if (!scene.audioUrl || !(await narrationIsAvailable(project.id, scene))) missingNarration.push(scene.sceneOrder);
+  }
+  if (missingNarration.length) {
+    throw new Error(`Narration is missing for scene${missingNarration.length > 1 ? "s" : ""} ${missingNarration.join(", ")}. Generate narration again before rendering.`);
+  }
+
+  const scenes = project.scenes.map((scene) => toRenderScene(scene, project.id));
   const serveUrl = await getBundle();
   const inputProps = { scenes };
   const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps });
@@ -78,10 +95,6 @@ export async function renderProject(projectId) {
   });
 
   const renderUrl = `/api/render-files/projects/${encodeURIComponent(projectId)}/reel.mp4`;
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { status: "finalize", renderUrl },
-  });
-
+  await prisma.project.update({ where: { id: projectId }, data: { status: "finalize", renderUrl } });
   return { renderUrl, outputPath };
 }
