@@ -4,6 +4,7 @@ import path from "node:path";
 import signalsRouter from "./routes/signals.js";
 import projectsRouter from "./routes/projects.js";
 import storyboardRouter from "./routes/storyboard.js";
+import renderRouter from "./routes/render.js";
 
 const app = express();
 app.use(cors());
@@ -15,6 +16,11 @@ app.use("/api/audio", express.static(path.resolve(process.cwd(), "storage", "aud
   fallthrough: false,
   maxAge: "1h",
 }));
+app.use("/api/render-files", express.static(path.resolve(process.cwd(), "storage", "renders"), {
+  fallthrough: false,
+  maxAge: "1h",
+}));
+app.use("/api", renderRouter);
 app.use("/api", storyboardRouter);
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found." }));
 export default app;
