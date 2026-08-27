@@ -41,18 +41,26 @@ placeholders — Stage D/Pexels replaces these) and the client-side
 ---
 
 ## M1 — Suggested signal feed (Stage A, part 1)
-**Status:** Not started
-**Sources locked in:** RSS + Hacker News API + arXiv API (all free)
+**Status:** Done
 
-- [ ] Build `rssScraper.js` (Nature, ScienceDaily, MIT Tech Review, IEEE Spectrum)
-- [ ] Build `hackerNewsClient.js` (official API, no key — pull top/new stories, use points+comments as heat input)
-- [ ] Build `arxivClient.js` (official API, no key — pull recent papers by category)
-- [ ] Write the server-side heat-scoring formula combining all three (post frequency / HN points / paper recency — see BUILD_PLAN §6.1)
-- [ ] Generate `why_reasoning` server-side from the actual score delta
-- [ ] Tag each row with `source_type` and `source_reliability` on insert
-- [ ] Write cron job (`node-cron`) to run all three scrapers every 4 hours
-- [ ] Store merged, de-duplicated results into `signals` with `origin = 'suggested'`
-- [ ] Verify `SignalsPage` renders real scraped signals end-to-end
+- [x] Build `rssScraper.js` (Nature, ScienceDaily, MIT Tech Review, IEEE Spectrum)
+- [x] Build `hackerNewsClient.js` (official API, no key — pull top/new stories, use points+comments as heat input)
+- [x] Build `arxivClient.js` (official API, no key — pull recent papers by category)
+- [x] Write the server-side heat-scoring formula combining all three (post frequency / HN points / paper recency — see BUILD_PLAN §6.1)
+- [x] Generate `why_reasoning` server-side from the actual score delta
+- [x] Tag each row with `source_type` and `source_reliability` on insert
+- [x] Write cron job (`node-cron`) to run all three scrapers every 4 hours
+- [x] Store merged, de-duplicated results into `signals` with `origin = 'suggested'`
+- [x] Verify `SignalsPage` renders real scraped signals end-to-end
+
+**M1 implementation notes:**
+- Added `server/src/services/rssScraper.js` for Nature, ScienceDaily, MIT Technology Review, and IEEE Spectrum RSS feeds.
+- Added official Hacker News top/new story fetching and arXiv recent-paper fetching with category tagging.
+- Added `server/src/services/signalFeedService.js` to merge sources, deduplicate by URL/near-duplicate title, calculate heat from recency + Hacker News engagement + cross-source coverage, generate rank/delta reasoning, and persist/refresh suggested signals.
+- Added `server/src/jobs/scrapeSignals.js` with a 4-hour `node-cron` schedule plus an immediate startup scrape by default; `npm run signals:scrape` runs a one-off scrape.
+- Stale `new` suggested rows are archived after a successful refresh while used signals/projects are preserved.
+- Added `SIGNALS_SCRAPE_ON_START` to `server/.env.example` so startup scraping can be disabled when needed.
+- Runtime execution against MySQL could not be performed in this environment because it has no live database/network access for installing dependencies; local verification should run `npm install`, Prisma migration, then `npm run signals:scrape` against a configured `DATABASE_URL`.
 
 ---
 
@@ -170,10 +178,5 @@ _so the reasoning isn't lost. Example:_
 
 - `2026-08-26` — Confirmed 4-stage guided setup (length/framework/tone/audience) instead of framework-only; updated BUILD_PLAN §1 Stage C and added M4.
 - `2026-08-27` — Locked source strategy: suggested feed = RSS + Hacker News API + arXiv (all free); search & research share one priority-ranked cascade = arXiv/Semantic Scholar → Tavily → Brave Search, ranked so peer-reviewed sources always outrank general web on the same claim. Bing Search API and Google Custom Search ruled out (retired/sunsetting). Updated BUILD_PLAN §1, §3, §6 and TASK M1–M3.
-- `2026-08-27` — M0 complete: `/server` scaffolded (Express + Prisma/MySQL),
-  all 5 tables modeled in `schema.prisma`, `signals` seeded with 6 rows,
-  `GET /api/signals` live, `SignalsPage.jsx` fetches real data with
-  loading/error states. Repo is now split into `frontend/` + `server/` at
-  the root. Migration + seed still need to be run locally against a real
-  MySQL instance (see `server/README.md`) — not runnable in the sandbox
-  that produced this change.
+- `2026-08-27` — M0 complete: `/server` scaffolded (Express + Prisma/MySQL), all 5 tables modeled in `schema.prisma`, `signals` seeded with 6 rows, `GET /api/signals` live, `SignalsPage.jsx` fetches real data with loading/error states. Repo is now split into `frontend/` + `server/` at the root. Migration + seed still need to be run locally against a real MySQL instance (see `server/README.md`) — not runnable in the sandbox that produced this change.
+- `2026-08-27` — M1 implementation complete: added RSS + Hacker News + arXiv ingestion, source normalization, URL/title deduplication, server-side heat scoring, `why_reasoning` generation, reliability/source tagging, persistence/archival of suggested signals, and a four-hour cron with optional startup scrape. Runtime database verification remains a local setup step because this environment has no live MySQL connection.
