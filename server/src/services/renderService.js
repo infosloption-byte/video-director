@@ -14,6 +14,11 @@ function getBaseUrl() {
   return String(process.env.REMOTION_BASE_URL || `http://127.0.0.1:${process.env.PORT || 4000}`).replace(/\/$/, "");
 }
 
+function normalizeAudioUrl(audioUrl) {
+  if (!audioUrl) return null;
+  return String(audioUrl).replace(/^\/api\/audio\/projects\//, "/api/audio/");
+}
+
 async function narrationIsAvailable(projectId, scene) {
   if (!scene.audioUrl) return false;
   try {
@@ -34,7 +39,7 @@ function toRenderScene(scene) {
     durationSeconds: Number(scene.durationSeconds || 1),
     wordTimestamps: scene.wordTimestamps || [],
     selectedAsset: selectedAsset ? { videoUrl: selectedAsset.videoUrl, thumbnailUrl: selectedAsset.thumbnailUrl } : null,
-    audioUrl: scene.audioUrl ? `${getBaseUrl()}${scene.audioUrl}` : null,
+    audioUrl: scene.audioUrl ? `${getBaseUrl()}${normalizeAudioUrl(scene.audioUrl)}` : null,
   };
 }
 
@@ -94,6 +99,6 @@ export async function renderProject(projectId) {
   });
 
   const renderUrl = `/api/render-files/projects/${encodeURIComponent(projectId)}/reel.mp4`;
-  await prisma.project.update({ where: { id: projectId }, data: { status: "finalize", renderUrl } });
+  await prisma.project.update({ where: { id: project.id }, data: { status: "finalize", renderUrl } });
   return { renderUrl, outputPath };
 }
