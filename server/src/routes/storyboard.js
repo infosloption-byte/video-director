@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { generateStoryboard } from "../services/storyboardService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
+import { synthesizeSpeech } from "../services/ttsService.js";
 
 const router = Router();
 
@@ -15,6 +16,8 @@ function publicScene(scene) {
     whyLine: scene.whyLine,
     whyPicture: scene.whyPicture,
     brollSearchTerm: scene.brollSearchTerm,
+    audioUrl: scene.audioUrl,
+    wordTimestamps: scene.wordTimestamps || [],
     assets: (scene.assets || []).map((asset) => ({
       id: asset.id,
       videoUrl: asset.videoUrl,
@@ -101,6 +104,42 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
   } catch (error) {
     console.error(`POST /api/projects/${req.params.id}/generate-scenes failed:`, error);
     res.status(500).json({ error: error.message || "Failed to generate storyboard." });
+  }
+});
+
+router.post("/projects/:id/generate-voice", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: req.params.id },
+      include: { scenes: { orderBy: { sceneOrder: "asc" } } },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    if (!project.scenes.length) return res.status(409).json({ error: "Generate the storyboard before generating narration." });
+
+    const generated = [];
+    for (const scene of project.scenes) {
+      const narration = await synthesizeSpeech({
+        projectId: project.id,
+        sceneId: scene.id,
+        text: scene.spokenText,
+      });
+
+      await prisma.projectScene.update({
+        where: { id: scene.id },
+        data: {
+          audioUrl: narration.audioUrl,
+          wordTimestamps: narration.wordTimestamps,
+          ...(narration.durationSeconds != null ? { durationSeconds: narration.durationSeconds } : {}),
+        },
+      });
+      generated.push({ sceneId: scene.id, ...narration });
+    }
+
+    const updatedProject = await loadProjectScenes(project.id);
+    res.status(201).json({ projectId: project.id, scenes: updatedProject.scenes.map(publicScene), generatedCount: generated.length });
+  } catch (error) {
+    console.error(`POST /api/projects/${req.params.id}/generate-voice failed:`, error);
+    res.status(500).json({ error: error.message || "Failed to generate narration." });
   }
 });
 
