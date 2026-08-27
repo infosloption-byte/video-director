@@ -32,7 +32,6 @@ export default function StoryboardPage() {
   const [project, setProject] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [tab, setTab] = useState(() => normalizeStage(searchParams.get("stage")) || (legacyBoard ? "Storyboard" : "Setup"));
   const [published, setPublished] = useState(false);
 
   useEffect(() => {
@@ -53,18 +52,9 @@ export default function StoryboardPage() {
 
   const board = legacyBoard;
   const realProject = Boolean(project);
-
-  useEffect(() => {
-    const requestedStage = normalizeStage(searchParams.get("stage"));
-    if (requestedStage && requestedStage !== tab) setTab(requestedStage);
-  }, [searchParams, tab]);
-
-  useEffect(() => {
-    if (realProject && project?.setup && tab === "Setup") setTab("Storyboard");
-  }, [realProject, project?.setup, tab]);
+  const tab = normalizeStage(searchParams.get("stage")) || (legacyBoard ? "Storyboard" : "Setup");
 
   function changeTab(nextTab) {
-    setTab(nextTab);
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("stage", nextTab.toLowerCase());
     setSearchParams(nextParams, { replace: true });
