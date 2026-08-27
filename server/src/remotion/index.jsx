@@ -1,5 +1,5 @@
 import React from "react";
-import { Composition } from "remotion";
+import { Composition, registerRoot } from "remotion";
 import { HelixComposition, compositionMetadata } from "./Composition.jsx";
 
 export function RemotionRoot() {
@@ -16,3 +16,5 @@ export function RemotionRoot() {
     />
   );
 }
+
+registerRoot(RemotionRoot);
