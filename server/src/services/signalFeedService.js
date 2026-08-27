@@ -68,7 +68,7 @@ function heatPercent(score, maxScore) {
   return `+${Math.max(1, Math.round((score / maxScore) * 400))}%`;
 }
 
-function describeHeat(item, score, rank, nextScore) {
+function describeHeat(item, score, rank, nextScore, allItems) {
   const delta = nextScore > 0 ? Math.max(0, score - nextScore) : score;
   const pieces = [];
 
@@ -80,7 +80,7 @@ function describeHeat(item, score, rank, nextScore) {
     pieces.push(`${Math.round(recencyScore(item.publishedAt))}/30 recency points from recent coverage`);
   }
 
-  const frequency = frequencyBoost(item, arguments[3] || []);
+  const frequency = frequencyBoost(item, allItems);
   if (frequency > 0) pieces.push(`+${frequency} cross-source coverage points`);
 
   return `Ranked #${rank}: heat score ${score.toFixed(2)} (${delta.toFixed(2)} points above the next result), driven by ${pieces.join(" and ")}.`;
