@@ -45,8 +45,12 @@ function recencyScore(date) {
 }
 
 function frequencyBoost(item, items) {
-  const matches = items.filter((candidate) => titleSimilarity(item.title, candidate.title) >= 0.8).length;
-  return Math.min(20, Math.max(0, matches - 1) * 10);
+  const matchingUrls = new Set(
+    items
+      .filter((candidate) => titleSimilarity(item.title, candidate.title) >= 0.8)
+      .map((candidate) => candidate.sourceUrl),
+  );
+  return Math.min(20, Math.max(0, matchingUrls.size - 1) * 10);
 }
 
 function sourceScore(item) {
@@ -134,14 +138,14 @@ export async function scrapeAndStoreSuggestedSignals() {
   const unique = dedupeItems(recent);
 
   const scored = unique
-    .map((item) => ({ item, score: heatScore(item, unique) }))
+    .map((item) => ({ item, score: heatScore(item, recent) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_SIGNALS_TO_STORE);
 
   const maxScore = scored[0]?.score || 0;
   const rows = scored.map(({ item, score }, index) => {
     const nextScore = scored[index + 1]?.score || 0;
-    return toSignalData(item, score, index + 1, maxScore, nextScore, unique);
+    return toSignalData(item, score, index + 1, maxScore, nextScore, recent);
   });
 
   let stored = 0;
