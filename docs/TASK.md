@@ -169,6 +169,7 @@ this file drift from the build plan.
 - `2026-08-28` — Fixed BullMQ Redis queue configuration by parsing `REDIS_URL` into supported host/port/auth/TLS options instead of passing the URL as an unsupported queue option. Missing Redis now fails fast without the repeated `ECONNREFUSED` / `doc.split` error storm.
 - `2026-08-28` — Added Remotion `registerRoot(RemotionRoot)` to the rendering entry point so the worker can bundle the Composition without the "does not contain registerRoot" error.
 - `2026-08-28` — Render preflight now checks that every scene has persisted narration and that its MP3 exists on disk; rendering returns a clear `NARRATION_MISSING` response instead of reaching Remotion with a missing audio file.
+- `2026-08-28` — Fixed live render progress: the render service now forwards Remotion's `overallProgress` to BullMQ, with the worker persisting progress throughout encoding instead of stopping at the initial 15% preflight marker.
 
 ## M8 — Finalize & export
 **Status:** Done
@@ -217,7 +218,7 @@ this file drift from the build plan.
 - `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.
 - `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local provider runtime verification remains a setup requirement.
 - `2026-08-27` — Fixed the generated-audio 404 by aligning the TTS storage path with the Express public audio route.
-- `2026-08-28` — M7 complete in code: Remotion composition, render service, BullMQ/Redis worker, render endpoints, MP4 serving, and Finalize render polling. Local Redis/Chromium/API-key verification remains a setup requirement.
+- `2026-08-27` — M7 complete in code: Remotion composition, render service, BullMQ/Redis worker, render endpoints, MP4 serving, and Finalize render polling. Local Redis/Chromium/API-key verification remains a setup requirement.
 - `2026-08-28` — Repaired Gemini research schema validation, added in-stage live research progress heartbeats, made browser polling resilient to temporary API interruptions, and made failed research states terminal so loading animations stop cleanly.
 - `2026-08-28` — Hardened the BullMQ Redis queue configuration to prevent the unsupported URL-option / reconnect storm seen while Redis was unavailable. Redis is still required for actual M7 rendering.
 - `2026-08-28` — Fixed Remotion render initialization by registering the root in `src/remotion/index.jsx`, preventing the worker from failing on the missing `registerRoot()` entry point.
