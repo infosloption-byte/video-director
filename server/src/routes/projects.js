@@ -25,6 +25,9 @@ function publicProject(project, job) {
       monetizationFlags: project.monetizationFlags || [],
     } : null,
     researchStatus: job?.status || (project.researchSummary ? "ready" : project.status === "researching" ? "researching" : "ready"),
+    researchProgress: Number(job?.progress ?? (project.researchSummary ? 100 : 0)),
+    researchStageLabel: job?.label || null,
+    researchStageDetail: job?.detail || null,
     error: job?.error || null,
   };
 }
@@ -58,11 +61,25 @@ async function persistSearchSignal(signal) {
 }
 
 async function runResearch(projectId, signal) {
-  researchJobs.set(projectId, { status: "reading", startedAt: new Date().toISOString() });
+  const setJob = (status, progress, label, detail) => {
+    const existing = researchJobs.get(projectId) || {};
+    researchJobs.set(projectId, { ...existing, status, progress, label, detail });
+  };
+
+  setJob("reading", 10, "Reading the source", "Extracting the selected signal and its available source content.");
   try {
-    researchJobs.set(projectId, { status: "cross_checking", startedAt: researchJobs.get(projectId)?.startedAt });
-    const brief = await researchSignal(signal);
-    researchJobs.set(projectId, { status: "drafting", startedAt: researchJobs.get(projectId)?.startedAt });
+    const brief = await researchSignal(signal, {
+      onProgress: (stage, progress) => {
+        const labels = {
+          reading: ["Reading the source", "Extracting the selected signal and source content."],
+          cross_checking: ["Cross-checking claims", "Comparing the signal with trusted supporting sources."],
+          drafting: ["Drafting the research brief", "Turning the verified evidence into a concise creative brief."],
+          ready: ["Research brief ready", "The evidence-backed brief is ready for guided setup."],
+        };
+        const [label, detail] = labels[stage] || [stage, "Helix is working on the research brief."];
+        setJob(stage, progress, label, detail);
+      },
+    });
 
     const updated = await prisma.project.update({
       where: { id: projectId },
@@ -76,11 +93,13 @@ async function runResearch(projectId, signal) {
         status: "setup",
       },
     });
-    researchJobs.set(projectId, { status: "ready", completedAt: new Date().toISOString() });
+    setJob("ready", 100, "Research brief ready", "The evidence-backed brief is ready for guided setup.");
     return updated;
   } catch (error) {
     console.error(`[research] Project ${projectId} failed:`, error);
-    researchJobs.set(projectId, { status: "error", error: error.message || "Research failed." });
+    const existing = researchJobs.get(projectId) || {};
+    setJob("error", existing.progress || 0, "Research failed", "Helix could not complete the evidence check.");
+    researchJobs.set(projectId, { ...researchJobs.get(projectId), error: error.message || "Research failed." });
     await prisma.project.update({ where: { id: projectId }, data: { status: "researching" } }).catch(() => {});
   }
 }
@@ -96,7 +115,7 @@ router.post("/", async (req, res) => {
     const project = await prisma.project.create({
       data: { userId: req.body?.userId || "local-user", signalId: signal.id, title: signal.title, status: "researching" },
     });
-    researchJobs.set(project.id, { status: "queued" });
+    researchJobs.set(project.id, { status: "queued", progress: 0, label: "Starting research", detail: "Preparing the evidence pipeline." });
     void runResearch(project.id, signal);
     res.status(202).json({ project: publicProject(project, researchJobs.get(project.id)) });
   } catch (error) {
