@@ -40,7 +40,7 @@
 }
 
 @media (max-width: 768px) {
-  .hx-board { padding-top: 24px; padding-bottom: 56px; }
+  .hx-board { padding-top: 24px; padding-bottom: 56px;padding-left: 24px; padding-right: 24px; }
   .hx-board__head { gap: 16px; margin-bottom: 24px; }
   .hx-board__title { font-size: clamp(25px, 5vw, 30px); }
   .hx-board__layout { gap: 24px; }
