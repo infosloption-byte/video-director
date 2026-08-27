@@ -128,11 +128,19 @@ this file drift from the build plan.
 - Runtime verification of Gemini/Pexels generation requires local API keys and network access. The existing M3 research flow remains unchanged.
 
 ## M6 — Voice + synced captions
-**Status:** Not started
+**Status:** Done
 
-- [ ] Build TTS service
-- [ ] Store audio/timestamps
-- [ ] Upgrade PhonePreview to audio-driven word highlighting
+- [x] Build TTS service
+- [x] Store audio/timestamps
+- [x] Upgrade PhonePreview to audio-driven word highlighting
+
+**M6 implementation notes:**
+- Added `server/src/services/ttsService.js` using ElevenLabs Text-to-Speech with timestamps. The service converts provider character alignment into persisted word-level `{ word, start, end }` timestamps.
+- Added `POST /api/projects/:id/generate-voice`; it generates narration for every storyboard scene, stores the audio URL and word timestamps in the existing `ProjectScene.audioUrl` / `ProjectScene.wordTimestamps` fields, and updates project runtime duration from the generated narration.
+- Added `/api/audio/...` static serving for generated MP3 files and documented `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, and `ELEVENLABS_MODEL` in `server/.env.example`. No Prisma migration is required because the M0 schema already contains the M6 fields.
+- Upgraded `PhonePreview.jsx` to use the scene narration as the playback source, track real audio time, and highlight the currently spoken word from the stored timestamps. Scenes without generated narration retain the existing preview behavior.
+- Added Storyboard narration controls so users can generate/regenerate narration without triggering TTS on every page load; the controls and preview remain responsive at narrow widths.
+- Runtime verification requires a valid local ElevenLabs API key and network access. The implementation is complete, but provider-backed audio generation cannot be executed in this environment.
 
 ## M7 — Rendering
 **Status:** Not started
@@ -172,3 +180,4 @@ this file drift from the build plan.
 - `2026-08-27` — Fixed the Guided Setup deep-link routing bug where `?stage=setup` did not match the capitalized `Setup` tab label and therefore rendered a blank stage; canonical stage normalization and URL synchronization are now in place.
 - `2026-08-27` — Fixed the StoryboardPage maximum-update-depth regression by deriving the active stage from the URL instead of maintaining a second synchronized React state, preventing the Setup → Storyboard transition from looping.
 - `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.
+- `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local ElevenLabs API-key verification remains required.
