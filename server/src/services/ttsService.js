@@ -135,7 +135,9 @@ export async function synthesizeSpeech({ projectId, sceneId, text }) {
   const alignment = payload.alignment || payload.normalized_alignment;
   return {
     voiceId,
-    audioUrl: `/api/audio/projects/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp3`,
+    // Express serves storage/audio as /api/audio, so this URL maps exactly
+    // to storage/audio/<projectId>/scenes/<sceneId>.mp3.
+    audioUrl: `/api/audio/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp3`,
     wordTimestamps: buildWordTimestamps(alignment),
     durationSeconds: alignment?.character_end_times_seconds?.length
       ? Number(alignment.character_end_times_seconds.at(-1).toFixed(3))
