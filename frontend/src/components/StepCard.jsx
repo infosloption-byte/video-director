@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { IconCheck } from "./Icons";
 import "./StepCard.css";
 
-export default function StepCard({ step, active, onFocus }) {
-  const [selected, setSelected] = useState(0);
+export default function StepCard({ step, active, onFocus, selectedAssetIndex = 0, onSelectAsset }) {
+  const selected = Math.max(0, Math.min(selectedAssetIndex, (step.swatches || []).length - 1));
 
   return (
     <article
@@ -12,12 +11,11 @@ export default function StepCard({ step, active, onFocus }) {
       tabIndex={0}
       role="button"
       aria-pressed={active}
+      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onFocus?.(); } }}
     >
       <div className="step-card__thumb" style={{ background: step.thumb }}>
         <span className="step-card__n">{step.n}</span>
-        {step.thumbLabel && (
-          <span className="step-card__altlabel">{step.thumbLabel}</span>
-        )}
+        {step.thumbLabel && <span className="step-card__altlabel">{step.thumbLabel}</span>}
       </div>
 
       <div className="step-card__body">
@@ -28,24 +26,21 @@ export default function StepCard({ step, active, onFocus }) {
 
         <p className="step-card__line">{step.line}</p>
 
-        <p className="step-card__why">
-          <span className="mono-label">WHY THIS LINE</span> {step.whyLine}
-        </p>
-        <p className="step-card__why">
-          <span className="mono-label">WHY THIS PICTURE</span> {step.whyPicture}
-        </p>
+        <p className="step-card__why"><span className="mono-label">WHY THIS LINE</span> {step.whyLine}</p>
+        <p className="step-card__why"><span className="mono-label">WHY THIS PICTURE</span> {step.whyPicture}</p>
 
         <div className="step-card__swap">
-          <span className="mono-label">SWAP VISUAL · {step.swatches.length} PREFETCHED</span>
+          <span className="mono-label">SWAP VISUAL · {step.swatches?.length || 0} PREFETCHED</span>
           <div className="step-card__swatches">
-            {step.swatches.map((sw, i) => (
+            {(step.swatches || []).map((sw, i) => (
               <button
+                type="button"
                 key={i}
                 className={`step-card__swatch ${selected === i ? "is-selected" : ""}`}
                 style={{ background: sw }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelected(i);
+                  onSelectAsset?.(i);
                 }}
                 aria-label={`Use visual option ${i + 1}`}
                 aria-pressed={selected === i}

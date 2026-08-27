@@ -108,15 +108,24 @@ this file drift from the build plan.
 - `2026-08-27` — Fixed the Storyboard stage state loop: removed the redundant tab state/effects that could repeatedly update state and trigger React's "Maximum update depth exceeded" error. The active real-project stage is now derived directly from the normalized `stage` URL parameter, and completing Setup transitions cleanly to `?stage=storyboard` without forcing Setup back to Storyboard during render.
 
 ## M5 — Storyboard generation + live preview fix (Stage D)
-**Status:** Not started
+**Status:** Done
 
-- [ ] Write Gemini Call 3 prompt
-- [ ] `POST /api/projects/:id/generate-scenes`
-- [ ] `GET /api/projects/:id/scenes`
-- [ ] Wire Storyboard tab to real data
-- [ ] Lift selected visual state into `StoryboardPage.jsx`
-- [ ] Pass selected asset into `PhonePreview.jsx`
-- [ ] Persist selected asset when entering Finalize
+- [x] Write Gemini Call 3 prompt
+- [x] `POST /api/projects/:id/generate-scenes`
+- [x] `GET /api/projects/:id/scenes`
+- [x] Wire Storyboard tab to real data
+- [x] Lift selected visual state into `StoryboardPage.jsx`
+- [x] Pass selected asset into `PhonePreview.jsx`
+- [x] Persist selected asset when entering Finalize
+
+**M5 implementation notes:**
+- Added `server/src/services/storyboardService.js` with a strict Gemini Call 3 JSON contract for 4–8 scenes, spoken text, duration, reasoning, and concrete B-roll search terms.
+- Added `server/src/services/pexelsService.js` using the official Pexels portrait video search endpoint and fetching five usable B-roll options per scene.
+- Added `server/src/routes/storyboard.js` with `POST /api/projects/:id/generate-scenes`, `GET /api/projects/:id/scenes`, and `PATCH /api/scenes/:sceneId/select-asset`.
+- Real Storyboard now generates on first entry after setup, displays scene cards, and keeps visual swaps client-side through `selectedAssetByScene`; the active selection drives the 9:16 phone preview immediately.
+- Entering Preview/Finalize persists the selected asset for every scene in a batch of PATCH requests rather than on every thumbnail click.
+- Added `PEXELS_API_KEY` to `server/.env.example` and responsive loading/error states for storyboard generation.
+- Runtime verification of Gemini/Pexels generation requires local API keys and network access. The existing M3 research flow remains unchanged.
 
 ## M6 — Voice + synced captions
 **Status:** Not started
@@ -162,3 +171,4 @@ this file drift from the build plan.
 - `2026-08-27` — M4 complete: guided setup suggestions, setup persistence, monetization guardrails, responsive selection-only SetupPanel, and Research → Setup → Storyboard stage navigation.
 - `2026-08-27` — Fixed the Guided Setup deep-link routing bug where `?stage=setup` did not match the capitalized `Setup` tab label and therefore rendered a blank stage; canonical stage normalization and URL synchronization are now in place.
 - `2026-08-27` — Fixed the StoryboardPage maximum-update-depth regression by deriving the active stage from the URL instead of maintaining a second synchronized React state, preventing the Setup → Storyboard transition from looping.
+- `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.

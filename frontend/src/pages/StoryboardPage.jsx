@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import PhonePreview from "../components/PhonePreview";
 import StepCard from "../components/StepCard";
-import PreviewPanel from "../components/PreviewPanel";
 import SetupPanel from "../components/SetupPanel";
 import { IconArrowLeft, IconInfo, IconArrowRight, IconCheck } from "../components/Icons";
 import { storyboards } from "../data/signals";
@@ -24,15 +23,42 @@ function normalizeStage(value) {
   return TABS.find((tab) => tab.label.toLowerCase() === normalized)?.label || null;
 }
 
+function formatDuration(value) {
+  const seconds = Number(value || 0);
+  return `${seconds.toFixed(1)}s`;
+}
+
+function sceneToStep(scene, selectedAssetIndex = 0) {
+  const selectedAsset = scene.assets?.[selectedAssetIndex] || scene.assets?.[0];
+  return {
+    id: scene.id,
+    n: String(scene.sceneOrder).padStart(2, "0"),
+    title: scene.title,
+    line: scene.spokenText,
+    time: formatDuration(scene.durationSeconds),
+    whyLine: scene.whyLine || "Helix uses the strongest evidence-led line for this beat.",
+    whyPicture: scene.whyPicture || "The visual makes the mechanism concrete before the next cut.",
+    thumb: selectedAsset?.thumbnailUrl || "linear-gradient(145deg, #17304a, #09131f)",
+    thumbLabel: selectedAsset ? "Pexels B-roll" : "Visual pending",
+    swatches: (scene.assets || []).map((asset) => `url(${asset.thumbnailUrl}) center / cover no-repeat`),
+    selectedAsset,
+  };
+}
+
 export default function StoryboardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const legacyBoard = storyboards[id];
   const [project, setProject] = useState(null);
+  const [scenes, setScenes] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
+  const [selectedAssetByScene, setSelectedAssetByScene] = useState({});
   const [playing, setPlaying] = useState(false);
   const [published, setPublished] = useState(false);
+  const [sceneLoading, setSceneLoading] = useState(false);
+  const [sceneError, setSceneError] = useState("");
+  const [persisting, setPersisting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,11 +80,95 @@ export default function StoryboardPage() {
   const realProject = Boolean(project);
   const tab = normalizeStage(searchParams.get("stage")) || (legacyBoard ? "Storyboard" : "Setup");
 
+  useEffect(() => {
+    if (!realProject || tab !== "Storyboard") return undefined;
+    let cancelled = false;
+
+    async function loadScenes() {
+      setSceneLoading(true);
+      setSceneError("");
+      try {
+        const response = await fetch(`/api/projects/${id}/scenes`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Failed to load storyboard.");
+        if (cancelled) return;
+
+        if (data.scenes?.length) {
+          setScenes(data.scenes);
+          setSelectedAssetByScene(Object.fromEntries(data.scenes.map((scene) => {
+            const selected = scene.assets.findIndex((asset) => asset.isSelected);
+            return [scene.id, selected >= 0 ? selected : 0];
+          })));
+          return;
+        }
+
+        setSceneLoading(true);
+        const generateResponse = await fetch(`/api/projects/${id}/generate-scenes`, { method: "POST" });
+        const generated = await generateResponse.json().catch(() => ({}));
+        if (!generateResponse.ok) throw new Error(generated.error || "Failed to generate storyboard.");
+        if (cancelled) return;
+        setScenes(generated.scenes || []);
+        setSelectedAssetByScene(Object.fromEntries((generated.scenes || []).map((scene) => [scene.id, 0])));
+      } catch (error) {
+        if (!cancelled) setSceneError(error.message || "Failed to generate storyboard.");
+      } finally {
+        if (!cancelled) setSceneLoading(false);
+      }
+    }
+
+    loadScenes();
+    return () => { cancelled = true; };
+  }, [id, realProject, tab]);
+
   function changeTab(nextTab) {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("stage", nextTab.toLowerCase());
     setSearchParams(nextParams, { replace: true });
   }
+
+  async function persistSelections() {
+    if (!scenes.length) return true;
+    setPersisting(true);
+    setSceneError("");
+    try {
+      await Promise.all(scenes.map(async (scene) => {
+        const index = selectedAssetByScene[scene.id] ?? 0;
+        const asset = scene.assets[index] || scene.assets[0];
+        if (!asset) return;
+        const response = await fetch(`/api/scenes/${scene.id}/select-asset`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assetId: asset.id }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Failed to save a visual selection.");
+      }));
+      return true;
+    } catch (error) {
+      setSceneError(error.message || "Failed to save visual selections.");
+      return false;
+    } finally {
+      setPersisting(false);
+    }
+  }
+
+  async function goToPreview() {
+    if (realProject) {
+      const saved = await persistSelections();
+      if (!saved) return;
+    }
+    changeTab("Preview");
+  }
+
+  function selectAsset(sceneId, index) {
+    setSelectedAssetByScene((current) => ({ ...current, [sceneId]: index }));
+  }
+
+  const activeSceneStep = useMemo(() => {
+    if (!scenes.length) return null;
+    const scene = scenes[activeStep] || scenes[0];
+    return sceneToStep(scene, selectedAssetByScene[scene.id] ?? 0);
+  }, [activeStep, scenes, selectedAssetByScene]);
 
   if (!board && !realProject) {
     return (
@@ -84,7 +194,7 @@ export default function StoryboardPage() {
             </div>
             <div className="hx-tabs" role="tablist" aria-label="Reel stages">
               {TABS.map((t) => (
-                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => changeTab(t.label)}>
+                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting}>
                   <span className="mono-label hx-tab__n">{t.n}</span> {t.label}
                 </button>
               ))}
@@ -104,20 +214,46 @@ export default function StoryboardPage() {
           {tab === "Setup" && <SetupPanel projectId={id} onComplete={(updated) => { setProject((current) => ({ ...current, ...updated })); changeTab("Storyboard"); }} />}
 
           {tab === "Storyboard" && (
-            <section className="research-brief">
-              <p className="eyebrow">Storyboard stage</p>
-              <h2>Setup is locked. Ready to direct the scenes.</h2>
-              <p>Length: {project.setup?.length || "—"}s · Framework: {project.setup?.framework || "—"} · Tone: {project.setup?.tone || "—"} · Audience: {project.setup?.audienceLevel || "—"}</p>
-              <div className="setup-actions"><button className="btn btn-cream" onClick={() => changeTab("Preview")}>Preview <IconArrowRight className="btn-icon" /></button></div>
+            <section className="hx-board__layout hx-board__layout--real">
+              <PhonePreview
+                step={activeSceneStep}
+                duration={project.setup?.length ? `${project.setup.length}s` : `${Math.round(project.durationSeconds || 0)}s`}
+                cuts={scenes.length || project.cuts || 0}
+                playing={playing}
+                onTogglePlay={() => setPlaying((p) => !p)}
+              />
+              <div className="hx-board__content">
+                <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {scenes[0]?.spokenText || "Helix is building the first scene…"}</p></div>
+                {sceneError && <div className="storyboard-error"><strong>Storyboard couldn't load.</strong><span>{sceneError}</span><button className="btn btn-ghost" onClick={() => { setSearchParams({ stage: "storyboard" }, { replace: true }); }}>Retry</button></div>}
+                {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Helix is writing the scenes and fetching five visuals per cut…</strong></div>}
+                {!sceneLoading && !sceneError && scenes.length > 0 && (
+                  <>
+                    <div className="hx-steps">
+                      {scenes.map((scene, i) => <StepCard
+                        key={scene.id}
+                        step={sceneToStep(scene, selectedAssetByScene[scene.id] ?? 0)}
+                        active={activeStep === i}
+                        selectedAssetIndex={selectedAssetByScene[scene.id] ?? 0}
+                        onFocus={() => { setActiveStep(i); setPlaying(false); }}
+                        onSelectAsset={(index) => selectAsset(scene.id, index)}
+                      />)}
+                    </div>
+                    <div className="hx-board__actions">
+                      <button className="btn btn-ghost" onClick={() => changeTab("Setup")}><IconArrowLeft className="btn-icon" /> Back to setup</button>
+                      <button className="btn btn-cream" onClick={goToPreview} disabled={persisting}>{persisting ? "Saving visuals…" : "Finalize preview →"}</button>
+                    </div>
+                  </>
+                )}
+              </div>
             </section>
           )}
 
           {tab === "Preview" && (
             <section className="research-brief">
               <p className="eyebrow">Finalize</p>
-              <h2>Preview arrives with storyboard generation.</h2>
-              <p>Your guided setup is saved. Scene generation and the live preview will be connected in the next stage.</p>
-              <div className="setup-actions"><button className="btn btn-ghost" onClick={() => changeTab("Setup")}>Back to setup</button></div>
+              <h2>Storyboard ready for finalization.</h2>
+              <p>{scenes.length} scenes generated with five pre-fetched visual options per scene. Your selected visuals have been saved.</p>
+              <div className="setup-actions"><button className="btn btn-ghost" onClick={() => changeTab("Storyboard")}>Back to storyboard</button></div>
             </section>
           )}
         </main>
@@ -125,7 +261,6 @@ export default function StoryboardPage() {
     );
   }
 
-  // Keep the original demo storyboard available while the real M5 scene pipeline is built.
   return (
     <div className="hx-page">
       <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />

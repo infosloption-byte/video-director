@@ -4,84 +4,23 @@
   overflow: clip;
 }
 
-.hx-board__head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 36px;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
+.hx-board__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 36px; flex-wrap: wrap; min-width: 0; }
 .hx-board__head > div:first-child { min-width: 0; flex: 1 1 420px; }
 .hx-board .eyebrow { margin: 0 0 10px; overflow-wrap: anywhere; }
-.hx-board__title {
-  font-family: var(--font-serif);
-  font-weight: 500;
-  font-size: clamp(28px, 3vw, 34px);
-  line-height: 1.2;
-  color: var(--ink);
-  margin: 0;
-  max-width: 640px;
-  overflow-wrap: anywhere;
-}
+.hx-board__title { font-family: var(--font-serif); font-weight: 500; font-size: clamp(28px, 3vw, 34px); line-height: 1.2; color: var(--ink); margin: 0; max-width: 640px; overflow-wrap: anywhere; }
 
-.hx-tabs {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--pill-bg);
-  border: 1px solid var(--pill-border);
-  border-radius: var(--radius-pill);
-  padding: 4px;
-  flex: 0 1 520px;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.hx-tab {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 13.5px;
-  padding: 8px 16px;
-  border-radius: var(--radius-pill);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  white-space: nowrap;
-  min-width: 0;
-  flex: 1 1 0;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
+.hx-tabs { display: flex; align-items: center; gap: 4px; background: var(--pill-bg); border: 1px solid var(--pill-border); border-radius: var(--radius-pill); padding: 4px; flex: 0 1 520px; max-width: 100%; min-width: 0; }
+.hx-tab { background: transparent; border: none; color: var(--muted); font-size: 13.5px; padding: 8px 16px; border-radius: var(--radius-pill); display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; min-width: 0; flex: 1 1 0; transition: background 0.15s ease, color 0.15s ease; }
+.hx-tab:disabled { opacity: 0.6; cursor: wait; }
 .hx-tab__n { color: inherit; }
 .hx-tab.is-active { background: var(--cream); color: var(--cream-ink); }
 .hx-tab.is-active .hx-tab__n { color: var(--cream-ink); opacity: 0.6; }
 .hx-tab:not(.is-active):hover { color: var(--ink-dim); }
 
-.hx-board__layout {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-  gap: 40px;
-  align-items: start;
-  min-width: 0;
-}
-
+.hx-board__layout { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 40px; align-items: start; min-width: 0; }
+.hx-board__layout--real { margin-top: 8px; }
 .hx-board__content { min-width: 0; width: 100%; }
-.hx-hookbox {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  background: var(--card);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  padding: 16px 18px;
-  margin-bottom: 24px;
-  min-width: 0;
-}
+.hx-hookbox { display: flex; align-items: flex-start; gap: 10px; background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 24px; min-width: 0; }
 .hx-hookbox p { margin: 0; font-size: 13.5px; color: var(--body); line-height: 1.6; min-width: 0; overflow-wrap: anywhere; }
 .hx-hookbox .mono-label { color: var(--ink-dim); }
 .hx-hookbox__icon { color: var(--muted); margin-top: 3px; flex-shrink: 0; }
@@ -92,12 +31,19 @@
 .hx-published h3 { font-family: var(--font-serif); font-weight: 500; font-size: 22px; color: var(--ink); margin: 0 0 10px; overflow-wrap: anywhere; }
 .hx-published p { font-size: 14px; color: var(--body); margin: 0 0 24px; overflow-wrap: anywhere; }
 .hx-notfound { padding: 80px 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.storyboard-loading, .storyboard-error { padding: 22px 24px; background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 8px; }
+.storyboard-loading strong, .storyboard-error strong { color: var(--ink); }
+.storyboard-loading .eyebrow { margin: 0; }
+.storyboard-error span { color: var(--body); line-height: 1.55; overflow-wrap: anywhere; }
+.storyboard-error .btn { align-self: flex-start; margin-top: 6px; }
+.hx-preview__frame--empty { align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; background: var(--card); }
+.hx-preview__frame--empty .eyebrow { margin: 0; }
+.hx-preview__frame--empty strong { color: var(--ink); }
 
 @media (max-width: 1024px) {
   .hx-board { padding-left: 24px; padding-right: 24px; }
   .hx-board__layout { grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 24px; }
 }
-
 @media (max-width: 900px) {
   .hx-board { padding: 28px 0 64px; }
   .hx-board__head { align-items: stretch; flex-direction: column; gap: 18px; margin-bottom: 28px; }
@@ -107,9 +53,7 @@
   .hx-board__content { order: 2; width: 100%; }
   .hx-tabs { width: 100%; flex-basis: auto; }
 }
-
 @media (max-width: 768px) {
-  /* .container already owns the horizontal gutter at this width. */
   .hx-board { padding-top: 24px; padding-bottom: 56px; padding-left: 24px; padding-right: 24px; }
   .hx-board__head { gap: 16px; margin-bottom: 24px; }
   .hx-board__title { font-size: clamp(25px, 5vw, 30px); }
@@ -117,7 +61,6 @@
   .hx-board__layout > .hx-preview { width: min(100%, 280px); }
   .hx-hookbox { margin-bottom: 20px; }
 }
-
 @media (max-width: 640px) {
   .hx-board { padding-top: 20px; padding-bottom: 48px; }
   .hx-board__head { gap: 14px; margin-bottom: 20px; }
@@ -130,13 +73,11 @@
   .hx-board__actions { flex-direction: column; align-items: stretch; }
   .hx-board__actions .btn { width: 100%; justify-content: center; }
 }
-
 @media (max-width: 480px) {
   .hx-board__layout { gap: 20px; }
   .hx-board__layout > .hx-preview { width: min(100%, 260px); }
   .hx-tab { font-size: 11px; padding-left: 4px; padding-right: 4px; }
 }
-
 @media (max-width: 380px) {
   .hx-board__layout > .hx-preview { width: min(100%, 240px); }
   .hx-board__title { font-size: 23px; }
