@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const AUDIO_ROOT = path.resolve(process.cwd(), "storage", "audio");
@@ -21,9 +21,7 @@ async function findAvailableVoice(apiKey) {
     headers: { "xi-api-key": apiKey, Accept: "application/json" },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(`Unable to list ElevenLabs voices (HTTP ${response.status}).`);
-  }
+  if (!response.ok) throw new Error(`Unable to list ElevenLabs voices (HTTP ${response.status}).`);
 
   const voices = Array.isArray(payload.voices) ? payload.voices : [];
   const eligible = voices.find((voice) => {
@@ -65,7 +63,6 @@ async function requestSpeech({ apiKey, voiceId, modelId, text }) {
 
 function buildWordTimestamps(alignment) {
   if (!alignment?.characters?.length) return [];
-
   const words = [];
   let word = "";
   let start = null;
@@ -74,7 +71,6 @@ function buildWordTimestamps(alignment) {
   alignment.characters.forEach((character, index) => {
     const characterStart = Number(alignment.character_start_times_seconds?.[index] ?? 0);
     const characterEnd = Number(alignment.character_end_times_seconds?.[index] ?? characterStart);
-
     if (/\s/.test(character)) {
       if (word) {
         words.push({ word, start: Number(start.toFixed(3)), end: Number(end.toFixed(3)) });
@@ -84,7 +80,6 @@ function buildWordTimestamps(alignment) {
       }
       return;
     }
-
     if (start === null) start = characterStart;
     end = characterEnd;
     word += character;
@@ -92,6 +87,19 @@ function buildWordTimestamps(alignment) {
 
   if (word) words.push({ word, start: Number(start.toFixed(3)), end: Number(end.toFixed(3)) });
   return words;
+}
+
+export function getNarrationFilePath(projectId, sceneId) {
+  return path.join(AUDIO_ROOT, projectId, "scenes", `${sceneId}.mp3`);
+}
+
+export async function narrationFileExists(projectId, sceneId) {
+  try {
+    await access(getNarrationFilePath(projectId, sceneId));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function synthesizeSpeech({ projectId, sceneId, text }) {
@@ -105,10 +113,7 @@ export async function synthesizeSpeech({ projectId, sceneId, text }) {
   try {
     payload = await requestSpeech({ apiKey, voiceId, modelId, text: cleanText });
   } catch (error) {
-    if (!isRestrictedLibraryVoiceError(error.message)) {
-      throw new Error(`TTS generation failed: ${error.message}`);
-    }
-
+    if (!isRestrictedLibraryVoiceError(error.message)) throw new Error(`TTS generation failed: ${error.message}`);
     voiceId = await findAvailableVoice(apiKey);
     try {
       payload = await requestSpeech({ apiKey, voiceId, modelId, text: cleanText });
@@ -119,12 +124,13 @@ export async function synthesizeSpeech({ projectId, sceneId, text }) {
 
   if (!payload.audio_base64) throw new Error("TTS provider returned no audio.");
 
-  // Keep the filesystem layout identical to the public /api/audio URL:
-  // storage/audio/<projectId>/scenes/<sceneId>.mp3
-  const scenesDir = path.join(AUDIO_ROOT, projectId, "scenes");
-  await mkdir(scenesDir, { recursive: true });
-  const filePath = path.join(scenesDir, `${sceneId}.mp3`);
+  const filePath = getNarrationFilePath(projectId, sceneId);
+  await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, Buffer.from(payload.audio_base64, "base64"));
+
+  if (!(await narrationFileExists(projectId, sceneId))) {
+    throw new Error("TTS generation completed but the narration file could not be verified on disk.");
+  }
 
   const alignment = payload.alignment || payload.normalized_alignment;
   return {
