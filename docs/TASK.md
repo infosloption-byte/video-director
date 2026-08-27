@@ -105,8 +105,7 @@ this file drift from the build plan.
 - Connected Research completion to the new Setup stage and added Research / Setup / Storyboard / Preview stage navigation for real projects. Existing legacy demo storyboards remain available for backward compatibility.
 - Runtime API/Gemini behavior should be verified locally with the already-working research flow; no additional database migration is required because the M0 schema already contains the Stage C project fields.
 - `2026-08-27` — Fixed the Research → Guided Setup deep-link bug: `?stage=setup` is now normalized to the canonical `Setup` tab label, so clicking `Continue to guided setup` renders the SetupPanel immediately. Stage tab/button navigation now also keeps the `stage` query parameter synchronized.
-
----
+- `2026-08-27` — Fixed the Storyboard stage state loop: removed the redundant tab state/effects that could repeatedly update state and trigger React's "Maximum update depth exceeded" error. The active real-project stage is now derived directly from the normalized `stage` URL parameter, and completing Setup transitions cleanly to `?stage=storyboard` without forcing Setup back to Storyboard during render.
 
 ## M5 — Storyboard generation + live preview fix (Stage D)
 **Status:** Not started
@@ -162,3 +161,4 @@ this file drift from the build plan.
 - `2026-08-27` — Local API hardening: disabled automatic startup scraping by default and added process-level error logging/graceful shutdown so third-party feed failures do not take the development API down.
 - `2026-08-27` — M4 complete: guided setup suggestions, setup persistence, monetization guardrails, responsive selection-only SetupPanel, and Research → Setup → Storyboard stage navigation.
 - `2026-08-27` — Fixed the Guided Setup deep-link routing bug where `?stage=setup` did not match the capitalized `Setup` tab label and therefore rendered a blank stage; canonical stage normalization and URL synchronization are now in place.
+- `2026-08-27` — Fixed the StoryboardPage maximum-update-depth regression by deriving the active stage from the URL instead of maintaining a second synchronized React state, preventing the Setup → Storyboard transition from looping.
