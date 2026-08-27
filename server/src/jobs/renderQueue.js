@@ -7,16 +7,34 @@ const QUEUE_NAME = "helix-render";
 let queue = null;
 let worker = null;
 
-function connectionOptions() {
-  const redisUrl = process.env.REDIS_URL?.trim();
-  if (!redisUrl) {
-    throw new Error("Render queue is not configured. Set REDIS_URL in server/.env.");
-  }
-  return new IORedis(redisUrl, { maxRetriesPerRequest: null });
+function redisUrl() {
+  return process.env.REDIS_URL?.trim() || "";
+}
+
+function queueConnectionOptions() {
+  const url = redisUrl();
+  if (!url) throw new Error("Render queue is not configured. Set REDIS_URL in server/.env.");
+  return {
+    url,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    connectTimeout: 1500,
+    retryStrategy: () => null,
+  };
+}
+
+function workerConnection() {
+  const url = redisUrl();
+  if (!url) throw new Error("Render queue is not configured. Set REDIS_URL in server/.env.");
+  return new IORedis(url, {
+    maxRetriesPerRequest: null,
+    connectTimeout: 3000,
+    retryStrategy: (times) => Math.min(Math.max(times * 1000, 1000), 10000),
+  });
 }
 
 export function getRenderQueue() {
-  if (!queue) queue = new Queue(QUEUE_NAME, { connection: connectionOptions() });
+  if (!queue) queue = new Queue(QUEUE_NAME, { connection: queueConnectionOptions() });
   return queue;
 }
 
@@ -35,13 +53,41 @@ export async function enqueueRender(projectId) {
   return job;
 }
 
-export function startRenderWorker() {
+async function canReachRedis() {
+  const url = redisUrl();
+  if (!url) return false;
+  const client = new IORedis(url, {
+    lazyConnect: true,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    connectTimeout: 1500,
+    retryStrategy: () => null,
+  });
+  try {
+    await client.connect();
+    await client.ping();
+    await client.quit();
+    return true;
+  } catch {
+    client.disconnect();
+    return false;
+  }
+}
+
+export async function startRenderWorker() {
   if (worker) return worker;
-  if (!process.env.REDIS_URL?.trim()) {
+  if (!redisUrl()) {
     console.log("[render] Redis is not configured; render worker is disabled.");
     return null;
   }
 
+  const available = await canReachRedis();
+  if (!available) {
+    console.warn("[render] Redis is unavailable; render worker is disabled for this process. Start Redis and run `npm run render:worker` again.");
+    return null;
+  }
+
+  const connection = workerConnection();
   worker = new Worker(
     QUEUE_NAME,
     async (job) => {
@@ -53,7 +99,7 @@ export function startRenderWorker() {
       await job.updateProgress(100);
       return result;
     },
-    { connection: connectionOptions(), concurrency: 1 },
+    { connection, concurrency: 1 },
   );
 
   worker.on("completed", (job) => console.log(`[render] Job ${job.id} completed.`));
@@ -70,5 +116,7 @@ export function startRenderWorker() {
 }
 
 if (process.argv[1] && process.argv[1].endsWith("renderQueue.js")) {
-  startRenderWorker();
+  startRenderWorker().catch((error) => {
+    console.error(`[render] Worker startup failed: ${error.message}`);
+  });
 }
