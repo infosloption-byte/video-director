@@ -12,6 +12,9 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
   const [exportError, setExportError] = useState("");
   const [copied, setCopied] = useState(false);
   const [narrationReady, setNarrationReady] = useState(false);
+  const [facebookPublishing, setFacebookPublishing] = useState(false);
+  const [facebookResult, setFacebookResult] = useState(null);
+  const [facebookError, setFacebookError] = useState("");
 
   async function loadExports() {
     try {
@@ -66,6 +69,30 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
     }
   }
 
+  async function publishToFacebook() {
+    if (facebookPublishing || !renderComplete) return;
+    setFacebookPublishing(true);
+    setFacebookError("");
+    setFacebookResult(null);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/publish-facebook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: project?.title || "Helix Reel",
+          description: exports?.seoCaption || project?.seoCaption || project?.title || "",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Facebook publishing failed.");
+      setFacebookResult(data);
+    } catch (error) {
+      setFacebookError(error.message || "Facebook publishing failed.");
+    } finally {
+      setFacebookPublishing(false);
+    }
+  }
+
   const scriptedTime = scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
   const renderUrl = renderStatus?.renderUrl || project?.renderUrl || exports?.mp4Url || null;
   const renderComplete = Boolean(renderUrl) && (renderStatus?.status === "completed" || !renderStatus);
@@ -99,6 +126,8 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
 
       {renderError && <div className="finalize-panel__error"><strong>Render couldn't complete.</strong><span>{renderError}</span></div>}
       {exportError && <div className="finalize-panel__error"><strong>Export couldn't complete.</strong><span>{exportError}</span></div>}
+      {facebookError && <div className="finalize-panel__error"><strong>Facebook publish couldn't complete.</strong><span>{facebookError}</span></div>}
+      {facebookResult && <div className="finalize-panel__success"><strong>Published to Facebook.</strong><span>Reel video ID: {facebookResult.videoId}</span></div>}
 
       <div className="finalize-panel__render">
         <div>
@@ -138,8 +167,21 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
         </div>
       </div>
 
+      <div className="finalize-panel__exports">
+        <div className="finalize-panel__exports-head">
+          <div>
+            <p className="mono-label">FACEBOOK</p>
+            <h3>Publish this Reel to your Page</h3>
+            <p>Available only after a completed MP4 render. The server requires a Page ID and Page access token.</p>
+          </div>
+          <button className="btn btn-cream" onClick={publishToFacebook} disabled={!renderComplete || facebookPublishing || renderLoading || exportLoading}>
+            {facebookPublishing ? "Publishing…" : facebookResult ? "Published" : "Publish to Facebook →"}
+          </button>
+        </div>
+      </div>
+
       <div className="finalize-panel__actions">
-        <button className="btn btn-ghost" onClick={onBack} disabled={renderLoading || exportLoading}><IconArrowLeft className="btn-icon" /> Back to storyboard</button>
+        <button className="btn btn-ghost" onClick={onBack} disabled={renderLoading || exportLoading || facebookPublishing}><IconArrowLeft className="btn-icon" /> Back to storyboard</button>
       </div>
     </section>
   );
