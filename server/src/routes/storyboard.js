@@ -136,7 +136,19 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
     }
 
     const updatedProject = await loadProjectScenes(project.id);
-    res.status(201).json({ projectId: project.id, scenes: updatedProject.scenes.map(publicScene), generatedCount: generated.length });
+    const totalDuration = updatedProject.scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
+    await prisma.project.update({
+      where: { id: project.id },
+      data: { durationSeconds: totalDuration, cuts: updatedProject.scenes.length },
+    });
+
+    const finalProject = await loadProjectScenes(project.id);
+    res.status(201).json({
+      projectId: project.id,
+      durationSeconds: totalDuration,
+      scenes: finalProject.scenes.map(publicScene),
+      generatedCount: generated.length,
+    });
   } catch (error) {
     console.error(`POST /api/projects/${req.params.id}/generate-voice failed:`, error);
     res.status(500).json({ error: error.message || "Failed to generate narration." });
