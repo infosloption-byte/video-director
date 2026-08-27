@@ -130,6 +130,7 @@ this file drift from the build plan.
 - Entering Preview/Finalize persists the selected asset for every scene in a batch of PATCH requests rather than on every thumbnail click.
 - Added `PEXELS_API_KEY` to `server/.env.example` and responsive loading/error states for storyboard generation.
 - Runtime verification of Gemini/Pexels generation requires local API keys and network access. The existing M3 research flow remains unchanged.
+- `2026-08-28` — Hardened Gemini storyboard generation with structured output, 90-second request timeout, retry/backoff, Retry-After support, and a research-backed fallback storyboard when Gemini returns transient 429/502/503 failures. This prevents a rate-limited Gemini Call 3 from leaving the Storyboard stage unusable.
 
 ## M6 — Voice + synced captions
 **Status:** Done
@@ -186,11 +187,18 @@ this file drift from the build plan.
 - Local end-to-end verification still requires the running MySQL database, Memurai/Redis, Gemini, Pexels, ElevenLabs, and Remotion/Chromium environment.
 
 ## M9 — Direct-to-Facebook publish (optional, last)
-**Status:** Not started
+**Status:** Done
 
-- [ ] Meta Graph API setup
-- [ ] Publish endpoint
-- [ ] Gate behind solid M7/M8 production behavior
+- [x] Meta Graph API setup
+- [x] Publish endpoint
+- [x] Gate behind solid M7/M8 production behavior
+
+**M9 implementation notes:**
+- Added `server/src/services/facebookService.js` for Facebook Page Reel publishing using the current Graph API version configuration (`v25.0` by default), Page access token authentication, two-phase Reel initialization/upload/publish flow, local MP4 validation, and 4–60 second duration validation.
+- Added `POST /api/projects/:id/publish-facebook`; publishing is rejected until the final MP4 exists, then the project is moved to `published` after a successful Graph API publish response.
+- Added the `Publish to Facebook` control to `FinalizePanel.jsx`, gated on a completed render and disabled while rendering/exporting/publishing. Errors and the returned Facebook video ID are shown in the UI.
+- Added `FACEBOOK_API_VERSION`, `FACEBOOK_PAGE_ID`, and `FACEBOOK_PAGE_ACCESS_TOKEN` to `server/.env.example`.
+- The integration is intentionally token-configured for local/dev use. Production OAuth consent, Meta App Review, Business Verification, and secure multi-user token storage are outside the current optional milestone scope and still need to be added before a multi-tenant production launch.
 
 ---
 
@@ -215,3 +223,5 @@ this file drift from the build plan.
 - `2026-08-28` — Fixed Remotion render initialization by registering the root in `src/remotion/index.jsx`, preventing the worker from failing on the missing `registerRoot()` entry point.
 - `2026-08-28` — Hardened narration storage/rendering by verifying MP3 files after TTS writes and validating all scene narration before queueing a Remotion render.
 - `2026-08-28` — M8 complete: added export service/endpoints/static serving and replaced the real-project Preview view with a responsive Finalize & Export panel for MP4, SRT, plain-text script, and SEO caption copy.
+- `2026-08-28` — Hardened Gemini storyboard generation against 429/502/503 responses with structured JSON output, retry/backoff, provider Retry-After support, and a research-backed fallback scene generator.
+- `2026-08-28` — Completed M9 development integration: Facebook Page Reel upload/publish service, publish endpoint, gated Finalize UI, and documented Page token configuration. Production OAuth/App Review remains a future hardening step for multi-user deployment.
