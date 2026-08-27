@@ -20,7 +20,10 @@ export function startSignalScraper() {
 
   console.log(`[signals] Scheduled suggested feed scrape every 4 hours (${SCHEDULE}).`);
 
-  if (process.env.SIGNALS_SCRAPE_ON_START !== "false") {
+  // Keep startup deterministic. A temporary RSS/API outage should not delay
+  // or destabilize the API used by the frontend. Set this to "true" when an
+  // immediate refresh on boot is desired.
+  if (process.env.SIGNALS_SCRAPE_ON_START === "true") {
     void runSignalScrape();
   }
 
