@@ -109,7 +109,7 @@ this file drift from the build plan.
 - Connected Research completion to the new Setup stage and added Research / Setup / Storyboard / Preview stage navigation for real projects. Existing legacy demo storyboards remain available for backward compatibility.
 - Runtime API/Gemini behavior should be verified locally with the already-working research flow; no additional database migration is required because the M0 schema already contains the Stage C project fields.
 - `2026-08-27` — Fixed the Research → Guided Setup deep-link bug: `?stage=setup` is now normalized to the canonical `Setup` tab label, so clicking `Continue to guided setup` renders the SetupPanel immediately. Stage tab/button navigation now also keeps the `stage` query parameter synchronized.
-- `2026-08-27` — Fixed the Storyboard stage state loop: removed the redundant tab state/effects that could repeatedly update state and trigger React's "Maximum update depth exceeded" error. The active real-project stage is now derived directly from the normalized `stage` URL parameter, and completing Setup transitions cleanly to `?stage=storyboard` without forcing Setup back to Storyboard during render.
+- `2026-08-27` — Fixed the StoryboardPage maximum-update-depth regression by deriving the active stage from the URL instead of maintaining a second synchronized React state, preventing the Setup → Storyboard transition from looping.
 
 ## M5 — Storyboard generation + live preview fix (Stage D)
 **Status:** Done
@@ -130,7 +130,7 @@ this file drift from the build plan.
 - Entering Preview/Finalize persists the selected asset for every scene in a batch of PATCH requests rather than on every thumbnail click.
 - Added `PEXELS_API_KEY` to `server/.env.example` and responsive loading/error states for storyboard generation.
 - Runtime verification of Gemini/Pexels generation requires local API keys and network access. The existing M3 research flow remains unchanged.
-- `2026-08-28` — Hardened Gemini storyboard generation with structured output, 90-second request timeout, retry/backoff, Retry-After support, and a research-backed fallback storyboard when Gemini returns transient 429/502/503 failures. This prevents a rate-limited Gemini Call 3 from leaving the Storyboard stage unusable.
+- `2026-08-28` — Hardened Gemini storyboard generation against 429/502/503 responses with structured JSON output, retry/backoff, provider Retry-After support, and a research-backed fallback scene generator.
 
 ## M6 — Voice + synced captions
 **Status:** Done
@@ -147,7 +147,7 @@ this file drift from the build plan.
 - Added Storyboard narration controls so users can generate/regenerate narration without triggering TTS on every page load; the controls and preview remain responsive at narrow widths.
 - Runtime verification requires a valid local ElevenLabs API key and network access. The implementation is complete, but provider-backed audio generation cannot be executed in this environment.
 - `2026-08-27` — Fixed the generated-audio 404: TTS now writes MP3 files under `storage/audio/<projectId>/scenes/<sceneId>.mp3`, matching the `/api/audio/projects/<projectId>/scenes/<sceneId>.mp3` URL exposed by Express. Previously the file was written one directory too high, causing `ENOENT`/404 after successful TTS generation.
-- `2026-08-28` — Added post-write file verification and a narration-status endpoint; missing narration files are now detected explicitly instead of surfacing as opaque Remotion/Express `ENOENT` errors.
+- `2026-08-28` — Fixed narration URL/storage alignment: the actual filesystem layout is `storage/audio/<projectId>/scenes/<sceneId>.mp3`, so new TTS URLs now use `/api/audio/<projectId>/scenes/<sceneId>.mp3`. Existing legacy `/api/audio/projects/<projectId>/...` values are normalized when scenes are returned, and Remotion normalizes them before rendering. No audio regeneration is required for already-existing files.
 
 ## M7 — Rendering
 **Status:** Done
@@ -187,18 +187,18 @@ this file drift from the build plan.
 - Local end-to-end verification still requires the running MySQL database, Memurai/Redis, Gemini, Pexels, ElevenLabs, and Remotion/Chromium environment.
 
 ## M9 — Direct-to-Facebook publish (optional, last)
-**Status:** Done
+**Status:** Done (development integration)
 
 - [x] Meta Graph API setup
 - [x] Publish endpoint
 - [x] Gate behind solid M7/M8 production behavior
 
 **M9 implementation notes:**
-- Added `server/src/services/facebookService.js` for Facebook Page Reel publishing using the current Graph API version configuration (`v25.0` by default), Page access token authentication, two-phase Reel initialization/upload/publish flow, local MP4 validation, and 4–60 second duration validation.
-- Added `POST /api/projects/:id/publish-facebook`; publishing is rejected until the final MP4 exists, then the project is moved to `published` after a successful Graph API publish response.
-- Added the `Publish to Facebook` control to `FinalizePanel.jsx`, gated on a completed render and disabled while rendering/exporting/publishing. Errors and the returned Facebook video ID are shown in the UI.
-- Added `FACEBOOK_API_VERSION`, `FACEBOOK_PAGE_ID`, and `FACEBOOK_PAGE_ACCESS_TOKEN` to `server/.env.example`.
-- The integration is intentionally token-configured for local/dev use. Production OAuth consent, Meta App Review, Business Verification, and secure multi-user token storage are outside the current optional milestone scope and still need to be added before a multi-tenant production launch.
+- Added `server/src/services/facebookService.js` with token-based Facebook Page Reel initialization, binary upload, and publish flow.
+- Added `POST /api/projects/:id/publish-facebook` and validates the rendered MP4 exists before publishing.
+- Added Facebook configuration to `server/.env.example`: `FACEBOOK_API_VERSION`, `FACEBOOK_PAGE_ID`, and `FACEBOOK_PAGE_ACCESS_TOKEN`.
+- Added the gated Facebook Publish action to `FinalizePanel.jsx`; the button remains unavailable until a rendered MP4 exists.
+- Development integration is complete. Production deployment still requires a properly configured Meta app, Page access token/permissions, OAuth for multi-user accounts, and Meta App Review/Business Verification as applicable.
 
 ---
 
@@ -217,11 +217,12 @@ this file drift from the build plan.
 - `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.
 - `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local provider runtime verification remains a setup requirement.
 - `2026-08-27` — Fixed the generated-audio 404 by aligning the TTS storage path with the Express public audio route.
-- `2026-08-27` — M7 complete in code: Remotion composition, render service, BullMQ/Redis worker, render endpoints, MP4 serving, and Finalize render polling. Local Redis/Chromium/API-key verification remains a setup requirement.
+- `2026-08-28` — M7 complete in code: Remotion composition, render service, BullMQ/Redis worker, render endpoints, MP4 serving, and Finalize render polling. Local Redis/Chromium/API-key verification remains a setup requirement.
 - `2026-08-28` — Repaired Gemini research schema validation, added in-stage live research progress heartbeats, made browser polling resilient to temporary API interruptions, and made failed research states terminal so loading animations stop cleanly.
 - `2026-08-28` — Hardened the BullMQ Redis queue configuration to prevent the unsupported URL-option / reconnect storm seen while Redis was unavailable. Redis is still required for actual M7 rendering.
 - `2026-08-28` — Fixed Remotion render initialization by registering the root in `src/remotion/index.jsx`, preventing the worker from failing on the missing `registerRoot()` entry point.
 - `2026-08-28` — Hardened narration storage/rendering by verifying MP3 files after TTS writes and validating all scene narration before queueing a Remotion render.
 - `2026-08-28` — M8 complete: added export service/endpoints/static serving and replaced the real-project Preview view with a responsive Finalize & Export panel for MP4, SRT, plain-text script, and SEO caption copy.
 - `2026-08-28` — Hardened Gemini storyboard generation against 429/502/503 responses with structured JSON output, retry/backoff, provider Retry-After support, and a research-backed fallback scene generator.
-- `2026-08-28` — Completed M9 development integration: Facebook Page Reel upload/publish service, publish endpoint, gated Finalize UI, and documented Page token configuration. Production OAuth/App Review remains a future hardening step for multi-user deployment.
+- `2026-08-28` — Completed M9 development integration: Facebook Page Reel upload/publish service, publish endpoint, gated Finalize UI, and documented Page token configuration.
+- `2026-08-28` — Fixed narration URL/storage alignment: `/api/audio/<projectId>/scenes/<sceneId>.mp3` now maps directly to the on-disk `storage/audio/<projectId>/scenes/<sceneId>.mp3` layout, and legacy `/api/audio/projects/...` database values are normalized for playback and rendering.
