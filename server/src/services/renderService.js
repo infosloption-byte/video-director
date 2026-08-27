@@ -56,7 +56,11 @@ async function getBundle() {
   return bundlePromise;
 }
 
-export async function renderProject(projectId) {
+export async function renderProject(projectId, { onProgress } = {}) {
+  const report = (progress) => {
+    if (typeof onProgress === "function") onProgress(Math.max(0, Math.min(100, Math.round(progress))));
+  };
+
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
@@ -78,10 +82,14 @@ export async function renderProject(projectId) {
     throw new Error(`Narration is missing for scene${missingNarration.length > 1 ? "s" : ""} ${missingNarration.join(", ")}. Generate narration again before rendering.`);
   }
 
+  report(8);
   const scenes = project.scenes.map(toRenderScene);
   const serveUrl = await getBundle();
+  report(12);
+
   const inputProps = { scenes };
   const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps });
+  report(15);
 
   const projectDir = path.join(RENDER_ROOT, projectId);
   await mkdir(projectDir, { recursive: true });
@@ -95,9 +103,12 @@ export async function renderProject(projectId) {
     outputLocation: outputPath,
     inputProps,
     chromiumOptions: { disableWebSecurity: true },
-    onProgress: () => {},
+    onProgress: ({ overallProgress = 0 }) => {
+      report(15 + (Number(overallProgress) * 85));
+    },
   });
 
+  report(100);
   const renderUrl = `/api/render-files/projects/${encodeURIComponent(projectId)}/reel.mp4`;
   await prisma.project.update({ where: { id: project.id }, data: { status: "finalize", renderUrl } });
   return { renderUrl, outputPath };
