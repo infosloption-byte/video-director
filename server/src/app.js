@@ -5,6 +5,7 @@ import signalsRouter from "./routes/signals.js";
 import projectsRouter from "./routes/projects.js";
 import storyboardRouter from "./routes/storyboard.js";
 import renderRouter from "./routes/render.js";
+import exportRouter from "./routes/export.js";
 
 const app = express();
 app.use(cors());
@@ -20,7 +21,12 @@ app.use("/api/render-files", express.static(path.resolve(process.cwd(), "storage
   fallthrough: false,
   maxAge: "1h",
 }));
+app.use("/api/export-files", express.static(path.resolve(process.cwd(), "storage", "exports"), {
+  fallthrough: false,
+  maxAge: "1h",
+}));
 app.use("/api", renderRouter);
 app.use("/api", storyboardRouter);
+app.use("/api", exportRouter);
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found." }));
 export default app;
