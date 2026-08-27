@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import ResearchProgress from "../components/ResearchProgress";
@@ -11,29 +11,50 @@ export default function ResearchPage() {
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
   const [error, setError] = useState("");
-  const load = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/projects/${id}/research`);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to load research.");
-      setProject(data.project);
-      setError("");
-    } catch (err) {
-      setError(err.message || "Failed to load research.");
+  const projectRef = useRef(null);
+
+  useEffect(() => {
+    let stopped = false;
+    let timer = null;
+    let controller = null;
+
+    async function poll() {
+      controller?.abort();
+      controller = new AbortController();
+
+      try {
+        const response = await fetch(`/api/projects/${id}/research`, { signal: controller.signal, cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Failed to load research.");
+
+        if (stopped) return;
+        const nextProject = data.project;
+        projectRef.current = nextProject;
+        setProject(nextProject);
+        setError("");
+
+        const terminal = nextProject?.researchStatus === "ready" || nextProject?.researchStatus === "error";
+        if (terminal) return;
+      } catch (err) {
+        if (stopped || err.name === "AbortError") return;
+        // A temporary API/proxy interruption should not replace an active research state
+        // with an error page. Keep polling while the last known project is available.
+        if (!projectRef.current) setError(err.message || "Failed to load research.");
+      }
+
+      if (!stopped) timer = window.setTimeout(poll, 1100);
     }
+
+    void poll();
+    return () => {
+      stopped = true;
+      controller?.abort();
+      if (timer) window.clearTimeout(timer);
+    };
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
-
   const researchStatus = project?.researchStatus;
-  const finished = researchStatus === "ready" || researchStatus === "error";
-  useEffect(() => {
-    if (finished) return undefined;
-    const timer = window.setInterval(() => { void load(); }, 1200);
-    return () => window.clearInterval(timer);
-  }, [finished, load]);
-
-  const researchError = error || project?.error;
+  const researchError = researchStatus === "error" ? project?.error : error;
   const research = project?.research;
 
   return (
