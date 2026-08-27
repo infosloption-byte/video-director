@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { researchSignal } from "../services/researchService.js";
+import { buildSetupSuggestions, validateSetup } from "../services/setupService.js";
 
 const router = Router();
 const researchJobs = new Map();
@@ -11,6 +12,12 @@ function publicProject(project, job) {
     signalId: project.signalId,
     title: project.title,
     status: project.status,
+    setup: project.scriptLengthSeconds ? {
+      length: project.scriptLengthSeconds,
+      framework: project.selectedFramework,
+      tone: project.tone,
+      audienceLevel: project.audienceLevel,
+    } : null,
     research: project.researchSummary ? {
       summary: project.researchSummary,
       sources: project.researchSources || [],
@@ -105,6 +112,52 @@ router.get("/:id/research", async (req, res) => {
   } catch (error) {
     console.error("GET /api/projects/:id/research failed:", error);
     res.status(500).json({ error: "Failed to load research status." });
+  }
+});
+
+router.get("/:id/setup/suggestions", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    if (!project.researchSummary) return res.status(409).json({ error: "Research is not ready yet." });
+    res.json({ suggestions: buildSetupSuggestions(project) });
+  } catch (error) {
+    console.error("GET /api/projects/:id/setup/suggestions failed:", error);
+    res.status(500).json({ error: "Failed to build setup suggestions." });
+  }
+});
+
+router.post("/:id/setup", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    if (!project.researchSummary) return res.status(409).json({ error: "Complete research before setup." });
+
+    const validation = validateSetup(req.body);
+    if (validation.error) return res.status(400).json({ error: validation.error });
+    const { length, framework, tone, audienceLevel } = validation.value;
+    const suggestions = buildSetupSuggestions(project);
+
+    if (suggestions.framework.guardrailApplied && framework === "disruptor") {
+      return res.status(400).json({ error: "The Disruptor is blocked for this signal because of a high monetization-risk flag. Choose a safer framework." });
+    }
+
+    const updated = await prisma.project.update({
+      where: { id: project.id },
+      data: {
+        scriptLengthSeconds: length,
+        selectedFramework: framework,
+        frameworkReasoning: suggestions.framework.reasoning,
+        tone,
+        audienceLevel,
+        status: "storyboard",
+      },
+    });
+
+    res.json({ project: publicProject(updated, researchJobs.get(updated.id)), suggestions });
+  } catch (error) {
+    console.error("POST /api/projects/:id/setup failed:", error);
+    res.status(500).json({ error: "Failed to save setup choices." });
   }
 });
 
