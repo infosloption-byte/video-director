@@ -490,35 +490,46 @@ REDIS_URL=               # render queue, Phase 8
 FACEBOOK_PAGE_TOKEN=     # Phase 9 only
 ```
 
-## 11. Suggested backend folder structure
+## 11. Backend folder structure
+
+`server/` lives at the repo root, alongside `frontend/` (not nested inside
+it) — the two are separate npm projects with their own `package.json`,
+run as separate dev processes (`frontend/vite.config.js` proxies `/api` to
+the backend). Status below reflects what M0 actually built vs. what later
+milestones still add:
 
 ```
 server/
+  prisma/
+    schema.prisma      ✅ M0 — all 5 tables modeled (signals live, rest unused until their milestone)
+    seed.js            ✅ M0 — 6 hand-written signals
   src/
     routes/
-      signals.js        (list + search)
-      projects.js        (create, research, setup, scenes, export)
-      render.js
+      signals.js       ✅ M0 — GET /api/signals (list). GET /api/signals/search added in M2
+      projects.js      ⏳ M3+ (create, research, setup, scenes, export)
+      render.js        ⏳ M7
     services/
-      rssScraper.js
-      hackerNewsClient.js
-      arxivClient.js
-      semanticScholarClient.js
-      tavilyClient.js
-      braveSearchClient.js
-      sourceCascade.js      (shared merge/rank logic for search + research)
-      researchService.js    (Stage B brief, calls sourceCascade.js)
-      geminiService.js       (setup suggestions + scene generation)
-      pexelsService.js
-      ttsService.js
-      renderService.js
-      exportService.js      (Stage E bundling)
+      rssScraper.js            ⏳ M1
+      hackerNewsClient.js      ⏳ M1
+      arxivClient.js           ⏳ M1
+      semanticScholarClient.js ⏳ M2
+      tavilyClient.js          ⏳ M2
+      braveSearchClient.js     ⏳ M2
+      sourceCascade.js         ⏳ M2 (shared merge/rank logic for search + research)
+      researchService.js       ⏳ M3
+      geminiService.js         ⏳ M3/M5 (setup suggestions + scene generation)
+      pexelsService.js         ⏳ M5
+      ttsService.js            ⏳ M6
+      renderService.js         ⏳ M7
+      exportService.js         ⏳ M8
     jobs/
-      scrapeSignals.cron.js
-      renderQueue.js
+      scrapeSignals.cron.js    ⏳ M1
+      renderQueue.js           ⏳ M7
     db/
-      schema.prisma
-      client.js
-    app.js
-  package.json
+      client.js        ✅ M0 — Prisma client singleton
+    app.js              ✅ M0 — Express app, mounts signals router
+    server.js           ✅ M0 — entry point, loads .env, listens on PORT
+  package.json          ✅ M0
+  .env.example          ✅ M0
+  README.md             ✅ M0 — local MySQL/WAMP setup steps
 ```

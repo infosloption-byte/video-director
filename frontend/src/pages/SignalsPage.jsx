@@ -1,18 +1,70 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import SignalCard from "../components/SignalCard";
 import { IconScan, IconClapper } from "../components/Icons";
-import { signals, categories } from "../data/signals";
+import { swatchSets, categories } from "../data/signals";
 import "../components/ui.css";
 import "./SignalsPage.css";
 
+// Rotating placeholder gradients — Stage D (Pexels) is what eventually
+// supplies a real thumbnail per signal; until then cycle through the same
+// palette the mock data used.
+const SWATCH_KEYS = Object.keys(swatchSets);
+
+const RELIABILITY_LABEL = {
+  peer_reviewed: "Peer-reviewed",
+  ai_search: "AI-curated search",
+  general_web: "General web",
+};
+
+// Maps a `signals` API row (BUILD_PLAN §3 shape) to the prop shape
+// `SignalCard` expects. Keeps SignalCard itself unchanged.
+function toCardSignal(row, index) {
+  return {
+    id: row.id,
+    rank: String(row.rank ?? index + 1).padStart(2, "0"),
+    category: row.category,
+    pct: row.heatPct ?? "",
+    title: row.title,
+    description: row.description ?? "",
+    whyLabel: "WHY THIS",
+    why: row.whyReasoning,
+    source: row.sourceName ?? "",
+    sourceNote: RELIABILITY_LABEL[row.sourceReliability] ?? "",
+    thumb: swatchSets[SWATCH_KEYS[index % SWATCH_KEYS.length]][0],
+  };
+}
+
 export default function SignalsPage() {
   const [active, setActive] = useState("All");
+  const [signals, setSignals] = useState([]);
+  const [status, setStatus] = useState("loading"); // "loading" | "ready" | "error"
 
-  const filtered =
-    active === "All"
-      ? signals
-      : signals.filter((s) => s.category.toLowerCase() === active.toLowerCase());
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSignals() {
+      setStatus("loading");
+      try {
+        const params = active !== "All" ? `?category=${encodeURIComponent(active)}` : "";
+        const res = await fetch(`/api/signals${params}`);
+        if (!res.ok) throw new Error(`Request failed with ${res.status}`);
+        const data = await res.json();
+        if (cancelled) return;
+        setSignals((data.signals ?? []).map(toCardSignal));
+        setStatus("ready");
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Failed to load signals:", err);
+        setStatus("error");
+      }
+    }
+
+    loadSignals();
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
 
   return (
     <div className="hx-page">
@@ -60,12 +112,20 @@ export default function SignalsPage() {
         </div>
 
         <div className="hx-signals__list">
-          {filtered.map((s, i) => (
-            <SignalCard key={s.id} signal={s} featured={i === 0} />
-          ))}
-          {filtered.length === 0 && (
+          {status === "loading" && <p className="hx-signals__empty">Loading signals…</p>}
+
+          {status === "error" && (
+            <p className="hx-signals__empty">
+              Couldn't load signals right now. Is the backend running on port 4000?
+            </p>
+          )}
+
+          {status === "ready" && signals.length === 0 && (
             <p className="hx-signals__empty">No signals in this category right now. Check back after the next scan.</p>
           )}
+
+          {status === "ready" &&
+            signals.map((s, i) => <SignalCard key={s.id} signal={s} featured={i === 0} />)}
         </div>
       </section>
 

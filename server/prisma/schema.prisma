@@ -1,0 +1,155 @@
+// Helix — Prisma schema (MySQL)
+// Mirrors BUILD_PLAN.md §3. M0 only wires up + seeds `Signal`; the rest of
+// the tables are defined now so later milestones (M3+) don't need schema
+// rewrites, but stay unused until their milestone lands.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum SignalOrigin {
+  suggested
+  search
+}
+
+enum SourceType {
+  rss
+  hacker_news
+  arxiv
+  semantic_scholar
+  tavily
+  brave
+}
+
+enum SourceReliability {
+  peer_reviewed
+  ai_search
+  general_web
+}
+
+enum SignalStatus {
+  new
+  used
+  archived
+}
+
+model Signal {
+  id                 String            @id @default(uuid())
+  origin             SignalOrigin      @default(suggested)
+  sourceType         SourceType        @map("source_type")
+  sourceReliability  SourceReliability @map("source_reliability")
+  searchQuery        String?           @map("search_query")
+  rank               Int?
+  category           String
+  heatPct            String?           @map("heat_pct")
+  heatScore          Decimal?          @map("heat_score") @db.Decimal(6, 2)
+  title              String
+  description        String?           @db.Text
+  whyReasoning       String            @map("why_reasoning") @db.Text
+  sourceName         String?           @map("source_name")
+  sourceUrl          String?           @map("source_url") @db.Text
+  rawContent         String?           @map("raw_content") @db.LongText
+  status             SignalStatus      @default(new)
+  scrapedAt          DateTime          @default(now()) @map("scraped_at")
+
+  projects           Project[]
+
+  @@map("signals")
+}
+
+enum ProjectStatus {
+  researching
+  setup
+  storyboard
+  finalize
+  rendering
+  published
+}
+
+model Project {
+  id                      String        @id @default(uuid())
+  userId                  String        @map("user_id")
+  signalId                String        @map("signal_id")
+  title                   String?
+
+  researchSummary         String?       @map("research_summary") @db.Text
+  researchSources         Json?         @map("research_sources")
+  monetizationFlags       Json?         @map("monetization_flags")
+
+  scriptLengthSeconds     Int?          @map("script_length_seconds")
+  suggestedLengthSeconds  Int?          @map("suggested_length_seconds")
+  selectedFramework       String?       @map("selected_framework")
+  frameworkReasoning      String?       @map("framework_reasoning") @db.Text
+  suggestedFramework      String?       @map("suggested_framework")
+  tone                    String?
+  suggestedTone           String?       @map("suggested_tone")
+  audienceLevel           String?       @map("audience_level")
+
+  seoCaption              String?       @map("seo_caption") @db.Text
+  durationSeconds         Decimal?      @map("duration_seconds") @db.Decimal(5, 1)
+  cuts                    Int?
+  status                  ProjectStatus @default(researching)
+  renderUrl               String?       @map("render_url") @db.Text
+  createdAt               DateTime      @default(now()) @map("created_at")
+
+  signal                  Signal        @relation(fields: [signalId], references: [id])
+  scenes                  ProjectScene[]
+  exports                 ProjectExport[]
+
+  @@map("projects")
+}
+
+model ProjectScene {
+  id               String    @id @default(uuid())
+  projectId        String    @map("project_id")
+  sceneOrder       Int       @map("scene_order")
+  title            String?
+  spokenText       String    @map("spoken_text") @db.Text
+  durationSeconds  Decimal?  @map("duration_seconds") @db.Decimal(4, 1)
+  whyLine          String?   @map("why_line") @db.Text
+  whyPicture       String?   @map("why_picture") @db.Text
+  brollSearchTerm  String?   @map("broll_search_term")
+  audioUrl         String?   @map("audio_url") @db.Text
+  wordTimestamps   Json?     @map("word_timestamps")
+
+  project          Project      @relation(fields: [projectId], references: [id])
+  assets           SceneAsset[]
+
+  @@map("project_scenes")
+}
+
+model SceneAsset {
+  id           String   @id @default(uuid())
+  sceneId      String   @map("scene_id")
+  videoUrl     String   @map("video_url") @db.Text
+  thumbnailUrl String   @map("thumbnail_url") @db.Text
+  sortOrder    Int      @map("sort_order")
+  isSelected   Boolean  @default(false) @map("is_selected")
+
+  scene        ProjectScene @relation(fields: [sceneId], references: [id])
+
+  @@map("scene_assets")
+}
+
+enum ExportKind {
+  mp4
+  srt
+  script_txt
+}
+
+model ProjectExport {
+  id        String     @id @default(uuid())
+  projectId String     @map("project_id")
+  kind      ExportKind
+  fileUrl   String     @map("file_url") @db.Text
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  project   Project    @relation(fields: [projectId], references: [id])
+
+  @@map("project_exports")
+}

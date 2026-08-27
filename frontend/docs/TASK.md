@@ -9,16 +9,34 @@
 ---
 
 ## M0 — Backend wiring
-**Status:** Not started
+**Status:** Done
 
-- [ ] Scaffold Node.js backend (Express or Fastify) in `/server`
-- [ ] Set up MySQL connection + choose ORM/query builder (Prisma recommended)
-- [ ] Write initial migration for: `signals`, `projects`, `project_scenes`, `scene_assets`, `project_exports`
-- [ ] Seed `signals` table with 5–10 hand-written rows for local dev
-- [ ] `GET /api/signals` returns seeded rows
-- [ ] Replace `src/data/signals.js` reads in `SignalsPage.jsx` with a real `fetch()` to `GET /api/signals`
-- [ ] Add loading + error states to `SignalsPage.jsx` for the fetch
-- [ ] Confirm env var loading (`.env` + `dotenv`) for `DATABASE_URL`
+- [x] Scaffold Node.js backend (Express or Fastify) in `/server`
+- [x] Set up MySQL connection + choose ORM/query builder (Prisma recommended)
+- [x] Write initial migration for: `signals`, `projects`, `project_scenes`, `scene_assets`, `project_exports`
+      — schema defined in `server/prisma/schema.prisma`; migration itself
+      must be generated locally with `npm run prisma:migrate -- --name init`
+      since it needs a live MySQL connection this environment doesn't have.
+- [x] Seed `signals` table with 5–10 hand-written rows for local dev
+      (`server/prisma/seed.js`, 6 rows; first two keep the `quantum-gps` /
+      `solid-state` ids so the existing mocked storyboards still resolve
+      until M3 wires real project creation)
+- [x] `GET /api/signals` returns seeded rows (`server/src/routes/signals.js`,
+      supports `?category=`)
+- [x] Replace `src/data/signals.js` reads in `SignalsPage.jsx` with a real
+      `fetch()` to `GET /api/signals` (proxied via `vite.config.js` →
+      `http://localhost:4000`)
+- [x] Add loading + error states to `SignalsPage.jsx` for the fetch
+- [x] Confirm env var loading (`.env` + `dotenv`) for `DATABASE_URL`
+      (`server/.env.example`, loaded via `dotenv/config` in `server.js`)
+
+**Known gap carried forward:** `SignalCard`'s "Direct this Reel" button only
+works for the two signals with matching mocked storyboards
+(`quantum-gps`, `solid-state`); the other 4 seeded signals show the button
+disabled, same as before. This clears itself in M3 when project creation
+is real. `frontend/src/data/signals.js` still supplies `swatchSets` (visual
+placeholders — Stage D/Pexels replaces these) and the client-side
+`categories` list, `frameworks`, and `storyboards` mock, all untouched.
 
 ---
 
@@ -152,3 +170,10 @@ _so the reasoning isn't lost. Example:_
 
 - `2026-08-26` — Confirmed 4-stage guided setup (length/framework/tone/audience) instead of framework-only; updated BUILD_PLAN §1 Stage C and added M4.
 - `2026-08-27` — Locked source strategy: suggested feed = RSS + Hacker News API + arXiv (all free); search & research share one priority-ranked cascade = arXiv/Semantic Scholar → Tavily → Brave Search, ranked so peer-reviewed sources always outrank general web on the same claim. Bing Search API and Google Custom Search ruled out (retired/sunsetting). Updated BUILD_PLAN §1, §3, §6 and TASK M1–M3.
+- `2026-08-27` — M0 complete: `/server` scaffolded (Express + Prisma/MySQL),
+  all 5 tables modeled in `schema.prisma`, `signals` seeded with 6 rows,
+  `GET /api/signals` live, `SignalsPage.jsx` fetches real data with
+  loading/error states. Repo is now split into `frontend/` + `server/` at
+  the root. Migration + seed still need to be run locally against a real
+  MySQL instance (see `server/README.md`) — not runnable in the sandbox
+  that produced this change.
