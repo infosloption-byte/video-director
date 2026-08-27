@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import PhonePreview from "../components/PhonePreview";
 import StepCard from "../components/StepCard";
 import SetupPanel from "../components/SetupPanel";
+import FinalizePanel from "../components/FinalizePanel";
 import { IconArrowLeft, IconInfo, IconArrowRight, IconCheck } from "../components/Icons";
 import { storyboards } from "../data/signals";
 import "../components/ui.css";
@@ -243,15 +244,13 @@ export default function StoryboardPage() {
   }
 
   if (realProject) {
-    const hasNarration = scenes.length > 0 && scenes.every((scene) => Boolean(scene.audioUrl && scene.wordTimestamps?.length));
-
     return (
       <div className="hx-page">
         <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
         <main className="container hx-board">
           <div className="hx-board__head">
             <div>
-              <p className="eyebrow">{project.status === "storyboard" ? "Setup locked" : "Research complete"}</p>
+              <p className="eyebrow">{tab === "Preview" ? "Finalize & export" : project.status === "storyboard" ? "Setup locked" : "Research complete"}</p>
               <h1 className="hx-board__title">{project.title}</h1>
             </div>
             <div className="hx-tabs" role="tablist" aria-label="Reel stages">
@@ -305,7 +304,7 @@ export default function StoryboardPage() {
                       <button className="btn btn-ghost" onClick={() => changeTab("Setup")}><IconArrowLeft className="btn-icon" /> Back to setup</button>
                       <div className="hx-board__actions-group">
                         <button className="btn btn-ghost" onClick={generateVoice} disabled={voiceLoading}>
-                          {voiceLoading ? "Generating narration…" : hasNarration ? "Regenerate narration" : "Generate narration"}
+                          {voiceLoading ? "Generating narration…" : "Generate narration"}
                         </button>
                         <button className="btn btn-cream" onClick={goToPreview} disabled={persisting || voiceLoading}>{persisting ? "Saving visuals…" : "Finalize preview →"}</button>
                       </div>
@@ -317,21 +316,16 @@ export default function StoryboardPage() {
           )}
 
           {tab === "Preview" && (
-            <section className="research-brief">
-              <p className="eyebrow">Finalize</p>
-              <h2>{renderStatus?.status === "completed" ? "MP4 render is ready." : "Storyboard ready for rendering."}</h2>
-              <p>{scenes.length} scenes generated with five pre-fetched visual options per scene. Your selected visuals have been saved.</p>
-              {renderError && <div className="storyboard-error"><strong>Render couldn't complete.</strong><span>{renderError}</span></div>}
-              {renderStatus && renderStatus.status !== "completed" && !renderError && <div className="storyboard-loading"><span className="eyebrow">Render status</span><strong>{renderStatus.status === "active" ? `Rendering video… ${renderStatus.progress || 0}%` : `Render ${renderStatus.status}…`}</strong></div>}
-              <div className="setup-actions">
-                <button className="btn btn-ghost" onClick={() => changeTab("Storyboard")} disabled={renderLoading}>Back to storyboard</button>
-                {renderStatus?.status === "completed" && renderStatus.renderUrl ? (
-                  <a className="btn btn-cream" href={renderStatus.renderUrl} target="_blank" rel="noreferrer">Open MP4 <IconArrowRight className="btn-icon" /></a>
-                ) : (
-                  <button className="btn btn-cream" onClick={renderProject} disabled={renderLoading}>{renderLoading ? `Rendering ${renderStatus?.progress || 0}%…` : "Render MP4 →"}</button>
-                )}
-              </div>
-            </section>
+            <FinalizePanel
+              projectId={id}
+              project={project}
+              scenes={scenes}
+              renderStatus={renderStatus}
+              renderLoading={renderLoading}
+              renderError={renderError}
+              onRender={renderProject}
+              onBack={() => changeTab("Storyboard")}
+            />
           )}
         </main>
       </div>
