@@ -6,6 +6,16 @@ import { synthesizeSpeech, narrationFileExists } from "../services/ttsService.js
 
 const router = Router();
 
+function normalizeAudioUrl(audioUrl, projectId, sceneId) {
+  if (!audioUrl) return null;
+  const value = String(audioUrl);
+  const legacy = `/api/audio/projects/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp3`;
+  if (value === legacy || value.includes(`/api/audio/projects/${projectId}/scenes/`)) {
+    return `/api/audio/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp3`;
+  }
+  return value;
+}
+
 function publicScene(scene) {
   return {
     id: scene.id,
@@ -16,7 +26,7 @@ function publicScene(scene) {
     whyLine: scene.whyLine,
     whyPicture: scene.whyPicture,
     brollSearchTerm: scene.brollSearchTerm,
-    audioUrl: scene.audioUrl,
+    audioUrl: normalizeAudioUrl(scene.audioUrl, scene.projectId, scene.id),
     wordTimestamps: scene.wordTimestamps || [],
     assets: (scene.assets || []).map((asset) => ({
       id: asset.id,
@@ -39,7 +49,7 @@ router.get("/projects/:id/scenes", async (req, res) => {
   try {
     const project = await loadProjectScenes(req.params.id);
     if (!project) return res.status(404).json({ error: "Project not found." });
-    res.json({ projectId: project.id, status: project.status, scenes: project.scenes.map(publicScene) });
+    res.json({ projectId: project.id, status: project.status, scenes: project.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })) });
   } catch (error) {
     console.error("GET /api/projects/:id/scenes failed:", error);
     res.status(500).json({ error: "Failed to load storyboard scenes." });
@@ -100,10 +110,11 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
     });
 
     const result = await loadProjectScenes(project.id);
-    res.status(201).json({ projectId: project.id, scenes: result.scenes.map(publicScene) });
+    res.status(201).json({ projectId: project.id, scenes: result.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })) });
   } catch (error) {
     console.error(`POST /api/projects/${req.params.id}/generate-scenes failed:`, error);
-    res.status(500).json({ error: error.message || "Failed to generate storyboard." });
+    const status = error?.status === 429 ? 429 : 500;
+    res.status(status).json({ error: error.message || "Failed to generate storyboard." });
   }
 });
 
@@ -135,7 +146,7 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
     await prisma.project.update({ where: { id: project.id }, data: { durationSeconds: totalDuration, cuts: updatedProject.scenes.length } });
 
     const finalProject = await loadProjectScenes(project.id);
-    res.status(201).json({ projectId: project.id, durationSeconds: totalDuration, scenes: finalProject.scenes.map(publicScene), generatedCount: generated.length });
+    res.status(201).json({ projectId: project.id, durationSeconds: totalDuration, scenes: finalProject.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })), generatedCount: generated.length });
   } catch (error) {
     console.error(`POST /api/projects/${req.params.id}/generate-voice failed:`, error);
     res.status(500).json({ error: error.message || "Failed to generate narration." });
