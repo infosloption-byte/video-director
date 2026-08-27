@@ -88,6 +88,7 @@ this file drift from the build plan.
 - `2026-08-28` — Fixed Gemini structured-output schema validation: `recommended_length_seconds` is now an integer schema without a numeric enum, and the service validates the allowed 15/30/45/60 values after decoding. Added retry handling for transient Gemini failures and resilient JSON extraction.
 - `2026-08-28` — Added live progress heartbeats for Reading, Cross-checking, and Drafting so percentage updates continue while long operations are running. Research polling now keeps retrying through temporary API/proxy interruptions without replacing an active project state with an error.
 - `2026-08-28` — Research terminal errors now stop the progress spinner/pulse, preserve the last known percentage, identify the failed stage, and stop client polling once the server reports `error`.
+- `2026-08-28` — Increased Gemini/source fetch timeouts to tolerate slower provider responses; retry handling now also catches `TimeoutError` so transient generation timeouts can recover instead of failing immediately.
 
 ---
 
@@ -145,6 +146,7 @@ this file drift from the build plan.
 - Added Storyboard narration controls so users can generate/regenerate narration without triggering TTS on every page load; the controls and preview remain responsive at narrow widths.
 - Runtime verification requires a valid local ElevenLabs API key and network access. The implementation is complete, but provider-backed audio generation cannot be executed in this environment.
 - `2026-08-27` — Fixed the generated-audio 404: TTS now writes MP3 files under `storage/audio/<projectId>/scenes/<sceneId>.mp3`, matching the `/api/audio/projects/<projectId>/scenes/<sceneId>.mp3` URL exposed by Express. Previously the file was written one directory too high, causing `ENOENT`/404 after successful TTS generation.
+- `2026-08-28` — Added post-write file verification and a narration-status endpoint; missing narration files are now detected explicitly instead of surfacing as opaque Remotion/Express `ENOENT` errors.
 
 ## M7 — Rendering
 **Status:** Done
@@ -164,13 +166,24 @@ this file drift from the build plan.
 - Added `REDIS_URL` and `REMOTION_BASE_URL` to `server/.env.example` and removed the restricted ElevenLabs library voice default from the example configuration.
 - Local verification still requires `npm install` in `/server`, a running Redis instance, working MySQL data, and the existing Gemini/Pexels/ElevenLabs setup. No Prisma migration is required for M7.
 - `2026-08-28` — Fixed BullMQ Redis queue configuration by parsing `REDIS_URL` into supported host/port/auth/TLS options instead of passing the URL as an unsupported queue option. Missing Redis now fails fast without the repeated `ECONNREFUSED` / `doc.split` error storm.
+- `2026-08-28` — Added Remotion `registerRoot(RemotionRoot)` to the rendering entry point so the worker can bundle the Composition without the "does not contain registerRoot" error.
+- `2026-08-28` — Render preflight now checks that every scene has persisted narration and that its MP3 exists on disk; rendering returns a clear `NARRATION_MISSING` response instead of reaching Remotion with a missing audio file.
 
 ## M8 — Finalize & export
-**Status:** Not started
+**Status:** Done
 
-- [ ] Build export service
-- [ ] Export endpoint
-- [ ] Rework PreviewPanel into Finalize view with MP4/SRT/SEO/script outputs
+- [x] Build export service
+- [x] Export endpoint
+- [x] Rework PreviewPanel into Finalize view with MP4/SRT/SEO/script outputs
+
+**M8 implementation notes:**
+- Added `server/src/services/exportService.js` to build SRT captions from the persisted word timestamps with scene-time offsets, generate a plain-text script, and create an SEO caption fallback when one is not already stored on the project.
+- Added `GET /api/projects/:id/export` to generate/download the SRT and script files and expose the rendered MP4 URL plus SEO caption.
+- Added `GET /api/projects/:id/export-status` for lightweight finalize-page refreshes.
+- Added `/api/export-files/...` static serving and `GET /api/projects/:id` full project summary support.
+- Added responsive `FinalizePanel.jsx` and `FinalizePanel.css`; the real Project Preview stage is now a concrete Finalize & Export screen with runtime/cuts/framework/narration status, MP4 rendering/opening, SRT download, script download, SEO caption copy, and back-to-storyboard navigation.
+- No Prisma migration was required because `seo_caption` and `project_exports` were already present in the M0 schema.
+- Local end-to-end verification still requires the running MySQL database, Memurai/Redis, Gemini, Pexels, ElevenLabs, and Remotion/Chromium environment.
 
 ## M9 — Direct-to-Facebook publish (optional, last)
 **Status:** Not started
@@ -191,7 +204,7 @@ this file drift from the build plan.
 - `2026-08-27` — M3 complete in code: research source fetching, M2 cascade cross-checking, Gemini structured research brief, asynchronous project/research endpoints, search-signal persistence on selection, research progress UI, completed research-brief view, and environment configuration. External Gemini/source runtime verification remains a local setup requirement.
 - `2026-08-27` — Local API hardening: disabled automatic startup scraping by default and added process-level error logging/graceful shutdown so third-party feed failures do not take the development API down.
 - `2026-08-27` — M4 complete: guided setup suggestions, setup persistence, monetization guardrails, responsive selection-only SetupPanel, and Research → Setup → Storyboard stage navigation.
-- `2026-08-27` — Fixed the Guided Setup deep-link bug where `?stage=setup` did not match the capitalized `Setup` tab label and therefore rendered a blank stage; canonical stage normalization and URL synchronization are now in place.
+- `2026-08-27` — Fixed the Guided Setup deep-link routing bug where `?stage=setup` did not match the capitalized `Setup` tab label and therefore rendered a blank stage; canonical stage normalization and URL synchronization are now in place.
 - `2026-08-27` — Fixed the StoryboardPage maximum-update-depth regression by deriving the active stage from the URL instead of maintaining a second synchronized React state, preventing the Setup → Storyboard transition from looping.
 - `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.
 - `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local provider runtime verification remains a setup requirement.
@@ -199,3 +212,6 @@ this file drift from the build plan.
 - `2026-08-27` — M7 complete in code: Remotion composition, render service, BullMQ/Redis worker, render endpoints, MP4 serving, and Finalize render polling. Local Redis/Chromium/API-key verification remains a setup requirement.
 - `2026-08-28` — Repaired Gemini research schema validation, added in-stage live research progress heartbeats, made browser polling resilient to temporary API interruptions, and made failed research states terminal so loading animations stop cleanly.
 - `2026-08-28` — Hardened the BullMQ Redis queue configuration to prevent the unsupported URL-option / reconnect storm seen while Redis was unavailable. Redis is still required for actual M7 rendering.
+- `2026-08-28` — Fixed Remotion render initialization by registering the root in `src/remotion/index.jsx`, preventing the worker from failing on the missing `registerRoot()` entry point.
+- `2026-08-28` — Hardened narration storage/rendering by verifying MP3 files after TTS writes and validating all scene narration before queueing a Remotion render.
+- `2026-08-28` — M8 complete: added export service/endpoints/static serving and replaced the real-project Preview view with a responsive Finalize & Export panel for MP4, SRT, plain-text script, and SEO caption copy.
