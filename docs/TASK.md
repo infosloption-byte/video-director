@@ -141,6 +141,7 @@ this file drift from the build plan.
 - Upgraded `PhonePreview.jsx` to use the scene narration as the playback source, track real audio time, and highlight the currently spoken word from the stored timestamps. Scenes without generated narration retain the existing preview behavior.
 - Added Storyboard narration controls so users can generate/regenerate narration without triggering TTS on every page load; the controls and preview remain responsive at narrow widths.
 - Runtime verification requires a valid local ElevenLabs API key and network access. The implementation is complete, but provider-backed audio generation cannot be executed in this environment.
+- `2026-08-27` — Fixed the generated-audio 404: TTS now writes MP3 files under `storage/audio/<projectId>/scenes/<sceneId>.mp3`, matching the `/api/audio/projects/:projectId/scenes/:sceneId.mp3` URL exposed by Express. Previously the file was written one directory too high, causing `ENOENT`/404 after successful TTS generation.
 
 ## M7 — Rendering
 **Status:** Not started
@@ -181,3 +182,4 @@ this file drift from the build plan.
 - `2026-08-27` — Fixed the StoryboardPage maximum-update-depth regression by deriving the active stage from the URL instead of maintaining a second synchronized React state, preventing the Setup → Storyboard transition from looping.
 - `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.
 - `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local ElevenLabs API-key verification remains required.
+- `2026-08-27` — Fixed M6 audio URL/storage mismatch: generated narration files are now stored in the `scenes/` subdirectory expected by the public audio route.
