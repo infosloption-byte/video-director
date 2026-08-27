@@ -2,7 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { generateStoryboard } from "../services/storyboardService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
-import { synthesizeSpeech } from "../services/ttsService.js";
+import { synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
 
 const router = Router();
 
@@ -118,12 +118,7 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
 
     const generated = [];
     for (const scene of project.scenes) {
-      const narration = await synthesizeSpeech({
-        projectId: project.id,
-        sceneId: scene.id,
-        text: scene.spokenText,
-      });
-
+      const narration = await synthesizeSpeech({ projectId: project.id, sceneId: scene.id, text: scene.spokenText });
       await prisma.projectScene.update({
         where: { id: scene.id },
         data: {
@@ -137,18 +132,10 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
 
     const updatedProject = await loadProjectScenes(project.id);
     const totalDuration = updatedProject.scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
-    await prisma.project.update({
-      where: { id: project.id },
-      data: { durationSeconds: totalDuration, cuts: updatedProject.scenes.length },
-    });
+    await prisma.project.update({ where: { id: project.id }, data: { durationSeconds: totalDuration, cuts: updatedProject.scenes.length } });
 
     const finalProject = await loadProjectScenes(project.id);
-    res.status(201).json({
-      projectId: project.id,
-      durationSeconds: totalDuration,
-      scenes: finalProject.scenes.map(publicScene),
-      generatedCount: generated.length,
-    });
+    res.status(201).json({ projectId: project.id, durationSeconds: totalDuration, scenes: finalProject.scenes.map(publicScene), generatedCount: generated.length });
   } catch (error) {
     console.error(`POST /api/projects/${req.params.id}/generate-voice failed:`, error);
     res.status(500).json({ error: error.message || "Failed to generate narration." });
@@ -169,6 +156,21 @@ router.patch("/scenes/:sceneId/select-asset", async (req, res) => {
   } catch (error) {
     console.error("PATCH /api/scenes/:sceneId/select-asset failed:", error);
     res.status(500).json({ error: "Failed to select scene asset." });
+  }
+});
+
+router.get("/projects/:id/narration-status", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { scenes: { orderBy: { sceneOrder: "asc" } } } });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    const scenes = await Promise.all(project.scenes.map(async (scene) => ({
+      sceneId: scene.id,
+      ready: Boolean(scene.audioUrl && await narrationFileExists(project.id, scene.id) && Array.isArray(scene.wordTimestamps) && scene.wordTimestamps.length > 0),
+    })));
+    res.json({ projectId: project.id, ready: scenes.length > 0 && scenes.every((scene) => scene.ready), scenes });
+  } catch (error) {
+    console.error(`GET /api/projects/${req.params.id}/narration-status failed:`, error);
+    res.status(500).json({ error: "Failed to inspect narration files." });
   }
 });
 
