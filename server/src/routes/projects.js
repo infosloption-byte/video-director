@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { researchSignal } from "../services/researchService.js";
 import { buildSetupSuggestions, validateSetup } from "../services/setupService.js";
+import { publishFacebookReel } from "../services/facebookService.js";
 
 const router = Router();
 const researchJobs = new Map();
@@ -192,6 +193,27 @@ router.post("/:id/setup", async (req, res) => {
   } catch (error) {
     console.error("POST /api/projects/:id/setup failed:", error);
     res.status(500).json({ error: "Failed to save setup choices." });
+  }
+});
+
+router.post("/:id/publish-facebook", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    if (!project.renderUrl) return res.status(409).json({ error: "Render the final MP4 before publishing to Facebook." });
+
+    const result = await publishFacebookReel({
+      project,
+      title: req.body?.title || project.title,
+      description: req.body?.description || project.seoCaption || project.title,
+    });
+
+    await prisma.project.update({ where: { id: project.id }, data: { status: "published" } });
+    res.status(201).json({ projectId: project.id, ...result });
+  } catch (error) {
+    console.error(`POST /api/projects/${req.params.id}/publish-facebook failed:`, error);
+    const status = error.status === 401 || error.status === 403 ? 502 : error.status === 409 ? 409 : 503;
+    res.status(status).json({ error: error.message || "Facebook publishing failed." });
   }
 });
 
