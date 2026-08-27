@@ -25,7 +25,7 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
 
   useEffect(() => {
     void loadExports();
-  }, [projectId, renderStatus?.status]);
+  }, [projectId, renderStatus?.status, renderStatus?.renderUrl]);
 
   async function buildExports() {
     setExportLoading(true);
@@ -55,7 +55,8 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
 
   const scriptedTime = scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
   const narrationReady = scenes.length > 0 && scenes.every((scene) => Boolean(scene.audioUrl && scene.wordTimestamps?.length));
-  const renderComplete = renderStatus?.status === "completed" && renderStatus?.renderUrl;
+  const renderUrl = renderStatus?.renderUrl || project?.renderUrl || exports?.mp4Url || null;
+  const renderComplete = Boolean(renderUrl) && (renderStatus?.status === "completed" || !renderStatus);
 
   return (
     <section className="finalize-panel">
@@ -94,7 +95,7 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
           <p>{renderStatus?.status === "active" ? `Rendering video… ${Number(renderStatus.progress || 0)}%` : "Remotion combines the selected B-roll, narration and synced captions into the final 9:16 video."}</p>
         </div>
         {renderComplete ? (
-          <a className="btn btn-cream" href={renderStatus.renderUrl} target="_blank" rel="noreferrer">Open MP4 <IconArrowRight className="btn-icon" /></a>
+          <a className="btn btn-cream" href={renderUrl} target="_blank" rel="noreferrer">Open MP4 <IconArrowRight className="btn-icon" /></a>
         ) : (
           <button className="btn btn-cream" onClick={onRender} disabled={renderLoading || !narrationReady}>
             {renderLoading ? `Rendering ${Number(renderStatus?.progress || 0)}%…` : "Render MP4 →"}
