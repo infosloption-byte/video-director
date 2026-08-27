@@ -1,8 +1,8 @@
 # Helix — Task & Milestone Tracker
 
 > Update this file as you go. Check items off (`- [x]`) when done, and set
-> each milestone's **Status** line as you move through it. If scope changes,
-> update `BUILD_PLAN.md` first, then adjust the tasks here to match.
+each milestone's **Status** line as you move through it. If scope changes,
+update `BUILD_PLAN.md` first, then adjust the tasks here to match.
 
 **Status legend:** `Not started` · `In progress` · `Blocked` · `Done`
 
@@ -65,22 +65,31 @@ placeholders — Stage D/Pexels replaces these) and the client-side
 ---
 
 ## M2 — Search signals (Stage A, part 2)
-**Status:** Not started
+**Status:** In progress
 **Sources locked in:** combined cascade — arXiv/Semantic Scholar → Tavily → Brave Search (see BUILD_PLAN §6.2)
 
-- [ ] Build `semanticScholarClient.js` (free, no key — paper search by keyword)
-- [ ] Build `tavilyClient.js` (`TAVILY_API_KEY`, 1,000 free queries/mo)
-- [ ] Build `braveSearchClient.js` (`BRAVE_API_KEY`, 2,000 free queries/mo)
-- [ ] Build shared `sourceCascade.js`:
-  - [ ] Run all three sources in parallel per query
-  - [ ] Tag every result with its `source_reliability` tier (`peer_reviewed` / `ai_search` / `general_web`)
-  - [ ] Dedupe by URL + near-duplicate title
-  - [ ] Rank merged results: tier first, then recency/relevance within tier
-- [ ] `GET /api/signals/search?q=` — calls `sourceCascade.js`, returns same shape as suggested signals
-- [ ] Persist only the signal the user actually selects (not every search result)
-- [ ] Add search input to `SignalsPage.jsx` (near the category pills)
-- [ ] Wire search input to the new endpoint, reuse `SignalCard` with no changes
-- [ ] Handle empty/no-result search state in the UI
+- [x] Build `semanticScholarClient.js` (free, no key — paper search by keyword)
+- [x] Build `tavilyClient.js` (`TAVILY_API_KEY`, 1,000 free queries/mo)
+- [x] Build `braveSearchClient.js` (`BRAVE_API_KEY`, 2,000 free queries/mo)
+- [x] Build shared `sourceCascade.js`:
+  - [x] Run all three sources in parallel per query
+  - [x] Tag every result with its `source_reliability` tier (`peer_reviewed` / `ai_search` / `general_web`)
+  - [x] Dedupe by URL + near-duplicate title
+  - [x] Rank merged results: tier first, then recency/relevance within tier
+- [x] `GET /api/signals/search?q=` — calls `sourceCascade.js`, returns same shape as suggested signals
+- [ ] Persist only the signal the user actually selects (not every search result) — deferred to M3 project creation so search results remain ephemeral as specified
+- [x] Add search input to `SignalsPage.jsx` (near the category pills)
+- [x] Wire search input to the new endpoint, reuse `SignalCard` with no changes
+- [x] Handle empty/no-result search state in the UI
+
+**M2 implementation notes:**
+- Added `server/src/services/semanticScholarClient.js`, `tavilyClient.js`, and `braveSearchClient.js` using native `fetch`, with optional API-key behavior for Tavily/Brave.
+- Added `server/src/services/sourceCascade.js` to query all three providers in parallel, attach reliability tiers, deduplicate URL/title matches, and rank peer-reviewed sources ahead of AI-curated/general-web results before recency/relevance.
+- Added `GET /api/signals/search?q=` to return ephemeral results in the same signal shape used by `SignalCard`.
+- Added responsive Signals search UI with submit/clear controls, search loading/error/empty states, and category filtering.
+- Added `TAVILY_API_KEY` and `BRAVE_API_KEY` to `server/.env.example`.
+- Runtime provider verification remains a local setup step because this environment cannot install dependencies or make external API calls. Semantic Scholar works without a key; Tavily/Brave require their environment variables.
+- Search-originated signals are deliberately not written to `signals` during search; persistence is deferred to M3 when selecting a signal creates a project and gives the result a durable lifecycle.
 
 ---
 
@@ -102,7 +111,7 @@ placeholders — Stage D/Pexels replaces these) and the client-side
 ## M4 — Guided setup stage (Stage C)
 **Status:** Not started
 
-- [ ] `GET /api/projects/:id/setup/suggestions` — returns AI defaults (length, framework, tone, audience) + reasoning, reusing the research brief
+- [ ] `GET /api/projects/:id/setup/suggestions` — returns AI defaults (length, framework (+reasoning), tone, audience)
 - [ ] `POST /api/projects/:id/setup` — saves user's confirmed (or overridden) choices
 - [ ] Write the monetization-guardrail logic: if top-fit framework has a flag, fall back to next-best safe option and say why (BUILD_PLAN §7)
 - [ ] New frontend component `SetupPanel.jsx`:
@@ -180,3 +189,4 @@ _so the reasoning isn't lost. Example:_
 - `2026-08-27` — Locked source strategy: suggested feed = RSS + Hacker News API + arXiv (all free); search & research share one priority-ranked cascade = arXiv/Semantic Scholar → Tavily → Brave Search, ranked so peer-reviewed sources always outrank general web on the same claim. Bing Search API and Google Custom Search ruled out (retired/sunsetting). Updated BUILD_PLAN §1, §3, §6 and TASK M1–M3.
 - `2026-08-27` — M0 complete: `/server` scaffolded (Express + Prisma/MySQL), all 5 tables modeled in `schema.prisma`, `signals` seeded with 6 rows, `GET /api/signals` live, `SignalsPage.jsx` fetches real data with loading/error states. Repo is now split into `frontend/` + `server/` at the root. Migration + seed still need to be run locally against a real MySQL instance (see `server/README.md`) — not runnable in the sandbox that produced this change.
 - `2026-08-27` — M1 implementation complete: added RSS + Hacker News + arXiv ingestion, source normalization, URL/title deduplication, server-side heat scoring, `why_reasoning` generation, reliability/source tagging, persistence/archival of suggested signals, and a four-hour cron with optional startup scrape. Runtime database verification remains a local setup step because this environment has no live MySQL connection.
+- `2026-08-27` — M2 search implementation started: added Semantic Scholar/Tavily/Brave clients, parallel source cascade, reliability-aware dedup/ranking, `/api/signals/search`, and responsive Signals search/category UI. Search results remain ephemeral until M3 project selection persists the chosen signal.
