@@ -2,7 +2,8 @@
 
 > Update this file as you go. Check items off (`- [x]`) when done, and set
 each milestone's **Status** line as you move through it. If scope changes,
-update `BUILD_PLAN.md` first, then adjust the tasks here to match.
+update `BUILD_PLAN.md` first, then adjust the tasks here to match. Don't let
+this file drift from the build plan.
 
 **Status legend:** `Not started` · `In progress` · `Blocked` · `Done`
 
@@ -88,13 +89,23 @@ update `BUILD_PLAN.md` first, then adjust the tasks here to match.
 ---
 
 ## M4 — Guided setup stage (Stage C)
-**Status:** Not started
+**Status:** Done
 
-- [ ] `GET /api/projects/:id/setup/suggestions` — returns AI defaults (length, framework (+reasoning), tone, audience)
-- [ ] `POST /api/projects/:id/setup` — saves user's confirmed (or overridden) choices
-- [ ] Write the monetization-guardrail logic
-- [ ] New frontend component `SetupPanel.jsx`
-- [ ] Insert Setup as a stage between Research and Storyboard in `StoryboardPage.jsx`'s tab stepper
+- [x] `GET /api/projects/:id/setup/suggestions` — returns AI defaults (length, framework (+reasoning), tone, audience)
+- [x] `POST /api/projects/:id/setup` — saves user's confirmed (or overridden) choices
+- [x] Write the monetization-guardrail logic
+- [x] New frontend component `SetupPanel.jsx`
+- [x] Insert Setup as a stage between Research and Storyboard in `StoryboardPage.jsx`'s tab stepper
+
+**M4 implementation notes:**
+- Added `server/src/services/setupService.js` to normalize the M3 Gemini recommendations into the four guided setup choices and provide deterministic reasoning/fallbacks.
+- Added monetization guardrails: a high-severity research flag can block the risky Disruptor framework and automatically recommend the safer How It Works framework.
+- Added `GET /api/projects/:id/setup/suggestions` and `POST /api/projects/:id/setup`; confirmed setup choices are persisted to the existing project fields and project status advances to `storyboard`.
+- Added responsive `SetupPanel.jsx` with selection-only controls for 15/30/45/60s, framework, tone, and audience. AI recommendations remain pre-selected but every choice can be overridden in one tap.
+- Connected Research completion to the new Setup stage and added Research / Setup / Storyboard / Preview stage navigation for real projects. Existing legacy demo storyboards remain available for backward compatibility.
+- Runtime API/Gemini behavior should be verified locally with the already-working research flow; no additional database migration is required because the M0 schema already contains the Stage C project fields.
+
+---
 
 ## M5 — Storyboard generation + live preview fix (Stage D)
 **Status:** Not started
@@ -148,3 +159,4 @@ update `BUILD_PLAN.md` first, then adjust the tasks here to match.
 - `2026-08-27` — M2 complete: Semantic Scholar/Tavily/Brave search cascade, reliability-aware ranking/deduplication, `/api/signals/search`, and Signals search/filter UI. Search-result persistence intentionally completed as part of M3 selection/project creation.
 - `2026-08-27` — M3 complete in code: research source fetching, M2 cascade cross-checking, Gemini structured research brief, asynchronous project/research endpoints, search-signal persistence on selection, research progress UI, completed research-brief view, and environment configuration. External Gemini/source runtime verification remains a local setup requirement.
 - `2026-08-27` — Local API hardening: disabled automatic startup scraping by default and added process-level error logging/graceful shutdown so third-party feed failures do not take the development API down.
+- `2026-08-27` — M4 complete: guided setup suggestions, setup persistence, monetization guardrails, responsive selection-only SetupPanel, and Research → Setup → Storyboard stage navigation.
