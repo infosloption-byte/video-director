@@ -83,6 +83,7 @@ update `BUILD_PLAN.md` first, then adjust the tasks here to match.
 - Added `ResearchPage.jsx`, `ResearchProgress.jsx`, and responsive research-brief styling. The completed brief shows the mechanism summary, supporting sources/reliability, and monetization notes.
 - Added `GEMINI_API_KEY` and `GEMINI_MODEL` to `server/.env.example`.
 - Runtime verification of Gemini and external source fetching still requires local network/API-key access; the implementation is complete but this environment cannot perform that external end-to-end test.
+- `2026-08-27` — Hardened API startup: suggested-signal scraping is now opt-in at boot (`SIGNALS_SCRAPE_ON_START=true`), so temporary RSS/Hacker News outages cannot interfere with the local API. Added process-level rejection/exception logging and graceful Prisma shutdown handling.
 
 ---
 
@@ -146,3 +147,4 @@ update `BUILD_PLAN.md` first, then adjust the tasks here to match.
 - `2026-08-27` — M1 implementation complete: RSS + Hacker News + arXiv ingestion, normalization, deduplication, heat scoring, reasoning, reliability tagging, persistence, archival, and four-hour cron.
 - `2026-08-27` — M2 complete: Semantic Scholar/Tavily/Brave search cascade, reliability-aware ranking/deduplication, `/api/signals/search`, and Signals search/filter UI. Search-result persistence intentionally completed as part of M3 selection/project creation.
 - `2026-08-27` — M3 complete in code: research source fetching, M2 cascade cross-checking, Gemini structured research brief, asynchronous project/research endpoints, search-signal persistence on selection, research progress UI, completed research-brief view, and environment configuration. External Gemini/source runtime verification remains a local setup requirement.
+- `2026-08-27` — Local API hardening: disabled automatic startup scraping by default and added process-level error logging/graceful shutdown so third-party feed failures do not take the development API down.
