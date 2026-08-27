@@ -141,16 +141,25 @@ this file drift from the build plan.
 - Upgraded `PhonePreview.jsx` to use the scene narration as the playback source, track real audio time, and highlight the currently spoken word from the stored timestamps. Scenes without generated narration retain the existing preview behavior.
 - Added Storyboard narration controls so users can generate/regenerate narration without triggering TTS on every page load; the controls and preview remain responsive at narrow widths.
 - Runtime verification requires a valid local ElevenLabs API key and network access. The implementation is complete, but provider-backed audio generation cannot be executed in this environment.
-- `2026-08-27` — Fixed the generated-audio 404: TTS now writes MP3 files under `storage/audio/<projectId>/scenes/<sceneId>.mp3`, matching the `/api/audio/projects/:projectId/scenes/:sceneId.mp3` URL exposed by Express. Previously the file was written one directory too high, causing `ENOENT`/404 after successful TTS generation.
+- `2026-08-27` — Fixed the generated-audio 404: TTS now writes MP3 files under `storage/audio/<projectId>/scenes/<sceneId>.mp3`, matching the `/api/audio/projects/<projectId>/scenes/<sceneId>.mp3` URL exposed by Express. Previously the file was written one directory too high, causing `ENOENT`/404 after successful TTS generation.
 
 ## M7 — Rendering
-**Status:** Not started
+**Status:** Done
 
-- [ ] Add Remotion
-- [ ] Build Composition
-- [ ] Redis + BullMQ render queue
-- [ ] Render endpoints
-- [ ] Wire Finalize render flow
+- [x] Add Remotion
+- [x] Build Composition
+- [x] Redis + BullMQ render queue
+- [x] Render endpoints
+- [x] Wire Finalize render flow
+
+**M7 implementation notes:**
+- Added Remotion rendering dependencies and a 1080×1920 vertical `HelixReel` composition that sequences selected Pexels visuals, synced scene narration, and word-level captions.
+- Added `renderService.js` to bundle the Remotion composition, render H.264/AAC MP4 output, persist it under `storage/renders/<projectId>/reel.mp4`, and save the public `renderUrl` on the project.
+- Added BullMQ + Redis queue/worker support with one render at a time, progress reporting, retry-safe job IDs, and graceful disabling when `REDIS_URL` is not configured.
+- Added `POST /api/projects/:id/render` and `GET /api/projects/:id/render-status`, plus static serving for completed MP4 files.
+- Wired the real-project Finalize/Preview stage to queue the render, poll progress, and expose the completed MP4. Persisted render URLs are also included in the project status response.
+- Added `REDIS_URL` and `REMOTION_BASE_URL` to `server/.env.example` and removed the restricted ElevenLabs library voice default from the example configuration.
+- Local verification still requires `npm install` in `/server`, a running Redis instance, working MySQL data, and the existing Gemini/Pexels/ElevenLabs setup. No Prisma migration is required for M7.
 
 ## M8 — Finalize & export
 **Status:** Not started
@@ -183,3 +192,4 @@ this file drift from the build plan.
 - `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.
 - `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local ElevenLabs API-key verification remains required.
 - `2026-08-27` — Fixed M6 audio URL/storage mismatch: generated narration files are now stored in the `scenes/` subdirectory expected by the public audio route.
+- `2026-08-27` — M7 complete in code: Remotion composition, BullMQ/Redis rendering, render status endpoints, MP4 persistence/serving, and Finalize render flow are implemented. Local Redis/npm dependency installation and end-to-end render verification remain required.
