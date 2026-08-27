@@ -11,22 +11,41 @@ function redisUrl() {
   return process.env.REDIS_URL?.trim() || "";
 }
 
-function queueConnectionOptions() {
-  const url = redisUrl();
-  if (!url) throw new Error("Render queue is not configured. Set REDIS_URL in server/.env.");
-  return {
-    url,
+function parseRedisConfig() {
+  const raw = redisUrl();
+  if (!raw) throw new Error("Render queue is not configured. Set REDIS_URL in server/.env.");
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("Invalid REDIS_URL. Use redis://127.0.0.1:6379 or rediss://...");
+  }
+
+  if (!['redis:', 'rediss:'].includes(parsed.protocol)) {
+    throw new Error("Invalid REDIS_URL protocol. Use redis:// or rediss://.");
+  }
+
+  const config = {
+    host: parsed.hostname,
+    port: Number(parsed.port || 6379),
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
     connectTimeout: 1500,
     retryStrategy: () => null,
   };
+
+  if (parsed.username) config.username = decodeURIComponent(parsed.username);
+  if (parsed.password) config.password = decodeURIComponent(parsed.password);
+  if (parsed.pathname && parsed.pathname !== "/") config.db = Number(parsed.pathname.slice(1));
+  if (parsed.protocol === "rediss:") config.tls = {};
+  return config;
 }
 
 function workerConnection() {
-  const url = redisUrl();
-  if (!url) throw new Error("Render queue is not configured. Set REDIS_URL in server/.env.");
-  return new IORedis(url, {
+  const raw = redisUrl();
+  if (!raw) throw new Error("Render queue is not configured. Set REDIS_URL in server/.env.");
+  return new IORedis(raw, {
     maxRetriesPerRequest: null,
     connectTimeout: 3000,
     retryStrategy: (times) => Math.min(Math.max(times * 1000, 1000), 10000),
@@ -34,7 +53,12 @@ function workerConnection() {
 }
 
 export function getRenderQueue() {
-  if (!queue) queue = new Queue(QUEUE_NAME, { connection: queueConnectionOptions() });
+  if (!queue) {
+    queue = new Queue(QUEUE_NAME, { connection: parseRedisConfig() });
+    queue.on("error", (error) => {
+      console.warn(`[render] Queue Redis error: ${error.message}`);
+    });
+  }
   return queue;
 }
 
@@ -54,9 +78,9 @@ export async function enqueueRender(projectId) {
 }
 
 async function canReachRedis() {
-  const url = redisUrl();
-  if (!url) return false;
-  const client = new IORedis(url, {
+  const raw = redisUrl();
+  if (!raw) return false;
+  const client = new IORedis(raw, {
     lazyConnect: true,
     maxRetriesPerRequest: 1,
     enableOfflineQueue: false,
