@@ -24,7 +24,7 @@ async function narrationIsAvailable(projectId, scene) {
   }
 }
 
-function toRenderScene(scene, projectId) {
+function toRenderScene(scene) {
   const selectedAsset = scene.assets?.find((asset) => asset.isSelected) || scene.assets?.[0] || null;
   return {
     id: scene.id,
@@ -35,7 +35,6 @@ function toRenderScene(scene, projectId) {
     wordTimestamps: scene.wordTimestamps || [],
     selectedAsset: selectedAsset ? { videoUrl: selectedAsset.videoUrl, thumbnailUrl: selectedAsset.thumbnailUrl } : null,
     audioUrl: scene.audioUrl ? `${getBaseUrl()}${scene.audioUrl}` : null,
-    narrationAvailable: scene.audioUrl ? undefined : await narrationIsAvailable(projectId, scene),
   };
 }
 
@@ -74,7 +73,7 @@ export async function renderProject(projectId) {
     throw new Error(`Narration is missing for scene${missingNarration.length > 1 ? "s" : ""} ${missingNarration.join(", ")}. Generate narration again before rendering.`);
   }
 
-  const scenes = project.scenes.map((scene) => toRenderScene(scene, project.id));
+  const scenes = project.scenes.map(toRenderScene);
   const serveUrl = await getBundle();
   const inputProps = { scenes };
   const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps });
