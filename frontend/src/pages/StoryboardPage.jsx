@@ -36,6 +36,9 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     title: scene.title,
     line: scene.spokenText,
     time: formatDuration(scene.durationSeconds),
+    durationSeconds: Number(scene.durationSeconds || 0),
+    audioUrl: scene.audioUrl,
+    wordTimestamps: scene.wordTimestamps || [],
     whyLine: scene.whyLine || "Helix uses the strongest evidence-led line for this beat.",
     whyPicture: scene.whyPicture || "The visual makes the mechanism concrete before the next cut.",
     thumb: selectedAsset ? `url(${selectedAsset.thumbnailUrl}) center / cover no-repeat` : "linear-gradient(145deg, #17304a, #09131f)",
@@ -60,6 +63,8 @@ export default function StoryboardPage() {
   const [sceneError, setSceneError] = useState("");
   const [sceneRetry, setSceneRetry] = useState(0);
   const [persisting, setPersisting] = useState(false);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +93,7 @@ export default function StoryboardPage() {
     async function loadScenes() {
       setSceneLoading(true);
       setSceneError("");
+      setVoiceError("");
       try {
         const response = await fetch(`/api/projects/${id}/scenes`);
         const data = await response.json().catch(() => ({}));
@@ -152,6 +158,24 @@ export default function StoryboardPage() {
     }
   }
 
+  async function generateVoice() {
+    if (!scenes.length || voiceLoading) return;
+    setVoiceLoading(true);
+    setVoiceError("");
+    try {
+      const response = await fetch(`/api/projects/${id}/generate-voice`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to generate narration.");
+      setScenes(data.scenes || []);
+      setProject((current) => ({ ...current, durationSeconds: data.durationSeconds ?? current?.durationSeconds }));
+      setPlaying(false);
+    } catch (error) {
+      setVoiceError(error.message || "Failed to generate narration.");
+    } finally {
+      setVoiceLoading(false);
+    }
+  }
+
   async function goToPreview() {
     if (realProject) {
       const saved = await persistSelections();
@@ -183,6 +207,8 @@ export default function StoryboardPage() {
   }
 
   if (realProject) {
+    const hasNarration = scenes.length > 0 && scenes.every((scene) => Boolean(scene.audioUrl && scene.wordTimestamps?.length));
+
     return (
       <div className="hx-page">
         <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
@@ -194,7 +220,7 @@ export default function StoryboardPage() {
             </div>
             <div className="hx-tabs" role="tablist" aria-label="Reel stages">
               {TABS.map((t) => (
-                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting}>
+                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting || voiceLoading}>
                   <span className="mono-label hx-tab__n">{t.n}</span> {t.label}
                 </button>
               ))}
@@ -225,6 +251,7 @@ export default function StoryboardPage() {
               <div className="hx-board__content">
                 <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {scenes[0]?.spokenText || "Helix is building the first scene…"}</p></div>
                 {sceneError && <div className="storyboard-error"><strong>Storyboard couldn't load.</strong><span>{sceneError}</span><button className="btn btn-ghost" onClick={() => setSceneRetry((value) => value + 1)}>Retry</button></div>}
+                {voiceError && <div className="storyboard-error"><strong>Narration couldn't be generated.</strong><span>{voiceError}</span></div>}
                 {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Helix is writing the scenes and fetching five visuals per cut…</strong></div>}
                 {!sceneLoading && !sceneError && scenes.length > 0 && (
                   <>
@@ -240,7 +267,12 @@ export default function StoryboardPage() {
                     </div>
                     <div className="hx-board__actions">
                       <button className="btn btn-ghost" onClick={() => changeTab("Setup")}><IconArrowLeft className="btn-icon" /> Back to setup</button>
-                      <button className="btn btn-cream" onClick={goToPreview} disabled={persisting}>{persisting ? "Saving visuals…" : "Finalize preview →"}</button>
+                      <div className="hx-board__actions-group">
+                        <button className="btn btn-ghost" onClick={generateVoice} disabled={voiceLoading}>
+                          {voiceLoading ? "Generating narration…" : hasNarration ? "Regenerate narration" : "Generate narration"}
+                        </button>
+                        <button className="btn btn-cream" onClick={goToPreview} disabled={persisting || voiceLoading}>{persisting ? "Saving visuals…" : "Finalize preview →"}</button>
+                      </div>
                     </div>
                   </>
                 )}
