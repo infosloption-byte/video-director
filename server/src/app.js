@@ -13,18 +13,10 @@ app.use(express.json());
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/signals", signalsRouter);
 app.use("/api/projects", projectsRouter);
-app.use("/api/audio", express.static(path.resolve(process.cwd(), "storage", "audio"), {
-  fallthrough: false,
-  maxAge: "1h",
-}));
-app.use("/api/render-files", express.static(path.resolve(process.cwd(), "storage", "renders"), {
-  fallthrough: false,
-  maxAge: "1h",
-}));
-app.use("/api/export-files", express.static(path.resolve(process.cwd(), "storage", "exports"), {
-  fallthrough: false,
-  maxAge: "1h",
-}));
+app.use("/api/audio", express.static(path.resolve(process.cwd(), "storage", "audio"), { fallthrough: false, maxAge: "1h" }));
+app.use("/api/render-assets", express.static(path.resolve(process.cwd(), "storage", "render-assets"), { fallthrough: false, maxAge: "1h" }));
+app.use("/api/render-files", express.static(path.resolve(process.cwd(), "storage", "renders"), { fallthrough: false, maxAge: "1h" }));
+app.use("/api/export-files", express.static(path.resolve(process.cwd(), "storage", "exports"), { fallthrough: false, maxAge: "1h" }));
 app.use("/api", renderRouter);
 app.use("/api", storyboardRouter);
 app.use("/api", exportRouter);
