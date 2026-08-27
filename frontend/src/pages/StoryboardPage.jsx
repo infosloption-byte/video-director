@@ -38,7 +38,7 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     time: formatDuration(scene.durationSeconds),
     whyLine: scene.whyLine || "Helix uses the strongest evidence-led line for this beat.",
     whyPicture: scene.whyPicture || "The visual makes the mechanism concrete before the next cut.",
-    thumb: selectedAsset?.thumbnailUrl || "linear-gradient(145deg, #17304a, #09131f)",
+    thumb: selectedAsset ? `url(${selectedAsset.thumbnailUrl}) center / cover no-repeat` : "linear-gradient(145deg, #17304a, #09131f)",
     thumbLabel: selectedAsset ? "Pexels B-roll" : "Visual pending",
     swatches: (scene.assets || []).map((asset) => `url(${asset.thumbnailUrl}) center / cover no-repeat`),
     selectedAsset,
@@ -58,6 +58,7 @@ export default function StoryboardPage() {
   const [published, setPublished] = useState(false);
   const [sceneLoading, setSceneLoading] = useState(false);
   const [sceneError, setSceneError] = useState("");
+  const [sceneRetry, setSceneRetry] = useState(0);
   const [persisting, setPersisting] = useState(false);
 
   useEffect(() => {
@@ -102,7 +103,6 @@ export default function StoryboardPage() {
           return;
         }
 
-        setSceneLoading(true);
         const generateResponse = await fetch(`/api/projects/${id}/generate-scenes`, { method: "POST" });
         const generated = await generateResponse.json().catch(() => ({}));
         if (!generateResponse.ok) throw new Error(generated.error || "Failed to generate storyboard.");
@@ -118,7 +118,7 @@ export default function StoryboardPage() {
 
     loadScenes();
     return () => { cancelled = true; };
-  }, [id, realProject, tab]);
+  }, [id, realProject, tab, sceneRetry]);
 
   function changeTab(nextTab) {
     const nextParams = new URLSearchParams(searchParams);
@@ -224,7 +224,7 @@ export default function StoryboardPage() {
               />
               <div className="hx-board__content">
                 <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {scenes[0]?.spokenText || "Helix is building the first scene…"}</p></div>
-                {sceneError && <div className="storyboard-error"><strong>Storyboard couldn't load.</strong><span>{sceneError}</span><button className="btn btn-ghost" onClick={() => { setSearchParams({ stage: "storyboard" }, { replace: true }); }}>Retry</button></div>}
+                {sceneError && <div className="storyboard-error"><strong>Storyboard couldn't load.</strong><span>{sceneError}</span><button className="btn btn-ghost" onClick={() => setSceneRetry((value) => value + 1)}>Retry</button></div>}
                 {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Helix is writing the scenes and fetching five visuals per cut…</strong></div>}
                 {!sceneLoading && !sceneError && scenes.length > 0 && (
                   <>
