@@ -65,6 +65,9 @@ export default function StoryboardPage() {
   const [persisting, setPersisting] = useState(false);
   const [voiceLoading, setVoiceLoading] = useState(false);
   const [voiceError, setVoiceError] = useState("");
+  const [renderLoading, setRenderLoading] = useState(false);
+  const [renderError, setRenderError] = useState("");
+  const [renderStatus, setRenderStatus] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,6 +187,39 @@ export default function StoryboardPage() {
     changeTab("Preview");
   }
 
+  async function renderProject() {
+    if (renderLoading) return;
+    setRenderLoading(true);
+    setRenderError("");
+    setRenderStatus(null);
+
+    try {
+      const saved = await persistSelections();
+      if (!saved) throw new Error("Save visual selections before rendering.");
+
+      const response = await fetch(`/api/projects/${id}/render`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to queue render.");
+      setRenderStatus(data);
+
+      if (data.status === "completed" && data.renderUrl) return;
+
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const statusResponse = await fetch(`/api/projects/${id}/render-status`);
+        const statusData = await statusResponse.json().catch(() => ({}));
+        if (!statusResponse.ok) throw new Error(statusData.error || "Failed to read render status.");
+        setRenderStatus(statusData);
+        if (statusData.status === "completed") break;
+        if (statusData.status === "failed") throw new Error(statusData.error || "Render failed.");
+      }
+    } catch (error) {
+      setRenderError(error.message || "Failed to render project.");
+    } finally {
+      setRenderLoading(false);
+    }
+  }
+
   function selectAsset(sceneId, index) {
     setSelectedAssetByScene((current) => ({ ...current, [sceneId]: index }));
   }
@@ -220,7 +256,7 @@ export default function StoryboardPage() {
             </div>
             <div className="hx-tabs" role="tablist" aria-label="Reel stages">
               {TABS.map((t) => (
-                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting || voiceLoading}>
+                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting || voiceLoading || renderLoading}>
                   <span className="mono-label hx-tab__n">{t.n}</span> {t.label}
                 </button>
               ))}
@@ -283,9 +319,18 @@ export default function StoryboardPage() {
           {tab === "Preview" && (
             <section className="research-brief">
               <p className="eyebrow">Finalize</p>
-              <h2>Storyboard ready for finalization.</h2>
+              <h2>{renderStatus?.status === "completed" ? "MP4 render is ready." : "Storyboard ready for rendering."}</h2>
               <p>{scenes.length} scenes generated with five pre-fetched visual options per scene. Your selected visuals have been saved.</p>
-              <div className="setup-actions"><button className="btn btn-ghost" onClick={() => changeTab("Storyboard")}>Back to storyboard</button></div>
+              {renderError && <div className="storyboard-error"><strong>Render couldn't complete.</strong><span>{renderError}</span></div>}
+              {renderStatus && renderStatus.status !== "completed" && !renderError && <div className="storyboard-loading"><span className="eyebrow">Render status</span><strong>{renderStatus.status === "active" ? `Rendering video… ${renderStatus.progress || 0}%` : `Render ${renderStatus.status}…`}</strong></div>}
+              <div className="setup-actions">
+                <button className="btn btn-ghost" onClick={() => changeTab("Storyboard")} disabled={renderLoading}>Back to storyboard</button>
+                {renderStatus?.status === "completed" && renderStatus.renderUrl ? (
+                  <a className="btn btn-cream" href={renderStatus.renderUrl} target="_blank" rel="noreferrer">Open MP4 <IconArrowRight className="btn-icon" /></a>
+                ) : (
+                  <button className="btn btn-cream" onClick={renderProject} disabled={renderLoading}>{renderLoading ? `Rendering ${renderStatus?.progress || 0}%…` : "Render MP4 →"}</button>
+                )}
+              </div>
             </section>
           )}
         </main>
