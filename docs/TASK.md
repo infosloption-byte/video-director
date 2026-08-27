@@ -104,6 +104,7 @@ this file drift from the build plan.
 - Added responsive `SetupPanel.jsx` with selection-only controls for 15/30/45/60s, framework, tone, and audience. AI recommendations remain pre-selected but every choice can be overridden in one tap.
 - Connected Research completion to the new Setup stage and added Research / Setup / Storyboard / Preview stage navigation for real projects. Existing legacy demo storyboards remain available for backward compatibility.
 - Runtime API/Gemini behavior should be verified locally with the already-working research flow; no additional database migration is required because the M0 schema already contains the Stage C project fields.
+- `2026-08-27` — Fixed the Research → Guided Setup deep-link bug: `?stage=setup` is now normalized to the canonical `Setup` tab label, so clicking `Continue to guided setup` renders the SetupPanel immediately. Stage tab/button navigation now also keeps the `stage` query parameter synchronized.
 
 ---
 
@@ -160,3 +161,4 @@ this file drift from the build plan.
 - `2026-08-27` — M3 complete in code: research source fetching, M2 cascade cross-checking, Gemini structured research brief, asynchronous project/research endpoints, search-signal persistence on selection, research progress UI, completed research-brief view, and environment configuration. External Gemini/source runtime verification remains a local setup requirement.
 - `2026-08-27` — Local API hardening: disabled automatic startup scraping by default and added process-level error logging/graceful shutdown so third-party feed failures do not take the development API down.
 - `2026-08-27` — M4 complete: guided setup suggestions, setup persistence, monetization guardrails, responsive selection-only SetupPanel, and Research → Setup → Storyboard stage navigation.
+- `2026-08-27` — Fixed the Guided Setup deep-link routing bug where `?stage=setup` did not match the capitalized `Setup` tab label and therefore rendered a blank stage; canonical stage normalization and URL synchronization are now in place.
