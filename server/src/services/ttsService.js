@@ -119,9 +119,11 @@ export async function synthesizeSpeech({ projectId, sceneId, text }) {
 
   if (!payload.audio_base64) throw new Error("TTS provider returned no audio.");
 
-  const projectDir = path.join(AUDIO_ROOT, projectId);
-  await mkdir(projectDir, { recursive: true });
-  const filePath = path.join(projectDir, `${sceneId}.mp3`);
+  // Keep the filesystem layout identical to the public /api/audio URL:
+  // storage/audio/<projectId>/scenes/<sceneId>.mp3
+  const scenesDir = path.join(AUDIO_ROOT, projectId, "scenes");
+  await mkdir(scenesDir, { recursive: true });
+  const filePath = path.join(scenesDir, `${sceneId}.mp3`);
   await writeFile(filePath, Buffer.from(payload.audio_base64, "base64"));
 
   const alignment = payload.alignment || payload.normalized_alignment;
