@@ -4,6 +4,7 @@ const MAX_SOURCE_CHARS = 18000;
 const MAX_SUPPORTING_SOURCES = 6;
 const GEMINI_MAX_ATTEMPTS = 3;
 const GEMINI_RETRY_BASE_MS = 1200;
+const GEMINI_TIMEOUT_MS = 90000;
 
 function cleanText(value = "") {
   return value.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/\s+/g, " ").trim();
@@ -39,7 +40,7 @@ async function fetchSourceText(signal, onProgress) {
   try {
     const response = await fetch(signal.sourceUrl, {
       headers: { "User-Agent": "HelixResearch/1.0" },
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(20000),
     });
     if (!response.ok) return "";
     const contentType = response.headers.get("content-type") || "";
@@ -107,8 +108,7 @@ const RESEARCH_SCHEMA = {
       },
     },
     recommended_framework: { type: "string", enum: ["CONTEXT", "CONTRAST", "EXPLAINER", "PROBLEM"] },
-    // Gemini response-schema enum values must match the declared type. Validate allowed numeric values after parsing.
-    recommended_length_seconds: { type: "integer" },
+    recommended_length_seconds: { type: "integer", minimum: 15, maximum: 60 },
     recommended_tone: { type: "string", enum: ["Energetic", "Calm & authoritative", "Conversational"] },
     reasoning: { type: "string" },
   },
@@ -165,7 +165,7 @@ async function callGemini(context, onProgress) {
             maxOutputTokens: 4096,
           },
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -187,7 +187,7 @@ async function callGemini(context, onProgress) {
       return extractJsonObject(text);
     } catch (error) {
       lastError = error;
-      const retryable = isRetryableGeminiStatus(error.status) || error.name === "AbortError" || error.cause?.code === "UND_ERR_CONNECT_TIMEOUT";
+      const retryable = isRetryableGeminiStatus(error.status) || error.name === "AbortError" || error.name === "TimeoutError" || error.cause?.code === "UND_ERR_CONNECT_TIMEOUT";
       if (!retryable || attempt === GEMINI_MAX_ATTEMPTS) break;
       const delay = GEMINI_RETRY_BASE_MS * (2 ** (attempt - 1));
       console.warn(`[research] Gemini attempt ${attempt}/${GEMINI_MAX_ATTEMPTS} failed (${error.message}). Retrying in ${delay}ms...`);
