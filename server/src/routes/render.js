@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { enqueueRender, getRenderQueue } from "../jobs/renderQueue.js";
+import { narrationFileExists } from "../services/ttsService.js";
 
 const router = Router();
 
@@ -8,10 +9,22 @@ router.post("/projects/:id/render", async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
-      include: { scenes: { select: { id: true } } },
+      include: { scenes: { select: { id: true, sceneOrder: true, audioUrl: true } } },
     });
     if (!project) return res.status(404).json({ error: "Project not found." });
     if (!project.scenes.length) return res.status(409).json({ error: "Generate the storyboard before rendering." });
+
+    const missingNarration = [];
+    for (const scene of project.scenes) {
+      if (!scene.audioUrl || !(await narrationFileExists(project.id, scene.id))) missingNarration.push(scene.sceneOrder);
+    }
+    if (missingNarration.length) {
+      return res.status(409).json({
+        error: `Narration is missing for scene${missingNarration.length > 1 ? "s" : ""} ${missingNarration.join(", ")}. Return to Storyboard and generate narration again.`,
+        code: "NARRATION_MISSING",
+        scenes: missingNarration,
+      });
+    }
 
     const queue = getRenderQueue();
     const existing = await queue.getJob(project.id);
