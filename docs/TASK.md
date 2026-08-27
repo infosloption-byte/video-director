@@ -85,6 +85,9 @@ this file drift from the build plan.
 - Added `GEMINI_API_KEY` and `GEMINI_MODEL` to `server/.env.example`.
 - Runtime verification of Gemini and external source fetching still requires local network/API-key access; the implementation is complete but this environment cannot perform that external end-to-end test.
 - `2026-08-27` — Hardened API startup: suggested-signal scraping is now opt-in at boot (`SIGNALS_SCRAPE_ON_START=true`), so temporary RSS/Hacker News outages cannot interfere with the local API. Added process-level rejection/exception logging and graceful Prisma shutdown handling.
+- `2026-08-28` — Fixed Gemini structured-output schema validation: `recommended_length_seconds` is now an integer schema without a numeric enum, and the service validates the allowed 15/30/45/60 values after decoding. Added retry handling for transient Gemini failures and resilient JSON extraction.
+- `2026-08-28` — Added live progress heartbeats for Reading, Cross-checking, and Drafting so percentage updates continue while long operations are running. Research polling now keeps retrying through temporary API/proxy interruptions without replacing an active project state with an error.
+- `2026-08-28` — Research terminal errors now stop the progress spinner/pulse, preserve the last known percentage, identify the failed stage, and stop client polling once the server reports `error`.
 
 ---
 
@@ -160,6 +163,7 @@ this file drift from the build plan.
 - Wired the real-project Finalize/Preview stage to queue the render, poll progress, and expose the completed MP4. Persisted render URLs are also included in the project status response.
 - Added `REDIS_URL` and `REMOTION_BASE_URL` to `server/.env.example` and removed the restricted ElevenLabs library voice default from the example configuration.
 - Local verification still requires `npm install` in `/server`, a running Redis instance, working MySQL data, and the existing Gemini/Pexels/ElevenLabs setup. No Prisma migration is required for M7.
+- `2026-08-28` — Fixed BullMQ Redis queue configuration by parsing `REDIS_URL` into supported host/port/auth/TLS options instead of passing the URL as an unsupported queue option. Missing Redis now fails fast without the repeated `ECONNREFUSED` / `doc.split` error storm.
 
 ## M8 — Finalize & export
 **Status:** Not started
@@ -187,9 +191,11 @@ this file drift from the build plan.
 - `2026-08-27` — M3 complete in code: research source fetching, M2 cascade cross-checking, Gemini structured research brief, asynchronous project/research endpoints, search-signal persistence on selection, research progress UI, completed research-brief view, and environment configuration. External Gemini/source runtime verification remains a local setup requirement.
 - `2026-08-27` — Local API hardening: disabled automatic startup scraping by default and added process-level error logging/graceful shutdown so third-party feed failures do not take the development API down.
 - `2026-08-27` — M4 complete: guided setup suggestions, setup persistence, monetization guardrails, responsive selection-only SetupPanel, and Research → Setup → Storyboard stage navigation.
-- `2026-08-27` — Fixed the Guided Setup deep-link routing bug where `?stage=setup` did not match the capitalized `Setup` tab label and therefore rendered a blank stage; canonical stage normalization and URL synchronization are now in place.
+- `2026-08-27` — Fixed the Guided Setup deep-link bug where `?stage=setup` did not match the capitalized `Setup` tab label and therefore rendered a blank stage; canonical stage normalization and URL synchronization are now in place.
 - `2026-08-27` — Fixed the StoryboardPage maximum-update-depth regression by deriving the active stage from the URL instead of maintaining a second synchronized React state, preventing the Setup → Storyboard transition from looping.
 - `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.
-- `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local ElevenLabs API-key verification remains required.
-- `2026-08-27` — Fixed M6 audio URL/storage mismatch: generated narration files are now stored in the `scenes/` subdirectory expected by the public audio route.
-- `2026-08-27` — M7 complete in code: Remotion composition, BullMQ/Redis rendering, render status endpoints, MP4 persistence/serving, and Finalize render flow are implemented. Local Redis/npm dependency installation and end-to-end render verification remain required.
+- `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local provider runtime verification remains a setup requirement.
+- `2026-08-27` — Fixed the generated-audio 404 by aligning the TTS storage path with the Express public audio route.
+- `2026-08-27` — M7 complete in code: Remotion composition, render service, BullMQ/Redis worker, render endpoints, MP4 serving, and Finalize render polling. Local Redis/Chromium/API-key verification remains a setup requirement.
+- `2026-08-28` — Repaired Gemini research schema validation, added in-stage live research progress heartbeats, made browser polling resilient to temporary API interruptions, and made failed research states terminal so loading animations stop cleanly.
+- `2026-08-28` — Hardened the BullMQ Redis queue configuration to prevent the unsupported URL-option / reconnect storm seen while Redis was unavailable. Redis is still required for actual M7 rendering.
