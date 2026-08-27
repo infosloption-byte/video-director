@@ -13,6 +13,9 @@ function publicProject(project, job) {
     title: project.title,
     status: project.status,
     renderUrl: project.renderUrl || null,
+    durationSeconds: project.durationSeconds == null ? null : Number(project.durationSeconds),
+    cuts: project.cuts ?? null,
+    seoCaption: project.seoCaption || null,
     setup: project.scriptLengthSeconds ? {
       length: project.scriptLengthSeconds,
       framework: project.selectedFramework,
@@ -121,6 +124,17 @@ router.post("/", async (req, res) => {
   } catch (error) {
     console.error("POST /api/projects failed:", error);
     res.status(500).json({ error: "Failed to create research project." });
+  }
+});
+
+router.get("/:id", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    res.json({ project: publicProject(project, researchJobs.get(project.id)) });
+  } catch (error) {
+    console.error("GET /api/projects/:id failed:", error);
+    res.status(500).json({ error: "Failed to load project." });
   }
 });
 
