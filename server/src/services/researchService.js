@@ -32,30 +32,61 @@ function buildContext(signal, sourceText, supportingSources) {
   });
 }
 
+const RESEARCH_SCHEMA = {
+  type: "object",
+  properties: {
+    key_facts: { type: "array", items: { type: "string" }, maxItems: 6 },
+    mechanism_summary: { type: "string" },
+    sources: {
+      type: "array",
+      maxItems: 6,
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          url: { type: "string" },
+          note: { type: "string" },
+          source_reliability: { type: "string", enum: ["peer_reviewed", "ai_search", "general_web"] },
+        },
+        required: ["title", "url", "note", "source_reliability"],
+      },
+    },
+    monetization_flags: {
+      type: "array",
+      maxItems: 8,
+      items: {
+        type: "object",
+        properties: {
+          issue: { type: "string" },
+          severity: { type: "string", enum: ["low", "medium", "high"] },
+        },
+        required: ["issue", "severity"],
+      },
+    },
+    recommended_framework: { type: "string", enum: ["CONTEXT", "CONTRAST", "EXPLAINER", "PROBLEM"] },
+    recommended_length_seconds: { type: "integer", enum: [15, 30, 45, 60] },
+    recommended_tone: { type: "string", enum: ["Energetic", "Calm & authoritative", "Conversational"] },
+    reasoning: { type: "string" },
+  },
+  required: ["key_facts", "mechanism_summary", "sources", "monetization_flags", "recommended_framework", "recommended_length_seconds", "recommended_tone", "reasoning"],
+};
+
 function extractJsonObject(text) {
   const raw = String(text || "").trim();
   if (!raw) throw new Error("Gemini returned an empty research brief.");
-
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
-  const candidates = [fenced, raw].filter(Boolean);
+  const candidates = [raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1], raw].filter(Boolean);
   for (const candidate of candidates) {
     try {
       return JSON.parse(candidate);
     } catch {
-      // Try the outermost JSON object when Gemini adds a short explanation.
+      // Keep trying a bounded object extraction below.
     }
   }
-
   const firstBrace = raw.indexOf("{");
   const lastBrace = raw.lastIndexOf("}");
   if (firstBrace >= 0 && lastBrace > firstBrace) {
-    try {
-      return JSON.parse(raw.slice(firstBrace, lastBrace + 1));
-    } catch {
-      // Fall through to the normalized error below.
-    }
+    try { return JSON.parse(raw.slice(firstBrace, lastBrace + 1)); } catch { /* normalized below */ }
   }
-
   throw new Error("Gemini returned invalid research JSON.");
 }
 
@@ -68,7 +99,7 @@ async function callGemini(context) {
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const prompt = `You are Helix, a science and technology Reel research director. Produce a concise, evidence-aware research brief. Never invent facts. Prefer peer-reviewed evidence when sources disagree. Preserve source reliability. Identify monetization risks for a mainstream social video. Return ONLY one valid JSON object, with no markdown, commentary, or code fences, using exactly this shape: {"key_facts":["..."],"mechanism_summary":"...","sources":[{"title":"...","url":"...","note":"...","source_reliability":"peer_reviewed|ai_search|general_web"}],"monetization_flags":[{"issue":"...","severity":"low|medium|high"}],"recommended_framework":"CONTEXT|CONTRAST|EXPLAINER|PROBLEM","recommended_length_seconds":15,"recommended_tone":"Energetic|Calm & authoritative|Conversational","reasoning":"..."}\n\nResearch context:\n${context}`;
+  const prompt = `You are Helix, a science and technology Reel research director. Produce a concise, evidence-aware research brief from the supplied evidence. Never invent facts. Prefer peer-reviewed evidence when sources disagree. Preserve source reliability and explicitly note evidence limitations. Return a single JSON object conforming exactly to the supplied response schema.\n\nResearch context:\n${context}`;
 
   let lastError = null;
   for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
@@ -80,8 +111,9 @@ async function callGemini(context) {
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
+            responseSchema: RESEARCH_SCHEMA,
             temperature: 0.1,
-            maxOutputTokens: 1800,
+            maxOutputTokens: 4096,
           },
         }),
         signal: AbortSignal.timeout(30000),
@@ -95,7 +127,14 @@ async function callGemini(context) {
         throw error;
       }
 
-      const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
+      const candidate = data.candidates?.[0];
+      const finishReason = candidate?.finishReason;
+      const text = candidate?.content?.parts?.map((part) => part.text || "").join("").trim();
+      if (!text) {
+        const error = new Error(finishReason ? `Gemini returned no research JSON (finish reason: ${finishReason}).` : "Gemini returned an empty research brief.");
+        error.status = 502;
+        throw error;
+      }
       return extractJsonObject(text);
     } catch (error) {
       lastError = error;
@@ -107,11 +146,15 @@ async function callGemini(context) {
     }
   }
 
-  if (lastError?.status) throw new Error(`Gemini returned ${lastError.status}.`);
+  if (lastError?.status) throw new Error(`Gemini research failed after ${GEMINI_MAX_ATTEMPTS} attempts: ${lastError.message}`);
   throw lastError || new Error("Gemini research generation failed.");
 }
 
-export async function researchSignal(signal) {
+export async function researchSignal(signal, { onProgress } = {}) {
+  onProgress?.("reading", 10);
+  const sourceText = await fetchSourceText(signal);
+
+  onProgress?.("cross_checking", 35);
   let cascadeResults = [];
   try {
     cascadeResults = await searchSourceCascade(signal.title);
@@ -119,9 +162,11 @@ export async function researchSignal(signal) {
     console.warn(`[research] Source cross-check failed: ${error.message}`);
   }
 
-  const sourceText = await fetchSourceText(signal);
+  onProgress?.("drafting", 65);
   const supportingSources = cascadeResults.filter((item) => item.sourceUrl !== signal.sourceUrl);
   const brief = await callGemini(buildContext(signal, sourceText, supportingSources));
+  onProgress?.("ready", 100);
+
   return {
     ...brief,
     key_facts: Array.isArray(brief.key_facts) ? brief.key_facts : [],
