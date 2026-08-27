@@ -11,6 +11,7 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [narrationReady, setNarrationReady] = useState(false);
 
   async function loadExports() {
     try {
@@ -23,9 +24,21 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
     }
   }
 
+  async function loadNarrationStatus() {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/narration-status`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to check narration.");
+      setNarrationReady(Boolean(data.ready));
+    } catch {
+      setNarrationReady(scenes.length > 0 && scenes.every((scene) => Boolean(scene.audioUrl && scene.wordTimestamps?.length)));
+    }
+  }
+
   useEffect(() => {
     void loadExports();
-  }, [projectId, renderStatus?.status, renderStatus?.renderUrl]);
+    void loadNarrationStatus();
+  }, [projectId, renderStatus?.status, renderStatus?.renderUrl, scenes.length]);
 
   async function buildExports() {
     setExportLoading(true);
@@ -54,7 +67,6 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
   }
 
   const scriptedTime = scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
-  const narrationReady = scenes.length > 0 && scenes.every((scene) => Boolean(scene.audioUrl && scene.wordTimestamps?.length));
   const renderUrl = renderStatus?.renderUrl || project?.renderUrl || exports?.mp4Url || null;
   const renderComplete = Boolean(renderUrl) && (renderStatus?.status === "completed" || !renderStatus);
 
