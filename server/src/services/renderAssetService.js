@@ -4,19 +4,12 @@ import path from "node:path";
 const RENDER_ASSET_ROOT = path.resolve(process.cwd(), "storage", "render-assets");
 const DOWNLOAD_TIMEOUT_MS = 120000;
 
-function safeExt(url, contentType) {
-  const fromUrl = String(url || "").split("?")[0].match(/\.([a-z0-9]{2,5})$/i)?.[1];
-  if (fromUrl) return `.${fromUrl.toLowerCase()}`;
-  if (String(contentType || "").includes("webm")) return ".webm";
-  return ".mp4";
-}
-
 export function getRenderAssetPath(projectId, sceneId) {
   return path.join(RENDER_ASSET_ROOT, projectId, "scenes", `${sceneId}.mp4`);
 }
 
 export function getRenderAssetUrl(projectId, sceneId) {
-  return `/api/render-assets/projects/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp4`;
+  return `/api/render-assets/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp4`;
 }
 
 async function fileExists(filePath) {
@@ -36,7 +29,10 @@ export async function ensureRenderAsset(projectId, scene) {
   if (await fileExists(target)) return { path: target, url: getRenderAssetUrl(projectId, scene.id), downloaded: false };
 
   await mkdir(path.dirname(target), { recursive: true });
-  const response = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS), headers: { Accept: "video/mp4,video/*;q=0.9,*/*;q=0.1" } });
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+    headers: { Accept: "video/mp4,video/*;q=0.9,*/*;q=0.1" },
+  });
   if (!response.ok) throw new Error(`Failed to download B-roll for scene ${scene.sceneOrder}: Pexels returned ${response.status}.`);
   const buffer = Buffer.from(await response.arrayBuffer());
   if (!buffer.length) throw new Error(`Downloaded B-roll for scene ${scene.sceneOrder} was empty.`);
