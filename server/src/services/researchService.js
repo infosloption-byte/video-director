@@ -9,15 +9,44 @@ function cleanText(value = "") {
   return value.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/\s+/g, " ").trim();
 }
 
-async function fetchSourceText(signal) {
-  if (signal.rawContent?.trim()) return signal.rawContent.trim().slice(0, MAX_SOURCE_CHARS);
-  if (!signal.sourceUrl) return "";
+function startProgressTicker(onProgress, stage, start, end, intervalMs = 900) {
+  let current = start;
+  onProgress?.(stage, current);
+  const timer = setInterval(() => {
+    current = Math.min(end - 1, current + 2);
+    onProgress?.(stage, current);
+  }, intervalMs);
+  return {
+    complete() {
+      clearInterval(timer);
+      onProgress?.(stage, end);
+    },
+    stop() {
+      clearInterval(timer);
+    },
+  };
+}
+
+async function fetchSourceText(signal, onProgress) {
+  if (signal.rawContent?.trim()) {
+    onProgress?.("reading", 22);
+    return signal.rawContent.trim().slice(0, MAX_SOURCE_CHARS);
+  }
+  if (!signal.sourceUrl) {
+    onProgress?.("reading", 22);
+    return "";
+  }
   try {
-    const response = await fetch(signal.sourceUrl, { headers: { "User-Agent": "HelixResearch/1.0" }, signal: AbortSignal.timeout(12000) });
+    const response = await fetch(signal.sourceUrl, {
+      headers: { "User-Agent": "HelixResearch/1.0" },
+      signal: AbortSignal.timeout(12000),
+    });
     if (!response.ok) return "";
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("text/") && !contentType.includes("html") && !contentType.includes("xml")) return "";
-    return cleanText(await response.text()).slice(0, MAX_SOURCE_CHARS);
+    const text = cleanText(await response.text()).slice(0, MAX_SOURCE_CHARS);
+    onProgress?.("reading", 22);
+    return text;
   } catch (error) {
     console.warn(`[research] Source fetch failed: ${error.message}`);
     return "";
@@ -26,9 +55,23 @@ async function fetchSourceText(signal) {
 
 function buildContext(signal, sourceText, supportingSources) {
   return JSON.stringify({
-    selected_signal: { title: signal.title, description: signal.description, category: signal.category, source_name: signal.sourceName, source_url: signal.sourceUrl, source_reliability: signal.sourceReliability },
+    selected_signal: {
+      title: signal.title,
+      description: signal.description,
+      category: signal.category,
+      source_name: signal.sourceName,
+      source_url: signal.sourceUrl,
+      source_reliability: signal.sourceReliability,
+    },
     source_text: sourceText || "Source text unavailable; state evidence limitations explicitly.",
-    supporting_sources: supportingSources.slice(0, MAX_SUPPORTING_SOURCES).map((item) => ({ title: item.title, description: item.description, url: item.sourceUrl, sourceName: item.sourceName, reliability: item.sourceReliability, publishedAt: item.publishedAt })),
+    supporting_sources: supportingSources.slice(0, MAX_SUPPORTING_SOURCES).map((item) => ({
+      title: item.title,
+      description: item.description,
+      url: item.sourceUrl,
+      sourceName: item.sourceName,
+      reliability: item.sourceReliability,
+      publishedAt: item.publishedAt,
+    })),
   });
 }
 
@@ -64,7 +107,8 @@ const RESEARCH_SCHEMA = {
       },
     },
     recommended_framework: { type: "string", enum: ["CONTEXT", "CONTRAST", "EXPLAINER", "PROBLEM"] },
-    recommended_length_seconds: { type: "integer", enum: [15, 30, 45, 60] },
+    // Gemini response-schema enum values must match the declared type. Validate allowed numeric values after parsing.
+    recommended_length_seconds: { type: "integer" },
     recommended_tone: { type: "string", enum: ["Energetic", "Calm & authoritative", "Conversational"] },
     reasoning: { type: "string" },
   },
@@ -85,7 +129,11 @@ function extractJsonObject(text) {
   const firstBrace = raw.indexOf("{");
   const lastBrace = raw.lastIndexOf("}");
   if (firstBrace >= 0 && lastBrace > firstBrace) {
-    try { return JSON.parse(raw.slice(firstBrace, lastBrace + 1)); } catch { /* normalized below */ }
+    try {
+      return JSON.parse(raw.slice(firstBrace, lastBrace + 1));
+    } catch {
+      // Fall through to normalized error.
+    }
   }
   throw new Error("Gemini returned invalid research JSON.");
 }
@@ -94,7 +142,7 @@ function isRetryableGeminiStatus(status) {
   return status === 408 || status === 429 || status >= 500;
 }
 
-async function callGemini(context) {
+async function callGemini(context, onProgress) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -104,6 +152,7 @@ async function callGemini(context) {
   let lastError = null;
   for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
     try {
+      onProgress?.("drafting", Math.min(92, 64 + (attempt - 1) * 8));
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,22 +200,40 @@ async function callGemini(context) {
 }
 
 export async function researchSignal(signal, { onProgress } = {}) {
-  onProgress?.("reading", 10);
-  const sourceText = await fetchSourceText(signal);
+  onProgress?.("reading", 6);
+  const readingTicker = startProgressTicker(onProgress, "reading", 8, 22);
+  let sourceText = "";
+  try {
+    sourceText = await fetchSourceText(signal, onProgress);
+    readingTicker.complete();
+  } catch (error) {
+    readingTicker.stop();
+    throw error;
+  }
 
-  onProgress?.("cross_checking", 35);
+  onProgress?.("cross_checking", 26);
+  const crossTicker = startProgressTicker(onProgress, "cross_checking", 28, 48);
   let cascadeResults = [];
   try {
     cascadeResults = await searchSourceCascade(signal.title);
+    crossTicker.complete();
   } catch (error) {
+    crossTicker.complete();
     console.warn(`[research] Source cross-check failed: ${error.message}`);
   }
 
-  onProgress?.("drafting", 65);
   const supportingSources = cascadeResults.filter((item) => item.sourceUrl !== signal.sourceUrl);
-  const brief = await callGemini(buildContext(signal, sourceText, supportingSources));
-  onProgress?.("ready", 100);
+  const draftTicker = startProgressTicker(onProgress, "drafting", 52, 94);
+  let brief;
+  try {
+    brief = await callGemini(buildContext(signal, sourceText, supportingSources), onProgress);
+    draftTicker.complete();
+  } catch (error) {
+    draftTicker.stop();
+    throw error;
+  }
 
+  onProgress?.("ready", 100);
   return {
     ...brief,
     key_facts: Array.isArray(brief.key_facts) ? brief.key_facts : [],
