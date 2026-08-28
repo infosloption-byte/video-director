@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import Header from "../components/Header";
 import SignalCard from "../components/SignalCard";
 import { IconScan, IconClapper } from "../components/Icons";
@@ -62,7 +63,7 @@ export default function SignalsPage() {
 
   return (
     <div className="hx-page">
-      <Header right={<><span className="badge">1 REEL</span><button className="btn btn-ghost"><IconScan className="btn-icon" /> Scan signals</button></>} />
+      <Header right={<><Link to="/my-research" className="btn btn-ghost">My Research</Link><span className="badge">1 REEL</span><button className="btn btn-ghost"><IconScan className="btn-icon" /> Scan signals</button></>} />
       <main className="container hx-hero"><p className="eyebrow">Science &amp; Tech Auto-Director</p><h1 className="hx-hero__title">Pick a signal. Helix directs the Reel.</h1><p className="hx-hero__desc">Zero typing. Helix chooses the narrative, writes the hook, casts B-roll, and shows the reasoning on every cut. You approve — or swap.</p><button className="btn btn-cream hx-hero__cta"><IconClapper className="btn-icon" /> Play the sample cut</button></main>
       <section className="container hx-signals">
         <div className="hx-signals__head"><h2 className="hx-signals__title">Today's signals</h2><p className="hx-signals__sub">Ordered by search heat. Helix already knows which framework fits.</p></div>
