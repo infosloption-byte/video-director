@@ -31,11 +31,10 @@ export default function Header({ right }) {
     };
   }, [menuOpen]);
 
-  function handleSignOut() {
+  function handleSignOut(event) {
+    event?.preventDefault();
+    event?.stopPropagation();
     setMenuOpen(false);
-    // Navigate immediately so desktop and mobile have the same responsive behavior.
-    // The auth context clears the local user state immediately and clears the server
-    // session in the background with its own timeout/error handling.
     navigate("/", { replace: true });
     void signOut();
   }
