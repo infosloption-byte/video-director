@@ -15,6 +15,17 @@ function getBaseUrl() {
   return String(process.env.REMOTION_BASE_URL || `http://127.0.0.1:${process.env.PORT || 4000}`).replace(/\/$/, "");
 }
 
+function getRenderAssetToken() {
+  return String(process.env.RENDER_ASSET_TOKEN || "").trim();
+}
+
+function appendRenderToken(url) {
+  const token = getRenderAssetToken();
+  if (!token) throw new Error("RENDER_ASSET_TOKEN is required for server-side Remotion asset access.");
+  const separator = String(url).includes("?") ? "&" : "?";
+  return `${url}${separator}renderToken=${encodeURIComponent(token)}`;
+}
+
 function normalizeAudioUrl(audioUrl) {
   if (!audioUrl) return null;
   return String(audioUrl).replace(/^\/api\/audio\/projects\//, "/api/audio/");
@@ -49,6 +60,7 @@ function buildDurationPlan(project) {
 function toRenderScene(scene, localAssetUrl = null) {
   const selectedAsset = scene.assets?.find((asset) => asset.isSelected) || scene.assets?.[0] || null;
   const sourceDuration = Number(scene.durationSeconds || 1);
+  const audioPath = scene.audioUrl ? `${getBaseUrl()}${normalizeAudioUrl(scene.audioUrl)}` : null;
   return {
     id: scene.id,
     sceneOrder: scene.sceneOrder,
@@ -63,7 +75,7 @@ function toRenderScene(scene, localAssetUrl = null) {
       videoUrl: localAssetUrl || selectedAsset.videoUrl,
       thumbnailUrl: selectedAsset.thumbnailUrl,
     } : null,
-    audioUrl: scene.audioUrl ? `${getBaseUrl()}${normalizeAudioUrl(scene.audioUrl)}` : null,
+    audioUrl: audioPath ? appendRenderToken(audioPath) : null,
   };
 }
 
@@ -102,6 +114,7 @@ export async function renderProject(projectId, { onProgress } = {}) {
 
   if (!project) throw new Error("Project not found.");
   if (!project.scenes.length) throw new Error("Generate the storyboard before rendering.");
+  if (!getRenderAssetToken()) throw new Error("RENDER_ASSET_TOKEN is not configured. Add it to server/.env before rendering.");
 
   report("preflight", 10, "Validating narration and render settings", 5);
   const missingNarration = [];
