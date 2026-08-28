@@ -9,10 +9,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum SignalOrigin { suggested search }
-enum SourceType { rss hacker_news arxiv semantic_scholar tavily brave }
-enum SourceReliability { peer_reviewed ai_search general_web }
-enum SignalStatus { new used archived }
+enum SignalOrigin {
+  suggested
+  search
+}
+
+enum SourceType {
+  rss
+  hacker_news
+  arxiv
+  semantic_scholar
+  tavily
+  brave
+}
+
+enum SourceReliability {
+  peer_reviewed
+  ai_search
+  general_web
+}
+
+enum SignalStatus {
+  new
+  used
+  archived
+}
 
 model Signal {
   id                 String            @id @default(uuid())
@@ -36,7 +57,14 @@ model Signal {
   @@map("signals")
 }
 
-enum ProjectStatus { researching setup storyboard finalize rendering published }
+enum ProjectStatus {
+  researching
+  setup
+  storyboard
+  finalize
+  rendering
+  published
+}
 
 model Project {
   id                      String        @id @default(uuid())
@@ -95,7 +123,12 @@ model SceneAsset {
   @@map("scene_assets")
 }
 
-enum ExportKind { mp4 srt script_txt }
+enum ExportKind {
+  mp4
+  srt
+  script_txt
+}
+
 model ProjectExport {
   id        String @id @default(uuid())
   projectId String @map("project_id")
@@ -118,6 +151,7 @@ model User {
   tokens AuthToken[]
   @@map("users")
 }
+
 model AuthSession {
   id String @id @default(uuid())
   userId String @map("user_id")
@@ -130,6 +164,7 @@ model AuthSession {
   @@index([expiresAt])
   @@map("auth_sessions")
 }
+
 model AuthToken {
   id String @id @default(uuid())
   userId String @map("user_id")
