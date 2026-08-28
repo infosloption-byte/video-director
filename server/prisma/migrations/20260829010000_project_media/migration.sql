@@ -22,7 +22,8 @@ CREATE TABLE `project_media` (
   PRIMARY KEY (`id`),
   INDEX `project_media_project_id_kind_idx` (`project_id`, `kind`),
   INDEX `project_media_project_id_origin_idx` (`project_id`, `origin`),
-  INDEX `project_media_provider_provider_asset_id_idx` (`provider`, `provider_asset_id`),
+  INDEX `project_media_provider_idx` (`provider`),
+  INDEX `project_media_provider_asset_id_idx` (`provider_asset_id`),
   CONSTRAINT `project_media_project_id_fkey`
     FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`)
     ON DELETE CASCADE ON UPDATE CASCADE
