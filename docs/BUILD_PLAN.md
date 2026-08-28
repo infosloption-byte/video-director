@@ -31,10 +31,6 @@ The Signals page is the public landing/discovery experience.
 - Authenticated visitors see their identity, My Research access, and account/navigation controls.
 - The Signals landing and shared navigation must be responsive from 375px through 1440px.
 
-Suggested feed and search continue to use the existing free-source strategy:
-RSS sources, Hacker News, arXiv, Semantic Scholar, Tavily, and Brave with
-priority-ranked merging and deduplication.
-
 ### Stage B — Deep Research
 
 Selecting a signal after authentication triggers the existing research stage.
@@ -68,40 +64,34 @@ It reuses existing storyboard/narration/assets as source data while storing
 independent editable timeline/version state. Opening or editing in the
 Advanced Editor must never mutate the original Storyboard records.
 
-M11 starts with a persisted `ProjectEditor` document containing a canonical,
-JSON timeline. The first editor slice supports a 9:16 preview, multi-track
-timeline visualization, clip selection, clip trim/start/duration editing,
-split, delete, video reorder, caption editing, audio volume, text overlays,
-autosave, refresh recovery, and version-aware writes.
+M11 currently exposes `/editor/:id` as a protected standalone workspace with a
+persisted `ProjectEditor` timeline. The active richer editor implementation
+supports:
 
-Current timeline interaction refinement adds:
+- 9:16 preview with play/pause and frame-step transport
+- 30fps current-time/playhead display
+- Timeline ruler seeking and horizontally scrollable timeline
+- Timeline zoom plus grid/frame/free snap modes
+- B-roll/video, narration, music, captions, and overlays tracks
+- Select, move, split, delete, and reorder editor clips
+- Drag clips to move them and drag left/right edges to trim them
+- Editor-only B-roll replacement using existing scene assets
+- Audio volume, fade-in, and fade-out metadata controls
+- Editable caption text, position, style, and emphasis
+- Editable overlay text and position
+- Optional editor-only music clips
+- Bounded undo/redo history
+- Keyboard shortcuts for playback, frame stepping, split, delete, undo, and redo
+- Touch-capable pointer timeline interactions
+- Dirty-state autosave and version-aware writes
 
-- frame-stepped playhead and current-time display
-- play/pause timeline control
-- ruler and playhead seeking
-- timeline zoom
-- clip/grid/frame snapping
-- preview scrubbing for the selected visual
-- replacement of a scene's selected visual inside the editor only
-- bounded undo/redo history
-- keyboard shortcuts for play/pause, frame stepping, split, delete, undo, and redo
+The editor timeline is canonical for editor state but remains independent from
+`ProjectScene`/Storyboard source records. The editor does not automatically
+apply changes back to Storyboard.
 
-The editor timeline currently uses these tracks:
-
-```text
-B-roll/video
-Narration
-Captions
-Overlays
-```
-
-The editor is reached through `/editor/:id` and is protected by normal project
-ownership/authentication. It is intentionally not wired into Storyboard as a
-required step.
-
-Future M11 work expands this slice with waveform rendering, drag-based timeline
-editing, richer caption/audio controls, transitions/effects, music, touch
-interactions, and stronger editor QA.
+Remaining editor depth includes waveform visualization, real music/audio
+playback and mixing, transition/effect presets, media-library integration,
+and full cross-device QA.
 
 ### Stage G — Account & Workspace
 
@@ -167,9 +157,6 @@ Shared header behavior:
 - Desktop uses compact icon-only My Research and Scan Signals controls where appropriate.
 - A persistent light/dark theme is available from shared navigation.
 - Signals remains the primary public landing route; no login wall is added to the discovery feed.
-
-The public Direct action must be guarded in the UI and the project-creation API
-must still enforce authentication/ownership server-side.
 
 ---
 
@@ -330,10 +317,12 @@ AI must not directly delete or overwrite source media.
 | `SignalCard.jsx` | Authentication gate before project creation |
 | `MyResearchPage.jsx` | Authenticated project history, filters, delete, explicit Edit video entry |
 | `StoryboardPage.jsx` | Existing flow unchanged |
-| `EditorPage.jsx` | Separate advanced editing workspace with playhead, zoom, snap, preview scrub, visual replacement, undo/redo, keyboard controls |
+| `EditorPage.jsx` | Original editor retained for compatibility/reference |
+| `AdvancedEditorPage.jsx` | Richer standalone editing workspace |
 | `FinalizePanel.jsx` | Existing renderer + staged progress/elapsed/ETA |
 
-The editor keeps a responsive workspace at narrow mobile widths through desktop.
+The Advanced Editor timeline remains horizontally scrollable on small screens
+and uses responsive inspector/transport controls for compact viewports.
 
 ---
 
@@ -410,7 +399,6 @@ server/
       geminiService.js
       pexelsService.js
       ttsService.js
-      editorService.js   # M11
       renderService.js
       exportService.js
       authService.js
@@ -421,7 +409,8 @@ frontend/src/
     ResearchPage.jsx
     StoryboardPage.jsx
     MyResearchPage.jsx
-    EditorPage.jsx       # M11
+    EditorPage.jsx
+    AdvancedEditorPage.jsx # M11 richer workspace
   components/
     Header.jsx
     SignalCard.jsx
@@ -462,7 +451,7 @@ Every milestone must pass:
 - Real accounts/authentication.
 - Separate Advanced Video Editor that reuses current content but stores independent editor state.
 - M11 first slice uses a dedicated `ProjectEditor` persistence record and canonical timeline JSON.
-- M11 timeline refinement uses playhead/seeking, snapping, zoom, editor-only B-roll replacement, undo/redo, and keyboard controls without changing Storyboard source data.
+- M11 richer editor interaction uses a separate frontend workspace with drag/trim, music/fades, caption controls, and touch-capable timeline interaction.
 
 **Explicitly deferred:**
 - Facebook production OAuth, multi-user Meta publishing, App Review, and final publishing UX.
