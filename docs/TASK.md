@@ -139,7 +139,6 @@ narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 - [x] Active audio clip volume follows clip volume metadata
 - [x] Fade-in/fade-out affect editor preview playback
 - [x] Audio clips pause when the editor is paused
-- [x] Audio playback status indicator in the preview panel
 - [x] No-source music clips remain explicitly unavailable until a real media source is attached
 
 ### Implemented transition/effect refinement
@@ -166,19 +165,38 @@ make/save/refresh edits, and continue using the original Storyboard flow with
 its original source data unchanged.
 
 ## M12 — Media Library & Upload Pipeline
-**Status:** Not started
+**Status:** In progress
 
-- [ ] `project_media` model and migrations
-- [ ] Authenticated media API and ownership enforcement
-- [ ] Upload video/image/audio/caption files
-- [ ] File validation and upload progress/recovery
-- [ ] Media library search/filter/grid
-- [ ] Media metadata, thumbnails, and posters
+- [x] `project_media` model and migrations
+- [x] Authenticated media API and ownership enforcement
+- [x] Upload video/image/audio/caption files
+- [x] File validation and upload progress/recovery
+- [x] Media library search/filter/grid
+- [x] Media metadata, thumbnails, and posters
 - [ ] Editing proxies for large media
-- [ ] Distinguish user uploads/generated narration/external cache/render intermediates
+- [x] Distinguish user uploads/generated narration/external cache/render intermediates
 - [ ] Editor media picker
-- [ ] Orphan cleanup
-- [ ] `MEDIA_STORAGE_ROOT` storage abstraction
+- [x] Orphan cleanup
+- [x] `MEDIA_STORAGE_ROOT` storage abstraction
+
+### Implemented M12 media-library foundation
+
+- [x] Project-owned `ProjectMedia` records are separate from Storyboard and editor source state
+- [x] Pexels video search can import reusable external assets into the project library
+- [x] Uploads stream to project-owned runtime storage instead of being committed to the repository
+- [x] Upload size limits are enforced per media type
+- [x] Upload MIME types, extensions, and common file signatures are validated server-side
+- [x] Uploads use temporary files and cleanup on cancellation/validation/database failures
+- [x] Browser reports upload progress and supports cancellation
+- [x] Uploaded audiovisual metadata is derived in-browser and persisted server-side
+- [x] Browser generates PNG thumbnails/posters for uploaded images and videos
+- [x] Uploaded thumbnails are validated, stored under the owning project, and served through authenticated routes
+- [x] Removing an uploaded asset removes both its source file and stored thumbnail
+- [x] Manual/dry-run orphan cleanup commands remove unreferenced media and stale `.uploading-*` files
+
+**Current M12 boundary:** metadata/thumb generation is dependency-free and runs in
+the browser. Large-media editing proxies and direct editor media picking remain
+separate slices. Full editor-timeline rendering remains an M13 concern.
 
 ## M13 — Editor Rendering Integration & Reliability
 **Status:** Not started
@@ -289,3 +307,4 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — M11 richer editor refinement added drag move/trim, optional Music track, audio fades/volume, caption position/style/emphasis, overlay positioning, and touch-capable timeline interactions in the standalone editor.
 - `2026-08-29` — M11 audio refinement added decoded waveform visualization and synchronized editor audio playback without changing Storyboard source records. Real external music sourcing remains deferred to M12 media-library work.
 - `2026-08-29` — M11 transition/effect refinement added bounded Remotion-safe clip transition metadata and deterministic motion presets with live browser preview, autosave, and undo/redo support. Remotion render integration remains an M13 concern.
+- `2026-08-29` — M12 media library foundation added project-owned media records, authenticated media APIs, Pexels imports, dependency-free streamed uploads, server validation, browser metadata extraction, PNG image/video thumbnails, authenticated media playback, and orphan cleanup. Large-media proxies and direct editor media picking remain outstanding.
