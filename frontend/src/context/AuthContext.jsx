@@ -46,7 +46,6 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // The initial session refresh is an intentional external-system synchronization.
   // oxlint-disable-next-line react(set-state-in-effect)
   useEffect(() => {
     void refresh();
