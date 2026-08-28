@@ -21,12 +21,14 @@
 .hx-logo__word { font-family: var(--font-serif); font-size: 20px; color: var(--ink); letter-spacing: 0.01em; white-space: nowrap; }
 .hx-header__right { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; flex-shrink: 1; }
 .hx-header__right > * { min-width: 0; }
+.hx-header__user { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font-size: 13px; }
 
 @media (max-width: 640px) {
   .hx-header__inner { height: 64px; gap: 10px; }
   .hx-logo { gap: 8px; }
   .hx-logo__word { font-size: 18px; }
   .hx-header__right { gap: 6px; }
+  .hx-header__user { display: none; }
 }
 
 @media (max-width: 380px) {
