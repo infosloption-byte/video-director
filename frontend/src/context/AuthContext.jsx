@@ -25,8 +25,25 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    await fetch("/api/auth/signout", { method: "POST", credentials: "include" }).catch(() => {});
+    setError("");
     setUser(null);
+    setStatus("ready");
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+    try {
+      await fetch("/api/auth/signout", {
+        method: "POST",
+        credentials: "include",
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        setError("Signed out locally, but the server session could not be cleared.");
+      }
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
   }
 
   // The initial session refresh is an intentional external-system synchronization.
