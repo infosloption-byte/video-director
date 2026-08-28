@@ -5,18 +5,25 @@ function sceneDurationFrames(scene, fps) {
   return Math.max(1, Math.round(Number(scene.durationSeconds || 1) * fps));
 }
 
+function scaledTimestamps(scene) {
+  const scale = Number(scene.timestampScale || 1);
+  return (Array.isArray(scene.wordTimestamps) ? scene.wordTimestamps : []).map((item) => ({
+    ...item,
+    start: Number(item.start || 0) * scale,
+    end: Number(item.end || 0) * scale,
+  }));
+}
+
 function Caption({ scene }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const elapsed = frame / fps;
-  const timestamps = Array.isArray(scene.wordTimestamps) ? scene.wordTimestamps : [];
+  const timestamps = scaledTimestamps(scene);
 
-  if (!timestamps.length) {
-    return <div style={styles.caption}>{scene.spokenText}</div>;
-  }
+  if (!timestamps.length) return <div style={styles.caption}>{scene.spokenText}</div>;
 
-  const visibleWords = timestamps.filter((item) => elapsed >= Number(item.start || 0));
-  const currentIndex = timestamps.findIndex((item) => elapsed >= Number(item.start || 0) && elapsed < Number(item.end || 0));
+  const visibleWords = timestamps.filter((item) => elapsed >= item.start);
+  const currentIndex = timestamps.findIndex((item) => elapsed >= item.start && elapsed < item.end);
 
   return (
     <div style={styles.caption}>
@@ -55,11 +62,9 @@ function Scene({ scene }) {
       <div style={styles.scrim} />
       <div style={styles.sceneNumber}>{String(scene.sceneOrder).padStart(2, "0")}</div>
       <Caption scene={scene} />
-      {scene.audioUrl && <Audio src={scene.audioUrl} volume={1} />}
+      {scene.audioUrl && <Audio src={scene.audioUrl} volume={1} playbackRate={scene.playbackRate || 1} />}
       <div style={styles.brand}>HELIX</div>
-      <div style={styles.duration}>
-        {Math.round((duration / fps) * 10) / 10}s
-      </div>
+      <div style={styles.duration}>{Math.round((duration / fps) * 10) / 10}s</div>
     </div>
   );
 }
@@ -74,11 +79,7 @@ export function HelixComposition({ scenes = [] }) {
         const duration = sceneDurationFrames(scene, fps);
         const start = from;
         from += duration;
-        return (
-          <Sequence key={scene.id || scene.sceneOrder} from={start} durationInFrames={duration}>
-            <Scene scene={scene} />
-          </Sequence>
-        );
+        return <Sequence key={scene.id || scene.sceneOrder} from={start} durationInFrames={duration}><Scene scene={scene} /></Sequence>;
       })}
     </div>
   );
