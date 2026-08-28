@@ -12,6 +12,22 @@ const FRAME = 1 / FPS;
 const GRID = 0.25;
 const PX_PER_SECOND = 90;
 
+const TRANSITION_PRESETS = [
+  { value: "none", label: "None" },
+  { value: "fade", label: "Fade" },
+  { value: "slide-left", label: "Slide left" },
+  { value: "slide-right", label: "Slide right" },
+  { value: "zoom", label: "Zoom" },
+];
+
+const EFFECT_PRESETS = [
+  { value: "none", label: "None" },
+  { value: "slow-zoom-in", label: "Slow zoom in" },
+  { value: "slow-zoom-out", label: "Slow zoom out" },
+  { value: "pan-left", label: "Pan left" },
+  { value: "pan-right", label: "Pan right" },
+];
+
 function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 function formatTime(seconds) {
   const total = Math.max(0, Number(seconds || 0));
@@ -39,6 +55,62 @@ function normalizeTimeline(timeline) {
 }
 function updateTrack(timeline, trackId, updater) {
   return { ...timeline, tracks: timeline.tracks.map((track) => track.id === trackId ? updater(track) : track) };
+}
+function normalizeTransition(transition) {
+  return {
+    preset: String(transition?.preset || "none"),
+    duration: clamp(Number(transition?.duration ?? 0.35), 0.05, 1.5),
+  };
+}
+function normalizeEffect(effect) {
+  return {
+    preset: String(effect?.preset || "none"),
+    intensity: clamp(Number(effect?.intensity ?? 0.5), 0, 1),
+  };
+}
+function getVisualPreviewStyle(clip, playhead) {
+  if (!clip) return undefined;
+  const duration = Math.max(0.05, Number(clip.duration || 1));
+  const local = clamp((Number(playhead || 0) - Number(clip.start || 0)) / duration, 0, 1);
+  const transitionIn = normalizeTransition(clip.transitionIn);
+  const transitionOut = normalizeTransition(clip.transitionOut);
+  const effect = normalizeEffect(clip.effect);
+  const effectStrength = effect.intensity;
+  let scale = 1;
+  let x = 0;
+  let opacity = 1;
+
+  if (effect.preset === "slow-zoom-in") scale = 1 + 0.12 * effectStrength * local;
+  if (effect.preset === "slow-zoom-out") scale = 1.12 - 0.12 * effectStrength * local;
+  if (effect.preset === "pan-left") { scale = 1 + 0.08 * effectStrength; x = -18 * effectStrength * local; }
+  if (effect.preset === "pan-right") { scale = 1 + 0.08 * effectStrength; x = 18 * effectStrength * local; }
+
+  const inDuration = Math.min(transitionIn.duration, duration / 2);
+  const outDuration = Math.min(transitionOut.duration, duration / 2);
+  const localSeconds = local * duration;
+  const remaining = duration - localSeconds;
+
+  if (transitionIn.preset !== "none" && inDuration > 0 && localSeconds < inDuration) {
+    const progress = clamp(localSeconds / inDuration, 0, 1);
+    if (transitionIn.preset === "fade") opacity *= progress;
+    if (transitionIn.preset === "slide-left") x += (1 - progress) * -100;
+    if (transitionIn.preset === "slide-right") x += (1 - progress) * 100;
+    if (transitionIn.preset === "zoom") scale *= 0.9 + progress * 0.1;
+  }
+
+  if (transitionOut.preset !== "none" && outDuration > 0 && remaining < outDuration) {
+    const progress = clamp(remaining / outDuration, 0, 1);
+    if (transitionOut.preset === "fade") opacity *= progress;
+    if (transitionOut.preset === "slide-left") x += (1 - progress) * 100;
+    if (transitionOut.preset === "slide-right") x += (1 - progress) * -100;
+    if (transitionOut.preset === "zoom") scale *= 1 + (1 - progress) * 0.1;
+  }
+
+  return {
+    transform: `translate3d(${x}%, 0, 0) scale(${scale})`,
+    transformOrigin: "center center",
+    opacity,
+  };
 }
 
 export default function AdvancedEditorPage() {
@@ -98,6 +170,7 @@ export default function AdvancedEditorPage() {
   const selectedScene = useMemo(() => scenes.find((scene) => scene.id === selectedVideo?.sourceId) || null, [scenes, selectedVideo]);
   const duration = Number(timeline?.duration || 0);
   const timelineWidth = Math.max(900, duration * zoom + 160);
+  const selectedVisualStyle = useMemo(() => getVisualPreviewStyle(selectedVideo, playhead), [selectedVideo, playhead]);
 
   useEffect(() => {
     if (!selectedVideo?.src || !videoRef.current) return;
@@ -274,11 +347,12 @@ export default function AdvancedEditorPage() {
     if (!selected || selected.duration < FRAME * 2) return;
     const firstDuration = Number((selected.duration / 2).toFixed(3));
     const firstId = `${selected.id}-a`;
+    const secondId = `${selected.id}-b`;
     mutate((current) => updateTrack(current, selected.trackId, (track) => ({
       ...track,
       clips: track.clips.flatMap((clip) => clip.id !== selected.id ? [clip] : [
         { ...clip, id: firstId, duration: firstDuration },
-        { ...clip, id: `${selected.id}-b`, start: Number((clip.start + firstDuration).toFixed(3)), duration: Number((clip.duration - firstDuration).toFixed(3)), offset: Number(clip.offset || 0) + firstDuration },
+        { ...clip, id: secondId, start: Number((clip.start + firstDuration).toFixed(3)), duration: Number((clip.duration - firstDuration).toFixed(3)), offset: Number(clip.offset || 0) + firstDuration },
       ]),
     })), { trackId: selected.trackId, clipId: firstId });
   }
@@ -291,8 +365,34 @@ export default function AdvancedEditorPage() {
   function updateSelected(field, rawValue) {
     if (!selected) return;
     const numeric = Number(rawValue);
-    const value = field === "start" ? snap(numeric, snapMode) : Math.max(0.05, Number.isFinite(numeric) ? numeric : selected.duration);
+    let value = rawValue;
+    if (field === "start") value = snap(numeric, snapMode);
+    if (field === "duration") value = Math.max(0.05, Number.isFinite(numeric) ? numeric : selected.duration);
     mutate((current) => updateTrack(current, selected.trackId, (track) => ({ ...track, clips: track.clips.map((clip) => clip.id === selected.id ? { ...clip, [field]: value } : clip) })));
+  }
+
+  function updateSelectedTransition(edge, field, rawValue) {
+    if (!selected || selected.trackId !== "video") return;
+    const currentTransition = normalizeTransition(selected[edge]);
+    const nextValue = field === "duration"
+      ? clamp(Number(rawValue) || currentTransition.duration, 0.05, Math.min(1.5, Number(selected.duration || 1) / 2))
+      : String(rawValue || "none");
+    const transition = { ...currentTransition, [field]: nextValue };
+    mutate((current) => updateTrack(current, "video", (track) => ({
+      ...track,
+      clips: track.clips.map((clip) => clip.id === selected.id ? { ...clip, [edge]: transition } : clip),
+    })));
+  }
+
+  function updateSelectedEffect(field, rawValue) {
+    if (!selected || selected.trackId !== "video") return;
+    const currentEffect = normalizeEffect(selected.effect);
+    const nextValue = field === "intensity" ? clamp(Number(rawValue) || 0, 0, 1) : String(rawValue || "none");
+    const effect = { ...currentEffect, [field]: nextValue };
+    mutate((current) => updateTrack(current, "video", (track) => ({
+      ...track,
+      clips: track.clips.map((clip) => clip.id === selected.id ? { ...clip, effect } : clip),
+    })));
   }
 
   function replaceVisual(asset) {
@@ -359,6 +459,9 @@ export default function AdvancedEditorPage() {
   if (status === "error") return <div className="hx-page"><Header right={<Link to="/my-research" className="btn btn-ghost">My Research</Link>} /><main className="container advanced-editor"><div className="editor-state editor-state--error"><strong>Editor couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={loadEditor}>Retry</button></div></main></div>;
 
   const audioClips = timeline?.tracks?.filter((track) => track.kind === "audio").flatMap((track) => track.clips || []) || [];
+  const selectedTransitionIn = normalizeTransition(selected?.transitionIn);
+  const selectedTransitionOut = normalizeTransition(selected?.transitionOut);
+  const selectedEffect = normalizeEffect(selected?.effect);
 
   return <div className="hx-page advanced-editor-shell">
     <Header right={<Link to={`/storyboard/${id}?stage=preview`} className="btn btn-ghost">Back to project</Link>} />
@@ -370,9 +473,9 @@ export default function AdvancedEditorPage() {
 
       <section className="advanced-editor__topgrid">
         <div className="editor-preview-card">
-          <div className="editor-preview-frame">{selectedVideo?.src ? <video ref={videoRef} src={selectedVideo.src} poster={selectedVideo.thumbnailUrl || undefined} playsInline preload="metadata" /> : <div className="editor-preview-empty">Select a visual clip to preview it.</div>}</div>
+          <div className="editor-preview-frame">{selectedVideo?.src ? <video ref={videoRef} src={selectedVideo.src} poster={selectedVideo.thumbnailUrl || undefined} playsInline preload="metadata" style={selectedVisualStyle} /> : <div className="editor-preview-empty">Select a visual clip to preview it.</div>}</div>
           <div className="editor-preview-transport"><button className="btn btn-ghost" onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? "Pause" : "Play"}</button><button className="btn btn-ghost" onClick={() => setPlayhead(clamp(playhead - FRAME, 0, duration))}>−1f</button><button className="btn btn-ghost" onClick={() => setPlayhead(clamp(playhead + FRAME, 0, duration))}>+1f</button><input aria-label="Timeline playhead" type="range" min="0" max={duration || 1} step={FRAME} value={clamp(playhead, 0, duration || 1)} onChange={(event) => { setPlayhead(Number(event.target.value)); setIsPlaying(false); }} /><strong>{formatTime(playhead)}</strong><span>/ {formatTime(duration)}</span></div>
-          <div className="editor-audio-status"><span>{audioClips.filter((clip) => clip.src).length} playable audio clips</span><span>Waveforms load from project audio</span></div>
+          <div className="editor-audio-status"><span>{audioClips.filter((clip) => clip.src).length} playable audio clips</span><span>{selectedVideo?.effect?.preset && selectedVideo.effect.preset !== "none" ? `Effect: ${selectedVideo.effect.preset}` : "Waveforms load from project audio"}</span></div>
           {audioClips.map((clip) => clip.src ? <audio key={clip.id} ref={(node) => getAudioRef(clip.id, node)} src={clip.src} preload="metadata" /> : null)}
         </div>
 
@@ -383,6 +486,8 @@ export default function AdvancedEditorPage() {
             <label>Start<input type="number" min="0" step={FRAME} value={selected.start} onChange={(event) => updateSelected("start", event.target.value)} /></label>
             <label>Duration<input type="number" min={FRAME} step={FRAME} value={selected.duration} onChange={(event) => updateSelected("duration", event.target.value)} /></label>
             {selected.trackId === "video" && selectedScene?.assets?.length > 0 && <label>Visual<select value={selected.assetId || ""} onChange={(event) => replaceVisual(selectedScene.assets.find((asset) => asset.id === event.target.value))}><option value="">Current</option>{selectedScene.assets.map((asset) => <option key={asset.id} value={asset.id}>Visual {asset.sortOrder + 1}</option>)}</select></label>}
+            {selected.trackId === "video" && <div className="editor-form__panel"><div className="editor-form__subheading">Transitions</div><div className="editor-form__split"><label>In<select value={selectedTransitionIn.preset} onChange={(event) => updateSelectedTransition("transitionIn", "preset", event.target.value)}>{TRANSITION_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label>Out<select value={selectedTransitionOut.preset} onChange={(event) => updateSelectedTransition("transitionOut", "preset", event.target.value)}>{TRANSITION_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label></div><div className="editor-form__split"><label>In duration<input type="number" min="0.05" max="1.5" step="0.05" value={selectedTransitionIn.duration} onChange={(event) => updateSelectedTransition("transitionIn", "duration", event.target.value)} /></label><label>Out duration<input type="number" min="0.05" max="1.5" step="0.05" value={selectedTransitionOut.duration} onChange={(event) => updateSelectedTransition("transitionOut", "duration", event.target.value)} /></label></div></div>}
+            {selected.trackId === "video" && <div className="editor-form__panel"><div className="editor-form__subheading">Effect preset</div><label>Motion<select value={selectedEffect.preset} onChange={(event) => updateSelectedEffect("preset", event.target.value)}>{EFFECT_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label>Intensity<input type="range" min="0" max="1" step="0.05" value={selectedEffect.intensity} onChange={(event) => updateSelectedEffect("intensity", event.target.value)} /><span className="field-readout">{Math.round(selectedEffect.intensity * 100)}%</span></label></div>}
             {(selected.type === "audio" || selected.trackId === "music") && <><label>Volume<input type="range" min="0" max="1" step="0.01" value={selected.volume ?? 1} onChange={(event) => updateSelected("volume", event.target.value)} /><span className="field-readout">{Math.round((selected.volume ?? 1) * 100)}%</span></label><div className="editor-form__split"><label>Fade in<input type="number" min="0" max="2" step="0.1" value={selected.fadeIn ?? 0} onChange={(event) => updateSelected("fadeIn", event.target.value)} /></label><label>Fade out<input type="number" min="0" max="2" step="0.1" value={selected.fadeOut ?? 0} onChange={(event) => updateSelected("fadeOut", event.target.value)} /></label></div></>}
             {selected.type === "caption" && <><label>Caption text<textarea rows="4" value={selected.text || ""} onChange={(event) => updateSelected("text", event.target.value)} /></label><div className="editor-form__split"><label>Position<select value={selected.position || "lower-middle"} onChange={(event) => updateSelected("position", event.target.value)}><option value="top">Top</option><option value="center">Center</option><option value="lower-middle">Lower middle</option><option value="bottom">Bottom</option></select></label><label>Style<select value={selected.style || "default"} onChange={(event) => updateSelected("style", event.target.value)}><option value="default">Default</option><option value="bold">Bold</option><option value="highlight">Highlight</option><option value="minimal">Minimal</option></select></label></div><label>Emphasis<select value={selected.emphasis || "none"} onChange={(event) => updateSelected("emphasis", event.target.value)}><option value="none">None</option><option value="keywords">Keywords</option><option value="all">All words</option></select></label></>}
             {selected.type === "overlay" && <><label>Overlay text<textarea rows="3" value={selected.text || ""} onChange={(event) => updateSelected("text", event.target.value)} /></label><label>Position<select value={selected.position || "center"} onChange={(event) => updateSelected("position", event.target.value)}><option value="top">Top</option><option value="center">Center</option><option value="bottom">Bottom</option></select></label></>}
@@ -401,7 +506,7 @@ export default function AdvancedEditorPage() {
               <div className="editor-track-label"><strong>{track.name}</strong><span>{track.clips.length} clips</span></div>
               <div className="editor-track-lane" onClick={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setPlayhead(clamp(snap((event.clientX - rect.left) / zoom, snapMode), 0, duration)); setIsPlaying(false); }}>
                 {track.clips.map((clip) => <button key={clip.id} type="button" className={`editor-clip editor-clip--${track.kind} ${selectedClip.clipId === clip.id ? "is-selected" : ""}`} style={{ left: `${clip.start * zoom}px`, width: `${Math.max(54, clip.duration * zoom)}px` }} onPointerDown={(event) => beginDrag(event, track.id, clip)} onClick={(event) => { event.stopPropagation(); selectClip(track.id, clip.id); }}>
-                  <span>{clip.title || clip.text || clip.type}</span><small>{formatTime(clip.duration)}</small>
+                  <span>{clip.title || clip.text || clip.type}</span><small>{formatTime(clip.duration)}{track.kind === "video" && clip.effect?.preset && clip.effect.preset !== "none" ? ` · ${clip.effect.preset}` : ""}</small>
                   {(track.kind === "audio" && clip.src) && <EditorWaveform src={clip.src} progress={clamp((playhead - Number(clip.start || 0)) / Math.max(0.001, Number(clip.duration || 1)), 0, 1)} />}
                   <i className="editor-clip__handle editor-clip__handle--left" onPointerDown={(event) => beginResize(event, track.id, clip, "left")} /><i className="editor-clip__handle editor-clip__handle--right" onPointerDown={(event) => beginResize(event, track.id, clip, "right")} />
                 </button>)}</div>
@@ -409,7 +514,7 @@ export default function AdvancedEditorPage() {
           </div>
         </div>
       </section>
-      <p className="advanced-editor__hint">Keyboard: Space play/pause · ←/→ frame step · S split · Delete remove · Ctrl/Cmd+Z undo · Ctrl/Cmd+Y redo. Drag clips to move; drag edges to trim. Narration waveforms and audio playback are synchronized to the editor playhead.</p>
+      <p className="advanced-editor__hint">Keyboard: Space play/pause · ←/→ frame step · S split · Delete remove · Ctrl/Cmd+Z undo · Ctrl/Cmd+Y redo. Drag clips to move; drag edges to trim. Video clips support Remotion-safe transition/effect presets; narration waveforms and audio playback stay synchronized to the editor playhead.</p>
     </main>
   </div>;
 }
