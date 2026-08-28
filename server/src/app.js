@@ -44,13 +44,14 @@ app.use(
   express.static(path.resolve(process.cwd(), "storage", "render-assets"), { fallthrough: false, maxAge: "1h" }),
 );
 
-// User-facing project media remains private and owner-scoped.
-for (const [route, directory] of [
-  ["/api/audio", "audio"],
-  ["/api/render-files", "renders"],
-  ["/api/export-files", "exports"],
+// User-facing project media remains private and owner-scoped. The Remotion
+// worker uses the same internal render token path as B-roll for narration audio.
+for (const [route, directory, middleware] of [
+  ["/api/audio", "audio", requireRenderAssetAccess],
+  ["/api/render-files", "renders", requireStoredProjectOwner],
+  ["/api/export-files", "exports", requireStoredProjectOwner],
 ]) {
-  app.use(route, requireAuth, requireStoredProjectOwner, express.static(path.resolve(process.cwd(), "storage", directory), { fallthrough: false, maxAge: "1h" }));
+  app.use(route, requireAuth, middleware, express.static(path.resolve(process.cwd(), "storage", directory), { fallthrough: false, maxAge: "1h" }));
 }
 
 app.use("/api/scenes/:sceneId", requireAuth, requireSceneOwner);
