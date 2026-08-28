@@ -7,8 +7,12 @@ export function getMediaStorageRoot() {
   return path.resolve(configured || path.join(process.cwd(), "storage", "media"));
 }
 
+function safeSegment(value) {
+  return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "");
+}
+
 export function mediaStoragePaths(projectId, extension) {
-  const safeProjectId = String(projectId).replace(/[^a-zA-Z0-9_-]/g, "");
+  const safeProjectId = safeSegment(projectId);
   const safeExtension = String(extension || "").toLowerCase().replace(/[^a-z0-9.]/g, "");
   const filename = `${crypto.randomUUID()}${safeExtension}`;
   const relativeDirectory = safeProjectId;
@@ -19,6 +23,20 @@ export function mediaStoragePaths(projectId, extension) {
     tempStorageKey: tempRelativePath,
     finalPath: resolveStorageKey(relativePath),
     tempPath: resolveStorageKey(tempRelativePath),
+  };
+}
+
+export function mediaThumbnailStoragePaths(projectId, mediaId) {
+  const safeProjectId = safeSegment(projectId);
+  const safeMediaId = safeSegment(mediaId);
+  const relativeDirectory = path.posix.join(safeProjectId, "thumbnails");
+  const storageKey = path.posix.join(relativeDirectory, `${safeMediaId}.png`);
+  const tempStorageKey = path.posix.join(relativeDirectory, `.uploading-${safeMediaId}-${crypto.randomUUID()}.png`);
+  return {
+    storageKey,
+    tempStorageKey,
+    finalPath: resolveStorageKey(storageKey),
+    tempPath: resolveStorageKey(tempStorageKey),
   };
 }
 
