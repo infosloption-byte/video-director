@@ -33,28 +33,31 @@ async function narrationIsAvailable(projectId, scene) {
 function buildDurationPlan(project) {
   const sourceTotal = project.scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
   const target = Number(project.scriptLengthSeconds || 0);
-  const scale = target > 0 && sourceTotal > target ? target / sourceTotal : 1;
+
+  // A setup length is a planning target, not permission to time-stretch finished
+  // narration. Previous renders became unnaturally fast because a 60s/15s target
+  // was converted into a playbackRate > 1 for the entire reel. Keep the recorded
+  // narration at natural speed and let the actual audio determine the final runtime.
   return {
     sourceTotal,
-    targetDuration: scale < 1 ? target : sourceTotal,
-    scale,
+    targetDuration: target > 0 ? target : sourceTotal,
+    scale: 1,
+    targetExceeded: target > 0 && sourceTotal > target,
   };
 }
 
-function toRenderScene(scene, localAssetUrl = null, scale = 1) {
+function toRenderScene(scene, localAssetUrl = null) {
   const selectedAsset = scene.assets?.find((asset) => asset.isSelected) || scene.assets?.[0] || null;
   const sourceDuration = Number(scene.durationSeconds || 1);
-  const durationSeconds = Math.max(0.25, sourceDuration * scale);
-  const playbackRate = scale < 1 ? 1 / scale : 1;
   return {
     id: scene.id,
     sceneOrder: scene.sceneOrder,
     title: scene.title,
     spokenText: scene.spokenText,
-    durationSeconds,
+    durationSeconds: Math.max(0.25, sourceDuration),
     sourceDurationSeconds: sourceDuration,
-    playbackRate,
-    timestampScale: scale,
+    playbackRate: 1,
+    timestampScale: 1,
     wordTimestamps: scene.wordTimestamps || [],
     selectedAsset: selectedAsset ? {
       videoUrl: localAssetUrl || selectedAsset.videoUrl,
@@ -110,13 +113,13 @@ export async function renderProject(projectId, { onProgress } = {}) {
   }
 
   const durationPlan = buildDurationPlan(project);
-  const durationMessage = durationPlan.scale < 1
-    ? `Fitting ${durationPlan.sourceTotal.toFixed(1)}s narration into the ${durationPlan.targetDuration.toFixed(1)}s target`
+  const durationMessage = durationPlan.targetExceeded
+    ? `Keeping narration at natural speed (${durationPlan.sourceTotal.toFixed(1)}s); selected ${durationPlan.targetDuration.toFixed(1)}s is a planning target`
     : "Narration is within the selected duration";
   report("preflight", 100, durationMessage, 8, {
     substeps: [
       { id: "narration", label: "Validate narration files", progress: 100 },
-      { id: "duration", label: "Apply duration target", progress: 100 },
+      { id: "duration", label: durationPlan.targetExceeded ? "Preserve natural narration timing" : "Confirm duration target", progress: 100 },
       { id: "settings", label: "Validate render settings", progress: 100 },
     ],
   });
@@ -152,7 +155,7 @@ export async function renderProject(projectId, { onProgress } = {}) {
   });
   const localAssetUrlByScene = new Map(project.scenes.map((scene, index) => [scene.id, `${getBaseUrl()}${renderAssets[index].url}`]));
 
-  const scenes = project.scenes.map((scene) => toRenderScene(scene, localAssetUrlByScene.get(scene.id), durationPlan.scale));
+  const scenes = project.scenes.map((scene) => toRenderScene(scene, localAssetUrlByScene.get(scene.id)));
   const effectiveDuration = scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
   await prisma.project.update({
     where: { id: project.id },
