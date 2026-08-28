@@ -28,10 +28,6 @@ Finalize/export.
 **Decision:** keep the development integration, but do not expand M9 into
 production work until the product direction for publishing is decided.
 
----
-
-# Next-level platform roadmap
-
 ## M10 — Accounts & Authentication
 **Status:** In progress
 
@@ -134,12 +130,22 @@ narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 - [x] Touch-capable pointer interactions for timeline move/trim controls
 - [x] Mobile-responsive richer inspector and timeline controls
 
+### Implemented audio refinement
+
+- [x] Real waveform visualization for playable narration/music clips
+- [x] Waveform loading from authenticated project audio URLs
+- [x] Cached decoded waveform peaks for repeat renders within the browser session
+- [x] Timeline audio playback synchronized to the editor playhead
+- [x] Active audio clip volume follows clip volume metadata
+- [x] Fade-in/fade-out affect editor preview playback
+- [x] Audio clips pause when the editor is paused
+- [x] Audio playback status indicator in the preview panel
+- [x] No-source music clips remain explicitly unavailable until a real media source is attached
+
 ### Remaining M11 work
 
-- [ ] Waveform visualization for narration/music
 - [ ] Transition/effect presets safe for Remotion
-- [ ] Real audio playback/mixing for editor Music track
-- [ ] Optional music asset picker/library integration
+- [ ] Real external music asset picker/library integration
 - [ ] Editor-specific loading/error/empty states QA
 - [ ] Verify editor changes never mutate Storyboard source records
 - [ ] Full browser QA across supported viewport sizes
@@ -269,4 +275,5 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — Persistent user-selectable light/dark theme is part of the frontend shell.
 - `2026-08-28` — M11 first slice implemented with a dedicated `ProjectEditor` record, canonical timeline JSON, protected editor route, autosave, and non-destructive editing operations.
 - `2026-08-28` — M11 timeline refinement added playhead playback/seeking, timeline zoom, snap modes, B-roll replacement, preview scrubbing, bounded undo/redo, and keyboard controls without changing Storyboard source data.
-- `2026-08-28` — M11 richer editing refinement added drag move/trim, optional Music track, audio fades/volume, caption position/style/emphasis, overlay positioning, and touch-capable timeline interactions in the standalone editor.
+- `2026-08-28` — M11 richer editor refinement added drag move/trim, optional Music track, audio fades/volume, caption position/style/emphasis, overlay positioning, and touch-capable timeline interactions in the standalone editor.
+- `2026-08-29` — M11 audio refinement added decoded waveform visualization and synchronized editor audio playback without changing Storyboard source records. Real external music sourcing remains deferred to M12 media-library work.
