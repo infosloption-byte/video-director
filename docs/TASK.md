@@ -37,30 +37,59 @@ production work until the product direction for publishing is decided.
 # Next-level platform roadmap
 
 ## M10 — Accounts & Authentication
-**Status:** Not started
+**Status:** In progress
 
 Goal: turn the current local-user application into a secure multi-user
 workspace without breaking the existing research/video workflow.
 
-- [ ] Add `users` table with unique email, display name, password hash, verification state, timestamps
-- [ ] Add `auth_sessions` table with hashed session tokens and expiry
-- [ ] Sign-up page with validation and useful error states
-- [ ] Sign-in page with persistent secure session
-- [ ] Sign-out
-- [ ] `GET /api/auth/me`
-- [ ] Password-reset request + reset flow
-- [ ] Email verification flow with configurable delivery adapter
-- [ ] Account/profile settings
+- [x] Add `users` table with unique email, display name, password hash, verification state, timestamps
+- [x] Add `auth_sessions` table with hashed session tokens and expiry
+- [x] Sign-up page with validation and useful error states
+- [x] Sign-in page with persistent secure session
+- [x] Sign-out
+- [x] `GET /api/auth/me`
+- [x] Password-reset request + reset flow
+- [x] Email verification flow with configurable delivery adapter
+- [x] Account/profile settings
 - [ ] Replace all production `local-user` assumptions with authenticated user identity
-- [ ] Authorize project, media, export, render, narration, storyboard, and editor endpoints by owner
-- [ ] Protect authenticated workspace routes in the frontend
+- [x] Authorize project, media, export, render, narration, storyboard, and editor endpoints by owner
+- [x] Protect authenticated workspace routes in the frontend
 - [ ] Rate limiting / abuse protection for Gemini, search, TTS, uploads, and render operations
-- [ ] Secure cookie/session configuration and CSRF strategy for authenticated browser requests
-- [ ] Auth migration keeps existing local-development workflow available behind explicit dev configuration
+- [x] Secure cookie/session configuration and CSRF strategy for authenticated browser requests
+- [x] Auth migration keeps existing local-development workflow available behind explicit dev configuration
+- [ ] Final cross-user verification with real multiple accounts
 
 **Acceptance:** a user can create an account, sign in, refresh the browser,
 see only their own projects, and safely sign out; another user cannot access
 those project/media resources by changing an ID in the URL.
+
+## M10A — Public Discovery Landing & Responsive Navigation
+**Status:** In progress
+
+Goal: make Signals the public, conversion-oriented entry point while keeping
+content discovery open and all project-creating actions authenticated.
+
+- [x] Signals page remains publicly viewable without login
+- [x] Public visitors can search signals
+- [x] Public visitors can filter signals by category
+- [x] Landing hero explains the product and points visitors into signals
+- [x] Signed-out visitors can see `Sign in` and `Create account` in the top bar
+- [x] `Direct this Reel` requires authentication before creating a project
+- [x] Auth prompt provides clear Sign in / Create account choices
+- [x] Successful authentication returns the user to the public Signals page
+- [x] Authenticated header shows user identity and workspace access
+- [x] `My Research` navigation is available from authenticated pages
+- [x] Three-dot account/navigation menu with Account, My Research, and Sign out
+- [x] Responsive mobile navigation menu
+- [x] Mobile header avoids horizontal overflow and preserves key actions
+- [ ] Browser QA at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440
+- [ ] Verify auth prompt + redirect flow in production-auth mode
+
+**Acceptance:** an anonymous visitor can browse/search/filter Signals and
+understand the product without an account; attempting to direct a Reel asks
+the visitor to sign in or create an account; after successful auth, Helix
+returns to Signals. Authenticated users see their name, My Research, and a
+responsive navigation menu.
 
 ## M11 — Advanced Video Editor Core — **Separate Feature / Workspace**
 **Status:** Not started
@@ -121,7 +150,7 @@ Goal: make user-owned media a first-class reusable asset layer for the editor.
 - [ ] Metadata: filename, type, size, duration, dimensions, source, created date
 - [ ] Generate thumbnails/posters for visual media
 - [ ] Generate lightweight editing proxies when source media is large
-- [ ] Distinguish user uploads, generated narration, Pexels/external cache, and derived render intermediates
+- [ ] Distinguish user uploads, generated narration, downloaded B-roll, and derived render intermediates
 - [ ] Add media picker to Editor
 - [ ] Prevent cross-user media access
 - [ ] Cleanup orphaned uploads/cached B-roll/render intermediates
@@ -242,11 +271,13 @@ These apply to every future milestone before marking it Done:
 ```text
 M10 Accounts/Auth
        ↓
+M10A Public Discovery + Responsive Navigation
+       ↓
 M11 Advanced Editor Core (SEPARATE)
        ↓
 M12 Media Library
        ↓
-M13 Editor Rendering + Reliability
+M13 Rendering + Reliability
        ↓
 M14 AI Editing
        ↓
@@ -268,3 +299,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — Add reusable media-library layer before expanding editor/AI functionality so user uploads and generated/external assets share ownership and lifecycle rules.
 - `2026-08-28` — AI editing is planned after the deterministic editor and render integration are stable; AI returns reversible editor operations instead of directly mutating rendered media.
 - `2026-08-28` — Facebook production integration remains excluded from the next implementation cycle pending a separate publishing/product decision.
+- `2026-08-28` — Approved public product-shell direction: Signals is the anonymous landing/discovery page; browsing, searching, and filtering are public, while Direct this Reel is an authenticated action.
+- `2026-08-28` — Signed-out users receive an explicit Sign in / Create account choice before a project is created; successful authentication returns them to Signals.
+- `2026-08-28` — Shared navigation must expose account/workspace actions without overcrowding desktop layouts and must collapse into a mobile menu at narrow widths.
