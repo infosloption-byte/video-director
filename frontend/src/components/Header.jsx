@@ -8,13 +8,17 @@ export default function Header({ right }) {
   const navigate = useNavigate();
   const { user, status, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const desktopMenuRef = useRef(null);
+  const mobileMenuRef = useRef(null);
   const showResearchLink = location.pathname !== "/my-research";
 
   useEffect(() => {
     if (!menuOpen) return undefined;
     function handlePointerDown(event) {
-      if (!menuRef.current?.contains(event.target)) setMenuOpen(false);
+      const target = event.target;
+      if (!desktopMenuRef.current?.contains(target) && !mobileMenuRef.current?.contains(target)) {
+        setMenuOpen(false);
+      }
     }
     function handleKeyDown(event) {
       if (event.key === "Escape") setMenuOpen(false);
@@ -27,13 +31,13 @@ export default function Header({ right }) {
     };
   }, [menuOpen]);
 
-  async function handleSignOut() {
+  function handleSignOut() {
     setMenuOpen(false);
-    try {
-      await signOut();
-    } finally {
-      navigate("/", { replace: true });
-    }
+    // Navigate immediately so desktop and mobile have the same responsive behavior.
+    // The auth context clears the local user state immediately and clears the server
+    // session in the background with its own timeout/error handling.
+    navigate("/", { replace: true });
+    void signOut();
   }
 
   const authenticated = status === "ready" && Boolean(user);
@@ -64,7 +68,7 @@ export default function Header({ right }) {
               <>
                 <span className="hx-header__greeting">Hi, {userLabel}</span>
                 {right}
-                <div className="hx-header__menu" ref={menuRef}>
+                <div className="hx-header__menu" ref={desktopMenuRef}>
                   <button
                     type="button"
                     className="btn btn-ghost hx-header__menu-trigger"
@@ -116,7 +120,7 @@ export default function Header({ right }) {
       </div>
 
       {menuOpen && (
-        <div className="hx-header__mobile-menu" ref={menuRef}>
+        <div className="hx-header__mobile-menu" ref={mobileMenuRef}>
           {authenticated ? (
             <>
               <div className="hx-header__mobile-user">
