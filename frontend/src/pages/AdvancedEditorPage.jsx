@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
+import EditorWaveform from "../components/EditorWaveform";
 import "../components/ui.css";
 import "./AdvancedEditorPage.css";
 
@@ -62,9 +63,12 @@ export default function AdvancedEditorPage() {
   const videoRef = useRef(null);
   const saveTimer = useRef(null);
   const timelineRef = useRef(null);
+  const playheadRef = useRef(0);
+  const audioRefs = useRef(new Map());
+  const activeAudioIdsRef = useRef(new Set());
 
   const loadEditor = useCallback(async () => {
-    setStatus("loading"); setMessage(""); setDirty(false); setHistory([]); setFuture([]);
+    setStatus("loading"); setMessage(""); setDirty(false); setHistory([]); setFuture([]); setIsPlaying(false);
     try {
       const response = await fetch(`/api/projects/${id}/editor`, { credentials: "include", cache: "no-store" });
       const data = await response.json().catch(() => ({}));
@@ -79,6 +83,7 @@ export default function AdvancedEditorPage() {
   useEffect(() => { if (user) void loadEditor(); }, [loadEditor, user]);
   useEffect(() => () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); }, []);
   useEffect(() => { timelineRef.current = timeline; }, [timeline]);
+  useEffect(() => { playheadRef.current = playhead; }, [playhead]);
 
   const selected = useMemo(() => {
     if (!timeline || !selectedClip.clipId) return null;
@@ -96,9 +101,84 @@ export default function AdvancedEditorPage() {
 
   useEffect(() => {
     if (!selectedVideo?.src || !videoRef.current) return;
+    if (isPlaying) return;
     const local = clamp(playhead - Number(selectedVideo.start || 0), 0, Number(selectedVideo.duration || 0));
     videoRef.current.currentTime = Number(selectedVideo.offset || 0) + local;
-  }, [playhead, selectedVideo]);
+  }, [playhead, selectedVideo, isPlaying]);
+
+  const getAudioClips = useCallback(() => {
+    const current = timelineRef.current;
+    if (!current) return [];
+    return current.tracks
+      .filter((track) => track.kind === "audio" && !track.muted)
+      .flatMap((track) => (track.clips || []).map((clip) => ({ ...clip, trackId: track.id })))
+      .filter((clip) => clip.src);
+  }, []);
+
+  const effectiveVolume = useCallback((clip, time) => {
+    const local = time - Number(clip.start || 0);
+    const clipDuration = Number(clip.duration || 0);
+    if (local < 0 || local > clipDuration) return 0;
+    const base = clamp(Number(clip.volume ?? 1), 0, 1);
+    const fadeIn = Math.min(Number(clip.fadeIn || 0), clipDuration / 2);
+    const fadeOut = Math.min(Number(clip.fadeOut || 0), clipDuration / 2);
+    const inGain = fadeIn > 0 ? clamp(local / fadeIn, 0, 1) : 1;
+    const outGain = fadeOut > 0 ? clamp((clipDuration - local) / fadeOut, 0, 1) : 1;
+    return base * Math.min(inGain, outGain);
+  }, []);
+
+  const syncAudioAtPlayhead = useCallback(async () => {
+    const time = playheadRef.current;
+    const clips = getAudioClips();
+    const nextActive = new Set();
+
+    for (const clip of clips) {
+      const start = Number(clip.start || 0);
+      const clipDuration = Number(clip.duration || 0);
+      const end = start + clipDuration;
+      const audio = audioRefs.current.get(clip.id);
+      if (!audio) continue;
+
+      if (time >= start && time < end) {
+        nextActive.add(clip.id);
+        audio.volume = effectiveVolume(clip, time);
+        const localTime = clamp(time - start, 0, clipDuration);
+        const desired = Number(clip.offset || 0) + localTime;
+        if (Math.abs(audio.currentTime - desired) > 0.08) audio.currentTime = desired;
+        if (audio.paused && isPlaying) {
+          try { await audio.play(); } catch { /* Browser autoplay policy may delay playback until user gesture. */ }
+        }
+      } else if (!audio.paused) {
+        audio.pause();
+      }
+    }
+
+    activeAudioIdsRef.current = nextActive;
+  }, [effectiveVolume, getAudioClips, isPlaying]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      for (const audio of audioRefs.current.values()) audio.pause();
+      videoRef.current?.pause();
+      return undefined;
+    }
+
+    let cancelled = false;
+    const startPlayback = async () => {
+      if (cancelled) return;
+      try { await videoRef.current?.play(); } catch { /* A play request may wait for a direct user gesture. */ }
+      await syncAudioAtPlayhead();
+    };
+    void startPlayback();
+
+    const interval = window.setInterval(() => { void syncAudioAtPlayhead(); }, 80);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      for (const audio of audioRefs.current.values()) audio.pause();
+      videoRef.current?.pause();
+    };
+  }, [isPlaying, syncAudioAtPlayhead]);
 
   useEffect(() => {
     if (!isPlaying || !duration) return undefined;
@@ -116,6 +196,19 @@ export default function AdvancedEditorPage() {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [isPlaying, duration]);
+
+  useEffect(() => {
+    const activeVideo = selectedVideo;
+    if (!isPlaying || !activeVideo || !videoRef.current) return undefined;
+    const handleTimeUpdate = () => {
+      const local = clamp(Number(videoRef.current.currentTime || 0) - Number(activeVideo.offset || 0), 0, Number(activeVideo.duration || 0));
+      const next = Number((Number(activeVideo.start || 0) + local).toFixed(3));
+      playheadRef.current = next;
+    };
+    const video = videoRef.current;
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => video.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [isPlaying, selectedVideo]);
 
   const saveTimeline = useCallback(async (nextTimeline = timeline) => {
     if (!nextTimeline || saving) return;
@@ -256,9 +349,16 @@ export default function AdvancedEditorPage() {
     return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
   }, [dragState, snapMode, zoom]);
 
+  const getAudioRef = useCallback((clipId, node) => {
+    if (node) audioRefs.current.set(clipId, node);
+    else audioRefs.current.delete(clipId);
+  }, []);
+
   if (!user) return null;
   if (status === "loading") return <div className="hx-page"><Header /><main className="container advanced-editor"><div className="editor-state">Loading editor…</div></main></div>;
   if (status === "error") return <div className="hx-page"><Header right={<Link to="/my-research" className="btn btn-ghost">My Research</Link>} /><main className="container advanced-editor"><div className="editor-state editor-state--error"><strong>Editor couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={loadEditor}>Retry</button></div></main></div>;
+
+  const audioClips = timeline?.tracks?.filter((track) => track.kind === "audio").flatMap((track) => track.clips || []) || [];
 
   return <div className="hx-page advanced-editor-shell">
     <Header right={<Link to={`/storyboard/${id}?stage=preview`} className="btn btn-ghost">Back to project</Link>} />
@@ -270,8 +370,10 @@ export default function AdvancedEditorPage() {
 
       <section className="advanced-editor__topgrid">
         <div className="editor-preview-card">
-          <div className="editor-preview-frame">{selectedVideo?.src ? <video ref={videoRef} src={selectedVideo.src} poster={selectedVideo.thumbnailUrl || undefined} playsInline muted={false} /> : <div className="editor-preview-empty">Select a visual clip to preview it.</div>}</div>
+          <div className="editor-preview-frame">{selectedVideo?.src ? <video ref={videoRef} src={selectedVideo.src} poster={selectedVideo.thumbnailUrl || undefined} playsInline preload="metadata" /> : <div className="editor-preview-empty">Select a visual clip to preview it.</div>}</div>
           <div className="editor-preview-transport"><button className="btn btn-ghost" onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? "Pause" : "Play"}</button><button className="btn btn-ghost" onClick={() => setPlayhead(clamp(playhead - FRAME, 0, duration))}>−1f</button><button className="btn btn-ghost" onClick={() => setPlayhead(clamp(playhead + FRAME, 0, duration))}>+1f</button><input aria-label="Timeline playhead" type="range" min="0" max={duration || 1} step={FRAME} value={clamp(playhead, 0, duration || 1)} onChange={(event) => { setPlayhead(Number(event.target.value)); setIsPlaying(false); }} /><strong>{formatTime(playhead)}</strong><span>/ {formatTime(duration)}</span></div>
+          <div className="editor-audio-status"><span>{audioClips.filter((clip) => clip.src).length} playable audio clips</span><span>Waveforms load from project audio</span></div>
+          {audioClips.map((clip) => clip.src ? <audio key={clip.id} ref={(node) => getAudioRef(clip.id, node)} src={clip.src} preload="metadata" /> : null)}
         </div>
 
         <aside className="advanced-editor__inspector">
@@ -299,14 +401,15 @@ export default function AdvancedEditorPage() {
               <div className="editor-track-label"><strong>{track.name}</strong><span>{track.clips.length} clips</span></div>
               <div className="editor-track-lane" onClick={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setPlayhead(clamp(snap((event.clientX - rect.left) / zoom, snapMode), 0, duration)); setIsPlaying(false); }}>
                 {track.clips.map((clip) => <button key={clip.id} type="button" className={`editor-clip editor-clip--${track.kind} ${selectedClip.clipId === clip.id ? "is-selected" : ""}`} style={{ left: `${clip.start * zoom}px`, width: `${Math.max(54, clip.duration * zoom)}px` }} onPointerDown={(event) => beginDrag(event, track.id, clip)} onClick={(event) => { event.stopPropagation(); selectClip(track.id, clip.id); }}>
-                  <span>{clip.title || clip.text || clip.type}</span><small>{formatTime(clip.duration)}</small><i className="editor-clip__handle editor-clip__handle--left" onPointerDown={(event) => beginResize(event, track.id, clip, "left")} /><i className="editor-clip__handle editor-clip__handle--right" onPointerDown={(event) => beginResize(event, track.id, clip, "right")} />
-                </button>)}
-              </div>
+                  <span>{clip.title || clip.text || clip.type}</span><small>{formatTime(clip.duration)}</small>
+                  {(track.kind === "audio" && clip.src) && <EditorWaveform src={clip.src} progress={clamp((playhead - Number(clip.start || 0)) / Math.max(0.001, Number(clip.duration || 1)), 0, 1)} />}
+                  <i className="editor-clip__handle editor-clip__handle--left" onPointerDown={(event) => beginResize(event, track.id, clip, "left")} /><i className="editor-clip__handle editor-clip__handle--right" onPointerDown={(event) => beginResize(event, track.id, clip, "right")} />
+                </button>)}</div>
             </div>; })}
           </div>
         </div>
       </section>
-      <p className="advanced-editor__hint">Keyboard: Space play/pause · ←/→ frame step · S split · Delete remove · Ctrl/Cmd+Z undo · Ctrl/Cmd+Y redo. Drag clips to move; drag edges to trim.</p>
+      <p className="advanced-editor__hint">Keyboard: Space play/pause · ←/→ frame step · S split · Delete remove · Ctrl/Cmd+Z undo · Ctrl/Cmd+Y redo. Drag clips to move; drag edges to trim. Narration waveforms and audio playback are synchronized to the editor playhead.</p>
     </main>
   </div>;
 }
