@@ -29,6 +29,8 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  // The initial session refresh is an intentional external-system synchronization.
+  // oxlint-disable-next-line react(set-state-in-effect)
   useEffect(() => {
     void refresh();
   }, []);
@@ -37,12 +39,14 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// oxlint-disable-next-line react(only-export-components)
 export function useAuth() {
   const value = useContext(AuthContext);
   if (!value) throw new Error("useAuth must be used inside AuthProvider");
   return value;
 }
 
+// oxlint-disable-next-line react(only-export-components)
 export function authRequired() {
   return String(import.meta.env.VITE_AUTH_REQUIRED || "false").toLowerCase() === "true";
 }
