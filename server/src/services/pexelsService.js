@@ -29,10 +29,15 @@ export async function searchPexelsVideos(query, limit = MAX_RESULTS) {
   return (data.videos || []).map((video) => {
     const file = pickVideoFile(video);
     return file && video.image ? {
+      providerAssetId: String(video.id),
+      title: `Pexels video ${video.id}`,
       videoUrl: file.link,
       thumbnailUrl: video.image,
       sourceUrl: video.url,
       photographer: video.user?.name || null,
+      width: Number(file.width) || null,
+      height: Number(file.height) || null,
+      durationSeconds: Number(video.duration) || null,
     } : null;
   }).filter(Boolean).slice(0, limit);
 }
