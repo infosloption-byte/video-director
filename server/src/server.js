@@ -11,7 +11,12 @@ const server = app.listen(PORT, () => {
   // Signal scraping is deliberately opt-in at startup. A third-party feed
   // outage must never make the API unavailable while the UI is running.
   startSignalScraper();
-  startRenderWorker();
+
+  // Rendering is intentionally a separate worker process. Long Remotion/Chromium
+  // renders can take minutes and must not share the API process event loop.
+  if (String(process.env.RENDER_WORKER_IN_API || "false").toLowerCase() === "true") {
+    startRenderWorker();
+  }
 });
 
 process.on("unhandledRejection", (reason) => {
