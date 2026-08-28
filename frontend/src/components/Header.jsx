@@ -1,24 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext.jsx";
 import "./Header.css";
 
 export default function Header({ right }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, status, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const desktopMenuRef = useRef(null);
   const mobileMenuRef = useRef(null);
   const showResearchLink = location.pathname !== "/my-research";
+  const nextTheme = theme === "dark" ? "light" : "dark";
 
   useEffect(() => {
     if (!menuOpen) return undefined;
     function handlePointerDown(event) {
       const target = event.target;
-      if (!desktopMenuRef.current?.contains(target) && !mobileMenuRef.current?.contains(target)) {
-        setMenuOpen(false);
-      }
+      if (!desktopMenuRef.current?.contains(target) && !mobileMenuRef.current?.contains(target)) setMenuOpen(false);
     }
     function handleKeyDown(event) {
       if (event.key === "Escape") setMenuOpen(false);
@@ -53,12 +54,7 @@ export default function Header({ right }) {
         <div className="hx-header__desktop">
           <div className="hx-header__right">
             {authenticated && showResearchLink && (
-              <Link
-                to="/my-research"
-                className="btn btn-ghost hx-header__compact-action"
-                aria-label="Open My Research"
-                title="My Research"
-              >
+              <Link to="/my-research" className="btn btn-ghost hx-header__compact-action" aria-label="Open My Research" title="My Research">
                 <span className="hx-header__action-icon" aria-hidden="true">▦</span>
                 <span className="hx-header__action-label">My Research</span>
               </Link>
@@ -67,32 +63,18 @@ export default function Header({ right }) {
               <>
                 <span className="hx-header__greeting">Hi, {userLabel}</span>
                 {right}
+                <button type="button" className="btn btn-ghost hx-header__theme-toggle" aria-label={`Switch to ${nextTheme} theme`} title={`Switch to ${nextTheme} theme`} onClick={toggleTheme}>
+                  <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span>
+                  <span className="hx-header__theme-label">{theme === "dark" ? "Light" : "Dark"}</span>
+                </button>
                 <div className="hx-header__menu" ref={desktopMenuRef}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost hx-header__menu-trigger"
-                    aria-label="Open account menu"
-                    aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                    onClick={() => setMenuOpen((open) => !open)}
-                  >
-                    •••
-                  </button>
+                  <button type="button" className="btn btn-ghost hx-header__menu-trigger" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>•••</button>
                   {menuOpen && (
                     <div className="hx-header__dropdown" role="menu">
-                      <div className="hx-header__dropdown-user">
-                        <strong>Hi, {userLabel}</strong>
-                        <span>{user?.email}</span>
-                      </div>
-                      <Link role="menuitem" to="/my-research" onClick={() => setMenuOpen(false)}>
-                        <span aria-hidden="true">▦</span> My Research
-                      </Link>
-                      <Link role="menuitem" to="/account" onClick={() => setMenuOpen(false)}>
-                        Account settings
-                      </Link>
-                      <button role="menuitem" type="button" onClick={handleSignOut}>
-                        Sign out
-                      </button>
+                      <div className="hx-header__dropdown-user"><strong>Hi, {userLabel}</strong><span>{user?.email}</span></div>
+                      <Link role="menuitem" to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>
+                      <Link role="menuitem" to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
+                      <button role="menuitem" type="button" onClick={handleSignOut}>Sign out</button>
                     </div>
                   )}
                 </div>
@@ -100,6 +82,10 @@ export default function Header({ right }) {
             ) : (
               <>
                 {right}
+                <button type="button" className="btn btn-ghost hx-header__theme-toggle" aria-label={`Switch to ${nextTheme} theme`} title={`Switch to ${nextTheme} theme`} onClick={toggleTheme}>
+                  <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span>
+                  <span className="hx-header__theme-label">{theme === "dark" ? "Light" : "Dark"}</span>
+                </button>
                 <Link to="/signin" className="btn btn-ghost">Sign in</Link>
                 <Link to="/signup" className="btn btn-cream">Create account</Link>
               </>
@@ -107,25 +93,15 @@ export default function Header({ right }) {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="hx-header__mobile-trigger"
-          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <span /><span /><span />
-        </button>
+        <button type="button" className="hx-header__mobile-trigger" aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}><span /><span /><span /></button>
       </div>
 
       {menuOpen && (
         <div className="hx-header__mobile-menu" ref={mobileMenuRef}>
           {authenticated ? (
             <>
-              <div className="hx-header__mobile-user">
-                <span className="hx-header__mobile-avatar">{String(userLabel).charAt(0).toUpperCase()}</span>
-                <div><strong>Hi, {userLabel}</strong><span>{user?.email}</span></div>
-              </div>
+              <div className="hx-header__mobile-user"><span className="hx-header__mobile-avatar">{String(userLabel).charAt(0).toUpperCase()}</span><div><strong>Hi, {userLabel}</strong><span>{user?.email}</span></div></div>
+              <button type="button" className="hx-header__mobile-theme" onClick={toggleTheme}><span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span>{theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}</button>
               {showResearchLink && <Link to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>}
               <Link to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
               <div className="hx-header__mobile-actions">{right}</div>
@@ -133,6 +109,7 @@ export default function Header({ right }) {
             </>
           ) : (
             <>
+              <button type="button" className="hx-header__mobile-theme" onClick={toggleTheme}><span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span>{theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}</button>
               <div className="hx-header__mobile-actions">{right}</div>
               <Link to="/signin" onClick={() => setMenuOpen(false)}>Sign in</Link>
               <Link to="/signup" className="is-primary" onClick={() => setMenuOpen(false)}>Create account</Link>
