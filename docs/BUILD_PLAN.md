@@ -31,10 +31,6 @@ The Signals page is the public landing/discovery experience.
 - Authenticated visitors see their identity, My Research access, and account/navigation controls.
 - The Signals landing and shared navigation must be responsive from 375px through 1440px.
 
-Suggested feed and search continue to use the existing free-source strategy:
-RSS sources, Hacker News API, arXiv, Semantic Scholar, Tavily, and Brave with
-priority-ranked merging and deduplication.
-
 ### Stage B — Deep Research
 
 Selecting a signal after authentication triggers the existing research stage.
@@ -59,7 +55,7 @@ The existing Finalize/Preview stage remains the canonical storyboard-output
 flow, including staged render progress, nested B-roll telemetry, elapsed time,
 ETA, MP4/SRT/script exports, and the current render worker.
 
-### Stage F — Advanced Video Editor (planned, separate feature)
+### Stage F — Advanced Video Editor (separate feature/workspace)
 
 The Advanced Video Editor is an optional branch/workspace, not a new required
 stage in the core Signals → Research → Setup → Storyboard → Finalize flow.
@@ -68,10 +64,28 @@ It reuses existing storyboard/narration/assets as source data while storing
 independent editable timeline/version state. Opening or editing in the
 Advanced Editor must never mutate the original Storyboard records.
 
-Core editor scope includes multi-track 9:16 editing, frame-accurate playhead,
-trim/split/move/reorder, B-roll replacement, captions, audio controls,
-overlays, transitions, keyboard shortcuts, undo/redo, autosave, refresh
-recovery, and a canonical timeline shared by editor preview and editor render.
+M11 starts with a persisted `ProjectEditor` document containing a canonical,
+JSON timeline. The first editor slice supports a 9:16 preview, multi-track
+timeline visualization, clip selection, clip trim/start/duration editing,
+split, delete, video reorder, caption editing, audio volume, text overlays,
+autosave, refresh recovery, and version-aware writes.
+
+The editor timeline currently uses these tracks:
+
+```text
+B-roll/video
+Narration
+Captions
+Overlays
+```
+
+The editor is reached through `/editor/:id` and is protected by normal project
+ownership/authentication. It is intentionally not wired into Storyboard as a
+required step.
+
+Future M11 work expands this slice with frame-accurate playhead interaction,
+snapping, waveform rendering, richer transitions/effects, keyboard shortcuts,
+bounded undo/redo, and stronger timeline interactions.
 
 ### Stage G — Account & Workspace
 
@@ -174,9 +188,9 @@ must still enforce authentication/ownership server-side.
              Local/Object Storage + external providers
 ```
 
-M0–M9 remains the baseline. Next-level work must preserve the separation
-between source Storyboard data, editor timeline state, source media, and
-rendered outputs.
+M0–M10A remains the baseline. M11 adds the editor as a separate branch and
+must preserve separation between source Storyboard data, editor timeline state,
+source media, and rendered outputs.
 
 ---
 
@@ -192,44 +206,31 @@ Existing core tables:
 - `auth_sessions`
 - `auth_tokens`
 
-Planned next-level editor/media tables:
+M11 added:
 
 ```sql
-CREATE TABLE project_versions (
-  id CHAR(36) PRIMARY KEY,
-  project_id CHAR(36) NOT NULL,
-  version_no INT NOT NULL,
-  timeline_json JSON NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_by CHAR(36) NOT NULL
-);
-
-CREATE TABLE project_media (
-  id CHAR(36) PRIMARY KEY,
-  user_id CHAR(36) NOT NULL,
-  project_id CHAR(36) NULL,
-  kind ENUM('video','image','audio','caption','generated','external_cache') NOT NULL,
-  storage_key TEXT NOT NULL,
-  source_url TEXT NULL,
-  filename VARCHAR(255),
-  mime_type VARCHAR(120),
-  byte_size BIGINT NULL,
-  duration_seconds DECIMAL(8,3) NULL,
-  width INT NULL,
-  height INT NULL,
-  status ENUM('uploading','processing','ready','failed','deleted') DEFAULT 'uploading',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE project_editors (
-  project_id CHAR(36) PRIMARY KEY,
-  version_id CHAR(36) NOT NULL,
-  timeline_json JSON NOT NULL,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  id VARCHAR(191) PRIMARY KEY,
+  project_id VARCHAR(191) NOT NULL UNIQUE,
+  version INT NOT NULL DEFAULT 1,
+  timeline JSON NOT NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 ```
 
-Implementation must remain backwards-compatible with the M0–M9 schema.
+The `ProjectEditor` record is intentionally separate from `ProjectScene` and
+stores only editor state. It is not a replacement for storyboard data.
+
+Planned later media/version tables remain:
+
+```text
+project_versions
+project_media
+```
+
+Implementation must remain backwards-compatible with the M0–M10A schema.
 
 ---
 
@@ -247,20 +248,24 @@ POST /api/auth/forgot-password
 POST /api/auth/reset-password
 ```
 
-Planned editor/media endpoints:
+M11 editor endpoints currently implemented:
 
 ```text
-GET    /api/projects/:id/editor
-PUT    /api/projects/:id/editor
-POST   /api/projects/:id/editor/versions
-GET    /api/projects/:id/editor/versions
-POST   /api/projects/:id/editor/restore/:versionId
-POST   /api/projects/:id/editor/render
-GET    /api/media
-POST   /api/media/upload
-GET    /api/media/:id
-DELETE /api/media/:id
-POST   /api/media/:id/process
+GET   /api/projects/:id/editor
+PATCH /api/projects/:id/editor
+```
+
+`GET` initializes an editor document from the current selected Storyboard scene
+assets, scene durations, narration URLs, and caption text when none exists.
+`PATCH` saves a version-aware canonical timeline and rejects stale writes.
+
+Planned later editor endpoints:
+
+```text
+POST  /api/projects/:id/editor/versions
+GET   /api/projects/:id/editor/versions
+POST  /api/projects/:id/editor/restore/:versionId
+POST  /api/projects/:id/editor/render
 ```
 
 Project creation and every project-scoped resource remains authenticated and
@@ -313,18 +318,16 @@ AI must not directly delete or overwrite source media.
 | Area | Change |
 |---|---|
 | `SignalsPage.jsx` | Public landing hero + public search/filter + auth-gated Direct action |
-| `Header.jsx` | Signed-out auth CTAs, signed-in identity, My Research, three-dot menu, mobile menu |
+| `Header.jsx` | Signed-out auth CTAs, signed-in identity, My Research, three-dot menu, mobile menu, theme toggle |
 | `SignalCard.jsx` | Authentication gate before project creation |
-| `MyResearchPage.jsx` | Authenticated project history and filters |
-| `StoryboardPage.jsx` | Existing flow unchanged; later adds explicit editor entry |
-| `EditorPage.jsx` | Separate advanced editing workspace |
-| `EditorTimeline.jsx` | Multi-track timeline |
-| `EditorInspector.jsx` | Clip/scene/audio/caption controls |
-| `MediaLibraryPage.jsx` | User/project media browser and uploads |
-| `FinalizePanel.jsx` | Existing renderer + staged progress/elapsed/ETA; later supports editor renders |
+| `MyResearchPage.jsx` | Authenticated project history, filters, delete, explicit Edit video entry |
+| `StoryboardPage.jsx` | Existing flow unchanged |
+| `EditorPage.jsx` | Separate advanced editing workspace (M11) |
+| `FinalizePanel.jsx` | Existing renderer + staged progress/elapsed/ETA |
 
-All new navigation and landing changes must remain responsive at
-`375, 390, 425, 480, 640, 768, 1024, 1440`.
+The current M11 UI intentionally keeps editor layout responsive from narrow
+mobile widths through desktop. Future iterations add finer timeline density
+and touch interactions.
 
 ---
 
@@ -342,12 +345,15 @@ Completed baseline:
 8. Phase 7 — Rendering
 9. Phase 8 — Finalize + export
 10. Phase 9 — Direct-to-Facebook development integration; production deferred
+11. Phase 10 — Accounts & authentication foundation
+12. Phase 10A — Public discovery landing, responsive navigation & theme system
 
-Next-level roadmap:
+Current:
 
-11. Phase 10 — Accounts & authentication
-12. **Phase 10A — Public discovery landing & responsive navigation**
-13. Phase 11 — Advanced video editor core (separate workspace)
+13. **Phase 11 — Advanced video editor core (separate workspace) — In progress**
+
+Next:
+
 14. Phase 12 — Media library & upload pipeline
 15. Phase 13 — Editor rendering integration + reliability
 16. Phase 14 — AI editing assistant
@@ -359,7 +365,7 @@ Recommended order:
 ```text
 M10 Auth
    ↓
-M10A Public Discovery + Navigation
+M10A Public Discovery + Navigation + Theme
    ↓
 M11 Advanced Editor Core (SEPARATE)
    ↓
@@ -412,7 +418,6 @@ server/
       projects.js
       auth.js
       editor.js          # M11
-      media.js           # M12
       render.js
       export.js
     services/
@@ -421,16 +426,9 @@ server/
       geminiService.js
       pexelsService.js
       ttsService.js
-      editorService.js   # M11
-      mediaService.js    # M12
       renderService.js
       exportService.js
       authService.js
-    middleware/
-      auth.js
-      ownership.js
-      storageOwnership.js
-      csrf.js
 
 frontend/src/
   pages/
@@ -438,14 +436,11 @@ frontend/src/
     ResearchPage.jsx
     StoryboardPage.jsx
     MyResearchPage.jsx
-    EditorPage.jsx
-    MediaLibraryPage.jsx
+    EditorPage.jsx       # M11
   components/
     Header.jsx
     SignalCard.jsx
     AuthChoiceDialog.jsx
-    editor/
-    auth/
 ```
 
 ---
@@ -478,9 +473,10 @@ Every milestone must pass:
 - Public search and category filters.
 - Authentication required only when the visitor takes a project-creating Direct action.
 - Successful sign in/sign up returns the user to Signals.
-- Shared responsive navigation with authenticated identity, My Research, three-dot account menu, and mobile menu.
+- Shared responsive navigation with authenticated identity, My Research, three-dot account menu, mobile menu, and persistent light/dark theme.
 - Real accounts/authentication.
 - Separate Advanced Video Editor that reuses current content but stores independent editor state.
+- M11 first slice uses a dedicated `ProjectEditor` persistence record and canonical timeline JSON.
 
 **Explicitly deferred:**
 - Facebook production OAuth, multi-user Meta publishing, App Review, and final publishing UX.
