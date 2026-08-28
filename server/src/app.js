@@ -11,11 +11,13 @@ import authRouter from "./routes/auth.js";
 import { authOptional, getRequestUserId, requireAuth } from "./middleware/auth.js";
 import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.js";
 import { requireStoredProjectOwner } from "./middleware/storageOwnership.js";
+import { sameOriginProtection } from "./middleware/csrf.js";
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(authOptional);
+app.use(sameOriginProtection);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
 app.use("/api/signals", signalsRouter);
