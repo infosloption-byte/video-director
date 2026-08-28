@@ -31,6 +31,10 @@ The Signals page is the public landing/discovery experience.
 - Authenticated visitors see their identity, My Research access, and account/navigation controls.
 - The Signals landing and shared navigation must be responsive from 375px through 1440px.
 
+Suggested feed and search continue to use the existing free-source strategy:
+RSS sources, Hacker News, arXiv, Semantic Scholar, Tavily, and Brave with
+priority-ranked merging and deduplication.
+
 ### Stage B — Deep Research
 
 Selecting a signal after authentication triggers the existing research stage.
@@ -70,6 +74,18 @@ timeline visualization, clip selection, clip trim/start/duration editing,
 split, delete, video reorder, caption editing, audio volume, text overlays,
 autosave, refresh recovery, and version-aware writes.
 
+Current timeline interaction refinement adds:
+
+- frame-stepped playhead and current-time display
+- play/pause timeline control
+- ruler and playhead seeking
+- timeline zoom
+- clip/grid/frame snapping
+- preview scrubbing for the selected visual
+- replacement of a scene's selected visual inside the editor only
+- bounded undo/redo history
+- keyboard shortcuts for play/pause, frame stepping, split, delete, undo, and redo
+
 The editor timeline currently uses these tracks:
 
 ```text
@@ -83,9 +99,9 @@ The editor is reached through `/editor/:id` and is protected by normal project
 ownership/authentication. It is intentionally not wired into Storyboard as a
 required step.
 
-Future M11 work expands this slice with frame-accurate playhead interaction,
-snapping, waveform rendering, richer transitions/effects, keyboard shortcuts,
-bounded undo/redo, and stronger timeline interactions.
+Future M11 work expands this slice with waveform rendering, drag-based timeline
+editing, richer caption/audio controls, transitions/effects, music, touch
+interactions, and stronger editor QA.
 
 ### Stage G — Account & Workspace
 
@@ -144,10 +160,12 @@ Anonymous visitor
 Shared header behavior:
 
 - Signed out desktop: Helix logo + public actions + **Sign in** + **Create account**.
-- Signed in desktop: Helix logo + **My Research** + user identity + page actions + three-dot menu.
+- Signed in desktop: Helix logo + **My Research** icon + user greeting + page actions + three-dot menu.
 - Three-dot menu contains My Research, Account settings, and Sign out.
-- Mobile header collapses to the Helix logo + hamburger menu.
-- Mobile menu exposes the same account/workspace actions without horizontal scrolling.
+- Mobile header collapses to the Helix logo + compact actions/hamburger menu.
+- Mobile menu exposes the full icon + label for My Research and Scan Signals and keeps account/workspace actions accessible without horizontal scrolling.
+- Desktop uses compact icon-only My Research and Scan Signals controls where appropriate.
+- A persistent light/dark theme is available from shared navigation.
 - Signals remains the primary public landing route; no login wall is added to the discovery feed.
 
 The public Direct action must be guarded in the UI and the project-creation API
@@ -297,17 +315,7 @@ recency, and relevance.
 ## 7. Gemini contract & AI editing
 
 Existing research/setup/storyboard contracts remain unchanged.
-Future AI editing calls must return structured, reversible operations:
-
-```json
-{
-  "operations": [
-    { "type": "trim_scene", "scene_id": "...", "new_end": 4.2 },
-    { "type": "replace_asset", "scene_id": "...", "asset_id": "..." }
-  ],
-  "reasoning": "..."
-}
-```
+Future AI editing calls must return structured, reversible operations.
 
 AI must not directly delete or overwrite source media.
 
@@ -318,16 +326,14 @@ AI must not directly delete or overwrite source media.
 | Area | Change |
 |---|---|
 | `SignalsPage.jsx` | Public landing hero + public search/filter + auth-gated Direct action |
-| `Header.jsx` | Signed-out auth CTAs, signed-in identity, My Research, three-dot menu, mobile menu, theme toggle |
+| `Header.jsx` | Signed-out auth CTAs, signed-in identity/greeting, My Research, compact page actions, three-dot menu, mobile menu, theme toggle |
 | `SignalCard.jsx` | Authentication gate before project creation |
 | `MyResearchPage.jsx` | Authenticated project history, filters, delete, explicit Edit video entry |
 | `StoryboardPage.jsx` | Existing flow unchanged |
-| `EditorPage.jsx` | Separate advanced editing workspace (M11) |
+| `EditorPage.jsx` | Separate advanced editing workspace with playhead, zoom, snap, preview scrub, visual replacement, undo/redo, keyboard controls |
 | `FinalizePanel.jsx` | Existing renderer + staged progress/elapsed/ETA |
 
-The current M11 UI intentionally keeps editor layout responsive from narrow
-mobile widths through desktop. Future iterations add finer timeline density
-and touch interactions.
+The editor keeps a responsive workspace at narrow mobile widths through desktop.
 
 ---
 
@@ -359,28 +365,6 @@ Next:
 16. Phase 14 — AI editing assistant
 17. Phase 15 — Versions, templates & review workflow
 18. Phase 16 — Platform publishing abstraction + analytics
-
-Recommended order:
-
-```text
-M10 Auth
-   ↓
-M10A Public Discovery + Navigation + Theme
-   ↓
-M11 Advanced Editor Core (SEPARATE)
-   ↓
-M12 Media Library
-   ↓
-M13 Editor Rendering + Reliability
-   ↓
-M14 AI Editing
-   ↓
-M15 Versions/Templates/Review
-   ↓
-M16 Publishing/Analytics
-
-M9 Facebook production → DEFERRED / separate product decision
-```
 
 ---
 
@@ -426,6 +410,7 @@ server/
       geminiService.js
       pexelsService.js
       ttsService.js
+      editorService.js   # M11
       renderService.js
       exportService.js
       authService.js
@@ -477,6 +462,7 @@ Every milestone must pass:
 - Real accounts/authentication.
 - Separate Advanced Video Editor that reuses current content but stores independent editor state.
 - M11 first slice uses a dedicated `ProjectEditor` persistence record and canonical timeline JSON.
+- M11 timeline refinement uses playhead/seeking, snapping, zoom, editor-only B-roll replacement, undo/redo, and keyboard controls without changing Storyboard source data.
 
 **Explicitly deferred:**
 - Facebook production OAuth, multi-user Meta publishing, App Review, and final publishing UX.
