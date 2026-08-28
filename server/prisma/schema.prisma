@@ -9,31 +9,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum SignalOrigin {
-  suggested
-  search
-}
-
-enum SourceType {
-  rss
-  hacker_news
-  arxiv
-  semantic_scholar
-  tavily
-  brave
-}
-
-enum SourceReliability {
-  peer_reviewed
-  ai_search
-  general_web
-}
-
-enum SignalStatus {
-  new
-  used
-  archived
-}
+enum SignalOrigin { suggested search }
+enum SourceType { rss hacker_news arxiv semantic_scholar tavily brave }
+enum SourceReliability { peer_reviewed ai_search general_web }
+enum SignalStatus { new used archived }
 
 model Signal {
   id                 String            @id @default(uuid())
@@ -43,7 +22,7 @@ model Signal {
   searchQuery        String?           @map("search_query")
   rank               Int?
   category           String
-  heatPct            String?           @map("heat_pct")
+  heatPct             String?          @map("heat_pct")
   heatScore          Decimal?          @map("heat_score") @db.Decimal(6, 2)
   title              String
   description        String?           @db.Text
@@ -53,31 +32,20 @@ model Signal {
   rawContent         String?           @map("raw_content") @db.LongText
   status             SignalStatus      @default(new)
   scrapedAt          DateTime          @default(now()) @map("scraped_at")
-
   projects           Project[]
-
   @@map("signals")
 }
 
-enum ProjectStatus {
-  researching
-  setup
-  storyboard
-  finalize
-  rendering
-  published
-}
+enum ProjectStatus { researching setup storyboard finalize rendering published }
 
 model Project {
   id                      String        @id @default(uuid())
   userId                  String        @map("user_id")
   signalId                String        @map("signal_id")
   title                   String?
-
   researchSummary         String?       @map("research_summary") @db.Text
   researchSources         Json?         @map("research_sources")
   monetizationFlags       Json?         @map("monetization_flags")
-
   scriptLengthSeconds     Int?          @map("script_length_seconds")
   suggestedLengthSeconds  Int?          @map("suggested_length_seconds")
   selectedFramework       String?       @map("selected_framework")
@@ -86,18 +54,16 @@ model Project {
   tone                    String?
   suggestedTone           String?       @map("suggested_tone")
   audienceLevel           String?       @map("audience_level")
-
   seoCaption              String?       @map("seo_caption") @db.Text
   durationSeconds         Decimal?      @map("duration_seconds") @db.Decimal(5, 1)
   cuts                    Int?
   status                  ProjectStatus @default(researching)
   renderUrl               String?       @map("render_url") @db.Text
   createdAt               DateTime      @default(now()) @map("created_at")
-
   signal                  Signal        @relation(fields: [signalId], references: [id])
   scenes                  ProjectScene[]
   exports                 ProjectExport[]
-
+  editor                  ProjectEditor?
   @@map("projects")
 }
 
@@ -113,10 +79,8 @@ model ProjectScene {
   brollSearchTerm  String?   @map("broll_search_term")
   audioUrl         String?   @map("audio_url") @db.Text
   wordTimestamps   Json?     @map("word_timestamps")
-
-  project          Project      @relation(fields: [projectId], references: [id])
+  project          Project   @relation(fields: [projectId], references: [id])
   assets           SceneAsset[]
-
   @@map("project_scenes")
 }
 
@@ -127,71 +91,65 @@ model SceneAsset {
   thumbnailUrl String   @map("thumbnail_url") @db.Text
   sortOrder    Int      @map("sort_order")
   isSelected   Boolean  @default(false) @map("is_selected")
-
   scene        ProjectScene @relation(fields: [sceneId], references: [id])
-
   @@map("scene_assets")
 }
 
-enum ExportKind {
-  mp4
-  srt
-  script_txt
-}
-
+enum ExportKind { mp4 srt script_txt }
 model ProjectExport {
-  id        String     @id @default(uuid())
-  projectId String     @map("project_id")
+  id        String @id @default(uuid())
+  projectId String @map("project_id")
   kind      ExportKind
-  fileUrl   String     @map("file_url") @db.Text
-  createdAt DateTime   @default(now()) @map("created_at")
-
-  project   Project    @relation(fields: [projectId], references: [id])
-
+  fileUrl   String @map("file_url") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  project Project @relation(fields: [projectId], references: [id])
   @@map("project_exports")
 }
 
 model User {
-  id                String        @id @default(uuid())
-  email             String        @unique
-  passwordHash      String?       @map("password_hash")
-  emailVerifiedAt   DateTime?     @map("email_verified_at")
-  displayName       String?       @map("display_name")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-
-  sessions          AuthSession[]
-  tokens            AuthToken[]
-
+  id String @id @default(uuid())
+  email String @unique
+  passwordHash String? @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  displayName String? @map("display_name")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  sessions AuthSession[]
+  tokens AuthToken[]
   @@map("users")
 }
-
 model AuthSession {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
-  tokenHash   String   @unique @map("token_hash") @db.Char(64)
-  expiresAt   DateTime @map("expires_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  lastSeenAt  DateTime? @map("last_seen_at")
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime? @map("last_seen_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
   @@index([expiresAt])
   @@map("auth_sessions")
 }
-
 model AuthToken {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
-  kind        String   @db.VarChar(40)
-  tokenHash   String   @unique @map("token_hash") @db.Char(64)
-  expiresAt   DateTime @map("expires_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  kind String @db.VarChar(40)
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, kind])
   @@index([expiresAt])
   @@map("auth_tokens")
+}
+
+model ProjectEditor {
+  id        String   @id @default(uuid())
+  projectId String   @unique @map("project_id")
+  version   Int      @default(1)
+  timeline  Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@map("project_editors")
 }
