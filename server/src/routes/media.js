@@ -9,6 +9,7 @@ import { searchPexelsVideos } from "../services/pexelsService.js";
 import {
   ensureMediaStorageDirectory,
   mediaStoragePaths,
+  mediaThumbnailStoragePaths,
   moveMediaStorageFile,
   removeMediaStorageFile,
   resolveStorageKey,
@@ -23,6 +24,7 @@ const MAX_UPLOAD_BYTES = {
   audio: 100 * 1024 * 1024,
   caption: 2 * 1024 * 1024,
 };
+const MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024;
 const MIME_BY_KIND = {
   video: new Set(["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "video/mpeg"]),
   image: new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]),
@@ -67,6 +69,18 @@ function normalizeKind(value) {
 function normalizeOrigin(value) {
   const origin = String(value || "").toLowerCase();
   return MEDIA_ORIGINS.has(origin) ? origin : null;
+}
+
+function finiteNumber(value, fallback = null) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function boundedNumber(value, min, max, fallback = null) {
+  const number = finiteNumber(value, fallback);
+  if (number === null) return fallback;
+  return Math.min(Math.max(number, min), max);
 }
 
 function publicMedia(media) {
@@ -147,6 +161,10 @@ function looksLikeKnownMedia(header, kind, mimeType) {
     return true;
   }
   return false;
+}
+
+function looksLikePng(header) {
+  return header.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"));
 }
 
 router.get("/:id/media", async (req, res) => {
@@ -266,6 +284,90 @@ router.put("/:id/media/upload", async (req, res) => {
   }
 });
 
+router.patch("/:id/media/:mediaId", async (req, res) => {
+  try {
+    const existing = await prisma.projectMedia.findFirst({
+      where: { id: req.params.mediaId, projectId: req.params.id },
+      select: { id: true, kind: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Media not found." });
+
+    const data = {};
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "durationSeconds")) {
+      data.durationSeconds = boundedNumber(req.body.durationSeconds, 0, 86_399.999, null);
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "width")) {
+      data.width = boundedNumber(req.body.width, 0, 32_768, null);
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "height")) {
+      data.height = boundedNumber(req.body.height, 0, 32_768, null);
+    }
+
+    if (existing.kind === "caption" && Object.keys(data).length) {
+      return res.status(400).json({ error: "Caption media does not accept audiovisual metadata." });
+    }
+
+    const media = await prisma.projectMedia.update({ where: { id: existing.id }, data });
+    res.json({ media: publicMedia(media) });
+  } catch (error) {
+    console.error(`PATCH /api/projects/${req.params.id}/media/${req.params.mediaId} failed:`, error);
+    res.status(500).json({ error: "Failed to update media metadata." });
+  }
+});
+
+router.put("/:id/media/:mediaId/thumbnail", async (req, res) => {
+  const projectId = req.params.id;
+  const mediaId = req.params.mediaId;
+  const mimeType = headerMimeType(req);
+  if (mimeType !== "image/png") return res.status(415).json({ error: "Media thumbnails must be PNG images." });
+
+  let paths;
+  try {
+    const media = await prisma.projectMedia.findFirst({
+      where: { id: mediaId, projectId, origin: "upload" },
+      select: { id: true },
+    });
+    if (!media) return res.status(404).json({ error: "Uploaded media not found." });
+
+    await ensureMediaStorageDirectory(projectId);
+    paths = mediaThumbnailStoragePaths(projectId, mediaId);
+    let bytes = 0;
+    const limiter = new Transform({
+      transform(chunk, _encoding, callback) {
+        bytes += chunk.length;
+        if (bytes > MAX_THUMBNAIL_BYTES) {
+          const error = new Error("Generated thumbnail exceeds the 2 MB limit.");
+          error.code = "THUMBNAIL_TOO_LARGE";
+          callback(error);
+          return;
+        }
+        callback(null, chunk);
+      },
+    });
+
+    await pipeline(req, limiter, createWriteStream(paths.tempPath, { flags: "wx", mode: 0o600 }));
+    if (bytes === 0) return res.status(400).json({ error: "Thumbnail is empty." });
+
+    const header = await readHeader(paths.tempPath);
+    if (!looksLikePng(header)) return res.status(415).json({ error: "Thumbnail content is not a valid PNG." });
+
+    await removeMediaStorageFile(paths.storageKey).catch(() => {});
+    await moveMediaStorageFile(paths.tempStorageKey, paths.storageKey);
+
+    const updated = await prisma.projectMedia.update({
+      where: { id: media.id },
+      data: { thumbnailUrl: `/api/projects/${projectId}/media/${media.id}/thumbnail` },
+    });
+    return res.status(201).json({ media: publicMedia(updated) });
+  } catch (error) {
+    if (paths?.tempStorageKey) await removeMediaStorageFile(paths.tempStorageKey).catch(() => {});
+    if (error?.code === "THUMBNAIL_TOO_LARGE") return res.status(413).json({ error: error.message });
+    if (req.destroyed || req.aborted) return;
+    console.error(`PUT /api/projects/${projectId}/media/${mediaId}/thumbnail failed:`, error);
+    return res.status(500).json({ error: "Failed to store media thumbnail." });
+  }
+});
+
 router.get("/:id/media/:mediaId/file", async (req, res) => {
   try {
     const media = await prisma.projectMedia.findFirst({
@@ -286,6 +388,29 @@ router.get("/:id/media/:mediaId/file", async (req, res) => {
   } catch (error) {
     console.error(`GET /api/projects/${req.params.id}/media/${req.params.mediaId}/file failed:`, error);
     return res.status(500).json({ error: "Failed to read media file." });
+  }
+});
+
+router.get("/:id/media/:mediaId/thumbnail", async (req, res) => {
+  try {
+    const media = await prisma.projectMedia.findFirst({
+      where: { id: req.params.mediaId, projectId: req.params.id, origin: "upload" },
+      select: { thumbnailUrl: true },
+    });
+    if (!media?.thumbnailUrl) return res.status(404).json({ error: "Media thumbnail not found." });
+
+    const filePath = resolveStorageKey(mediaThumbnailStoragePaths(req.params.id, req.params.mediaId).storageKey);
+    try {
+      await fs.access(filePath);
+    } catch {
+      return res.status(404).json({ error: "Media thumbnail not found." });
+    }
+
+    res.type("image/png");
+    return res.sendFile(filePath);
+  } catch (error) {
+    console.error(`GET /api/projects/${req.params.id}/media/${req.params.mediaId}/thumbnail failed:`, error);
+    return res.status(500).json({ error: "Failed to read media thumbnail." });
   }
 });
 
@@ -355,6 +480,9 @@ router.delete("/:id/media/:mediaId", async (req, res) => {
     if (!media) return res.status(404).json({ error: "Media not found." });
     await prisma.projectMedia.delete({ where: { id: media.id } });
     if (media.origin === "upload" && media.storageKey) await removeMediaStorageFile(media.storageKey).catch(() => {});
+    if (media.origin === "upload" && media.thumbnailUrl) {
+      await removeMediaStorageFile(mediaThumbnailStoragePaths(req.params.id, media.id).storageKey).catch(() => {});
+    }
     res.status(204).end();
   } catch (error) {
     console.error(`DELETE /api/projects/${req.params.id}/media/${req.params.mediaId} failed:`, error);
