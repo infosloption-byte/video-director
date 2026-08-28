@@ -98,7 +98,7 @@ model Project {
 
 model ProjectScene {
   id               String    @id @default(uuid())
-  projectId        String    @map("project_id")
+  projectId        String   @map("project_id")
   sceneOrder       Int       @map("scene_order")
   title            String?
   spokenText       String    @map("spoken_text") @db.Text
@@ -184,7 +184,8 @@ model ProjectMedia {
   project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   @@index([projectId, kind])
   @@index([projectId, origin])
-  @@index([provider, providerAssetId])
+  @@index([provider])
+  @@index([providerAssetId])
   @@map("project_media")
 }
 
