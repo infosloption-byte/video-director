@@ -44,14 +44,21 @@ app.use(
   express.static(path.resolve(process.cwd(), "storage", "render-assets"), { fallthrough: false, maxAge: "1h" }),
 );
 
-// User-facing project media remains private and owner-scoped. The Remotion
-// worker uses the same internal render token path as B-roll for narration audio.
-for (const [route, directory, middleware] of [
-  ["/api/audio", "audio", requireRenderAssetAccess],
-  ["/api/render-files", "renders", requireStoredProjectOwner],
-  ["/api/export-files", "exports", requireStoredProjectOwner],
+// User-facing narration audio stays private. The Remotion worker uses the same
+// internal render token as cached B-roll, while browser requests fall back to
+// normal authenticated project ownership checks.
+app.use(
+  "/api/audio",
+  requireRenderAssetAccess,
+  express.static(path.resolve(process.cwd(), "storage", "audio"), { fallthrough: false, maxAge: "1h" }),
+);
+
+// Other project media remains strictly authenticated and owner-scoped.
+for (const [route, directory] of [
+  ["/api/render-files", "renders"],
+  ["/api/export-files", "exports"],
 ]) {
-  app.use(route, requireAuth, middleware, express.static(path.resolve(process.cwd(), "storage", directory), { fallthrough: false, maxAge: "1h" }));
+  app.use(route, requireAuth, requireStoredProjectOwner, express.static(path.resolve(process.cwd(), "storage", directory), { fallthrough: false, maxAge: "1h" }));
 }
 
 app.use("/api/scenes/:sceneId", requireAuth, requireSceneOwner);
