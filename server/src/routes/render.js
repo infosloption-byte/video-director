@@ -5,6 +5,11 @@ import { narrationFileExists } from "../services/ttsService.js";
 
 const router = Router();
 
+function normalizeRenderUrl(renderUrl) {
+  if (!renderUrl) return null;
+  return String(renderUrl).replace(/^\/api\/render-files\/projects\//, "/api/render-files/");
+}
+
 router.post("/projects/:id/render", async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
@@ -34,7 +39,7 @@ router.post("/projects/:id/render", async (req, res) => {
         return res.status(202).json({ projectId: project.id, jobId: existing.id, status: state, progress: existing.progress || 0 });
       }
       if (state === "completed" && project.renderUrl) {
-        return res.json({ projectId: project.id, jobId: existing.id, status: "completed", progress: 100, renderUrl: project.renderUrl });
+        return res.json({ projectId: project.id, jobId: existing.id, status: "completed", progress: 100, renderUrl: normalizeRenderUrl(project.renderUrl) });
       }
       await existing.remove().catch(() => {});
     }
@@ -59,7 +64,7 @@ router.get("/projects/:id/render-status", async (req, res) => {
 
     const job = await getRenderQueue().getJob(project.id);
     if (!job) {
-      return res.json({ projectId: project.id, status: project.renderUrl ? "completed" : "idle", progress: project.renderUrl ? 100 : 0, renderUrl: project.renderUrl || null });
+      return res.json({ projectId: project.id, status: project.renderUrl ? "completed" : "idle", progress: project.renderUrl ? 100 : 0, renderUrl: normalizeRenderUrl(project.renderUrl) || null });
     }
 
     const state = await job.getState();
@@ -79,7 +84,7 @@ router.get("/projects/:id/render-status", async (req, res) => {
       asset: progressState.asset || null,
       completedAssets: Number(progressState.completedAssets || 0),
       totalAssets: Number(progressState.totalAssets || 0),
-      renderUrl: project.renderUrl || null,
+      renderUrl: normalizeRenderUrl(project.renderUrl) || null,
       error: job.failedReason || null,
     };
     res.json(response);
