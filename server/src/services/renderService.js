@@ -144,21 +144,9 @@ export async function renderProject(projectId, { onProgress } = {}) {
       completedAssets: detail.completedScenes || 0,
       totalAssets: detail.sceneCount,
       substeps: [
-        {
-          id: "select",
-          label: "Select B-roll",
-          progress: 100,
-        },
-        {
-          id: "download",
-          label: phaseLabel,
-          progress: detail.progress == null ? 0 : detail.progress,
-        },
-        {
-          id: "cache",
-          label: detail.phase === "downloaded" || detail.phase === "cached" ? "Cache local asset" : "Cache local asset",
-          progress: detail.phase === "downloaded" || detail.phase === "cached" ? 100 : 0,
-        },
+        { id: "select", label: "Select B-roll", progress: 100 },
+        { id: "download", label: phaseLabel, progress: detail.progress == null ? 0 : detail.progress },
+        { id: "cache", label: "Cache local asset", progress: detail.phase === "downloaded" || detail.phase === "cached" ? 100 : 0 },
       ],
     });
   });
@@ -240,7 +228,7 @@ export async function renderProject(projectId, { onProgress } = {}) {
       { id: "persist", label: "Save render state", progress: 0 },
     ],
   });
-  const renderUrl = `/api/render-files/projects/${encodeURIComponent(projectId)}/reel.mp4`;
+  const renderUrl = `/api/render-files/${encodeURIComponent(projectId)}/reel.mp4`;
   await access(outputPath);
   report("finalizing", 75, "MP4 written successfully", 99, {
     substeps: [
