@@ -1,7 +1,4 @@
 // Helix — Prisma schema (MySQL)
-// Mirrors BUILD_PLAN.md §3. M0 only wires up + seeds `Signal`; the rest of
-// the tables are defined now so later milestones (M3+) don't need schema
-// rewrites, but stay unused until their milestone lands.
 
 generator client {
   provider = "prisma-client-js"
@@ -152,4 +149,49 @@ model ProjectExport {
   project   Project    @relation(fields: [projectId], references: [id])
 
   @@map("project_exports")
+}
+
+model User {
+  id                String        @id @default(uuid())
+  email             String        @unique
+  passwordHash      String?       @map("password_hash")
+  emailVerifiedAt   DateTime?     @map("email_verified_at")
+  displayName       String?       @map("display_name")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  sessions          AuthSession[]
+  tokens            AuthToken[]
+
+  @@map("users")
+}
+
+model AuthSession {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  tokenHash   String   @unique @map("token_hash") @db.Char(64)
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  lastSeenAt  DateTime? @map("last_seen_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model AuthToken {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  kind        String
+  tokenHash   String   @unique @map("token_hash") @db.Char(64)
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@index([expiresAt])
+  @@map("auth_tokens")
 }
