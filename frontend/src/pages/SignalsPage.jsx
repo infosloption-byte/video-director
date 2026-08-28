@@ -60,9 +60,19 @@ export default function SignalsPage() {
   function handleCategory(category) { setActive(category); }
   function clearSearch() { setQuery(""); setSubmittedQuery(""); }
 
+  const headerActions = (
+    <>
+      <span className="badge hx-desktop-only">1 REEL</span>
+      <button type="button" className="btn btn-ghost hx-header__compact-action hx-scan-action" aria-label="Scan signals" title="Scan signals">
+        <IconScan className="btn-icon" />
+        <span className="hx-header__action-label">Scan signals</span>
+      </button>
+    </>
+  );
+
   return (
     <div className="hx-page hx-landing">
-      <Header right={<><span className="badge">1 REEL</span><button type="button" className="btn btn-ghost"><IconScan className="btn-icon" /> Scan signals</button></>} />
+      <Header right={headerActions} />
       <main className="container hx-hero">
         <div className="hx-hero__content">
           <p className="eyebrow">Science &amp; Tech Auto-Director</p>
