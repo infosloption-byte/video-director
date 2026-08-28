@@ -62,13 +62,26 @@ export default function SignalsPage() {
   function clearSearch() { setQuery(""); setSubmittedQuery(""); }
 
   return (
-    <div className="hx-page">
-      <Header right={<><Link to="/my-research" className="btn btn-ghost">My Research</Link><span className="badge">1 REEL</span><button className="btn btn-ghost"><IconScan className="btn-icon" /> Scan signals</button></>} />
-      <main className="container hx-hero"><p className="eyebrow">Science &amp; Tech Auto-Director</p><h1 className="hx-hero__title">Pick a signal. Helix directs the Reel.</h1><p className="hx-hero__desc">Zero typing. Helix chooses the narrative, writes the hook, casts B-roll, and shows the reasoning on every cut. You approve — or swap.</p><button className="btn btn-cream hx-hero__cta"><IconClapper className="btn-icon" /> Play the sample cut</button></main>
-      <section className="container hx-signals">
-        <div className="hx-signals__head"><h2 className="hx-signals__title">Today's signals</h2><p className="hx-signals__sub">Ordered by search heat. Helix already knows which framework fits.</p></div>
+    <div className="hx-page hx-landing">
+      <Header right={<><span className="badge">1 REEL</span><button type="button" className="btn btn-ghost"><IconScan className="btn-icon" /> Scan signals</button></>} />
+      <main className="container hx-hero">
+        <div className="hx-hero__content">
+          <p className="eyebrow">Science &amp; Tech Auto-Director</p>
+          <h1 className="hx-hero__title">Pick a signal. Helix directs the Reel.</h1>
+          <p className="hx-hero__desc">Discover what is heating up in science and technology. Helix turns a signal into research, a narrative, visuals, and a finished short-form reel.</p>
+          <div className="hx-hero__actions">
+            <a className="btn btn-cream hx-hero__cta" href="#signals"><IconClapper className="btn-icon" /> Explore today's signals</a>
+            <p className="hx-hero__trust">No login required to browse. Sign in when you're ready to direct a Reel.</p>
+          </div>
+        </div>
+        <div className="hx-hero__rail" aria-hidden="true">
+          <span>DISCOVER</span><span>RESEARCH</span><span>DIRECT</span>
+        </div>
+      </main>
+      <section id="signals" className="container hx-signals">
+        <div className="hx-signals__head"><div><p className="eyebrow">Live signal desk</p><h2 className="hx-signals__title">Today's signals</h2><p className="hx-signals__sub">Ordered by search heat. Search the feed or filter it by category.</p></div><span className="hx-signals__count">{status === "ready" ? `${visibleSignals.length} signals` : "Live feed"}</span></div>
         <form className="hx-search" onSubmit={handleSearch} role="search"><div className="hx-search__field"><span className="hx-search__icon" aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search science & tech signals…" aria-label="Search science and technology signals" maxLength={200} />{query && <button type="button" className="hx-search__clear" onClick={clearSearch} aria-label="Clear search">×</button>}</div><button className="btn btn-cream hx-search__submit" type="submit" disabled={!query.trim()}>Search</button></form>
-        <div className="hx-filters" role="tablist" aria-label="Filter signals by category">{categories.map((c) => <button key={c} role="tab" aria-selected={active === c} className={`pill ${active === c ? "is-active" : ""}`} onClick={() => handleCategory(c)}>{c}</button>)}{submittedQuery && <button className="pill hx-search__reset" onClick={clearSearch} type="button">Clear search</button>}</div>
+        <div className="hx-filters" role="tablist" aria-label="Filter signals by category">{categories.map((c) => <button key={c} type="button" role="tab" aria-selected={active === c} className={`pill ${active === c ? "is-active" : ""}`} onClick={() => handleCategory(c)}>{c}</button>)}{submittedQuery && <button className="pill hx-search__reset" onClick={clearSearch} type="button">Clear search</button>}</div>
         {submittedQuery && status === "ready" && <p className="hx-search__summary">Search results for <strong>“{submittedQuery}”</strong> · {visibleSignals.length} found</p>}
         <div className="hx-signals__list">
           {status === "loading" && <p className="hx-signals__empty">{submittedQuery ? "Searching trusted sources…" : "Loading signals…"}</p>}
