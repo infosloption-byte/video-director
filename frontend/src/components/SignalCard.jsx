@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { IconArrowUpRight } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
+import AuthChoiceDialog from "./AuthChoiceDialog";
 import { useAuth } from "../context/AuthContext";
 import "./SignalCard.css";
 
@@ -35,6 +36,9 @@ export default function SignalCard({ signal, featured = false }) {
     } finally { setPending(false); }
   }
 
+  const closeAuthPrompt = () => setAuthPromptOpen(false);
+  const authNext = " /";
+
   return (
     <>
       <article className={`signal-card ${featured ? "signal-card--featured" : ""}`}>
@@ -50,14 +54,13 @@ export default function SignalCard({ signal, featured = false }) {
         </div>
       </article>
 
-      <ConfirmDialog
+      <AuthChoiceDialog
         open={authPromptOpen}
-        title="Create your Helix workspace"
-        message="Directing a Reel starts a saved research project. Sign in to continue, or create a free account to keep your research and video projects in My Research."
-        confirmLabel="Sign in"
-        cancelLabel="Create account"
-        onConfirm={() => navigate(`/signin?next=${encodeURIComponent("/")}`)}
-        onCancel={() => navigate(`/signup?next=${encodeURIComponent("/")}`)}
+        title="Save this Reel to your workspace."
+        message="Sign in or create a free account to direct this signal. After authentication, Helix will bring you back to the public Signals page so you can choose the Reel to direct."
+        onSignIn={() => navigate(`/signin?next=${encodeURIComponent(authNext.trim())}`)}
+        onSignUp={() => navigate(`/signup?next=${encodeURIComponent(authNext.trim())}`)}
+        onClose={closeAuthPrompt}
       />
       <ConfirmDialog
         open={errorDialog.open}
