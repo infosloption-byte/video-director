@@ -113,6 +113,45 @@ async function runResearch(projectId, signal) {
   }
 }
 
+router.get("/", async (req, res) => {
+  try {
+    const userId = String(req.query.userId || "local-user");
+    const projects = await prisma.project.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        signal: { select: { category: true, sourceName: true, sourceType: true } },
+        _count: { select: { scenes: true, exports: true } },
+      },
+    });
+
+    res.json({
+      projects: projects.map((project) => ({
+        id: project.id,
+        title: project.title || project.signal?.sourceName || "Untitled research",
+        status: project.status,
+        createdAt: project.createdAt,
+        updatedAt: project.createdAt,
+        durationSeconds: project.durationSeconds == null ? null : Number(project.durationSeconds),
+        cuts: project.cuts ?? project._count.scenes ?? 0,
+        renderUrl: normalizeRenderUrl(project.renderUrl),
+        category: project.signal?.category || "TECHNOLOGY",
+        sourceName: project.signal?.sourceName || "",
+        sourceType: project.signal?.sourceType || "",
+        researchReady: Boolean(project.researchSummary),
+        setupReady: Boolean(project.scriptLengthSeconds && project.selectedFramework),
+        storyboardReady: project._count.scenes > 0,
+        narrationReady: project._count.scenes > 0 && project.status !== "researching",
+        exportCount: project._count.exports,
+      })),
+    });
+  } catch (error) {
+    console.error("GET /api/projects failed:", error);
+    res.status(500).json({ error: "Failed to load research history." });
+  }
+});
+
 router.post("/", async (req, res) => {
   try {
     const signalInput = req.body?.signal;
