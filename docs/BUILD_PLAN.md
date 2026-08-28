@@ -2,8 +2,8 @@
 
 > **Living document.** This is the single source of truth for what the
 > platform does and how it's built. When something changes mid-development,
-> update this file first, then reflect the change in `TASK.md`. Don't let
-> the two drift apart.
+> update this file first, then reflect the change in `TASK.md`. Don't let the
+> two drift apart.
 
 ---
 
@@ -48,7 +48,7 @@ start with free sources only for both.
 suggested feed, and its "Search source options" section had two dead
 options — Bing Search APIs were fully retired in August 2025, and Google
 Custom Search has been closed to new signups since 2024 and sunsets
-entirely in 2027. Neither is safe to build on now. §6 replaces both with a
+entirely in 2027. Neither is safe to build on. §6 replaces both with a
 concrete, currently-viable multi-source cascade.
 
 ### Stage B — Deep Research (automatic, triggered by signal selection)
@@ -134,239 +134,275 @@ summary, and now, concretely, the outputs the user actually needs:
 had a "Publish pack" button with no concrete list of what gets exported or
 in what formats. That's now explicit.
 
+### Stage F — Advanced Video Editor (planned next-level experience)
+
+After Storyboard/voice generation, the user can open a dedicated **Editor**
+for fine-grained creative control. The editor does not destroy the
+Storyboard flow; it consumes the same scene/narration/assets data and stores
+an editable timeline/decision list that the renderer can consume later.
+
+Core editor scope:
+- Multi-track 9:16 timeline with video, narration/audio, captions/text, and overlays.
+- Frame-accurate playhead with zoom, snapping, scene boundaries, and keyboard shortcuts.
+- Trim, split, move, duplicate, delete, reorder, and duration adjustment for clips.
+- Replace/swap B-roll from existing scene assets without regenerating the storyboard.
+- Add uploaded media and reusable media-library assets.
+- Caption editing: text, timing, style presets, position, emphasis/highlight behavior.
+- Audio controls: volume, mute, fades, per-clip replacement, narration regeneration entry point.
+- Basic transitions and visual overlays that are render-safe in Remotion.
+- Persistent undo/redo, autosave, dirty-state protection, and recovery after refresh.
+- Live preview uses the same canonical timeline state as the final renderer to avoid preview/render divergence.
+- Render/export uses the existing Remotion worker with the editor timeline as its source of truth.
+
+**Architecture decision:** the editor is primarily an **editing model + preview UI**;
+source media is not destructively modified in the browser. Store an immutable
+media asset plus an editable timeline JSON/EDL-like structure, and let the
+existing Remotion renderer materialize the final MP4.
+
+### Stage G — Account & Workspace (planned next-level foundation)
+
+Helix becomes multi-user. Authentication is a platform foundation rather than
+just a screen:
+- Sign up, sign in, sign out, persistent session, password reset, and email verification.
+- User profile/account settings and secure project ownership checks.
+- Every project, media asset, render, and export is scoped to the authenticated user.
+- Remove the temporary `local-user` identity from production APIs.
+- Route guards for authenticated workspace screens while keeping public signal discovery configurable.
+- Secure server-side authorization on every project-scoped endpoint.
+- Rate limits and abuse protection for expensive AI/TTS/render actions.
+
+### Stage H — Asset Library & Media Management (planned)
+
+A reusable media layer should sit underneath the Editor:
+- User uploads for video, image, audio, and subtitle assets.
+- Per-user media library with search, filters, metadata, duration, dimensions, size, and processing state.
+- Distinguish generated narration, downloaded B-roll, user media, and externally sourced assets.
+- Thumbnail/poster generation and lightweight proxies for responsive editing.
+- Cleanup policies for orphaned media and expired render intermediates.
+- Storage abstraction so local filesystem can later move to S3-compatible/object storage without changing editor semantics.
+
+### Stage I — AI Editing Assistant (planned)
+
+Once the deterministic editor works, add optional AI actions that operate on
+the editor model rather than directly mutating rendered video:
+- "Tighten this scene" — shorten spoken text and timing while preserving the selected framework.
+- "Swap weak B-roll" — search/recommend better visuals for the selected scene.
+- "Generate 3 hooks" — alternate opening scenes while preserving the research brief.
+- "Re-time captions" / regenerate narration after text edits.
+- Auto-highlight important words and recommend caption emphasis.
+- Suggest pacing improvements, dead-space removal, and scene ordering changes.
+- All AI edits are proposed as reversible changes, never silently destructive.
+
+### Stage J — Workspace Productivity & Collaboration (planned)
+
+After accounts/editor are stable:
+- Project duplication/templates.
+- Version history/snapshots and restore.
+- Autosave conflict handling.
+- Shareable read-only review links.
+- Optional team/workspace roles (owner/editor/viewer).
+- Activity history for project changes.
+
+### Stage K — Publishing & Analytics (planned, Facebook production deferred)
+
+Separate publishing from editing so integrations can evolve independently:
+- Platform-neutral publish/export manifest.
+- Additional publishing targets can be added without coupling to the editor.
+- Per-publish status/history and failure recovery.
+- Basic project performance metadata when external platforms provide it.
+
+**Facebook production publishing remains explicitly deferred.** The existing
+M9 development integration stays available for later review, but no production
+OAuth/account architecture will be built until the publishing direction is
+confirmed.
+
 ---
 
 ## 2. Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  REACT FRONTEND                                                       │
-│  SignalsPage (suggested grid + search) ─► StoryboardPage:              │
-│      00 Research (progress)  ─►  01 Setup  ─►  02 Storyboard  ─►  03 Finalize │
-└──────────────────────────────┬────────────────────────────────────────┘
-                                │ REST (JSON)
+┌──────────────────────────────────────────────────────────────────────────┐
+│  REACT FRONTEND                                                          │
+│  Signals → Research → Setup → Storyboard → Finalize                      │
+│                           │                                               │
+│                           └──────► Advanced Editor                        │
+│                                    timeline / preview / media / captions  │
+│                                                                          │
+│  Auth/session + My Research + Media Library + Account                    │
+└───────────────────────────────┬──────────────────────────────────────────┘
+                                │ REST (JSON) + authenticated session
                                 ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  NODE.JS BACKEND  (Express or Fastify)                                │
-│                                                                        │
-│  routes/    signals.js  (list + search)                              │
-│             projects.js (create, research, setup, scenes, export)     │
-│             render.js                                                 │
-│  services/  rssScraper.js, hackerNewsClient.js, arxivClient.js         │
-│             sourceCascade.js    (shared search+research merge/rank)   │
-│             braveSearchClient.js, tavilyClient.js, semanticScholarClient.js │
-│             researchService.js  (research brief: facts + reasoning)   │
-│             geminiService.js    (framework/setup suggestions + scenes)│
-│             pexelsService.js    (B-roll search, 5/scene)              │
-│             ttsService.js       (voice + word timestamps)             │
-│             renderService.js    (Remotion job trigger)                 │
-│             exportService.js    (mp4/srt/txt bundling)                │
-│  jobs/      cron: scrapeSignals (every 4h)                            │
-│             queue: renderQueue (BullMQ + Redis)                        │
-│  db/        MySQL via Prisma or Knex                                   │
-└──────────────────────────────┬────────────────────────────────────────┘
-                                │
-     ┌───────────┬──────────────┼──────────────┬───────────────┬─────────┐
-     ▼           ▼              ▼              ▼               ▼         ▼
-  MySQL     Gemini API      Source cascade:    Pexels API      TTS API   Remotion
- (signals,  (research,      arXiv/Semantic     (B-roll,        (voice +  render
- projects,   setup          Scholar → Tavily   5/scene)        word      worker
- scenes,     suggestions,   → Brave Search                     timestamps)
- assets,     scenes)        (priority cascade,
- exports)                    §6)
+┌──────────────────────────────────────────────────────────────────────────┐
+│  NODE.JS BACKEND                                                         │
+│  routes/ signals, projects, research, setup, storyboard, narration,     │
+│          editor, media, auth, render, export, publish                    │
+│  services/ source cascade, research, Gemini, Pexels, TTS, editor model, │
+│            media processing, render, export                              │
+│  jobs/ scrapeSignals, renderQueue                                        │
+│  db/ MySQL via Prisma                                                    │
+└──────────────┬───────────────────────┬───────────────────────────────────┘
+               │                       │
+       ┌───────┴────────┐      ┌───────┴─────────┐
+       ▼                ▼      ▼                 ▼
+     MySQL           Redis   Local/Object     External providers
+                              Storage           Gemini/Pexels/TTS
+                               ▲
+                               │
+                         Editor media assets
 ```
+
+The current M0–M9 architecture remains the baseline. New milestones must
+preserve the separation between: data model, editable timeline state,
+external source media, and rendered outputs.
 
 ---
 
 ## 3. MySQL schema
 
+The existing tables remain the foundation. Planned next-level changes should
+extend them rather than storing editor state only in the browser.
+
+Existing core tables:
+- `signals`
+- `projects`
+- `project_scenes`
+- `scene_assets`
+- `project_exports`
+
+Planned additions/changes:
+
+### Users / sessions
+
 ```sql
--- Trending topics — both cron-scraped (suggested) and search-originated
-CREATE TABLE signals (
-  id                CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  origin            ENUM('suggested','search') DEFAULT 'suggested',
-  source_type       ENUM('rss','hacker_news','arxiv','semantic_scholar','tavily','brave') NOT NULL,
-  source_reliability ENUM('peer_reviewed','ai_search','general_web') NOT NULL,
-  search_query      VARCHAR(255) NULL,             -- set when origin = 'search'
-  rank              INT NULL,                       -- only meaningful for suggested feed ordering
-  category          VARCHAR(40) NOT NULL,
-  heat_pct          VARCHAR(12),
-  heat_score        DECIMAL(6,2) NULL,              -- raw numeric score behind heat_pct
-  title             VARCHAR(255) NOT NULL,
-  description       TEXT,
-  why_reasoning     TEXT NOT NULL,
-  source_name       VARCHAR(120),
-  source_url        TEXT,
-  raw_content       LONGTEXT,
-  status            ENUM('new','used','archived') DEFAULT 'new',
-  scraped_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE users (
+  id                 CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  email              VARCHAR(255) NOT NULL UNIQUE,
+  password_hash      VARCHAR(255) NULL,
+  email_verified_at  TIMESTAMP NULL,
+  display_name       VARCHAR(120) NULL,
+  created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- A user's in-progress or finished reel
-CREATE TABLE projects (
-  id                  CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  user_id             CHAR(36) NOT NULL,
-  signal_id           CHAR(36) NOT NULL,
-  title               VARCHAR(255),
-
-  -- Stage B: research output
-  research_summary    TEXT,
-  research_sources    JSON,                         -- [{title,url,note,source_reliability}, ...]
-  monetization_flags  JSON,                         -- [{issue, severity}, ...]
-
-  -- Stage C: setup answers (each with the AI's suggested default retained for "why" display)
-  script_length_seconds  INT,
-  suggested_length_seconds INT,
-  selected_framework      VARCHAR(40),
-  framework_reasoning     TEXT,
-  suggested_framework     VARCHAR(40),               -- may differ if user overrode it
-  tone                    VARCHAR(30),
-  suggested_tone          VARCHAR(30),
-  audience_level          VARCHAR(20),
-
-  seo_caption         TEXT,
-  duration_seconds    DECIMAL(5,1),
-  cuts                INT,
-  status              ENUM('researching','setup','storyboard','finalize','rendering','published')
-                        DEFAULT 'researching',
-  render_url          TEXT,
-  created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (signal_id) REFERENCES signals(id)
-);
-
--- Scene-by-scene script
-CREATE TABLE project_scenes (
-  id                CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  project_id        CHAR(36) NOT NULL,
-  scene_order       INT NOT NULL,
-  title             VARCHAR(255),
-  spoken_text       TEXT NOT NULL,
-  duration_seconds  DECIMAL(4,1),
-  why_line          TEXT,
-  why_picture       TEXT,
-  broll_search_term VARCHAR(160),
-  audio_url         TEXT,
-  word_timestamps   JSON,
-  FOREIGN KEY (project_id) REFERENCES projects(id)
-);
-
--- The 5 pre-fetched B-roll options per scene
-CREATE TABLE scene_assets (
-  id            CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  scene_id      CHAR(36) NOT NULL,
-  video_url     TEXT NOT NULL,
-  thumbnail_url TEXT NOT NULL,
-  sort_order    INT NOT NULL,
-  is_selected   BOOLEAN DEFAULT FALSE,               -- persisted pick, written when user reaches Finalize
-  FOREIGN KEY (scene_id) REFERENCES project_scenes(id)
-);
-
--- Final downloadable outputs for a project
-CREATE TABLE project_exports (
-  id            CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  project_id    CHAR(36) NOT NULL,
-  kind          ENUM('mp4','srt','script_txt') NOT NULL,
-  file_url      TEXT NOT NULL,
-  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (project_id) REFERENCES projects(id)
+CREATE TABLE auth_sessions (
+  id           CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  user_id      CHAR(36) NOT NULL,
+  token_hash   CHAR(64) NOT NULL UNIQUE,
+  expires_at   TIMESTAMP NOT NULL,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TIMESTAMP NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 ```
+
+### Project ownership / editor model
+
+```sql
+ALTER TABLE projects
+  ADD CONSTRAINT fk_projects_user
+  FOREIGN KEY (user_id) REFERENCES users(id);
+
+CREATE TABLE project_versions (
+  id            CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  project_id    CHAR(36) NOT NULL,
+  version_no    INT NOT NULL,
+  timeline_json JSON NOT NULL,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_by    CHAR(36) NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE project_media (
+  id              CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  user_id         CHAR(36) NOT NULL,
+  project_id      CHAR(36) NULL,
+  kind            ENUM('video','image','audio','caption','generated','external_cache') NOT NULL,
+  storage_key     TEXT NOT NULL,
+  source_url      TEXT NULL,
+  filename        VARCHAR(255),
+  mime_type       VARCHAR(120),
+  byte_size       BIGINT NULL,
+  duration_seconds DECIMAL(8,3) NULL,
+  width           INT NULL,
+  height          INT NULL,
+  status          ENUM('uploading','processing','ready','failed','deleted') DEFAULT 'uploading',
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+CREATE TABLE project_editors (
+  project_id       CHAR(36) PRIMARY KEY,
+  version_id       CHAR(36) NOT NULL,
+  timeline_json    JSON NOT NULL,
+  updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (version_id) REFERENCES project_versions(id)
+);
+```
+
+Implementation note: do not create these tables until M10/M11 is ready and
+local Prisma/MySQL migration testing is available. Existing M0–M9 schema
+behavior must remain backwards-compatible.
 
 ---
 
-## 4. Node backend — endpoints
+## 4. Node backend — existing and planned endpoints
 
+Existing endpoints remain as documented below. Planned next-level endpoints:
+
+```text
+# Auth
+POST   /api/auth/signup
+POST   /api/auth/signin
+POST   /api/auth/signout
+GET    /api/auth/me
+POST   /api/auth/verify-email
+POST   /api/auth/forgot-password
+POST   /api/auth/reset-password
+
+# Editor
+GET    /api/projects/:id/editor
+PUT    /api/projects/:id/editor
+POST   /api/projects/:id/editor/versions
+GET    /api/projects/:id/editor/versions
+POST   /api/projects/:id/editor/restore/:versionId
+POST   /api/projects/:id/editor/render
+
+# Media
+GET    /api/media
+POST   /api/media/upload
+GET    /api/media/:id
+DELETE /api/media/:id
+POST   /api/media/:id/process
 ```
-# Stage A — Discovery
-GET   /api/signals?category=Physics              → suggested feed (cron-scraped)
-GET   /api/signals/search?q=quantum+sensors       → live search-originated signals (same shape as above)
 
-# Stage B — Research
-POST  /api/projects            { signalId }       → creates project (status=researching), kicks off research brief
-GET   /api/projects/:id/research                  → poll research status + brief once ready
-
-# Stage C — Setup
-GET   /api/projects/:id/setup/suggestions          → AI-suggested defaults: length, framework (+reasoning), tone, audience
-POST  /api/projects/:id/setup   { length, framework, tone, audienceLevel } → saves the user's (possibly overridden) choices
-
-# Stage D — Storyboard
-POST  /api/projects/:id/generate-scenes            → Gemini scene generation + Pexels fetch (5 options/scene)
-GET   /api/projects/:id/scenes                      → scenes + assets
-PATCH /api/scenes/:id/select-asset  { assetId }     → persists the chosen visual (called on Finalize entry, not on every click)
-
-# Stage E — Finalize & Export
-GET   /api/projects/:id                             → full project summary (for the Finalize transcript view)
-POST  /api/projects/:id/render                       → (Phase 5) queues Remotion render job
-GET   /api/projects/:id/render-status                → polling endpoint
-GET   /api/projects/:id/export                       → returns { mp4Url, srtUrl, scriptTxtUrl, seoCaption } once ready
-```
-
-Keep "swap visual" **entirely client-side** during Stage D — all 5 options
-per scene are already fetched, so cycling through them is just an array
-index change. Only call `PATCH /api/scenes/:id/select-asset` once, in a
-batch, when the user moves from Storyboard into Finalize — no network call
-per click.
+Editor writes should be authenticated and version-aware. Autosave should be
+idempotent. The client should debounce saves and the server should reject
+stale writes using a version number rather than silently overwriting newer
+edits.
 
 ---
 
 ## 5. The Gemini prompt contract
 
-Three calls now, each mapped to a stage:
-
-**Call 1 — Research brief** (Stage B, fires on signal selection):
+Three calls remain the existing content-generation contract. Future AI editing
+calls must operate on the editor timeline as structured input and return
+reversible edit operations, for example:
 
 ```json
 {
-  "key_facts": [
-    "A UK Royal Navy field trial validated the sensor outside lab conditions.",
-    "Precision comes from measuring acceleration via atom interferometry."
+  "operations": [
+    { "type": "trim_scene", "scene_id": "...", "new_end": 4.2 },
+    { "type": "replace_asset", "scene_id": "...", "asset_id": "..." },
+    { "type": "update_caption_style", "scene_id": "...", "preset": "emphasis" }
   ],
-  "mechanism_summary": "Cold atoms are split by lasers; their interference pattern reveals motion precisely enough to replace satellite fixes.",
-  "monetization_flags": [],
-  "suggested_length_seconds": 34,
-  "suggested_framework": "how_it_works",
-  "suggested_framework_reasoning": "The source is mechanism-heavy and well-cited, which favors an explainer over a rivalry angle.",
-  "suggested_tone": "calm_authoritative",
-  "sources": [
-    { "title": "Nature Physics field trial report", "url": "...", "source_reliability": "peer_reviewed" },
-    { "title": "Supporting coverage via search cascade", "url": "...", "source_reliability": "ai_search" }
-  ]
+  "reasoning": "..."
 }
 ```
 
-Each source in `sources` carries the reliability tier assigned by the
-cascade in §6, so when two sources disagree on a claim, the prompt (and the
-UI's "why this" text) can explicitly favor the peer-reviewed one.
-
-**Call 2 — Setup suggestions** can reuse Call 1's output directly (it's
-already shaped for the Stage C question defaults) — no second round trip
-needed unless the user changes the underlying signal.
-
-**Call 3 — Scene generation** (Stage D, fires once Stage C is confirmed):
-
-```json
-{
-  "seo_caption": "Quantum sensors are changing navigation... #Quantum #TechNews",
-  "scenes": [
-    {
-      "scene_order": 1,
-      "title": "GPS is about to change",
-      "spoken_text": "Everything you know about GPS is about to change.",
-      "duration_seconds": 3.0,
-      "why_line": "Negative-warning hook. One sentence, under 3 seconds, no hello.",
-      "why_picture": "A satellite over Earth puts high-tech context on screen in the first 1.5 seconds.",
-      "broll_search_term": "satellite orbit earth"
-    }
-  ]
-}
-```
-
-This call is now parameterized by the confirmed `script_length_seconds`,
-`selected_framework`, and `tone` from Stage C — the prompt should include
-those explicitly rather than re-deriving them.
-
-Use **Gemini Flash-tier models** for all three calls — low latency matters
-more than maximum reasoning depth here.
+Do not allow future AI features to directly mutate or delete source media.
 
 ---
 
@@ -375,9 +411,9 @@ more than maximum reasoning depth here.
 **Decisions locked in:** suggested feed = free official sources only; search
 and research both use a **combined cascade** across free/low-cost sources,
 merged and ranked by reliability rather than picked from a single provider.
-Two dead ends worth flagging so nobody re-discovers them the hard way: Bing
-Search APIs were retired in August 2025, and Google Custom Search is closed
-to new signups and sunsets in 2027 — neither belongs in this stack.
+Two dead ends worth flagging so nobody re-discovers them: Bing Search APIs
+were retired in August 2025, and Google Custom Search is closed to new
+signups and sunsets in 2027 — neither belongs in this stack.
 
 ### 6.1 Suggested feed sources (Stage A, background)
 
@@ -414,8 +450,8 @@ results rather than picking one winner:
    so a peer-reviewed source always outranks a general web hit on the same
    claim, exactly matching "priority for reliable data."
 5. Every fact pulled into a research brief keeps its source tier attached,
-   so `research_sources` (see §3) can show the user which claims are
-   backed by a paper vs. a general article.
+   so `research_sources` (see §3) can show the user which claims are backed by a
+   paper vs. a general article.
 
 This cascade is what both `GET /api/signals/search` and
 `researchService.js` call internally — one shared `sourceCascade.js`
@@ -443,93 +479,203 @@ reasoning — the same "why this" transparency pattern used everywhere else.
 
 ## 8. Frontend changes needed (mapped to gaps)
 
-| Component | Change |
+Current implementation areas remain as already built. New frontend work is:
+
+| Component | Planned next-level change |
 |---|---|
-| `SignalsPage.jsx` | Add a search input above/beside the filter pills; wire to `GET /api/signals/search` |
-| `StoryboardPage.jsx` | Add two stages before the existing tabs: **Research** (progress state) and **Setup** (guided questions); tab stepper becomes 5 steps |
-| New: `ResearchProgress.jsx` | Shows the research brief being assembled (source read → cross-check → brief ready) |
-| New: `SetupPanel.jsx` | Pill-based question flow for length/framework/tone/audience, each pre-filled with the AI default + one-line reasoning |
-| `StepCard.jsx` | **Lift `selected` swatch state up** to `StoryboardPage` so `PhonePreview` can render the actual chosen asset per scene, not just the default `thumb` |
-| `PhonePreview.jsx` | Accept the lifted `selectedAssetByScene` state and render the chosen asset for the active scene |
-| `PreviewPanel.jsx` → rename intent to **Finalize** | Add Download MP4 / Download SRT / Copy caption / Download script actions once export data exists |
+| `SignalsPage.jsx` | Keep current search/filter behavior; add authenticated workspace entry when M10 lands |
+| `MyResearchPage.jsx` | Add account-aware project ownership, sorting, filters, and optional thumbnails when media metadata exists |
+| `StoryboardPage.jsx` | Add explicit **Edit video** entry into the new editor while preserving the storyboard stage |
+| New: `EditorPage.jsx` | Advanced editor shell: preview, timeline, tracks, clip controls, inspector, undo/redo, autosave, render handoff |
+| New: `EditorTimeline.jsx` | Multi-track timeline with snapping, zoom, playhead, selection, trim/split/move |
+| New: `EditorInspector.jsx` | Selected clip/scene/audio/caption controls |
+| New: `MediaLibraryPage.jsx` | User/project media browser and upload surface |
+| New: `AuthPage.jsx` / auth components | Sign up/sign in/reset/verification flows |
+| `FinalizePanel.jsx` | Render/export editor timeline; keep staged render progress and elapsed/ETA |
+| `PhonePreview.jsx` | Reuse editor preview primitives where possible to avoid preview/render divergence |
 
 ---
 
 ## 9. Phased roadmap
 
-Each phase below has a matching, checkable milestone in `TASK.md` — use that
-file day-to-day; use this section for the big-picture order of operations.
+Completed baseline remains:
 
-1. **Phase 0 — Wiring**: Express/Fastify + MySQL migration + connect
-   `SignalsPage` to a real (seeded) `GET /api/signals`.
-2. **Phase 1 — Suggested signal feed**: cron scraper (RSS + trend source).
-3. **Phase 2 — Search signals**: search endpoint + `SignalsPage` search box.
-4. **Phase 3 — Research stage**: `researchService.js` + Gemini Call 1 +
-   `ResearchProgress.jsx`.
-5. **Phase 4 — Setup stage**: `SetupPanel.jsx` + suggestions endpoint.
-6. **Phase 5 — Storyboard + live preview fix**: Gemini Call 3 + Pexels +
-   the `StepCard`/`PhonePreview` state-lifting fix.
-7. **Phase 6 — Voice + synced captions**: TTS + word timestamps.
-8. **Phase 7 — Rendering**: Remotion + render queue.
-9. **Phase 8 — Finalize & export**: MP4/SRT/script downloads, caption copy.
-10. **Phase 9 — Direct-to-Facebook publish** (optional, last).
+1. **Phase 0 — Wiring**
+2. **Phase 1 — Suggested signal feed**
+3. **Phase 2 — Search signals**
+4. **Phase 3 — Research stage**
+5. **Phase 4 — Setup stage**
+6. **Phase 5 — Storyboard + live preview**
+7. **Phase 6 — Voice + synced captions**
+8. **Phase 7 — Rendering**
+9. **Phase 8 — Finalize & export**
+10. **Phase 9 — Direct-to-Facebook development integration** — production explicitly deferred.
+
+Next-level roadmap:
+
+11. **Phase 10 — Accounts & authentication**
+12. **Phase 11 — Advanced video editor core**
+13. **Phase 12 — Media library & upload pipeline**
+14. **Phase 13 — Editor rendering integration + reliability**
+15. **Phase 14 — AI editing assistant**
+16. **Phase 15 — Versions, templates & review workflow**
+17. **Phase 16 — Platform publishing abstraction + analytics**
+
+Recommended implementation order:
+
+```text
+M10 Auth
+   ↓
+M11 Editor data model + core editor UI
+   ↓
+M12 Media library/uploads
+   ↓
+M13 Editor → Remotion render integration + stability
+   ↓
+M14 AI editing assistant
+   ↓
+M15 Versions/templates/review
+   ↓
+M16 Publishing abstraction + analytics
+        ↘ M9 Facebook production (later, separate decision)
+```
+
+### Why this order
+
+Authentication should come before the editor becomes a real workspace so
+project/media ownership is designed correctly rather than retrofitted.
+The editor should come before AI editing so the AI can manipulate a stable,
+reversible timeline model. Media uploads should become a first-class asset
+layer before the editor grows beyond Pexels/external assets. Rendering
+integration then makes the editor's preview and final output trustworthy
+before adding more automation.
 
 ---
 
 ## 10. Environment variables
 
-```
+Current variables remain. Planned next-level additions:
+
+```text
 DATABASE_URL=mysql://user:pass@host:3306/helix
 GEMINI_API_KEY=
-TAVILY_API_KEY=          # Stage A search + Stage B research, tier 2 of the cascade
-BRAVE_API_KEY=           # Stage A search + Stage B research, tier 3 (fallback) of the cascade
-                         # arXiv + Semantic Scholar (tier 1) need no key — public endpoints
+TAVILY_API_KEY=
+BRAVE_API_KEY=
 PEXELS_API_KEY=
-TTS_API_KEY=             # ElevenLabs or OpenAI
-REDIS_URL=               # render queue, Phase 8
-FACEBOOK_PAGE_TOKEN=     # Phase 9 only
+TTS_API_KEY=
+REDIS_URL=
+REMOTION_BASE_URL=
+FACEBOOK_PAGE_TOKEN=     # development integration only; production deferred
+SESSION_SECRET=
+APP_BASE_URL=
+MEDIA_STORAGE_ROOT=      # local development storage abstraction
+MEDIA_MAX_UPLOAD_MB=256
 ```
+
+Production secret/session storage must not live in source control.
+
+---
 
 ## 11. Backend folder structure
 
-`server/` lives at the repo root, alongside `frontend/` (not nested inside
-it) — the two are separate npm projects with their own `package.json`,
-run as separate dev processes (`frontend/vite.config.js` proxies `/api` to
-the backend). Status below reflects what M0 actually built vs. what later
-milestones still add:
+The existing folders remain. Planned additions:
 
-```
+```text
 server/
   prisma/
-    schema.prisma      ✅ M0 — all 5 tables modeled (signals live, rest unused until their milestone)
-    seed.js            ✅ M0 — 6 hand-written signals
+    schema.prisma
+    seed.js
   src/
     routes/
-      signals.js       ✅ M0 — GET /api/signals (list). GET /api/signals/search added in M2
-      projects.js      ⏳ M3+ (create, research, setup, scenes, export)
-      render.js        ⏳ M7
+      signals.js
+      projects.js
+      render.js
+      auth.js              # M10
+      editor.js            # M11
+      media.js             # M12
     services/
-      rssScraper.js            ⏳ M1
-      hackerNewsClient.js      ⏳ M1
-      arxivClient.js           ⏳ M1
-      semanticScholarClient.js ⏳ M2
-      tavilyClient.js          ⏳ M2
-      braveSearchClient.js     ⏳ M2
-      sourceCascade.js         ⏳ M2 (shared merge/rank logic for search + research)
-      researchService.js       ⏳ M3
-      geminiService.js         ⏳ M3/M5 (setup suggestions + scene generation)
-      pexelsService.js         ⏳ M5
-      ttsService.js            ⏳ M6
-      renderService.js         ⏳ M7
-      exportService.js         ⏳ M8
+      rssScraper.js
+      hackerNewsClient.js
+      arxivClient.js
+      semanticScholarClient.js
+      tavilyClient.js
+      braveSearchClient.js
+      sourceCascade.js
+      researchService.js
+      geminiService.js
+      pexelsService.js
+      ttsService.js
+      renderService.js
+      exportService.js
+      authService.js       # M10
+      editorService.js     # M11
+      mediaService.js      # M12
     jobs/
-      scrapeSignals.cron.js    ⏳ M1
-      renderQueue.js           ⏳ M7
+      scrapeSignals.cron.js
+      renderQueue.js
     db/
-      client.js        ✅ M0 — Prisma client singleton
-    app.js              ✅ M0 — Express app, mounts signals router
-    server.js           ✅ M0 — entry point, loads .env, listens on PORT
-  package.json          ✅ M0
-  .env.example          ✅ M0
-  README.md             ✅ M0 — local MySQL/WAMP setup steps
+      client.js
+    app.js
+    server.js
 ```
+
+Frontend planned additions:
+
+```text
+frontend/src/
+  pages/
+    SignalsPage.jsx
+    ResearchPage.jsx
+    StoryboardPage.jsx
+    MyResearchPage.jsx
+    EditorPage.jsx
+    AuthPage.jsx
+    MediaLibraryPage.jsx
+  components/
+    editor/
+      EditorTimeline.jsx
+      EditorPreview.jsx
+      EditorInspector.jsx
+      EditorToolbar.jsx
+      EditorMediaLibrary.jsx
+      EditorCaptionTrack.jsx
+      EditorAudioTrack.jsx
+    auth/
+      AuthProvider.jsx
+      ProtectedRoute.jsx
+```
+
+---
+
+## 12. Release-quality gates for the next level
+
+Every new milestone must pass these gates before it is marked done:
+
+- `frontend`: `npm run lint` and `npm run build` succeed with zero warnings/errors.
+- Responsive QA at `375, 390, 425, 480, 640, 768, 1024, 1440`.
+- Authenticated API authorization tests for every project/media endpoint.
+- No generated media committed to Git; `server/storage/` remains runtime-only.
+- Rendered output must be playable, correctly timed, and use the same editor timeline as preview.
+- Expensive provider/render failures must surface as actionable UI states, not silent infinite loading.
+- Autosave must recover after refresh without losing confirmed edits.
+- Destructive operations require the existing modern dialog pattern.
+- M9 Facebook production work is excluded from these gates until separately approved.
+
+---
+
+## 13. Product decisions for the next implementation cycle
+
+**Approved now:**
+- Build accounts/authentication.
+- Build a dedicated advanced video editor on top of the existing storyboard/narration/render pipeline.
+- Build a reusable media layer so user uploads and generated assets share one model.
+- Preserve Remotion as the source of truth for final rendering.
+- Preserve the current research → setup → storyboard → finalize flow; the editor is an advanced branch from Storyboard/Finalize, not a replacement.
+
+**Recommended but not yet implementation-approved:**
+- AI editing assistant.
+- Version history/templates/review workflow.
+- Platform-neutral publishing abstraction and analytics.
+
+**Explicitly deferred:**
+- Facebook production OAuth, multi-user Meta publishing, App Review, and final publishing UX.
