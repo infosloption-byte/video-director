@@ -55,6 +55,125 @@ function uploadMimeType(file) {
   return (match && FALLBACK_MIME_TYPES[match[0]]) || "";
 }
 
+function canvasBlob(canvas) {
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+}
+
+function loadMediaElement(element, url, eventName) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      element.removeEventListener(eventName, resolve);
+      element.removeEventListener("error", onError);
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error("The browser could not inspect the uploaded media."));
+    };
+    element.addEventListener(eventName, () => {
+      cleanup();
+      resolve();
+    }, { once: true });
+    element.addEventListener("error", onError, { once: true });
+    element.src = url;
+  });
+}
+
+async function inspectUploadedMedia(file) {
+  const kind = uploadKind(file);
+  const url = URL.createObjectURL(file);
+  try {
+    if (kind === "image") {
+      const image = new Image();
+      await loadMediaElement(image, url, "load");
+      const width = image.naturalWidth;
+      const height = image.naturalHeight;
+      if (!width || !height) return { width, height, thumbnail: null };
+
+      const maxDimension = 720;
+      const scale = Math.min(1, maxDimension / Math.max(width, height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width * scale));
+      canvas.height = Math.max(1, Math.round(height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return { width, height, thumbnail: null };
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return { width, height, thumbnail: await canvasBlob(canvas) };
+    }
+
+    if (kind === "video") {
+      const video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      await loadMediaElement(video, url, "loadedmetadata");
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+      const durationSeconds = Number.isFinite(video.duration) ? video.duration : null;
+      if (!width || !height || !durationSeconds || durationSeconds <= 0) return { width, height, durationSeconds, thumbnail: null };
+
+      const targetTime = Math.min(0.5, Math.max(0, durationSeconds - 0.05));
+      if (video.readyState < 2) {
+        await new Promise((resolve, reject) => {
+          video.addEventListener("loadeddata", resolve, { once: true });
+          video.addEventListener("error", () => reject(new Error("The browser could not decode the uploaded video.")), { once: true });
+        });
+      }
+      if (targetTime > 0) {
+        await new Promise((resolve, reject) => {
+          video.addEventListener("seeked", resolve, { once: true });
+          video.addEventListener("error", () => reject(new Error("The browser could not seek the uploaded video.")), { once: true });
+          video.currentTime = targetTime;
+        });
+      }
+
+      const maxDimension = 720;
+      const scale = Math.min(1, maxDimension / Math.max(width, height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width * scale));
+      canvas.height = Math.max(1, Math.round(height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return { width, height, durationSeconds, thumbnail: null };
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return { width, height, durationSeconds, thumbnail: await canvasBlob(canvas) };
+    }
+
+    if (kind === "audio") {
+      const audio = document.createElement("audio");
+      await loadMediaElement(audio, url, "loadedmetadata");
+      return { durationSeconds: Number.isFinite(audio.duration) ? audio.duration : null, thumbnail: null };
+    }
+
+    return { thumbnail: null };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function patchMediaMetadata(projectId, mediaId, metadata) {
+  const response = await fetch(`/api/projects/${projectId}/media/${mediaId}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(metadata),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Failed to save media metadata.");
+  return data.media;
+}
+
+async function uploadMediaThumbnail(projectId, mediaId, thumbnail) {
+  if (!thumbnail) return null;
+  const response = await fetch(`/api/projects/${projectId}/media/${mediaId}/thumbnail`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "image/png", "X-Requested-With": "XMLHttpRequest" },
+    body: thumbnail,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Failed to save media thumbnail.");
+  return data.media;
+}
+
 export default function MediaLibraryPage() {
   const { id } = useParams();
   const fileInputRef = useRef(null);
@@ -141,6 +260,23 @@ export default function MediaLibraryPage() {
     }
   }
 
+  async function processUploadedMedia(file, uploadedMedia) {
+    const inspected = await inspectUploadedMedia(file);
+    const metadata = {};
+    if (Number.isFinite(inspected.durationSeconds)) metadata.durationSeconds = inspected.durationSeconds;
+    if (Number.isFinite(inspected.width) && inspected.width > 0) metadata.width = inspected.width;
+    if (Number.isFinite(inspected.height) && inspected.height > 0) metadata.height = inspected.height;
+
+    let updatedMedia = uploadedMedia;
+    if (Object.keys(metadata).length) {
+      updatedMedia = await patchMediaMetadata(id, uploadedMedia.id, metadata);
+    }
+    if (inspected.thumbnail) {
+      updatedMedia = await uploadMediaThumbnail(id, uploadedMedia.id, inspected.thumbnail);
+    }
+    setMedia((items) => items.map((item) => item.id === updatedMedia.id ? updatedMedia : item));
+  }
+
   async function uploadSelectedFile() {
     const file = selectedFile;
     const kind = uploadKind(file);
@@ -151,14 +287,14 @@ export default function MediaLibraryPage() {
     }
 
     setMessage("");
-    setUpload({ name: file.name, kind, loaded: 0, total: file.size, percent: 0, error: "" });
+    setUpload({ name: file.name, kind, loaded: 0, total: file.size, percent: 0, error: "", processing: false });
 
     const params = new URLSearchParams({ kind, filename: file.name });
     const xhr = new XMLHttpRequest();
     activeUploadRef.current = xhr;
 
     try {
-      await new Promise((resolve, reject) => {
+      const uploadedMedia = await new Promise((resolve, reject) => {
         xhr.open("PUT", `/api/projects/${id}/media/upload?${params.toString()}`);
         xhr.withCredentials = true;
         xhr.setRequestHeader("Content-Type", mimeType);
@@ -174,21 +310,31 @@ export default function MediaLibraryPage() {
         xhr.onabort = () => reject(new Error("Upload cancelled."));
         xhr.onload = () => {
           const data = (() => { try { return JSON.parse(xhr.responseText || "{}"); } catch { return {}; } })();
-          if (xhr.status >= 200 && xhr.status < 300) {
+          if (xhr.status >= 200 && xhr.status < 300 && data.media) {
             setMedia((items) => [data.media, ...items.filter((item) => item.id !== data.media.id)]);
-            resolve();
+            resolve(data.media);
           } else {
             reject(new Error(data.error || `Upload failed (${xhr.status}).`));
           }
         };
         xhr.send(file);
       });
-      setUpload({ name: file.name, kind, loaded: file.size, total: file.size, percent: 100, error: "" });
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      setMessage("Upload complete. Added to project library.");
+
+      setUpload((current) => current ? { ...current, loaded: file.size, total: file.size, percent: 100, processing: true, error: "" } : current);
+      setMessage("Upload complete. Generating media metadata and preview…");
+
+      try {
+        await processUploadedMedia(file, uploadedMedia);
+        setUpload((current) => current ? { ...current, processing: false, error: "" } : current);
+        setMessage("Upload complete. Metadata and preview are ready.");
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } catch (error) {
+        setUpload((current) => current ? { ...current, processing: false, error: error.message || "Preview generation failed." } : current);
+        setMessage("Upload succeeded, but the media preview could not be generated. The original file is still available.");
+      }
     } catch (error) {
-      setUpload((current) => current ? { ...current, error: error.message || "Upload failed." } : current);
+      setUpload((current) => current ? { ...current, processing: false, error: error.message || "Upload failed." } : current);
       setMessage(error.message || "Upload failed.");
     } finally {
       activeUploadRef.current = null;
@@ -236,10 +382,10 @@ export default function MediaLibraryPage() {
         <div className="editor-section-title"><strong>Upload media</strong><span>Streamed to project storage</span></div>
         <div className="media-library__upload-row">
           <input ref={fileInputRef} type="file" accept="video/*,image/*,audio/*,.srt,.vtt,.ttml,.txt" onChange={(event) => { setSelectedFile(event.target.files?.[0] || null); setUpload(null); setMessage(""); }} />
-          <button className="btn btn-cream" type="button" disabled={!selectedFile || Boolean(upload && upload.percent < 100 && !upload.error)} onClick={() => void uploadSelectedFile()}>{upload && upload.percent < 100 && !upload.error ? "Uploading…" : "Upload"}</button>
+          <button className="btn btn-cream" type="button" disabled={!selectedFile || Boolean(upload && (upload.processing || (upload.percent > 0 && upload.percent < 100 && !upload.error)))} onClick={() => void uploadSelectedFile()}>{upload && upload.percent < 100 && !upload.error ? "Uploading…" : upload?.processing ? "Processing…" : "Upload"}</button>
         </div>
         {selectedFile && <p className="media-library__file-meta"><strong>{selectedFile.name}</strong><span>{(selectedFile.size / (1024 * 1024)).toFixed(1)} MB · {uploadKind(selectedFile) || "unsupported"}</span></p>}
-        {upload && <div className="media-library__progress" role="status" aria-live="polite"><div className="media-library__progress-head"><span>{upload.name}</span><strong>{upload.percent}%</strong></div><progress max="100" value={upload.percent} /><div className="media-library__progress-foot"><span>{upload.error || (upload.percent === 100 ? "Uploaded" : "Uploading…")}</span>{upload.percent < 100 && !upload.error && <button className="btn btn-ghost" type="button" onClick={cancelUpload}>Cancel</button>}</div></div>}
+        {upload && <div className="media-library__progress" role="status" aria-live="polite"><div className="media-library__progress-head"><span>{upload.name}</span><strong>{upload.processing ? "Preview…" : `${upload.percent}%`}</strong></div><progress max="100" value={upload.percent} /><div className="media-library__progress-foot"><span>{upload.error || (upload.processing ? "Reading metadata and generating thumbnail…" : upload.percent === 100 ? "Uploaded" : "Uploading…")}</span>{upload.percent < 100 && !upload.processing && !upload.error && <button className="btn btn-ghost" type="button" onClick={cancelUpload}>Cancel</button>}</div></div>}
       </section>
 
       <section className="media-library__search-card">
@@ -259,8 +405,8 @@ export default function MediaLibraryPage() {
         {message && <p className="media-library__message" role="status">{message}</p>}
         {!visibleMedia.length && <div className="media-library__empty"><strong>No media yet.</strong><span>Upload a file or search Pexels above to add reusable project assets.</span></div>}
         <div className="media-grid">{visibleMedia.map((item) => <article className="media-card" key={item.id}>
-          <div className="media-card__preview">{item.kind === "video" ? <video src={item.mediaUrl} poster={item.thumbnailUrl || undefined} muted playsInline preload="metadata" controls /> : item.kind === "image" ? <img src={item.mediaUrl} alt="" /> : item.kind === "audio" ? <audio src={item.mediaUrl} controls preload="metadata" /> : <div className="media-card__placeholder">{item.kind}</div>}</div>
-          <div className="media-card__body"><strong>{item.title}</strong><span>{item.provider || item.origin} · {item.kind}{item.sizeBytes ? ` · ${(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : ""}</span><button className="btn btn-ghost" type="button" disabled={savingId === item.id} onClick={() => void removeMedia(item)}>{savingId === item.id ? "Removing…" : "Remove"}</button></div>
+          <div className="media-card__preview">{item.kind === "video" ? <video src={item.mediaUrl} poster={item.thumbnailUrl || undefined} muted playsInline preload="metadata" controls /> : item.kind === "image" ? <img src={item.thumbnailUrl || item.mediaUrl} alt="" /> : item.kind === "audio" ? <audio src={item.mediaUrl} controls preload="metadata" /> : <div className="media-card__placeholder">{item.kind}</div>}</div>
+          <div className="media-card__body"><strong>{item.title}</strong><span>{item.provider || item.origin} · {item.kind}{item.width && item.height ? ` · ${item.width}×${item.height}` : ""}{item.durationSeconds ? ` · ${Number(item.durationSeconds).toFixed(1)}s` : ""}{item.sizeBytes ? ` · ${(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : ""}</span><button className="btn btn-ghost" type="button" disabled={savingId === item.id} onClick={() => void removeMedia(item)}>{savingId === item.id ? "Removing…" : "Remove"}</button></div>
         </article>)}</div>
       </section>
     </main>
