@@ -11,13 +11,9 @@
 ## Baseline — M0 through M8
 **Status:** Done
 
-M0–M8 are complete in the current baseline: backend wiring, suggested feed,
-search, research, guided setup, storyboard/live preview, narration/captions,
-Remotion rendering, and Finalize/export.
-
-Existing implementation notes and historical hardening decisions remain
-captured in repository history. The current release-quality checks are also
-recorded in `docs/FINAL_QA.md`.
+M0–M8 are complete: backend wiring, signal feed, search, research, guided
+setup, storyboard/live preview, narration/captions, Remotion rendering, and
+Finalize/export.
 
 ## M9 — Direct-to-Facebook publish
 **Status:** Deferred (development integration only)
@@ -39,217 +35,168 @@ production work until the product direction for publishing is decided.
 ## M10 — Accounts & Authentication
 **Status:** In progress
 
-Goal: turn the current local-user application into a secure multi-user
-workspace without breaking the existing research/video workflow.
-
-- [x] Add `users` table with unique email, display name, password hash, verification state, timestamps
-- [x] Add `auth_sessions` table with hashed session tokens and expiry
-- [x] Sign-up page with validation and useful error states
-- [x] Sign-in page with persistent secure session
-- [x] Sign-out
-- [x] `GET /api/auth/me`
-- [x] Password-reset request + reset flow
-- [x] Email verification flow with configurable delivery adapter
+- [x] Users/session/token tables and Prisma migration
+- [x] Sign-up/sign-in/sign-out and persistent sessions
+- [x] Password reset and email verification flows
 - [x] Account/profile settings
-- [ ] Replace all production `local-user` assumptions with authenticated user identity
-- [x] Authorize project, media, export, render, narration, storyboard, and editor endpoints by owner
-- [x] Protect authenticated workspace routes in the frontend
-- [ ] Rate limiting / abuse protection for Gemini, search, TTS, uploads, and render operations
-- [x] Secure cookie/session configuration and CSRF strategy for authenticated browser requests
-- [x] Auth migration keeps existing local-development workflow available behind explicit dev configuration
-- [ ] Final cross-user verification with real multiple accounts
+- [x] Authenticated workspace routes
+- [x] Project/media/render/export ownership protections
+- [x] Secure cookie/session configuration and CSRF strategy
+- [x] Explicit development auth fallback configuration
+- [ ] Replace remaining production `local-user` assumptions
+- [ ] Rate limiting / abuse protection for expensive provider operations
+- [ ] Final cross-user verification with multiple real accounts
 
-**Acceptance:** a user can create an account, sign in, refresh the browser,
-see only their own projects, and safely sign out; another user cannot access
-those project/media resources by changing an ID in the URL.
+**Acceptance:** authenticated users can access only their own project and media
+resources, survive refresh, and sign out safely.
 
-## M10A — Public Discovery Landing & Responsive Navigation
+## M10A — Public Discovery, Responsive Navigation & Theme System
 **Status:** In progress
 
-Goal: make Signals the public, conversion-oriented entry point while keeping
-content discovery open and all project-creating actions authenticated.
-
-- [x] Signals page remains publicly viewable without login
-- [x] Public visitors can search signals
-- [x] Public visitors can filter signals by category
-- [x] Landing hero explains the product and points visitors into signals
-- [x] Signed-out visitors can see `Sign in` and `Create account` in the top bar
-- [x] `Direct this Reel` requires authentication before creating a project
-- [x] Auth prompt provides clear Sign in / Create account choices
-- [x] Successful authentication returns the user to the public Signals page
-- [x] Authenticated header shows user identity and workspace access
-- [x] `My Research` navigation is available from authenticated pages
-- [x] Three-dot account/navigation menu with Account, My Research, and Sign out
-- [x] Responsive mobile navigation menu
-- [x] Mobile header avoids horizontal overflow and preserves key actions
+- [x] Public Signals landing
+- [x] Public search/filter
+- [x] Auth-gated Direct this Reel
+- [x] Sign in / Create account navigation
+- [x] Authenticated user greeting and My Research navigation
+- [x] Three-dot account menu
+- [x] Mobile navigation
+- [x] Persistent light/dark theme
+- [x] Theme toggle on desktop/mobile navigation
+- [x] Refreshed Sign-in UX/UI
+- [x] Refreshed Sign-up UX/UI
+- [x] Safe sign-in/sign-up redirects
 - [ ] Browser QA at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440
-- [ ] Verify auth prompt + redirect flow in production-auth mode
-
-**Acceptance:** an anonymous visitor can browse/search/filter Signals and
-understand the product without an account; attempting to direct a Reel asks
-the visitor to sign in or create an account; after successful auth, Helix
-returns to Signals. Authenticated users see their name, My Research, and a
-responsive navigation menu.
+- [ ] Verify auth flow in production-auth mode
+- [ ] Audit remaining page-specific hard-coded colors for light theme coverage
 
 ## M11 — Advanced Video Editor Core — **Separate Feature / Workspace**
-**Status:** Not started
+**Status:** In progress
 
-Goal: add a dedicated professional editing workspace that can reuse the
-existing Storyboard, narration, captions, visual assets and Remotion
-capabilities **without changing the existing Signals → Research → Setup →
-Storyboard → Preview/Finalize flow**.
+**Critical rule:** the Advanced Video Editor is a separate optional workspace.
+It is NOT another step in the existing:
 
-**Critical product rule:** the Advanced Video Editor is optional and
-non-destructive. Opening the editor must not mutate the existing storyboard,
+```text
+Signals → Research → Setup → Storyboard → Preview/Finalize
+```
+
+Opening/editing in the Advanced Editor must not mutate the existing Storyboard,
 narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 
-- [ ] Add `EditorPage.jsx` and a clear entry point such as **Edit video** from an existing completed project
-- [ ] Opening a project in Editor creates/opens an independent editor timeline/version
-- [ ] Keep original Storyboard scene data as the baseline/source for the normal workflow
-- [ ] Add 9:16 editor workspace with preview, timeline, toolbar, and inspector
-- [ ] Create canonical editor timeline JSON/EDL model
-- [ ] Video track for scene/B-roll clips
-- [ ] Narration/audio track with waveform-ready metadata
-- [ ] Caption/text track with editable timing/content
-- [ ] Overlay track for text/graphics
-- [ ] Optional music track
-- [ ] Frame-accurate playhead and current-time display
-- [ ] Timeline zoom and horizontal scrolling
-- [ ] Snap to scene boundaries/playhead/grid
-- [ ] Select, move, trim, split, duplicate, delete, and reorder clips
-- [ ] Replace selected B-roll using existing scene assets
-- [ ] Adjust clip duration without mutating original media files or Storyboard data
-- [ ] Add editor-only media references without altering existing Storyboard assets
-- [ ] Caption wording/timing/style/position/emphasis controls
-- [ ] Audio volume, mute, basic fades, and clip replacement controls
-- [ ] Basic transition presets/effects that are safe for Remotion rendering
-- [ ] Keyboard shortcuts for play/pause, split, delete, undo, redo, frame stepping
-- [ ] Undo/redo stack with bounded history
-- [ ] Autosave with debounce and dirty-state indicator
-- [ ] Restore editor state after refresh
-- [ ] Preview and later editor-rendering both use the same canonical editor timeline
-- [ ] No implicit "apply editor changes back to Storyboard" behavior
+### Implemented first slice
 
-**Acceptance:** a user can open an existing completed storyboard in the
-separate Editor, make edits, save and refresh without losing them, while the
-original Storyboard/narration flow remains unchanged. Editor changes are
-visible only in the Editor until a future explicit product decision adds an
-apply/sync operation.
+- [x] Add protected `/editor/:id` route
+- [x] Add `EditorPage.jsx` and responsive editor shell
+- [x] Add dedicated `ProjectEditor` persistence model/migration
+- [x] Add `GET /api/projects/:id/editor`
+- [x] Add version-aware `PATCH /api/projects/:id/editor`
+- [x] Initialize editor timeline from existing Storyboard scenes/assets/narration/captions without modifying them
+- [x] Independent 9:16 preview area
+- [x] Multi-track timeline: B-roll, Narration, Captions, Overlays
+- [x] Clip selection
+- [x] Start/duration editing
+- [x] Split clip
+- [x] Delete editor clip
+- [x] Reorder video clips
+- [x] Edit caption text
+- [x] Edit audio volume
+- [x] Add text overlays
+- [x] Dirty-state aware autosave
+- [x] Save/version indicator
+- [x] Add **Edit video** entry from My Research
+- [x] Editor access is protected by project ownership/authentication
+
+### Remaining M11 work
+
+- [ ] Frame-accurate playhead and timeline playback control
+- [ ] Timeline zoom and improved horizontal scrolling/scrubbing
+- [ ] Snap to scene boundaries/grid/playhead
+- [ ] Visual B-roll replacement inside the editor
+- [ ] Waveform visualization for narration/music
+- [ ] Caption style/position/emphasis controls
+- [ ] Audio fades and richer controls
+- [ ] Transition/effect presets safe for Remotion
+- [ ] Keyboard shortcuts
+- [ ] Bounded undo/redo history
+- [ ] Better touch/mobile timeline interaction
+- [ ] Editor-specific loading/error/empty states QA
+- [ ] Verify editor changes never mutate Storyboard source records
+- [ ] Full browser QA across supported viewport sizes
+
+**Acceptance:** a user can open a completed project in the standalone Editor,
+make/save/refresh edits, and continue using the original Storyboard flow with
+its original source data unchanged.
 
 ## M12 — Media Library & Upload Pipeline
 **Status:** Not started
 
-Goal: make user-owned media a first-class reusable asset layer for the editor.
-
-- [ ] Add `project_media` model and migrations
-- [ ] Add `/media` API with authenticated ownership
+- [ ] `project_media` model and migrations
+- [ ] Authenticated media API and ownership enforcement
 - [ ] Upload video/image/audio/caption files
-- [ ] File-type and file-size validation
-- [ ] Upload progress UI and resumable/error recovery where practical
-- [ ] Media library grid/list with search and filters
-- [ ] Metadata: filename, type, size, duration, dimensions, source, created date
-- [ ] Generate thumbnails/posters for visual media
-- [ ] Generate lightweight editing proxies when source media is large
-- [ ] Distinguish user uploads, generated narration, downloaded B-roll, and derived render intermediates
-- [ ] Add media picker to Editor
-- [ ] Prevent cross-user media access
-- [ ] Cleanup orphaned uploads/cached B-roll/render intermediates
-- [ ] Storage abstraction behind `MEDIA_STORAGE_ROOT` so local filesystem can later become object storage
-
-**Acceptance:** users can upload their own media, find it later from the
-library, add it to an editor timeline, and safely delete it without affecting
-another user's content.
+- [ ] File validation and upload progress/recovery
+- [ ] Media library search/filter/grid
+- [ ] Media metadata, thumbnails, and posters
+- [ ] Editing proxies for large media
+- [ ] Distinguish user uploads/generated narration/external cache/render intermediates
+- [ ] Editor media picker
+- [ ] Orphan cleanup
+- [ ] `MEDIA_STORAGE_ROOT` storage abstraction
 
 ## M13 — Editor Rendering Integration & Reliability
 **Status:** Not started
 
-Goal: make the separate editor timeline the source of truth for editor
-renders while preserving the existing storyboard render path.
-
-- [ ] Extend Remotion composition to consume canonical editor timeline JSON
-- [ ] Support editor trim/split/reorder operations in render output
-- [ ] Support selected clip replacement and uploaded media
-- [ ] Preserve natural narration speed unless the editor explicitly requests a supported speed change
-- [ ] Synchronize captions with edited audio/timeline positions
-- [ ] Add render preflight for unsupported/missing editor assets
-- [ ] Keep current detailed render stages, nested B-roll progress, elapsed time, and ETA
-- [ ] Add render version/hash so the UI can identify which editor state produced an MP4
-- [ ] Prevent stale renders from being shown as the current editor version
-- [ ] Add retry-safe rendering for transient worker/provider failures
-- [ ] Verify produced MP4 duration, audio presence, playable H.264/AAC output, and 9:16 dimensions
+- [ ] Remotion consumes canonical editor timeline JSON
+- [ ] Trim/split/reorder support in editor render
+- [ ] Uploaded media support
+- [ ] Caption/audio timing synchronization
+- [ ] Editor render preflight
+- [ ] Preserve current render stage telemetry, elapsed time, and ETA
+- [ ] Render version/hash and stale-render protection
+- [ ] Retry-safe rendering
+- [ ] MP4/audio/duration/9:16 validation
 - [ ] Keep storyboard rendering independently available
-- [ ] Add automated backend tests for timeline-to-render conversion
-
-**Acceptance:** changing the Editor timeline changes only the editor render;
-the existing storyboard render/source remains untouched, and the rendered
-video matches the saved editor timeline exactly.
+- [ ] Automated timeline-to-render tests
 
 ## M14 — AI Editing Assistant
 **Status:** Not started
 
-Goal: use Gemini to suggest reversible edits to the independent editor model,
-never directly rewrite the base Storyboard records.
-
-- [ ] Add structured editor-operation schema
-- [ ] `Tighten this scene`
-- [ ] `Generate 3 hooks`
-- [ ] `Swap weak B-roll`
-- [ ] `Improve pacing`
-- [ ] `Re-time / regenerate captions`
-- [ ] `Regenerate narration after text edits`
-- [ ] Suggest word emphasis/caption styling
-- [ ] Suggest dead-space removal and scene reordering
-- [ ] Preview proposed operations before applying
-- [ ] Apply changes as one undoable transaction
-- [ ] Show reasoning for AI suggestions
-- [ ] Never directly delete/overwrite source media
-- [ ] Rate-limit AI editing actions
-
-**Acceptance:** every AI edit is previewable, explainable, reversible, and
-stored as normal editor operations.
+- [ ] Structured reversible editor operations
+- [ ] Tighten scene / hooks / B-roll replacement / pacing suggestions
+- [ ] Caption and narration regeneration suggestions
+- [ ] Preview before apply
+- [ ] One-step undoable application
+- [ ] Reasoning display
+- [ ] Never mutate source media directly
+- [ ] Rate-limit AI edit actions
 
 ## M15 — Versions, Templates & Review Workflow
 **Status:** Not started
 
-Goal: make Helix useful as a repeatable creative workspace instead of a
-one-shot generator.
-
-- [ ] `project_versions` persistence
-- [ ] Named/manual snapshots and automatic important-state snapshots
-- [ ] Version history panel
-- [ ] Restore a previous version
+- [ ] Project versions/snapshots
+- [ ] Version history/restore
 - [ ] Duplicate project
-- [ ] Save project as reusable template
-- [ ] Start a new project from a template
+- [ ] Reusable templates
 - [ ] Read-only share/review links
-- [ ] Review comments/notes on scenes or timeline regions (optional first pass)
-- [ ] Autosave conflict detection using version numbers / optimistic concurrency
-- [ ] Activity/history view for major project changes
-
-**Acceptance:** users can safely experiment, restore earlier work, and reuse a
-successful project structure.
+- [ ] Optional review comments
+- [ ] Autosave conflict detection
+- [ ] Activity/history view
 
 ## M16 — Platform Publishing Abstraction & Analytics
 **Status:** Not started
 
-Goal: separate publishing from editor internals and make delivery extensible.
+- [ ] Platform-neutral publish manifest
+- [ ] Publish job/history model
+- [ ] Generic destination adapter
+- [ ] Publish status/retry handling
+- [ ] Export-ready metadata
+- [ ] Basic analytics storage
+- [ ] Publishing history in My Research
 
-- [ ] Create platform-neutral publish manifest from finalized project
-- [ ] Publish job/history model separate from render jobs
-- [ ] Generic destination adapter interface
-- [ ] Publish status, retries, and failure reasons
-- [ ] Export-ready metadata package per project
-- [ ] Basic analytics storage for platforms that provide performance metadata
-- [ ] Publishing activity/history in My Research
-
-**Explicit exclusion:** Facebook production OAuth and multi-user Meta
-publishing remain deferred under M9 until separately approved.
+**Explicit exclusion:** Facebook production OAuth and multi-user Meta publishing
+remain deferred under M9 until separately approved.
 
 ---
 
 # Cross-milestone quality gates
-
-These apply to every future milestone before marking it Done:
 
 - [ ] `npm run lint` → zero warnings and zero errors
 - [ ] `npm run build` succeeds
@@ -257,13 +204,13 @@ These apply to every future milestone before marking it Done:
 - [ ] No horizontal overflow or inaccessible controls
 - [ ] Destructive actions use the modern Helix confirmation dialog
 - [ ] No generated content committed under `server/storage/`
-- [ ] Authenticated endpoints enforce ownership once M10 is active
+- [ ] Authenticated endpoints enforce ownership
 - [ ] Long-running operations expose meaningful stage/progress states
-- [ ] Refresh/reconnect does not lose an in-progress task state
+- [ ] Refresh/reconnect does not lose in-progress task state
 - [ ] Rendered media remains playable and correctly timed
 - [ ] New migrations are documented and verified against local MySQL
 - [ ] Error states are actionable; no silent/infinite spinners
-- [ ] Existing Signals → Research → Setup → Storyboard → Preview/Finalize flow remains regression-tested after Editor changes
+- [ ] Existing Signals → Research → Setup → Storyboard → Preview/Finalize remains regression-tested after next-level changes
 - [ ] Opening the Advanced Editor does not change existing Storyboard/narration data
 
 # Recommended execution order
@@ -271,7 +218,7 @@ These apply to every future milestone before marking it Done:
 ```text
 M10 Accounts/Auth
        ↓
-M10A Public Discovery + Responsive Navigation
+M10A Public Discovery + Navigation + Theme
        ↓
 M11 Advanced Editor Core (SEPARATE)
        ↓
@@ -290,15 +237,14 @@ M9 Facebook production → DEFERRED / separate product decision
 
 # Decisions log
 
-- `2026-08-28` — Baseline M0–M8 remains complete; M9 Facebook publishing is intentionally deferred beyond development integration.
-- `2026-08-28` — Approved next-level direction: add real user accounts/authentication and a dedicated advanced video editor on top of the existing Storyboard/narration/render capabilities.
-- `2026-08-28` — **Critical separation decision:** Advanced Video Editor is a standalone feature/workspace, not a replacement for or additional required step in Signals → Research → Setup → Storyboard → Preview/Finalize.
-- `2026-08-28` — Editor may reuse current scenes, selected visuals, generated narration, word timestamps, captions, and Remotion capabilities as source data, but opening the editor must not mutate those source records.
-- `2026-08-28` — Editor edits are stored independently in an editor timeline/version model; there is no implicit apply-back-to-Storyboard action.
-- `2026-08-28` — The existing core workflow must remain operational with zero editor data, and every next-level milestone must preserve that compatibility.
-- `2026-08-28` — Add reusable media-library layer before expanding editor/AI functionality so user uploads and generated/external assets share ownership and lifecycle rules.
-- `2026-08-28` — AI editing is planned after the deterministic editor and render integration are stable; AI returns reversible editor operations instead of directly mutating rendered media.
-- `2026-08-28` — Facebook production integration remains excluded from the next implementation cycle pending a separate publishing/product decision.
-- `2026-08-28` — Approved public product-shell direction: Signals is the anonymous landing/discovery page; browsing, searching, and filtering are public, while Direct this Reel is an authenticated action.
-- `2026-08-28` — Signed-out users receive an explicit Sign in / Create account choice before a project is created; successful authentication returns them to Signals.
-- `2026-08-28` — Shared navigation must expose account/workspace actions without overcrowding desktop layouts and must collapse into a mobile menu at narrow widths.
+- `2026-08-28` — Baseline M0–M8 remains complete; M9 Facebook production publishing is deferred.
+- `2026-08-28` — Real accounts/authentication and a dedicated advanced video editor are the next-level platform direction.
+- `2026-08-28` — **Advanced Video Editor is a standalone feature/workspace, not a new required step in the core creation flow.**
+- `2026-08-28` — Editor may reuse current scenes, visuals, narration, word timestamps, captions, and Remotion capabilities as source data but must not mutate the source workflow.
+- `2026-08-28` — Editor state is persisted independently from Storyboard data.
+- `2026-08-28` — AI editing comes only after deterministic editor behavior and editor rendering are stable.
+- `2026-08-28` — Facebook production integration remains excluded from the current implementation cycle.
+- `2026-08-28` — Signals remains the public discovery landing page; Direct this Reel is authenticated.
+- `2026-08-28` — Shared navigation uses responsive desktop/mobile account actions.
+- `2026-08-28` — Persistent user-selectable light/dark theme is part of the frontend shell.
+- `2026-08-28` — M11 first slice implemented with a dedicated `ProjectEditor` record, canonical timeline JSON, protected editor route, autosave, and non-destructive editing operations.
