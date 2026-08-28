@@ -4,6 +4,7 @@ import path from "node:path";
 import signalsRouter from "./routes/signals.js";
 import projectsRouter from "./routes/projects.js";
 import projectDeleteRouter from "./routes/projectDelete.js";
+import editorRouter from "./routes/editor.js";
 import storyboardRouter from "./routes/storyboard.js";
 import renderRouter from "./routes/render.js";
 import exportRouter from "./routes/export.js";
@@ -31,6 +32,7 @@ app.use("/api/projects", requireAuth, (req, _res, next) => {
   next();
 }, requireProjectOwner);
 app.use("/api/projects", projectDeleteRouter);
+app.use("/api/projects", editorRouter);
 app.use("/api/projects", projectsRouter);
 
 // Project media is private. The request must authenticate and the project id in
