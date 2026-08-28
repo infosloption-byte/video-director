@@ -8,7 +8,7 @@ import storyboardRouter from "./routes/storyboard.js";
 import renderRouter from "./routes/render.js";
 import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
-import { authOptional, requireAuth } from "./middleware/auth.js";
+import { authOptional, getRequestUserId, requireAuth } from "./middleware/auth.js";
 import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.js";
 
 const app = express();
@@ -19,9 +19,14 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
 app.use("/api/signals", signalsRouter);
 
-// Workspace APIs are authenticated. In development, requireAuth intentionally
-// resolves to the existing local-user identity unless AUTH_REQUIRED=true.
-app.use("/api/projects", requireAuth, requireProjectOwner);
+// Bind every project request to the authenticated user. The temporary local-user
+// fallback remains available only for non-production development until AUTH_REQUIRED=true.
+app.use("/api/projects", requireAuth, (req, _res, next) => {
+  const userId = getRequestUserId(req);
+  req.query.userId = userId;
+  if (req.body && typeof req.body === "object") req.body.userId = userId;
+  next();
+}, requireProjectOwner);
 app.use("/api/projects", projectDeleteRouter);
 app.use("/api/projects", projectsRouter);
 app.use("/api/audio", express.static(path.resolve(process.cwd(), "storage", "audio"), { fallthrough: false, maxAge: "1h" }));
