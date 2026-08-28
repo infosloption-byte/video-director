@@ -61,18 +61,19 @@ function canvasBlob(canvas) {
 
 function loadMediaElement(element, url, eventName) {
   return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      element.removeEventListener(eventName, resolve);
-      element.removeEventListener("error", onError);
+    const onLoad = () => {
+      cleanup();
+      resolve();
     };
     const onError = () => {
       cleanup();
       reject(new Error("The browser could not inspect the uploaded media."));
     };
-    element.addEventListener(eventName, () => {
-      cleanup();
-      resolve();
-    }, { once: true });
+    const cleanup = () => {
+      element.removeEventListener(eventName, onLoad);
+      element.removeEventListener("error", onError);
+    };
+    element.addEventListener(eventName, onLoad, { once: true });
     element.addEventListener("error", onError, { once: true });
     element.src = url;
   });
@@ -114,14 +115,38 @@ async function inspectUploadedMedia(file) {
       const targetTime = Math.min(0.5, Math.max(0, durationSeconds - 0.05));
       if (video.readyState < 2) {
         await new Promise((resolve, reject) => {
-          video.addEventListener("loadeddata", resolve, { once: true });
-          video.addEventListener("error", () => reject(new Error("The browser could not decode the uploaded video.")), { once: true });
+          const onLoadedData = () => {
+            cleanup();
+            resolve();
+          };
+          const onError = () => {
+            cleanup();
+            reject(new Error("The browser could not decode the uploaded video."));
+          };
+          const cleanup = () => {
+            video.removeEventListener("loadeddata", onLoadedData);
+            video.removeEventListener("error", onError);
+          };
+          video.addEventListener("loadeddata", onLoadedData, { once: true });
+          video.addEventListener("error", onError, { once: true });
         });
       }
       if (targetTime > 0) {
         await new Promise((resolve, reject) => {
-          video.addEventListener("seeked", resolve, { once: true });
-          video.addEventListener("error", () => reject(new Error("The browser could not seek the uploaded video.")), { once: true });
+          const onSeeked = () => {
+            cleanup();
+            resolve();
+          };
+          const onError = () => {
+            cleanup();
+            reject(new Error("The browser could not seek the uploaded video."));
+          };
+          const cleanup = () => {
+            video.removeEventListener("seeked", onSeeked);
+            video.removeEventListener("error", onError);
+          };
+          video.addEventListener("seeked", onSeeked, { once: true });
+          video.addEventListener("error", onError, { once: true });
           video.currentTime = targetTime;
         });
       }
