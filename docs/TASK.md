@@ -105,19 +105,30 @@ narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 - [x] Add **Edit video** entry from My Research
 - [x] Editor access is protected by project ownership/authentication
 
+### Implemented timeline refinement
+
+- [x] Frame-stepped playhead and current-time display
+- [x] Play/pause timeline control with 30fps stepping
+- [x] Timeline ruler seeking by click
+- [x] Playhead shown across ruler and all tracks
+- [x] Timeline zoom control
+- [x] Snap modes for grid/clip boundaries and frame/clip boundaries
+- [x] Start edits use snap behavior
+- [x] Visual B-roll replacement using the existing scene asset set
+- [x] Preview scrubbing follows the selected video clip
+- [x] Bounded undo/redo timeline history
+- [x] Keyboard shortcuts for play/pause, frame stepping, split, delete, undo and redo
+- [x] Improved mobile/compact editor controls for zoom, snap and playback
+
 ### Remaining M11 work
 
-- [ ] Frame-accurate playhead and timeline playback control
-- [ ] Timeline zoom and improved horizontal scrolling/scrubbing
-- [ ] Snap to scene boundaries/grid/playhead
-- [ ] Visual B-roll replacement inside the editor
 - [ ] Waveform visualization for narration/music
 - [ ] Caption style/position/emphasis controls
 - [ ] Audio fades and richer controls
 - [ ] Transition/effect presets safe for Remotion
-- [ ] Keyboard shortcuts
-- [ ] Bounded undo/redo history
-- [ ] Better touch/mobile timeline interaction
+- [ ] Drag-based clip moving/trimming in the timeline
+- [ ] Optional music track UI and editing controls
+- [ ] Better touch/mobile timeline interaction beyond current compact controls
 - [ ] Editor-specific loading/error/empty states QA
 - [ ] Verify editor changes never mutate Storyboard source records
 - [ ] Full browser QA across supported viewport sizes
@@ -248,3 +259,4 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — Shared navigation uses responsive desktop/mobile account actions.
 - `2026-08-28` — Persistent user-selectable light/dark theme is part of the frontend shell.
 - `2026-08-28` — M11 first slice implemented with a dedicated `ProjectEditor` record, canonical timeline JSON, protected editor route, autosave, and non-destructive editing operations.
+- `2026-08-28` — M11 timeline refinement added playhead playback/seeking, timeline zoom, snap modes, B-roll replacement, preview scrubbing, bounded undo/redo, and keyboard controls without changing Storyboard source data.
