@@ -88,18 +88,26 @@ persisted `ProjectEditor` timeline. The active editor implementation supports:
 - Playhead-synchronized narration/audio playback in the browser
 - Per-clip volume and fade curves reflected during editor playback
 - Explicit no-source state for editor music until a real media source is attached
+- Bounded Remotion-safe transition metadata for video clip in/out edges
+- Deterministic motion effect presets for video clips with bounded intensity
+- Live browser preview of selected video transitions and motion effects
 
 Waveforms are derived client-side from playable project audio and cached in the
 browser session. This refinement does not mutate Storyboard audio or scene
 records.
 
-The current editor preview now coordinates video transport with available
+Transition/effect presets are stored as simple canonical clip metadata using
+whitelisted preset names and bounded numeric values. They are intentionally
+separate from source Storyboard records and do not change the current render
+worker; full editor-timeline rendering remains an M13 concern.
+
+The current editor preview coordinates video transport with available
 narration/music audio elements. External music sourcing remains a later media
 library concern.
 
-Remaining editor depth includes transition/effect presets, external music/media
-selection, editor-specific QA, source-isolation verification, and full
-cross-device QA.
+Remaining editor depth includes external music/media selection, editor-specific
+QA, source-isolation verification, full cross-device QA, and eventual Remotion
+render consumption of the editor timeline.
 
 ### Stage G — Account & Workspace
 
@@ -326,7 +334,7 @@ AI must not directly delete or overwrite source media.
 | `MyResearchPage.jsx` | Authenticated project history, filters, delete, explicit Edit video entry |
 | `StoryboardPage.jsx` | Existing flow unchanged |
 | `EditorPage.jsx` | Original editor retained for compatibility/reference |
-| `AdvancedEditorPage.jsx` | Richer standalone editing workspace, waveform and audio playback |
+| `AdvancedEditorPage.jsx` | Richer standalone editing workspace, waveform/audio playback, transitions and effects |
 | `EditorWaveform.jsx` | Client-side authenticated waveform decoding/drawing for editor audio clips |
 | `FinalizePanel.jsx` | Existing renderer + staged progress/elapsed/ETA |
 
@@ -356,9 +364,10 @@ Current:
 
 13. **Phase 11 — Advanced video editor core (separate workspace) — In progress**
 
-Current M11 audio refinement is complete for browser waveform visualization and
-playback/mixing of already playable project audio. The next editor slice is
-transitions/effects, followed by media-library integration and final QA.
+Current M11 audio and transition/effect refinement is complete for browser
+waveform visualization, synchronized playback/mixing of already playable project
+audio, bounded transition presets, and deterministic motion effects. The next
+editor slice is media-library integration and final editor QA.
 
 Next:
 
@@ -467,6 +476,7 @@ Every milestone must pass:
 - M11 first slice uses a dedicated `ProjectEditor` persistence record and canonical timeline JSON.
 - M11 richer editor interaction uses a separate frontend workspace with drag/trim, music/fades, caption controls, and touch-capable timeline interaction.
 - M11 audio refinement adds client-side waveform visualization and playhead-synchronized editor audio playback without modifying Storyboard source records.
+- M11 transition/effect refinement uses whitelisted transition and motion preset metadata with bounded parameters and live browser preview; Remotion render consumption remains deferred to M13.
 
 **Explicitly deferred:**
 - Facebook production OAuth, multi-user Meta publishing, App Review, and final publishing UX.
