@@ -8,6 +8,8 @@
     "start": "node src/server.js",
     "signals:scrape": "node src/jobs/scrapeSignals.js",
     "render:worker": "node src/jobs/renderQueue.js",
+    "media:cleanup": "node src/jobs/cleanupMedia.js",
+    "media:cleanup:dry": "node src/jobs/cleanupMedia.js --dry-run",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "node prisma/seed.js"
