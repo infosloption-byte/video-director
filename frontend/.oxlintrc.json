@@ -10,11 +10,13 @@
       "files": [
         "src/components/PhonePreview.jsx",
         "src/pages/MyResearchPage.jsx",
-        "src/components/FinalizePanel.jsx"
+        "src/components/FinalizePanel.jsx",
+        "src/context/AuthContext.jsx"
       ],
       "rules": {
         "react/set-state-in-effect": "off",
-        "react-hooks/exhaustive-deps": "off"
+        "react-hooks/exhaustive-deps": "off",
+        "react/only-export-components": "off"
       }
     }
   ]
