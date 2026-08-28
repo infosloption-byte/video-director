@@ -130,7 +130,7 @@ this file drift from the build plan.
 - Entering Preview/Finalize persists the selected asset for every scene in a batch of PATCH requests rather than on every thumbnail click.
 - Added `PEXELS_API_KEY` to `server/.env.example` and responsive loading/error states for storyboard generation.
 - Runtime verification of Gemini/Pexels generation requires local API keys and network access. The existing M3 research flow remains unchanged.
-- `2026-08-28` — Hardened Gemini storyboard generation against 429/502/503 responses with structured JSON output, retry/backoff, provider Retry-After support, and a research-backed fallback scene generator.
+- `2026-08-28` — Hardened Gemini storyboard generation against 429/502/503 responses with structured JSON output, retry/backoff, provider Retry-After support, and a research-backed fallback storyboard created from the completed research brief.
 
 ## M6 — Voice + synced captions
 **Status:** Done
@@ -170,6 +170,8 @@ this file drift from the build plan.
 - `2026-08-28` — Added Remotion `registerRoot(RemotionRoot)` to the rendering entry point so the worker can bundle the Composition without the "does not contain registerRoot" error.
 - `2026-08-28` — Render preflight now checks that every scene has persisted narration and that its MP3 exists on disk; rendering returns a clear `NARRATION_MISSING` response instead of reaching Remotion with a missing audio file.
 - `2026-08-28` — Fixed live render progress: the render service now forwards Remotion's `overallProgress` to BullMQ, with the worker persisting progress throughout encoding instead of stopping at the initial 15% preflight marker.
+- `2026-08-28` — Added staged render progress: preflight, B-roll preparation, Remotion bundling, composition/timeline setup, encoding, and finalization now expose named stages with stage-level progress and user-facing status messages. Finalize polls the server directly so an in-progress render remains visible after a page refresh.
+- `2026-08-28` — Enforced the selected setup duration as a render-time upper bound. When generated narration exceeds the selected 15/30/45/60s target, scene durations and word timestamps are proportionally compressed and narration playback is sped up so the final MP4 does not exceed the selected limit.
 
 ## M8 — Finalize & export
 **Status:** Done
@@ -218,7 +220,7 @@ this file drift from the build plan.
 - `2026-08-27` — M5 complete in code: Gemini scene generation, Pexels five-option B-roll prefetching, real Storyboard scene loading, client-side visual selection lifted into StoryboardPage, live phone preview updates, and batch persistence on Finalize entry. Local Gemini/Pexels runtime verification remains a setup requirement.
 - `2026-08-27` — M6 complete in code: ElevenLabs TTS with timestamp alignment, persisted per-scene MP3/word timestamps, audio serving, audio-driven PhonePreview playback/highlighting, and responsive narration controls. Local provider runtime verification remains a setup requirement.
 - `2026-08-27` — Fixed the generated-audio 404 by aligning the TTS storage path with the Express public audio route.
-- `2026-08-27` — M7 complete in code: Remotion composition, render service, BullMQ/Redis worker, render endpoints, MP4 serving, and Finalize render polling. Local Redis/Chromium/API-key verification remains a setup requirement.
+- `2026-08-28` — M7 complete in code: Remotion composition, render service, BullMQ/Redis worker, render endpoints, MP4 serving, and Finalize render polling. Local Redis/Chromium/API-key verification remains a setup requirement.
 - `2026-08-28` — Repaired Gemini research schema validation, added in-stage live research progress heartbeats, made browser polling resilient to temporary API interruptions, and made failed research states terminal so loading animations stop cleanly.
 - `2026-08-28` — Hardened the BullMQ Redis queue configuration to prevent the unsupported URL-option / reconnect storm seen while Redis was unavailable. Redis is still required for actual M7 rendering.
 - `2026-08-28` — Fixed Remotion render initialization by registering the root in `src/remotion/index.jsx`, preventing the worker from failing on the missing `registerRoot()` entry point.
@@ -227,3 +229,4 @@ this file drift from the build plan.
 - `2026-08-28` — Hardened Gemini storyboard generation against 429/502/503 responses with structured JSON output, retry/backoff, provider Retry-After support, and a research-backed fallback scene generator.
 - `2026-08-28` — Completed M9 development integration: Facebook Page Reel upload/publish service, publish endpoint, gated Finalize UI, and documented Page token configuration.
 - `2026-08-28` — Fixed narration URL/storage alignment: `/api/audio/<projectId>/scenes/<sceneId>.mp3` now maps directly to the on-disk `storage/audio/<projectId>/scenes/<sceneId>.mp3` layout, and legacy `/api/audio/projects/...` database values are normalized for playback and rendering.
+- `2026-08-28` — Added detailed render-stage reporting, durable server-side stage polling, and target-duration enforcement so users can see what the renderer is doing instead of only a single overall percentage, while the final MP4 stays within the selected setup duration.
