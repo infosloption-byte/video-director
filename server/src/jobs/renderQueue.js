@@ -4,6 +4,7 @@ import { prisma } from "../db/client.js";
 import { renderProject } from "../services/renderService.js";
 
 const QUEUE_NAME = "helix-render";
+const JOB_LOCK_DURATION_MS = Number(process.env.RENDER_JOB_LOCK_DURATION_MS || 30 * 60 * 1000);
 let queue = null;
 let worker = null;
 
@@ -90,7 +91,13 @@ export async function startRenderWorker() {
       await job.updateProgress({ progress: 100, stage: "complete", stageProgress: 100, message: "Render complete" });
       return result;
     },
-    { connection, concurrency: 1 },
+    {
+      connection,
+      concurrency: 1,
+      lockDuration: JOB_LOCK_DURATION_MS,
+      stalledInterval: 60_000,
+      maxStalledCount: 2,
+    },
   );
 
   worker.on("completed", (job) => console.log(`[render] Job ${job.id} completed.`));
@@ -100,9 +107,10 @@ export async function startRenderWorker() {
       await prisma.project.update({ where: { id: job.data.projectId }, data: { status: "finalize" } }).catch(() => {});
     }
   });
+  worker.on("stalled", (jobId) => console.warn(`[render] Job ${jobId} stalled; worker will attempt recovery.`));
   worker.on("error", (error) => console.error("[render] Worker error:", error));
 
-  console.log("[render] BullMQ worker started.");
+  console.log(`[render] BullMQ worker started (lock ${Math.round(JOB_LOCK_DURATION_MS / 60000)}m).`);
   return worker;
 }
 
