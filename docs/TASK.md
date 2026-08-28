@@ -142,9 +142,20 @@ narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 - [x] Audio playback status indicator in the preview panel
 - [x] No-source music clips remain explicitly unavailable until a real media source is attached
 
+### Implemented transition/effect refinement
+
+- [x] Remotion-safe transition preset metadata on video clips
+- [x] Fade, slide-left, slide-right, and zoom transition presets for clip in/out edges
+- [x] Remotion-safe motion effect metadata on video clips
+- [x] Slow zoom-in, slow zoom-out, pan-left, and pan-right effect presets
+- [x] Effect intensity control
+- [x] Transition duration controls bounded to safe editor ranges
+- [x] Live browser preview of selected video transition/effect state
+- [x] Transition/effect changes participate in autosave and bounded undo/redo
+- [x] Existing timelines without transition/effect metadata remain valid
+
 ### Remaining M11 work
 
-- [ ] Transition/effect presets safe for Remotion
 - [ ] Real external music asset picker/library integration
 - [ ] Editor-specific loading/error/empty states QA
 - [ ] Verify editor changes never mutate Storyboard source records
@@ -277,3 +288,4 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — M11 timeline refinement added playhead playback/seeking, timeline zoom, snap modes, B-roll replacement, preview scrubbing, bounded undo/redo, and keyboard controls without changing Storyboard source data.
 - `2026-08-28` — M11 richer editor refinement added drag move/trim, optional Music track, audio fades/volume, caption position/style/emphasis, overlay positioning, and touch-capable timeline interactions in the standalone editor.
 - `2026-08-29` — M11 audio refinement added decoded waveform visualization and synchronized editor audio playback without changing Storyboard source records. Real external music sourcing remains deferred to M12 media-library work.
+- `2026-08-29` — M11 transition/effect refinement added bounded Remotion-safe clip transition metadata and deterministic motion presets with live browser preview, autosave, and undo/redo support. Remotion render integration remains an M13 concern.
