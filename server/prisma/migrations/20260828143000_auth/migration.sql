@@ -28,7 +28,7 @@ CREATE TABLE `auth_sessions` (
 CREATE TABLE `auth_tokens` (
   `id` VARCHAR(191) NOT NULL,
   `user_id` VARCHAR(191) NOT NULL,
-  `kind` VARCHAR(191) NOT NULL,
+  `kind` VARCHAR(80) NOT NULL,
   `token_hash` CHAR(64) NOT NULL,
   `expires_at` DATETIME(3) NOT NULL,
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
