@@ -35,6 +35,7 @@ export default function MediaLibraryPage() {
     }
   }, [id]);
 
+  // oxlint-disable-next-line react/set-state-in-effect
   useEffect(() => { void loadMedia(); }, [loadMedia]);
 
   const visibleMedia = useMemo(() => filter === "all" ? media : media.filter((item) => item.kind === filter), [filter, media]);
