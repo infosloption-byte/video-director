@@ -1,0 +1,29 @@
+CREATE TABLE `project_media` (
+  `id` VARCHAR(191) NOT NULL,
+  `project_id` VARCHAR(191) NOT NULL,
+  `kind` ENUM('video', 'image', 'audio', 'caption') NOT NULL,
+  `origin` ENUM('upload', 'generated', 'external', 'storyboard') NOT NULL,
+  `status` ENUM('processing', 'ready', 'failed') NOT NULL DEFAULT 'ready',
+  `title` VARCHAR(191) NOT NULL,
+  `filename` VARCHAR(191) NULL,
+  `mime_type` VARCHAR(191) NULL,
+  `size_bytes` BIGINT NULL,
+  `duration_seconds` DECIMAL(8, 3) NULL,
+  `width` INTEGER NULL,
+  `height` INTEGER NULL,
+  `media_url` TEXT NOT NULL,
+  `thumbnail_url` TEXT NULL,
+  `source_url` TEXT NULL,
+  `provider` VARCHAR(191) NULL,
+  `provider_asset_id` VARCHAR(191) NULL,
+  `storage_key` TEXT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `project_media_project_id_kind_idx` (`project_id`, `kind`),
+  INDEX `project_media_project_id_origin_idx` (`project_id`, `origin`),
+  INDEX `project_media_provider_provider_asset_id_idx` (`provider`, `provider_asset_id`),
+  CONSTRAINT `project_media_project_id_fkey`
+    FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
