@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import Header from "../components/Header";
 import SignalCard from "../components/SignalCard";
 import { IconScan, IconClapper } from "../components/Icons";
