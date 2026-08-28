@@ -5,7 +5,6 @@ import { prisma } from "../db/client.js";
 import { getRenderQueue } from "../jobs/renderQueue.js";
 
 const router = Router();
-
 const STORAGE_ROOT = path.resolve(process.cwd(), "storage");
 
 async function removeIfExists(target) {
@@ -25,12 +24,12 @@ router.delete("/:id", async (req, res) => {
       return res.status(409).json({ error: "This project is rendering. Wait for the render to finish before deleting it." });
     }
 
-    const queue = getRenderQueue();
-    const job = await queue.getJob(project.id).catch(() => null);
-    if (job) {
-      const state = await job.getState().catch(() => "unknown");
-      if (["waiting", "delayed", "prioritized"].includes(state)) {
-        await job.remove().catch(() => {});
+    if (process.env.REDIS_URL?.trim()) {
+      const queue = getRenderQueue();
+      const job = await queue.getJob(project.id).catch(() => null);
+      if (job) {
+        const state = await job.getState().catch(() => "unknown");
+        if (["waiting", "delayed", "prioritized"].includes(state)) await job.remove().catch(() => {});
       }
     }
 
@@ -39,11 +38,7 @@ router.delete("/:id", async (req, res) => {
         where: { projectId: project.id },
         select: { id: true },
       });
-      if (scenes.length) {
-        await tx.sceneAsset.deleteMany({
-          where: { sceneId: { in: scenes.map((scene) => scene.id) } },
-        });
-      }
+      if (scenes.length) await tx.sceneAsset.deleteMany({ where: { sceneId: { in: scenes.map((scene) => scene.id) } } });
       await tx.projectScene.deleteMany({ where: { projectId: project.id } });
       await tx.projectExport.deleteMany({ where: { projectId: project.id } });
       await tx.project.delete({ where: { id: project.id } });
