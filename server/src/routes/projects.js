@@ -7,13 +7,18 @@ import { publishFacebookReel } from "../services/facebookService.js";
 const router = Router();
 const researchJobs = new Map();
 
+function normalizeRenderUrl(renderUrl) {
+  if (!renderUrl) return null;
+  return String(renderUrl).replace(/^\/api\/render-files\/projects\//, "/api/render-files/");
+}
+
 function publicProject(project, job) {
   return {
     id: project.id,
     signalId: project.signalId,
     title: project.title,
     status: project.status,
-    renderUrl: project.renderUrl || null,
+    renderUrl: normalizeRenderUrl(project.renderUrl),
     durationSeconds: project.durationSeconds == null ? null : Number(project.durationSeconds),
     cuts: project.cuts ?? null,
     seoCaption: project.seoCaption || null,
