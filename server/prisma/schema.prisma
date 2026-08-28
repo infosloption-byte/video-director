@@ -80,7 +80,7 @@ model Project {
   frameworkReasoning      String?       @map("framework_reasoning") @db.Text
   suggestedFramework      String?       @map("suggested_framework")
   tone                    String?
-  suggestedTone           String?       @map("suggested_tone")
+  suggestedTone           String?
   audienceLevel           String?       @map("audience_level")
   seoCaption              String?       @map("seo_caption") @db.Text
   durationSeconds         Decimal?      @map("duration_seconds") @db.Decimal(5, 1)
@@ -92,6 +92,7 @@ model Project {
   scenes                  ProjectScene[]
   exports                 ProjectExport[]
   editor                  ProjectEditor?
+  media                   ProjectMedia[]
   @@map("projects")
 }
 
@@ -137,6 +138,54 @@ model ProjectExport {
   createdAt DateTime @default(now()) @map("created_at")
   project Project @relation(fields: [projectId], references: [id])
   @@map("project_exports")
+}
+
+enum ProjectMediaKind {
+  video
+  image
+  audio
+  caption
+}
+
+enum ProjectMediaOrigin {
+  upload
+  generated
+  external
+  storyboard
+}
+
+enum ProjectMediaStatus {
+  processing
+  ready
+  failed
+}
+
+model ProjectMedia {
+  id              String             @id @default(uuid())
+  projectId       String             @map("project_id")
+  kind            ProjectMediaKind
+  origin          ProjectMediaOrigin
+  status          ProjectMediaStatus @default(ready)
+  title           String
+  filename        String?
+  mimeType        String?            @map("mime_type")
+  sizeBytes       BigInt?            @map("size_bytes")
+  durationSeconds Decimal?           @map("duration_seconds") @db.Decimal(8, 3)
+  width           Int?
+  height          Int?
+  mediaUrl        String             @map("media_url") @db.Text
+  thumbnailUrl    String?            @map("thumbnail_url") @db.Text
+  sourceUrl       String?            @map("source_url") @db.Text
+  provider        String?
+  providerAssetId String?            @map("provider_asset_id")
+  storageKey      String?            @map("storage_key") @db.Text
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, kind])
+  @@index([projectId, origin])
+  @@index([provider, providerAssetId])
+  @@map("project_media")
 }
 
 model User {
