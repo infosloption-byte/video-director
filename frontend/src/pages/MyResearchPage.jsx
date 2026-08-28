@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { IconArrowLeft, IconArrowRight } from "../components/Icons";
 import "../components/ui.css";
 import "./MyResearchPage.css";
@@ -70,6 +71,7 @@ export default function MyResearchPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [deletingId, setDeletingId] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   async function loadProjects() {
     setStatus("loading");
@@ -108,12 +110,16 @@ export default function MyResearchPage() {
 
   const counts = useMemo(() => ({ total: projects.length, ready: projects.filter((p) => p.researchReady).length, published: projects.filter((p) => p.status === "published").length }), [projects]);
 
-  async function deleteProject(event, project) {
+  function requestDelete(event, project) {
     event.stopPropagation();
     if (deletingId) return;
-    const confirmed = window.confirm(`Delete “${project.title}”? This removes the saved research, storyboard, exports, audio, and rendered video for this project.`);
-    if (!confirmed) return;
+    setDeleteTarget(project);
+  }
 
+  async function deleteProject() {
+    const project = deleteTarget;
+    if (!project || deletingId) return;
+    setDeleteTarget(null);
     setDeletingId(project.id);
     setError("");
     try {
@@ -205,7 +211,7 @@ export default function MyResearchPage() {
                 </button>
                 <div className="my-research-card__footer">
                   <span>{project.updatedAt ? `Updated ${formatDate(project.updatedAt)}` : "Saved project"}</span>
-                  <button type="button" className="btn btn-danger" onClick={(event) => deleteProject(event, project)} disabled={deletingId === project.id}>
+                  <button type="button" className="btn btn-danger" onClick={(event) => requestDelete(event, project)} disabled={deletingId === project.id}>
                     {deletingId === project.id ? "Deleting…" : "Delete"}
                   </button>
                 </div>
@@ -214,6 +220,17 @@ export default function MyResearchPage() {
           </section>
         )}
       </main>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete this research project?"
+        message={deleteTarget ? `“${deleteTarget.title}” will be permanently removed along with its saved research, storyboard, exports, audio, cached B-roll, and rendered video.` : ""}
+        confirmLabel="Delete project"
+        cancelLabel="Keep project"
+        tone="danger"
+        onConfirm={deleteProject}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
