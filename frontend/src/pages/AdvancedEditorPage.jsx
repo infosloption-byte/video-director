@@ -1,0 +1,312 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import Header from "../components/Header";
+import { useAuth } from "../context/AuthContext";
+import "../components/ui.css";
+import "./AdvancedEditorPage.css";
+
+const TRACK_ORDER = ["video", "narration", "music", "captions", "overlays"];
+const FPS = 30;
+const FRAME = 1 / FPS;
+const GRID = 0.25;
+const PX_PER_SECOND = 90;
+
+function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+function formatTime(seconds) {
+  const total = Math.max(0, Number(seconds || 0));
+  const minutes = Math.floor(total / 60);
+  const secs = Math.floor(total % 60);
+  const frames = Math.floor((total - Math.floor(total)) * FPS + 0.001);
+  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(frames).padStart(2, "0")}`;
+}
+function clone(value) { return JSON.parse(JSON.stringify(value)); }
+function snap(value, mode) {
+  const numeric = Math.max(0, Number(value) || 0);
+  if (mode === "free") return Number(numeric.toFixed(3));
+  const step = mode === "frame" ? FRAME : GRID;
+  return Number((Math.round(numeric / step) * step).toFixed(3));
+}
+function ensureMusicTrack(timeline) {
+  const current = timeline?.tracks || [];
+  if (current.some((track) => track.id === "music")) return timeline;
+  return { ...timeline, tracks: [...current, { id: "music", kind: "audio", name: "Music", locked: false, muted: false, clips: [] }] };
+}
+function normalizeTimeline(timeline) {
+  if (!timeline) return timeline;
+  const next = ensureMusicTrack(timeline);
+  return { ...next, fps: FPS, width: 1080, height: 1920 };
+}
+function updateTrack(timeline, trackId, updater) {
+  return { ...timeline, tracks: timeline.tracks.map((track) => track.id === trackId ? updater(track) : track) };
+}
+
+export default function AdvancedEditorPage() {
+  const { id } = useParams();
+  const { user } = useAuth();
+  const [project, setProject] = useState(null);
+  const [timeline, setTimeline] = useState(null);
+  const [scenes, setScenes] = useState([]);
+  const [version, setVersion] = useState(1);
+  const [selectedClip, setSelectedClip] = useState({ trackId: "video", clipId: "" });
+  const [playhead, setPlayhead] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [zoom, setZoom] = useState(PX_PER_SECOND);
+  const [snapMode, setSnapMode] = useState("grid");
+  const [history, setHistory] = useState([]);
+  const [future, setFuture] = useState([]);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("loading");
+  const [message, setMessage] = useState("");
+  const [dragState, setDragState] = useState(null);
+  const videoRef = useRef(null);
+  const saveTimer = useRef(null);
+  const timelineRef = useRef(null);
+
+  const loadEditor = useCallback(async () => {
+    setStatus("loading"); setMessage(""); setDirty(false); setHistory([]); setFuture([]);
+    try {
+      const response = await fetch(`/api/projects/${id}/editor`, { credentials: "include", cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to load editor.");
+      const nextTimeline = normalizeTimeline(data.editor.timeline);
+      setProject(data.project); setScenes(data.scenes || []); setTimeline(nextTimeline); setVersion(data.editor.version);
+      const first = nextTimeline?.tracks?.find((track) => track.id === "video")?.clips?.[0];
+      setSelectedClip({ trackId: "video", clipId: first?.id || "" }); setPlayhead(first?.start || 0); setStatus("ready");
+    } catch (error) { setStatus("error"); setMessage(error.message || "Failed to load editor."); }
+  }, [id]);
+
+  useEffect(() => { if (user) void loadEditor(); }, [loadEditor, user]);
+  useEffect(() => () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); }, []);
+  useEffect(() => { timelineRef.current = timeline; }, [timeline]);
+
+  const selected = useMemo(() => {
+    if (!timeline || !selectedClip.clipId) return null;
+    for (const track of timeline.tracks || []) {
+      const clip = track.clips?.find((item) => item.id === selectedClip.clipId);
+      if (clip) return { ...clip, trackId: track.id, trackName: track.name };
+    }
+    return null;
+  }, [timeline, selectedClip]);
+
+  const selectedVideo = useMemo(() => timeline?.tracks?.find((track) => track.id === "video")?.clips?.find((item) => item.id === selectedClip.clipId) || timeline?.tracks?.find((track) => track.id === "video")?.clips?.[0] || null, [timeline, selectedClip]);
+  const selectedScene = useMemo(() => scenes.find((scene) => scene.id === selectedVideo?.sourceId) || null, [scenes, selectedVideo]);
+  const duration = Number(timeline?.duration || 0);
+  const timelineWidth = Math.max(900, duration * zoom + 160);
+
+  useEffect(() => {
+    if (!selectedVideo?.src || !videoRef.current) return;
+    const local = clamp(playhead - Number(selectedVideo.start || 0), 0, Number(selectedVideo.duration || 0));
+    videoRef.current.currentTime = Number(selectedVideo.offset || 0) + local;
+  }, [playhead, selectedVideo]);
+
+  useEffect(() => {
+    if (!isPlaying || !duration) return undefined;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now) => {
+      const delta = (now - last) / 1000; last = now;
+      setPlayhead((current) => {
+        const next = current + delta;
+        if (next >= duration) { setIsPlaying(false); return duration; }
+        return next;
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isPlaying, duration]);
+
+  const saveTimeline = useCallback(async (nextTimeline = timeline) => {
+    if (!nextTimeline || saving) return;
+    setSaving(true); setMessage("Saving…");
+    try {
+      const response = await fetch(`/api/projects/${id}/editor`, {
+        method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version, timeline: nextTimeline }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to save editor changes.");
+      setVersion(data.editor.version); setTimeline(normalizeTimeline(data.editor.timeline)); setDirty(false); setMessage("Saved");
+    } catch (error) { setMessage(error.message || "Failed to save changes."); }
+    finally { setSaving(false); }
+  }, [id, saving, timeline, version]);
+
+  useEffect(() => {
+    if (!dirty || status !== "ready" || !timeline) return undefined;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => void saveTimeline(timelineRef.current), 900);
+    return () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); };
+  }, [dirty, status, timeline, saveTimeline]);
+
+  const mutate = useCallback((transform, nextSelection) => {
+    const current = timelineRef.current;
+    if (!current) return;
+    const next = transform(clone(current));
+    setHistory((items) => [...items.slice(-39), clone(current)]);
+    setFuture([]); setTimeline(next); setDirty(true); setMessage("Unsaved changes");
+    if (nextSelection) setSelectedClip(nextSelection);
+  }, []);
+
+  const undo = useCallback(() => {
+    if (!timeline || !history.length) return;
+    const previous = history[history.length - 1];
+    setFuture((items) => [clone(timeline), ...items].slice(0, 40));
+    setHistory((items) => items.slice(0, -1)); setTimeline(previous); setDirty(true); setMessage("Undo · unsaved changes");
+  }, [history, timeline]);
+  const redo = useCallback(() => {
+    if (!timeline || !future.length) return;
+    const next = future[0];
+    setHistory((items) => [...items.slice(-39), clone(timeline)]); setFuture((items) => items.slice(1)); setTimeline(next); setDirty(true); setMessage("Redo · unsaved changes");
+  }, [future, timeline]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const tag = event.target?.tagName;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag) || event.target?.isContentEditable) return;
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
+      if (mod && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); return; }
+      if (event.code === "Space") { event.preventDefault(); setIsPlaying((value) => !value); return; }
+      if (event.key === "ArrowLeft") { event.preventDefault(); setPlayhead((value) => clamp(Number((value - FRAME).toFixed(3)), 0, duration)); return; }
+      if (event.key === "ArrowRight") { event.preventDefault(); setPlayhead((value) => clamp(Number((value + FRAME).toFixed(3)), 0, duration)); return; }
+      if (event.key.toLowerCase() === "s") splitSelected();
+      if (event.key === "Delete" || event.key === "Backspace") deleteSelected();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  function splitSelected() {
+    if (!selected || selected.duration < FRAME * 2) return;
+    const firstDuration = Number((selected.duration / 2).toFixed(3));
+    const firstId = `${selected.id}-a`;
+    mutate((current) => updateTrack(current, selected.trackId, (track) => ({
+      ...track,
+      clips: track.clips.flatMap((clip) => clip.id !== selected.id ? [clip] : [
+        { ...clip, id: firstId, duration: firstDuration },
+        { ...clip, id: `${selected.id}-b`, start: Number((clip.start + firstDuration).toFixed(3)), duration: Number((clip.duration - firstDuration).toFixed(3)), offset: Number(clip.offset || 0) + firstDuration },
+      ]),
+    })), { trackId: selected.trackId, clipId: firstId });
+  }
+
+  function deleteSelected() {
+    if (!selected || selected.trackId === "narration") return;
+    mutate((current) => updateTrack(current, selected.trackId, (track) => ({ ...track, clips: track.clips.filter((clip) => clip.id !== selected.id) })), { trackId: "video", clipId: "" });
+  }
+
+  function updateSelected(field, rawValue) {
+    if (!selected) return;
+    const numeric = Number(rawValue);
+    const value = field === "start" ? snap(numeric, snapMode) : Math.max(0.05, Number.isFinite(numeric) ? numeric : selected.duration);
+    mutate((current) => updateTrack(current, selected.trackId, (track) => ({ ...track, clips: track.clips.map((clip) => clip.id === selected.id ? { ...clip, [field]: value } : clip) })));
+  }
+
+  function replaceVisual(asset) {
+    if (!selected || selected.trackId !== "video" || !asset) return;
+    mutate((current) => updateTrack(current, "video", (track) => ({ ...track, clips: track.clips.map((clip) => clip.id === selected.id ? { ...clip, assetId: asset.id, src: asset.videoUrl, thumbnailUrl: asset.thumbnailUrl } : clip) })));
+  }
+
+  function addMusicClip() {
+    const clipId = `music-${Date.now()}`;
+    mutate((current) => updateTrack(current, "music", (track) => ({ ...track, clips: [...track.clips, { id: clipId, type: "audio", start: snap(playhead, current.snapMode || snapMode), duration: Math.min(8, Math.max(2, duration - playhead || 8)), volume: 0.35, fadeIn: 0.5, fadeOut: 0.5, title: "Music bed", src: null }] })), { trackId: "music", clipId });
+  }
+
+  function selectClip(trackId, clipId) {
+    const clip = timeline?.tracks?.find((track) => track.id === trackId)?.clips?.find((item) => item.id === clipId);
+    setSelectedClip({ trackId, clipId }); if (clip) setPlayhead(Number(clip.start || 0)); setIsPlaying(false);
+  }
+
+  function beginDrag(event, trackId, clip) {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    setSelectedClip({ trackId, clipId: clip.id }); setIsPlaying(false);
+    setDragState({ mode: "move", trackId, clipId: clip.id, originX: event.clientX, start: clip.start });
+  }
+  function beginResize(event, trackId, clip, edge) {
+    event.stopPropagation();
+    setSelectedClip({ trackId, clipId: clip.id }); setIsPlaying(false);
+    setDragState({ mode: edge, trackId, clipId: clip.id, originX: event.clientX, start: clip.start, duration: clip.duration });
+  }
+
+  useEffect(() => {
+    if (!dragState) return undefined;
+    const onMove = (event) => {
+      const current = timelineRef.current;
+      const track = current?.tracks?.find((item) => item.id === dragState.trackId);
+      const clip = track?.clips?.find((item) => item.id === dragState.clipId);
+      if (!current || !clip) return;
+      const delta = (event.clientX - dragState.originX) / zoom;
+      if (dragState.mode === "move") {
+        const nextStart = snap(Math.max(0, dragState.start + delta), snapMode);
+        setTimeline(updateTrack(current, dragState.trackId, (item) => ({ ...item, clips: item.clips.map((entry) => entry.id === clip.id ? { ...entry, start: nextStart } : entry) })));
+      } else if (dragState.mode === "left") {
+        const end = dragState.start + dragState.duration;
+        const nextStart = clamp(snap(dragState.start + delta, snapMode), 0, end - FRAME);
+        const nextDuration = Number((end - nextStart).toFixed(3));
+        setTimeline(updateTrack(current, dragState.trackId, (item) => ({ ...item, clips: item.clips.map((entry) => entry.id === clip.id ? { ...entry, start: nextStart, duration: nextDuration, offset: Math.max(0, Number(entry.offset || 0) + nextStart - entry.start) } : entry) })));
+      } else {
+        const nextDuration = Math.max(FRAME, Number(snap(dragState.duration + delta, snapMode).toFixed(3)));
+        setTimeline(updateTrack(current, dragState.trackId, (item) => ({ ...item, clips: item.clips.map((entry) => entry.id === clip.id ? { ...entry, duration: nextDuration } : entry) })));
+      }
+      setDirty(true); setMessage("Unsaved changes");
+    };
+    const onUp = () => { setDragState(null); };
+    window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp);
+    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+  }, [dragState, snapMode, zoom]);
+
+  if (!user) return null;
+  if (status === "loading") return <div className="hx-page"><Header /><main className="container advanced-editor"><div className="editor-state">Loading editor…</div></main></div>;
+  if (status === "error") return <div className="hx-page"><Header right={<Link to="/my-research" className="btn btn-ghost">My Research</Link>} /><main className="container advanced-editor"><div className="editor-state editor-state--error"><strong>Editor couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={loadEditor}>Retry</button></div></main></div>;
+
+  return <div className="hx-page advanced-editor-shell">
+    <Header right={<Link to={`/storyboard/${id}?stage=preview`} className="btn btn-ghost">Back to project</Link>} />
+    <main className="container advanced-editor">
+      <header className="advanced-editor__header">
+        <div><p className="eyebrow">Advanced video editor · separate workspace</p><h1>{project?.title || "Untitled project"}</h1><p>Shape timing, visuals, captions and audio here without changing the original Storyboard.</p></div>
+        <div className="advanced-editor__actions"><span className="editor-save-state">{saving ? "Saving…" : message || `Version ${version}`}</span><button className="btn btn-ghost" onClick={undo} disabled={!history.length}>Undo</button><button className="btn btn-ghost" onClick={redo} disabled={!future.length}>Redo</button><button className="btn btn-cream" onClick={() => void saveTimeline()} disabled={saving || !dirty}>{saving ? "Saving…" : "Save changes"}</button></div>
+      </header>
+
+      <section className="advanced-editor__topgrid">
+        <div className="editor-preview-card">
+          <div className="editor-preview-frame">{selectedVideo?.src ? <video ref={videoRef} src={selectedVideo.src} poster={selectedVideo.thumbnailUrl || undefined} playsInline muted={false} /> : <div className="editor-preview-empty">Select a visual clip to preview it.</div>}</div>
+          <div className="editor-preview-transport"><button className="btn btn-ghost" onClick={() => setIsPlaying((value) => !value)}>{isPlaying ? "Pause" : "Play"}</button><button className="btn btn-ghost" onClick={() => setPlayhead(clamp(playhead - FRAME, 0, duration))}>−1f</button><button className="btn btn-ghost" onClick={() => setPlayhead(clamp(playhead + FRAME, 0, duration))}>+1f</button><input aria-label="Timeline playhead" type="range" min="0" max={duration || 1} step={FRAME} value={clamp(playhead, 0, duration || 1)} onChange={(event) => { setPlayhead(Number(event.target.value)); setIsPlaying(false); }} /><strong>{formatTime(playhead)}</strong><span>/ {formatTime(duration)}</span></div>
+        </div>
+
+        <aside className="advanced-editor__inspector">
+          <div className="editor-section-title"><strong>Inspector</strong><span>{selected?.trackName || "Nothing selected"}</span></div>
+          {!selected && <p className="editor-muted">Select a clip on the timeline to edit it.</p>}
+          {selected && <div className="editor-form">
+            <label>Start<input type="number" min="0" step={FRAME} value={selected.start} onChange={(event) => updateSelected("start", event.target.value)} /></label>
+            <label>Duration<input type="number" min={FRAME} step={FRAME} value={selected.duration} onChange={(event) => updateSelected("duration", event.target.value)} /></label>
+            {selected.trackId === "video" && selectedScene?.assets?.length > 0 && <label>Visual<select value={selected.assetId || ""} onChange={(event) => replaceVisual(selectedScene.assets.find((asset) => asset.id === event.target.value))}><option value="">Current</option>{selectedScene.assets.map((asset) => <option key={asset.id} value={asset.id}>Visual {asset.sortOrder + 1}</option>)}</select></label>}
+            {(selected.type === "audio" || selected.trackId === "music") && <><label>Volume<input type="range" min="0" max="1" step="0.01" value={selected.volume ?? 1} onChange={(event) => updateSelected("volume", event.target.value)} /><span className="field-readout">{Math.round((selected.volume ?? 1) * 100)}%</span></label><div className="editor-form__split"><label>Fade in<input type="number" min="0" max="2" step="0.1" value={selected.fadeIn ?? 0} onChange={(event) => updateSelected("fadeIn", event.target.value)} /></label><label>Fade out<input type="number" min="0" max="2" step="0.1" value={selected.fadeOut ?? 0} onChange={(event) => updateSelected("fadeOut", event.target.value)} /></label></div></>}
+            {selected.type === "caption" && <><label>Caption text<textarea rows="4" value={selected.text || ""} onChange={(event) => updateSelected("text", event.target.value)} /></label><div className="editor-form__split"><label>Position<select value={selected.position || "lower-middle"} onChange={(event) => updateSelected("position", event.target.value)}><option value="top">Top</option><option value="center">Center</option><option value="lower-middle">Lower middle</option><option value="bottom">Bottom</option></select></label><label>Style<select value={selected.style || "default"} onChange={(event) => updateSelected("style", event.target.value)}><option value="default">Default</option><option value="bold">Bold</option><option value="highlight">Highlight</option><option value="minimal">Minimal</option></select></label></div><label>Emphasis<select value={selected.emphasis || "none"} onChange={(event) => updateSelected("emphasis", event.target.value)}><option value="none">None</option><option value="keywords">Keywords</option><option value="all">All words</option></select></label></>}
+            {selected.type === "overlay" && <><label>Overlay text<textarea rows="3" value={selected.text || ""} onChange={(event) => updateSelected("text", event.target.value)} /></label><label>Position<select value={selected.position || "center"} onChange={(event) => updateSelected("position", event.target.value)}><option value="top">Top</option><option value="center">Center</option><option value="bottom">Bottom</option></select></label></>}
+            <div className="editor-form__actions"><button className="btn btn-ghost" onClick={splitSelected}>Split</button><button className="btn btn-danger" onClick={deleteSelected} disabled={selected.trackId === "narration"}>Delete</button></div>
+          </div>}
+          <button className="btn btn-ghost editor-add-music" onClick={addMusicClip}>+ Add music clip</button>
+        </aside>
+      </section>
+
+      <section className="editor-timeline-card">
+        <div className="editor-timeline-toolbar"><div><strong>Timeline</strong><span>{formatTime(duration)} · {timeline?.fps || FPS} fps</span></div><div className="editor-timeline-toolbar__controls"><label>Zoom<input type="range" min="50" max="180" step="5" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label><span>{Math.round(zoom)} px/s</span><select value={snapMode} onChange={(event) => setSnapMode(event.target.value)}><option value="grid">Snap grid</option><option value="frame">Snap frame</option><option value="free">Free</option></select></div></div>
+        <div className="editor-timeline-scroll">
+          <div className="editor-ruler" style={{ width: timelineWidth }} onClick={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setPlayhead(clamp(snap((event.clientX - rect.left) / zoom, snapMode), 0, duration)); setIsPlaying(false); }}><div className="editor-ruler__ticks">{Array.from({ length: Math.max(2, Math.ceil(duration / 5) + 1) }).map((_, index) => <span key={index} style={{ left: `${index * 5 * zoom}px` }}>{formatTime(index * 5)}</span>)}</div><div className="editor-playhead" style={{ left: `${playhead * zoom}px` }} /></div>
+          <div className="editor-tracks" style={{ width: timelineWidth }}>
+            {TRACK_ORDER.map((trackId) => { const track = timeline?.tracks?.find((item) => item.id === trackId); if (!track) return null; return <div className="editor-track" key={track.id}>
+              <div className="editor-track-label"><strong>{track.name}</strong><span>{track.clips.length} clips</span></div>
+              <div className="editor-track-lane" onClick={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setPlayhead(clamp(snap((event.clientX - rect.left) / zoom, snapMode), 0, duration)); setIsPlaying(false); }}>
+                {track.clips.map((clip) => <button key={clip.id} type="button" className={`editor-clip editor-clip--${track.kind} ${selectedClip.clipId === clip.id ? "is-selected" : ""}`} style={{ left: `${clip.start * zoom}px`, width: `${Math.max(54, clip.duration * zoom)}px` }} onPointerDown={(event) => beginDrag(event, track.id, clip)} onClick={(event) => { event.stopPropagation(); selectClip(track.id, clip.id); }}>
+                  <span>{clip.title || clip.text || clip.type}</span><small>{formatTime(clip.duration)}</small><i className="editor-clip__handle editor-clip__handle--left" onPointerDown={(event) => beginResize(event, track.id, clip, "left")} /><i className="editor-clip__handle editor-clip__handle--right" onPointerDown={(event) => beginResize(event, track.id, clip, "right")} />
+                </button>)}
+              </div>
+            </div>; })}
+          </div>
+        </div>
+      </section>
+      <p className="advanced-editor__hint">Keyboard: Space play/pause · ←/→ frame step · S split · Delete remove · Ctrl/Cmd+Z undo · Ctrl/Cmd+Y redo. Drag clips to move; drag edges to trim.</p>
+    </main>
+  </div>;
+}
