@@ -22,11 +22,12 @@ function parseCookies(header) {
 
 function cookieOptions(maxAgeMs) {
   const secure = String(process.env.COOKIE_SECURE || "false").toLowerCase() === "true";
+  const sameSite = String(process.env.COOKIE_SAMESITE || "Lax");
   return [
     `${COOKIE_NAME}=`,
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax",
+    `SameSite=${sameSite}`,
     maxAgeMs === 0 ? "Max-Age=0" : `Max-Age=${Math.floor(maxAgeMs / 1000)}`,
     secure ? "Secure" : "",
   ].filter(Boolean).join("; ");
@@ -85,7 +86,9 @@ export async function requireAuth(req, res, next) {
     }
 
     const authRequired = String(process.env.AUTH_REQUIRED || "false").toLowerCase() === "true";
-    if (!authRequired && String(process.env.NODE_ENV || "development") !== "production") {
+    const devFallback = String(process.env.DEV_AUTH_FALLBACK || "false").toLowerCase() === "true";
+    const isDevelopment = String(process.env.NODE_ENV || "development") !== "production";
+    if (!authRequired && devFallback && isDevelopment) {
       req.user = { id: DEV_FALLBACK_USER, email: "local-user@helix.local", displayName: "Local User" };
       req.authSession = null;
       return next();
