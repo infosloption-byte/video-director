@@ -31,7 +31,10 @@
       }
     },
     {
-      "files": ["src/context/ThemeContext.jsx"],
+      "files": [
+        "src/context/ThemeContext.jsx",
+        "src/context/AuthContext.jsx"
+      ],
       "rules": {
         "react/only-export-components": "off"
       }
