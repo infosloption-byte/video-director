@@ -51,26 +51,49 @@ function StageSubsteps({ substeps = [], failed = false }) {
   );
 }
 
-function AssetDownloadDetail({ asset }) {
-  if (!asset) return null;
-  const progress = asset.progress == null ? null : Math.max(0, Math.min(100, Number(asset.progress)));
-  const current = progress == null ? asset.phase === "cached" || asset.phase === "downloaded" ? 100 : 0 : progress;
-  const bytes = formatBytes(asset.receivedBytes);
-  const total = formatBytes(asset.totalBytes);
+function AssetDownloadDetail({ asset, completedAssets = 0, totalAssets = 0 }) {
+  if (!asset && !totalAssets) return null;
+  const progress = asset?.progress == null ? null : Math.max(0, Math.min(100, Number(asset.progress)));
+  const current = progress == null ? asset?.phase === "cached" || asset?.phase === "downloaded" ? 100 : 0 : progress;
+  const bytes = formatBytes(asset?.receivedBytes);
+  const total = formatBytes(asset?.totalBytes);
+  const currentIndex = Number(asset?.sceneIndex ?? -1);
+
   return (
     <div className="finalize-panel__asset-detail">
-      <div className="finalize-panel__asset-head">
-        <div>
-          <span className="mono-label">CURRENT B-ROLL</span>
-          <strong>{asset.label}</strong>
+      {asset && (
+        <>
+          <div className="finalize-panel__asset-head">
+            <div>
+              <span className="mono-label">CURRENT B-ROLL</span>
+              <strong>{asset.label}</strong>
+            </div>
+            <span>{current}%</span>
+          </div>
+          <div className="finalize-panel__asset-track"><span style={{ width: `${current}%` }} /></div>
+          <div className="finalize-panel__asset-meta">
+            <span>{asset.phase === "cached" ? "Already cached" : asset.phase === "downloaded" ? "Download complete" : "Downloading video"}</span>
+            {bytes && <span>{total ? `${bytes} / ${total}` : bytes}</span>}
+          </div>
+        </>
+      )}
+
+      {totalAssets > 0 && (
+        <div className="finalize-panel__asset-queue">
+          <div className="finalize-panel__asset-queue-head"><span className="mono-label">B-ROLL QUEUE</span><span>{completedAssets} / {totalAssets} complete</span></div>
+          {Array.from({ length: totalAssets }, (_, index) => {
+            const done = index < completedAssets;
+            const active = index === currentIndex && !done;
+            return (
+              <div key={index} className={`finalize-panel__asset-row ${done ? "is-done" : ""} ${active ? "is-active" : ""}`}>
+                <span className="finalize-panel__asset-row-mark">{done ? "✓" : active ? "•" : String(index + 1).padStart(2, "0")}</span>
+                <span>Scene {index + 1}</span>
+                <em>{done ? "Cached" : active ? `${current}%` : "Waiting"}</em>
+              </div>
+            );
+          })}
         </div>
-        <span>{current}%</span>
-      </div>
-      <div className="finalize-panel__asset-track"><span style={{ width: `${current}%` }} /></div>
-      <div className="finalize-panel__asset-meta">
-        <span>{asset.phase === "cached" ? "Already cached" : asset.phase === "downloaded" ? "Download complete" : "Downloading video"}</span>
-        {bytes && <span>{total ? `${bytes} / ${total}` : bytes}</span>}
-      </div>
+      )}
     </div>
   );
 }
@@ -269,7 +292,7 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
             <span className="finalize-panel__progress-stage">{RENDER_STAGES[currentIndex]?.label}</span>
           </div>
           <div className="finalize-panel__progress-track"><span style={{ width: `${progress}%` }} /></div>
-          {currentStage === "assets" && <AssetDownloadDetail asset={effectiveRenderStatus?.asset} />}
+          {currentStage === "assets" && <AssetDownloadDetail asset={effectiveRenderStatus?.asset} completedAssets={effectiveRenderStatus?.completedAssets} totalAssets={effectiveRenderStatus?.totalAssets} />}
           <div className="finalize-panel__stage-list">
             {RENDER_STAGES.map((stage, index) => {
               const done = renderComplete || index < currentIndex;
