@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
@@ -14,10 +14,9 @@ export default function SignInPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  if (user) {
-    navigate(next, { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (user) navigate(next, { replace: true });
+  }, [user, next, navigate]);
 
   async function submit(event) {
     event.preventDefault();
