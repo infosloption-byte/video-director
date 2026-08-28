@@ -17,7 +17,7 @@ export default function PhonePreview({ step, duration, cuts, playing, onTogglePl
   const hasAudio = Boolean(step?.audioUrl);
   const timestamps = useMemo(() => (
     Array.isArray(step?.wordTimestamps) ? step.wordTimestamps : []
-  ), [step?.wordTimestamps]);
+  ), [step]);
 
   useEffect(() => {
     setCurrentTime(0);
