@@ -23,7 +23,6 @@ export default function MediaLibraryPage() {
   const [savingId, setSavingId] = useState("");
 
   const loadMedia = useCallback(async () => {
-    setStatus("loading");
     try {
       const response = await fetch(`/api/projects/${id}/media`, { credentials: "include", cache: "no-store" });
       const data = await response.json().catch(() => ({}));
@@ -113,7 +112,7 @@ export default function MediaLibraryPage() {
   }
 
   if (status === "loading") return <div className="hx-page"><Header /><main className="container media-library"><div className="media-library__state">Loading media library…</div></main></div>;
-  if (status === "error") return <div className="hx-page"><Header /><main className="container media-library"><div className="media-library__state media-library__state--error"><strong>Media library couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={() => void loadMedia()}>Retry</button></div></main></div>;
+  if (status === "error") return <div className="hx-page"><Header /><main className="container media-library"><div className="media-library__state media-library__state--error"><strong>Media library couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={() => { setStatus("loading"); void loadMedia(); }}>Retry</button></div></main></div>;
 
   return <div className="hx-page">
     <Header right={<Link to={`/editor/${id}`} className="btn btn-ghost">Back to editor</Link>} />
