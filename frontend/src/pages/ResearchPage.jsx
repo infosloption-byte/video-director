@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import ResearchProgress from "../components/ResearchProgress";
 import "../components/ui.css";
@@ -37,8 +37,6 @@ export default function ResearchPage() {
         if (terminal) return;
       } catch (err) {
         if (stopped || err.name === "AbortError") return;
-        // A temporary API/proxy interruption should not replace an active research state
-        // with an error page. Keep polling while the last known project is available.
         if (!projectRef.current) setError(err.message || "Failed to load research.");
       }
 
@@ -57,9 +55,16 @@ export default function ResearchPage() {
   const researchError = researchStatus === "error" ? project?.error : error;
   const research = project?.research;
 
+  const navigation = (
+    <>
+      <Link to="/my-research" className="btn btn-ghost">My Research</Link>
+      <button className="btn btn-ghost" onClick={() => navigate("/")}>Signals</button>
+    </>
+  );
+
   return (
     <div className="hx-page">
-      <Header right={<button className="btn btn-ghost" onClick={() => navigate("/")}>Signals</button>} />
+      <Header right={navigation} />
       <main className="container">
         <ResearchProgress
           status={researchError ? "error" : researchStatus || "queued"}
