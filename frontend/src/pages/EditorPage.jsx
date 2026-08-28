@@ -20,7 +20,7 @@ export default function EditorPage() {
   const [project, setProject] = useState(null); const [scenes, setScenes] = useState([]); const [timeline, setTimeline] = useState(null); const [version, setVersion] = useState(1);
   const [selectedClip, setSelectedClip] = useState({ trackId: "video", clipId: "" }); const [status, setStatus] = useState("loading"); const [message, setMessage] = useState(""); const [saving, setSaving] = useState(false); const [dirty, setDirty] = useState(false);
   const [playhead, setPlayhead] = useState(0); const [isPlaying, setIsPlaying] = useState(false); const [zoom, setZoom] = useState(80); const [history, setHistory] = useState([]); const [future, setFuture] = useState([]); const [snapMode, setSnapMode] = useState("grid");
-  const saveTimer = useRef(null); const videoRef = useRef(null);
+  const saveTimer = useRef(null); const videoRef = useRef(null); const timelineRef = useRef(null);
 
   const loadEditor = useCallback(async () => {
     setStatus("loading"); setMessage(""); setDirty(false); setHistory([]); setFuture([]);
@@ -28,6 +28,7 @@ export default function EditorPage() {
   }, [id]);
   useEffect(() => { if (user) void loadEditor(); }, [loadEditor, user]);
   useEffect(() => () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); }, []);
+  useEffect(() => { timelineRef.current = timeline; }, [timeline]);
 
   const selected = useMemo(() => { if (!timeline || !selectedClip.clipId) return null; for (const track of timeline.tracks || []) { const clip = track.clips?.find((item) => item.id === selectedClip.clipId); if (clip) return { ...clip, trackId: track.id, trackName: track.name }; } return null; }, [timeline, selectedClip]);
   const selectedVideo = useMemo(() => timeline?.tracks?.find((track) => track.id === "video")?.clips?.find((item) => item.id === selectedClip.clipId) || timeline?.tracks?.find((track) => track.id === "video")?.clips?.[0] || null, [timeline, selectedClip]);
@@ -42,7 +43,17 @@ export default function EditorPage() {
   }, [id, timeline, saving, version]);
   useEffect(() => { if (!dirty || status !== "ready" || !timeline) return undefined; if (saveTimer.current) window.clearTimeout(saveTimer.current); saveTimer.current = window.setTimeout(() => { void saveTimeline(timeline); }, 900); return () => window.clearTimeout(saveTimer.current); }, [dirty, status, timeline, saveTimeline]);
 
-  const mutate = useCallback((mutator, select, options = {}) => { setTimeline((current) => current ? (setHistory((items) => [...items.slice(-39), cloneTimeline(current)]), setFuture([]), mutator(cloneTimeline(current))) : current); setDirty(true); setMessage("Unsaved changes"); if (select) setSelectedClip(select); if (typeof options.playhead === "number") setPlayhead(options.playhead); }, []);
+  const mutate = useCallback((mutator, select, options = {}) => {
+    const current = timelineRef.current;
+    if (!current) return;
+    const next = mutator(cloneTimeline(current));
+    setHistory((items) => [...items.slice(-39), cloneTimeline(current)]);
+    setFuture([]);
+    setTimeline(next);
+    setDirty(true); setMessage("Unsaved changes");
+    if (select) setSelectedClip(select);
+    if (typeof options.playhead === "number") setPlayhead(options.playhead);
+  }, []);
   const undo = useCallback(() => { if (!timeline || !history.length) return; const previous = history[history.length - 1]; setFuture((items) => [cloneTimeline(timeline), ...items].slice(0, 40)); setHistory((items) => items.slice(0, -1)); setTimeline(previous); setDirty(true); setMessage("Undo · unsaved changes"); }, [history, timeline]);
   const redo = useCallback(() => { if (!timeline || !future.length) return; const next = future[0]; setHistory((items) => [...items.slice(-39), cloneTimeline(timeline)]); setFuture((items) => items.slice(1)); setTimeline(next); setDirty(true); setMessage("Redo · unsaved changes"); }, [future, timeline]);
   useEffect(() => { const onKeyDown = (event) => { const tag = event.target?.tagName; if (["INPUT", "TEXTAREA", "SELECT"].includes(tag) || event.target?.isContentEditable) return; const mod = event.ctrlKey || event.metaKey; if (mod && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; } if (mod && event.key.toLowerCase() === "y") { event.preventDefault(); redo(); return; } if (event.code === "Space") { event.preventDefault(); setIsPlaying((value) => !value); return; } if (event.key === "ArrowLeft") { event.preventDefault(); setPlayhead((value) => clamp(Number((value - FRAME_SNAP).toFixed(3)), 0, Number(timeline?.duration || 0))); } if (event.key === "ArrowRight") { event.preventDefault(); setPlayhead((value) => clamp(Number((value + FRAME_SNAP).toFixed(3)), 0, Number(timeline?.duration || 0))); } if (event.key.toLowerCase() === "s") splitClip(); if (event.key === "Delete" || event.key === "Backspace") deleteSelected(); }; window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); });
