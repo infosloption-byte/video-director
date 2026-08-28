@@ -1,20 +1,21 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { IconArrowUpRight } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
-import { useAuth, authRequired } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import "./SignalCard.css";
 
 export default function SignalCard({ signal, featured = false }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [pending, setPending] = useState(false);
-  const [dialog, setDialog] = useState({ open: false, title: "", message: "" });
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  const [errorDialog, setErrorDialog] = useState({ open: false, title: "", message: "" });
 
   async function directSignal() {
     if (pending) return;
-    if (authRequired() && !user) {
-      navigate(`/signin?next=${encodeURIComponent("/my-research")}`);
+    if (!user) {
+      setAuthPromptOpen(true);
       return;
     }
     setPending(true);
@@ -30,7 +31,7 @@ export default function SignalCard({ signal, featured = false }) {
       navigate(`/research/${data.project.id}`);
     } catch (error) {
       console.error("Failed to start research:", error);
-      setDialog({ open: true, title: "Couldn't start research", message: error.message || "Something went wrong while starting the research project." });
+      setErrorDialog({ open: true, title: "Couldn't start research", message: error.message || "Something went wrong while starting the research project." });
     } finally { setPending(false); }
   }
 
@@ -48,7 +49,25 @@ export default function SignalCard({ signal, featured = false }) {
           </div>
         </div>
       </article>
-      <ConfirmDialog open={dialog.open} title={dialog.title} message={dialog.message} confirmLabel="OK" cancelLabel="Dismiss" onConfirm={() => setDialog({ open: false, title: "", message: "" })} onCancel={() => setDialog({ open: false, title: "", message: "" })} />
+
+      <ConfirmDialog
+        open={authPromptOpen}
+        title="Create your Helix workspace"
+        message="Directing a Reel starts a saved research project. Sign in to continue, or create a free account to keep your research and video projects in My Research."
+        confirmLabel="Sign in"
+        cancelLabel="Create account"
+        onConfirm={() => navigate(`/signin?next=${encodeURIComponent("/")}`)}
+        onCancel={() => navigate(`/signup?next=${encodeURIComponent("/")}`)}
+      />
+      <ConfirmDialog
+        open={errorDialog.open}
+        title={errorDialog.title}
+        message={errorDialog.message}
+        confirmLabel="OK"
+        cancelLabel="Dismiss"
+        onConfirm={() => setErrorDialog({ open: false, title: "", message: "" })}
+        onCancel={() => setErrorDialog({ open: false, title: "", message: "" })}
+      />
     </>
   );
 }
