@@ -65,8 +65,7 @@ independent editable timeline/version state. Opening or editing in the
 Advanced Editor must never mutate the original Storyboard records.
 
 M11 currently exposes `/editor/:id` as a protected standalone workspace with a
-persisted `ProjectEditor` timeline. The active richer editor implementation
-supports:
+persisted `ProjectEditor` timeline. The active editor implementation supports:
 
 - 9:16 preview with play/pause and frame-step transport
 - 30fps current-time/playhead display
@@ -84,14 +83,23 @@ supports:
 - Keyboard shortcuts for playback, frame stepping, split, delete, undo, and redo
 - Touch-capable pointer timeline interactions
 - Dirty-state autosave and version-aware writes
+- Authenticated waveform generation for playable audio clips
+- Visual waveform bars rendered directly in the editor timeline
+- Playhead-synchronized narration/audio playback in the browser
+- Per-clip volume and fade curves reflected during editor playback
+- Explicit no-source state for editor music until a real media source is attached
 
-The editor timeline is canonical for editor state but remains independent from
-`ProjectScene`/Storyboard source records. The editor does not automatically
-apply changes back to Storyboard.
+Waveforms are derived client-side from playable project audio and cached in the
+browser session. This refinement does not mutate Storyboard audio or scene
+records.
 
-Remaining editor depth includes waveform visualization, real music/audio
-playback and mixing, transition/effect presets, media-library integration,
-and full cross-device QA.
+The current editor preview now coordinates video transport with available
+narration/music audio elements. External music sourcing remains a later media
+library concern.
+
+Remaining editor depth includes transition/effect presets, external music/media
+selection, editor-specific QA, source-isolation verification, and full
+cross-device QA.
 
 ### Stage G — Account & Workspace
 
@@ -318,7 +326,8 @@ AI must not directly delete or overwrite source media.
 | `MyResearchPage.jsx` | Authenticated project history, filters, delete, explicit Edit video entry |
 | `StoryboardPage.jsx` | Existing flow unchanged |
 | `EditorPage.jsx` | Original editor retained for compatibility/reference |
-| `AdvancedEditorPage.jsx` | Richer standalone editing workspace |
+| `AdvancedEditorPage.jsx` | Richer standalone editing workspace, waveform and audio playback |
+| `EditorWaveform.jsx` | Client-side authenticated waveform decoding/drawing for editor audio clips |
 | `FinalizePanel.jsx` | Existing renderer + staged progress/elapsed/ETA |
 
 The Advanced Editor timeline remains horizontally scrollable on small screens
@@ -346,6 +355,10 @@ Completed baseline:
 Current:
 
 13. **Phase 11 — Advanced video editor core (separate workspace) — In progress**
+
+Current M11 audio refinement is complete for browser waveform visualization and
+playback/mixing of already playable project audio. The next editor slice is
+transitions/effects, followed by media-library integration and final QA.
 
 Next:
 
@@ -415,6 +428,7 @@ frontend/src/
     Header.jsx
     SignalCard.jsx
     AuthChoiceDialog.jsx
+    EditorWaveform.jsx       # M11 audio waveform
 ```
 
 ---
@@ -452,6 +466,7 @@ Every milestone must pass:
 - Separate Advanced Video Editor that reuses current content but stores independent editor state.
 - M11 first slice uses a dedicated `ProjectEditor` persistence record and canonical timeline JSON.
 - M11 richer editor interaction uses a separate frontend workspace with drag/trim, music/fades, caption controls, and touch-capable timeline interaction.
+- M11 audio refinement adds client-side waveform visualization and playhead-synchronized editor audio playback without modifying Storyboard source records.
 
 **Explicitly deferred:**
 - Facebook production OAuth, multi-user Meta publishing, App Review, and final publishing UX.
