@@ -17,9 +17,62 @@ function formatSeconds(value) {
   return `${Number(value || 0).toFixed(1)}s`;
 }
 
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function stageIndex(stage) {
   const index = RENDER_STAGES.findIndex((item) => item.id === stage);
   return index >= 0 ? index : 0;
+}
+
+function StageSubsteps({ substeps = [], failed = false }) {
+  if (!substeps.length) return null;
+  return (
+    <div className="finalize-panel__substeps">
+      {substeps.map((substep) => {
+        const progress = Math.max(0, Math.min(100, Number(substep.progress || 0)));
+        const done = progress >= 100;
+        return (
+          <div key={substep.id} className={`finalize-panel__substep ${done ? "is-done" : ""} ${failed ? "is-failed" : ""}`}>
+            <div className="finalize-panel__substep-head">
+              <span>{done ? "✓" : "•"}</span>
+              <strong>{substep.label}</strong>
+              <em>{progress}%</em>
+            </div>
+            <div className="finalize-panel__substep-track"><span style={{ width: `${progress}%` }} /></div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AssetDownloadDetail({ asset }) {
+  if (!asset) return null;
+  const progress = asset.progress == null ? null : Math.max(0, Math.min(100, Number(asset.progress)));
+  const current = progress == null ? asset.phase === "cached" || asset.phase === "downloaded" ? 100 : 0 : progress;
+  const bytes = formatBytes(asset.receivedBytes);
+  const total = formatBytes(asset.totalBytes);
+  return (
+    <div className="finalize-panel__asset-detail">
+      <div className="finalize-panel__asset-head">
+        <div>
+          <span className="mono-label">CURRENT B-ROLL</span>
+          <strong>{asset.label}</strong>
+        </div>
+        <span>{current}%</span>
+      </div>
+      <div className="finalize-panel__asset-track"><span style={{ width: `${current}%` }} /></div>
+      <div className="finalize-panel__asset-meta">
+        <span>{asset.phase === "cached" ? "Already cached" : asset.phase === "downloaded" ? "Download complete" : "Downloading video"}</span>
+        {bytes && <span>{total ? `${bytes} / ${total}` : bytes}</span>}
+      </div>
+    </div>
+  );
 }
 
 export default function FinalizePanel({ projectId, project, scenes, renderStatus, renderLoading, renderError, onRender, onBack }) {
@@ -216,6 +269,7 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
             <span className="finalize-panel__progress-stage">{RENDER_STAGES[currentIndex]?.label}</span>
           </div>
           <div className="finalize-panel__progress-track"><span style={{ width: `${progress}%` }} /></div>
+          {currentStage === "assets" && <AssetDownloadDetail asset={effectiveRenderStatus?.asset} />}
           <div className="finalize-panel__stage-list">
             {RENDER_STAGES.map((stage, index) => {
               const done = renderComplete || index < currentIndex;
@@ -224,7 +278,11 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
               return (
                 <div key={stage.id} className={`finalize-panel__stage ${done ? "is-done" : ""} ${active ? "is-active" : ""} ${failed ? "is-failed" : ""}`}>
                   <span className="finalize-panel__stage-mark">{done ? "✓" : failed ? "!" : String(index + 1).padStart(2, "0")}</span>
-                  <div><strong>{stage.label}</strong><small>{active ? `${stageMessage}${stageProgress ? ` · ${stageProgress}%` : ""}` : stage.detail}</small></div>
+                  <div>
+                    <strong>{stage.label}</strong>
+                    <small>{active ? `${stageMessage}${stageProgress ? ` · ${stageProgress}%` : ""}` : stage.detail}</small>
+                    {active && <StageSubsteps substeps={effectiveRenderStatus?.substeps} failed={failed} />}
+                  </div>
                 </div>
               );
             })}
