@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-// oxlint-disable react(only-export-components)
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -56,12 +55,14 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// oxlint-disable-next-line react(only-export-components)
 export function useAuth() {
   const value = useContext(AuthContext);
   if (!value) throw new Error("useAuth must be used inside AuthProvider");
   return value;
 }
 
+// oxlint-disable-next-line react(only-export-components)
 export function authRequired() {
   return String(import.meta.env.VITE_AUTH_REQUIRED || "false").toLowerCase() === "true";
 }
