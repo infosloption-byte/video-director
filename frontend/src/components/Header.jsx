@@ -3,7 +3,9 @@ import "./Header.css";
 
 export default function Header({ right }) {
   const location = useLocation();
-  const showResearchLink = location.pathname !== "/my-research";
+  // Signals already owns its My Research action in the page-specific header.
+  // Keep the shared navigation on all other workflow pages without duplicating it.
+  const showResearchLink = !["/", "/my-research"].includes(location.pathname);
 
   return (
     <header className="hx-header">
