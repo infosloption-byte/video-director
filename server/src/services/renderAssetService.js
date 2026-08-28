@@ -9,7 +9,9 @@ export function getRenderAssetPath(projectId, sceneId) {
 }
 
 export function getRenderAssetUrl(projectId, sceneId) {
-  return `/api/render-assets/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp4`;
+  const pathPart = `/api/render-assets/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp4`;
+  const token = String(process.env.RENDER_ASSET_TOKEN || "").trim();
+  return token ? `${pathPart}?renderToken=${encodeURIComponent(token)}` : pathPart;
 }
 
 async function fileExists(filePath) {

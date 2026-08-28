@@ -11,7 +11,7 @@ import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
 import { authOptional, getRequestUserId, requireAuth } from "./middleware/auth.js";
 import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.js";
-import { requireStoredProjectOwner } from "./middleware/storageOwnership.js";
+import { requireRenderAssetAccess, requireStoredProjectOwner } from "./middleware/storageOwnership.js";
 import { sameOriginProtection } from "./middleware/csrf.js";
 
 const app = express();
@@ -35,11 +35,18 @@ app.use("/api/projects", projectDeleteRouter);
 app.use("/api/projects", editorRouter);
 app.use("/api/projects", projectsRouter);
 
-// Project media is private. The request must authenticate and the project id in
-// the storage path must belong to the authenticated user before static serving.
+// Render workers fetch cached B-roll without a browser session. That internal
+// request is authorized with the server-only RENDER_ASSET_TOKEN when configured;
+// browser requests still fall back to normal authenticated ownership checks.
+app.use(
+  "/api/render-assets",
+  requireRenderAssetAccess,
+  express.static(path.resolve(process.cwd(), "storage", "render-assets"), { fallthrough: false, maxAge: "1h" }),
+);
+
+// User-facing project media remains private and owner-scoped.
 for (const [route, directory] of [
   ["/api/audio", "audio"],
-  ["/api/render-assets", "render-assets"],
   ["/api/render-files", "renders"],
   ["/api/export-files", "exports"],
 ]) {
