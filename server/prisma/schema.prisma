@@ -80,7 +80,7 @@ model Project {
   frameworkReasoning      String?       @map("framework_reasoning") @db.Text
   suggestedFramework      String?       @map("suggested_framework")
   tone                    String?
-  suggestedTone           String?
+  suggestedTone           String?       @map("suggested_tone")
   audienceLevel           String?       @map("audience_level")
   seoCaption              String?       @map("seo_caption") @db.Text
   durationSeconds         Decimal?      @map("duration_seconds") @db.Decimal(5, 1)
