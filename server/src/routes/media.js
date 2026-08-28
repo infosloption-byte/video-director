@@ -218,10 +218,14 @@ router.put("/:id/media/upload", async (req, res) => {
 
     await pipeline(req, limiter, createWriteStream(paths.tempPath, { flags: "wx", mode: 0o600 }));
 
-    if (bytes === 0) return res.status(400).json({ error: "Uploaded file is empty." });
+    if (bytes === 0) {
+      await removeMediaStorageFile(paths.tempStorageKey).catch(() => {});
+      return res.status(400).json({ error: "Uploaded file is empty." });
+    }
 
     const header = await readHeader(paths.tempPath);
     if (!looksLikeKnownMedia(header, kind, mimeType)) {
+      await removeMediaStorageFile(paths.tempStorageKey).catch(() => {});
       return res.status(415).json({ error: "Uploaded file content does not match its declared media type." });
     }
 
