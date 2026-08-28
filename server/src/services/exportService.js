@@ -4,6 +4,11 @@ import { prisma } from "../db/client.js";
 
 const EXPORT_ROOT = path.resolve(process.cwd(), "storage", "exports");
 
+function normalizeRenderUrl(renderUrl) {
+  if (!renderUrl) return null;
+  return String(renderUrl).replace(/^\/api\/render-files\/projects\//, "/api/render-files/");
+}
+
 function formatSrtTime(seconds) {
   const totalMs = Math.max(0, Math.round(Number(seconds || 0) * 1000));
   const hours = Math.floor(totalMs / 3_600_000);
@@ -108,7 +113,7 @@ export async function buildProjectExports(projectId) {
   const seoCaption = buildSeoCaption(project, project.scenes);
   await prisma.project.update({ where: { id: project.id }, data: { seoCaption } });
 
-  let mp4Url = project.renderUrl || null;
+  const mp4Url = normalizeRenderUrl(project.renderUrl);
   if (mp4Url) await recordExport(project.id, "mp4", mp4Url);
   else await prisma.projectExport.deleteMany({ where: { projectId: project.id, kind: "mp4" } });
 
@@ -121,7 +126,7 @@ export async function getProjectExportSummary(projectId) {
   const exports = await prisma.projectExport.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } });
   return {
     projectId: project.id,
-    mp4Url: project.renderUrl || exports.find((item) => item.kind === "mp4")?.fileUrl || null,
+    mp4Url: normalizeRenderUrl(project.renderUrl) || normalizeRenderUrl(exports.find((item) => item.kind === "mp4")?.fileUrl) || null,
     srtUrl: exports.find((item) => item.kind === "srt")?.fileUrl || null,
     scriptTxtUrl: exports.find((item) => item.kind === "script_txt")?.fileUrl || null,
     seoCaption: project.seoCaption || "",
