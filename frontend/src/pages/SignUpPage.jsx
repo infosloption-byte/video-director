@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
@@ -15,9 +15,10 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [verificationUrl, setVerificationUrl] = useState("");
 
-  if (user) { navigate(next, { replace: true }); return null; }
+  useEffect(() => {
+    if (user) navigate(next, { replace: true });
+  }, [user, next, navigate]);
 
   async function submit(event) {
     event.preventDefault();
@@ -28,11 +29,37 @@ export default function SignUpPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Account creation failed.");
       await refresh();
-      setVerificationUrl(data.verificationUrl || "");
       navigate(next, { replace: true });
     } catch (err) { setError(err.message || "Account creation failed."); }
     finally { setBusy(false); }
   }
 
-  return <div className="hx-page auth-page"><Header right={<Link to="/" className="btn btn-ghost">Signals</Link>} /><main className="container auth-page__main"><section className="auth-card"><p className="eyebrow">Create your workspace</p><h1>Build your Helix account.</h1><p>Keep your research, storyboards, narration and future editor projects in one workspace.</p>{error && <div className="auth-card__error" role="alert">{error}</div>}<form className="auth-card__form" onSubmit={submit}><label><span>Display name</span><input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={120} autoComplete="name" /></label><label><span>Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required /></label><label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} autoComplete="new-password" required /></label><label><span>Confirm password</span><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} autoComplete="new-password" required /></label><button className="btn btn-cream auth-card__submit" disabled={busy}>{busy ? "Creating account…" : "Create account →"}</button></form><div className="auth-card__switch"><span>Already have an account?</span><Link to={`/signin${next !== "/my-research" ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in</Link></div>{verificationUrl && <p className="auth-card__dev-note">Development verification URL: {verificationUrl}</p>}</section></main></div>;
+  return (
+    <div className="hx-page auth-page">
+      <Header right={<Link to="/" className="btn btn-ghost">Signals</Link>} />
+      <main className="auth-page__main">
+        <div className="auth-shell auth-shell--signup">
+          <section className="auth-pitch">
+            <p className="eyebrow">Start creating</p>
+            <h1>Your ideas in. Better reels out.</h1>
+            <p>Create a Helix workspace for research, storyboards, narration, renders, and the advanced editor.</p>
+            <div className="auth-pitch__features"><span><strong>Research</strong><small>Trusted signals and evidence.</small></span><span><strong>Direct</strong><small>AI-assisted stories and visuals.</small></span><span><strong>Finish</strong><small>Narration, captions, and video.</small></span></div>
+          </section>
+          <section className="auth-card" aria-labelledby="signup-title">
+            <div className="auth-card__intro"><p className="eyebrow">Create account</p><h2 id="signup-title">Build your Helix workspace.</h2><p>Save your work and return to it whenever you are ready.</p></div>
+            {error && <div className="auth-card__error" role="alert">{error}</div>}
+            <form className="auth-card__form" onSubmit={submit}>
+              <label><span>Name <em>optional</em></span><input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={120} autoComplete="name" placeholder="Your name" /></label>
+              <label><span>Email address</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" required /></label>
+              <label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} autoComplete="new-password" placeholder="At least 8 characters" required /></label>
+              <label><span>Confirm password</span><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} autoComplete="new-password" placeholder="Repeat your password" required /></label>
+              <p className="auth-card__hint">Your account keeps your research private and lets you resume unfinished projects.</p>
+              <button className="btn btn-cream auth-card__submit" disabled={busy}>{busy ? "Creating account…" : "Create free account →"}</button>
+            </form>
+            <div className="auth-card__switch"><span>Already have an account?</span><Link to={`/signin${next !== "/my-research" ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in</Link></div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
 }
