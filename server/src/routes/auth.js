@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { hashPassword, verifyPassword } from "../services/passwordService.js";
-import { authOptional, clearSessionCookie, getRequestUserId, setSessionCookie } from "../middleware/auth.js";
+import { authOptional, clearSessionCookie, setSessionCookie } from "../middleware/auth.js";
 
 const router = Router();
 const SESSION_DAYS = 30;
@@ -65,6 +65,11 @@ async function createSession(userId) {
     },
   });
   return raw;
+}
+
+function requireUser(req, res, next) {
+  if (!req.user?.id) return res.status(401).json({ error: "Authentication required." });
+  return next();
 }
 
 router.get("/me", authOptional, async (req, res) => {
@@ -173,11 +178,36 @@ router.post("/reset-password", async (req, res) => {
   return res.json({ user: publicUser(user) });
 });
 
+router.patch("/profile", authOptional, requireUser, async (req, res, next) => {
+  try {
+    const displayName = String(req.body?.displayName || "").trim();
+    if (displayName.length > 120) return res.status(400).json({ error: "Display name must be 120 characters or fewer." });
+    const user = await prisma.user.update({ where: { id: req.user.id }, data: { displayName: displayName || null } });
+    return res.json({ user: publicUser(user) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/change-password", authOptional, requireUser, async (req, res, next) => {
+  try {
+    const currentPassword = req.body?.currentPassword;
+    const newPassword = req.body?.newPassword;
+    if (typeof currentPassword !== "string" || !validPassword(newPassword)) return res.status(400).json({ error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.` });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user?.passwordHash || !(await verifyPassword(currentPassword, user.passwordHash))) return res.status(401).json({ error: "Current password is incorrect." });
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(newPassword) } });
+    await prisma.authSession.deleteMany({ where: { userId: user.id, id: { not: req.authSession?.id || undefined } } });
+    return res.json({ ok: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.get("/dev-user", authOptional, async (req, res) => {
   if (String(process.env.NODE_ENV || "development") === "production") return res.status(404).json({ error: "Not found." });
   if (req.user && req.user.id !== "local-user") return res.json({ authenticated: true, user: publicUser(req.user) });
   return res.json({ authenticated: false, user: null });
 });
 
-export { getRequestUserId };
 export default router;
