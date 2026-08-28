@@ -1,9 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { IconArrowLeft, IconArrowRight } from "./Icons";
 import "./FinalizePanel.css";
 
+const RENDER_STAGES = [
+  { id: "queued", label: "Queued", detail: "Waiting for the render worker to start." },
+  { id: "preflight", label: "Preflight", detail: "Validating narration, duration, and render settings." },
+  { id: "assets", label: "Preparing B-roll", detail: "Downloading and caching the selected visuals locally." },
+  { id: "bundle", label: "Building composition", detail: "Bundling the Helix Remotion composition." },
+  { id: "composition", label: "Preparing timeline", detail: "Loading the 9:16 composition and scene timeline." },
+  { id: "rendering", label: "Rendering video", detail: "Encoding video frames, audio, and synchronized captions." },
+  { id: "finalizing", label: "Finalizing", detail: "Writing the MP4 and saving the completed render." },
+  { id: "complete", label: "Complete", detail: "Your final MP4 is ready." },
+];
+
 function formatSeconds(value) {
   return `${Number(value || 0).toFixed(1)}s`;
+}
+
+function stageIndex(stage) {
+  const index = RENDER_STAGES.findIndex((item) => item.id === stage);
+  return index >= 0 ? index : 0;
 }
 
 export default function FinalizePanel({ projectId, project, scenes, renderStatus, renderLoading, renderError, onRender, onBack }) {
@@ -15,6 +31,7 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
   const [facebookPublishing, setFacebookPublishing] = useState(false);
   const [facebookResult, setFacebookResult] = useState(null);
   const [facebookError, setFacebookError] = useState("");
+  const [liveRenderStatus, setLiveRenderStatus] = useState(null);
 
   async function loadExports() {
     try {
@@ -38,10 +55,54 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
     }
   }
 
+  async function loadRenderStatus() {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/render-status`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return;
+      setLiveRenderStatus(data);
+    } catch {
+      // Keep the last known render state during transient API/proxy interruptions.
+    }
+  }
+
   useEffect(() => {
     void loadExports();
     void loadNarrationStatus();
-  }, [projectId, renderStatus?.status, renderStatus?.renderUrl, scenes.length]);
+    void loadRenderStatus();
+  }, [projectId, scenes.length]);
+
+  useEffect(() => {
+    if (renderStatus) setLiveRenderStatus(renderStatus);
+  }, [renderStatus]);
+
+  const effectiveRenderStatus = liveRenderStatus || renderStatus;
+  const renderState = effectiveRenderStatus?.status || "idle";
+  const isRenderActive = ["queued", "waiting", "active", "delayed", "prioritized"].includes(renderState);
+
+  useEffect(() => {
+    if (!isRenderActive) return undefined;
+    let cancelled = false;
+    let timer = null;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/render-status`, { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!cancelled && response.ok) setLiveRenderStatus(data);
+      } catch {
+        // Retry without changing the visible active state.
+      } finally {
+        if (!cancelled) timer = window.setTimeout(poll, 1200);
+      }
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [projectId, isRenderActive]);
 
   async function buildExports() {
     setExportLoading(true);
@@ -94,8 +155,21 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
   }
 
   const scriptedTime = scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
-  const renderUrl = renderStatus?.renderUrl || project?.renderUrl || exports?.mp4Url || null;
-  const renderComplete = Boolean(renderUrl) && (renderStatus?.status === "completed" || !renderStatus);
+  const renderUrl = effectiveRenderStatus?.renderUrl || project?.renderUrl || exports?.mp4Url || null;
+  const renderComplete = Boolean(renderUrl) && (renderState === "completed" || renderState === "complete" || (!effectiveRenderStatus && !renderLoading));
+  const currentStage = renderComplete ? "complete" : (effectiveRenderStatus?.stage || (renderState === "idle" ? "preflight" : "queued"));
+  const currentIndex = stageIndex(currentStage);
+  const progress = Math.max(0, Math.min(100, Number(effectiveRenderStatus?.progress || 0)));
+  const stageProgress = Math.max(0, Math.min(100, Number(effectiveRenderStatus?.stageProgress || 0)));
+  const stageMessage = effectiveRenderStatus?.message || RENDER_STAGES[currentIndex]?.detail || "Preparing render…";
+  const renderFailed = renderState === "failed";
+
+  const displayDuration = useMemo(() => {
+    const value = Number(project?.durationSeconds || scriptedTime || 0);
+    const selectedTarget = Number(project?.setup?.length || project?.scriptLengthSeconds || 0);
+    if (selectedTarget > 0 && value > selectedTarget) return selectedTarget;
+    return value;
+  }, [project?.durationSeconds, project?.scriptLengthSeconds, project?.setup?.length, scriptedTime]);
 
   return (
     <section className="finalize-panel">
@@ -107,82 +181,71 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
         </div>
         <div className="finalize-panel__status">
           <span className={`finalize-panel__status-dot ${renderComplete ? "is-ready" : ""}`} />
-          {renderComplete ? "MP4 ready" : "Preflight"}
+          {renderComplete ? "MP4 ready" : renderFailed ? "Render failed" : isRenderActive ? `${progress}% in progress` : "Preflight"}
         </div>
       </div>
 
       <div className="finalize-panel__summary">
-        <div><span className="mono-label">RUNTIME</span><strong>{formatSeconds(project?.durationSeconds || scriptedTime)}</strong></div>
+        <div><span className="mono-label">RUNTIME</span><strong>{formatSeconds(displayDuration)}</strong></div>
         <div><span className="mono-label">CUTS</span><strong>{scenes.length}</strong></div>
         <div><span className="mono-label">FRAMEWORK</span><strong>{project?.setup?.framework || "—"}</strong></div>
         <div><span className="mono-label">NARRATION</span><strong>{narrationReady ? "Ready" : "Missing"}</strong></div>
       </div>
 
-      {!narrationReady && (
-        <div className="finalize-panel__warning">
-          Narration is not complete for every scene. Generate narration in Storyboard before rendering the final MP4.
-        </div>
-      )}
-
+      {!narrationReady && <div className="finalize-panel__warning">Narration is not complete for every scene. Generate narration in Storyboard before rendering the final MP4.</div>}
       {renderError && <div className="finalize-panel__error"><strong>Render couldn't complete.</strong><span>{renderError}</span></div>}
       {exportError && <div className="finalize-panel__error"><strong>Export couldn't complete.</strong><span>{exportError}</span></div>}
       {facebookError && <div className="finalize-panel__error"><strong>Facebook publish couldn't complete.</strong><span>{facebookError}</span></div>}
       {facebookResult && <div className="finalize-panel__success"><strong>Published to Facebook.</strong><span>Reel video ID: {facebookResult.videoId}</span></div>}
 
       <div className="finalize-panel__render">
-        <div>
+        <div className="finalize-panel__render-copy">
           <p className="mono-label">FINAL VIDEO</p>
-          <h3>{renderComplete ? "Your MP4 is ready." : "Render the finished reel."}</h3>
-          <p>{renderStatus?.status === "active" ? `Rendering video… ${Number(renderStatus.progress || 0)}%` : "Remotion combines the selected B-roll, narration and synced captions into the final 9:16 video."}</p>
+          <h3>{renderComplete ? "Your MP4 is ready." : renderFailed ? "Render stopped." : "Render the finished reel."}</h3>
+          <p>{isRenderActive ? stageMessage : "Remotion combines the selected B-roll, narration and synced captions into the final 9:16 video."}</p>
         </div>
-        {renderComplete ? (
-          <a className="btn btn-cream" href={renderUrl} target="_blank" rel="noreferrer">Open MP4 <IconArrowRight className="btn-icon" /></a>
-        ) : (
-          <button className="btn btn-cream" onClick={onRender} disabled={renderLoading || !narrationReady}>
-            {renderLoading ? `Rendering ${Number(renderStatus?.progress || 0)}%…` : "Render MP4 →"}
-          </button>
-        )}
+        {!renderComplete && !renderFailed && <button className="btn btn-cream" onClick={onRender} disabled={renderLoading || isRenderActive || !narrationReady}>{renderLoading || isRenderActive ? `${progress}% · ${RENDER_STAGES[currentIndex]?.label || "Rendering"}` : "Render MP4 →"}</button>}
+        {renderComplete && <a className="btn btn-cream" href={renderUrl} target="_blank" rel="noreferrer">Open MP4 <IconArrowRight className="btn-icon" /></a>}
+        {renderFailed && <button className="btn btn-cream" onClick={onRender} disabled={renderLoading || !narrationReady}>{renderLoading ? "Retrying…" : "Retry render →"}</button>}
       </div>
 
-      <div className="finalize-panel__exports">
-        <div className="finalize-panel__exports-head">
-          <div>
-            <p className="mono-label">EXPORT PACK</p>
-            <h3>Captions, script, and SEO copy</h3>
+      {(isRenderActive || renderFailed || renderComplete) && (
+        <div className="finalize-panel__progress" aria-live="polite">
+          <div className="finalize-panel__progress-head">
+            <div><span className="mono-label">RENDER PIPELINE</span><strong>{progress}% complete</strong></div>
+            <span className="finalize-panel__progress-stage">{RENDER_STAGES[currentIndex]?.label}</span>
           </div>
-          <button className="btn btn-ghost" onClick={buildExports} disabled={exportLoading}>{exportLoading ? "Preparing…" : "Prepare exports"}</button>
+          <div className="finalize-panel__progress-track"><span style={{ width: `${progress}%` }} /></div>
+          <div className="finalize-panel__stage-list">
+            {RENDER_STAGES.map((stage, index) => {
+              const done = renderComplete || index < currentIndex;
+              const active = !renderComplete && !renderFailed && index === currentIndex;
+              const failed = renderFailed && index === currentIndex;
+              return (
+                <div key={stage.id} className={`finalize-panel__stage ${done ? "is-done" : ""} ${active ? "is-active" : ""} ${failed ? "is-failed" : ""}`}>
+                  <span className="finalize-panel__stage-mark">{done ? "✓" : failed ? "!" : String(index + 1).padStart(2, "0")}</span>
+                  <div><strong>{stage.label}</strong><small>{active ? `${stageMessage}${stageProgress ? ` · ${stageProgress}%` : ""}` : stage.detail}</small></div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+      )}
 
+      <div className="finalize-panel__exports">
+        <div className="finalize-panel__exports-head"><div><p className="mono-label">EXPORT PACK</p><h3>Captions, script, and SEO copy</h3></div><button className="btn btn-ghost" onClick={buildExports} disabled={exportLoading}>{exportLoading ? "Preparing…" : "Prepare exports"}</button></div>
         <div className="finalize-panel__cards">
-          <a className={`finalize-panel__card ${exports?.srtUrl ? "is-ready" : ""}`} href={exports?.srtUrl || "#"} onClick={(event) => { if (!exports?.srtUrl) event.preventDefault(); }} download>
-            <span className="mono-label">SRT</span><strong>Captions</strong><small>{exports?.srtUrl ? "Download .srt" : "Prepare exports first"}</small>
-          </a>
-          <a className={`finalize-panel__card ${exports?.scriptTxtUrl ? "is-ready" : ""}`} href={exports?.scriptTxtUrl || "#"} onClick={(event) => { if (!exports?.scriptTxtUrl) event.preventDefault(); }} download>
-            <span className="mono-label">TXT</span><strong>Script</strong><small>{exports?.scriptTxtUrl ? "Download plain text" : "Prepare exports first"}</small>
-          </a>
-          <div className="finalize-panel__card finalize-panel__card--copy">
-            <span className="mono-label">SEO</span><strong>Caption</strong><small>{exports?.seoCaption || "Prepare exports first"}</small>
-            <button className="btn btn-ghost" onClick={copySeoCaption} disabled={!exports?.seoCaption}>{copied ? "Copied" : "Copy caption"}</button>
-          </div>
+          <a className={`finalize-panel__card ${exports?.srtUrl ? "is-ready" : ""}`} href={exports?.srtUrl || "#"} onClick={(event) => { if (!exports?.srtUrl) event.preventDefault(); }} download><span className="mono-label">SRT</span><strong>Captions</strong><small>{exports?.srtUrl ? "Download .srt" : "Prepare exports first"}</small></a>
+          <a className={`finalize-panel__card ${exports?.scriptTxtUrl ? "is-ready" : ""}`} href={exports?.scriptTxtUrl || "#"} onClick={(event) => { if (!exports?.scriptTxtUrl) event.preventDefault(); }} download><span className="mono-label">TXT</span><strong>Script</strong><small>{exports?.scriptTxtUrl ? "Download plain text" : "Prepare exports first"}</small></a>
+          <div className="finalize-panel__card finalize-panel__card--copy"><span className="mono-label">SEO</span><strong>Caption</strong><small>{exports?.seoCaption || "Prepare exports first"}</small><button className="btn btn-ghost" onClick={copySeoCaption} disabled={!exports?.seoCaption}>{copied ? "Copied" : "Copy caption"}</button></div>
         </div>
       </div>
 
       <div className="finalize-panel__exports">
-        <div className="finalize-panel__exports-head">
-          <div>
-            <p className="mono-label">FACEBOOK</p>
-            <h3>Publish this Reel to your Page</h3>
-            <p>Available only after a completed MP4 render. The server requires a Page ID and Page access token.</p>
-          </div>
-          <button className="btn btn-cream" onClick={publishToFacebook} disabled={!renderComplete || facebookPublishing || renderLoading || exportLoading}>
-            {facebookPublishing ? "Publishing…" : facebookResult ? "Published" : "Publish to Facebook →"}
-          </button>
-        </div>
+        <div className="finalize-panel__exports-head"><div><p className="mono-label">FACEBOOK</p><h3>Publish this Reel to your Page</h3><p>Available only after a completed MP4 render. The server requires a Page ID and Page access token.</p></div><button className="btn btn-cream" onClick={publishToFacebook} disabled={!renderComplete || facebookPublishing || renderLoading || exportLoading}>{facebookPublishing ? "Publishing…" : facebookResult ? "Published" : "Publish to Facebook →"}</button></div>
       </div>
 
-      <div className="finalize-panel__actions">
-        <button className="btn btn-ghost" onClick={onBack} disabled={renderLoading || exportLoading || facebookPublishing}><IconArrowLeft className="btn-icon" /> Back to storyboard</button>
-      </div>
+      <div className="finalize-panel__actions"><button className="btn btn-ghost" onClick={onBack} disabled={renderLoading || isRenderActive || exportLoading || facebookPublishing}><IconArrowLeft className="btn-icon" /> Back to storyboard</button></div>
     </section>
   );
 }
