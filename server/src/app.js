@@ -10,6 +10,7 @@ import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
 import { authOptional, getRequestUserId, requireAuth } from "./middleware/auth.js";
 import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.js";
+import { requireStoredProjectOwner } from "./middleware/storageOwnership.js";
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -20,7 +21,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/signals", signalsRouter);
 
 // Bind every project request to the authenticated user. The temporary local-user
-// fallback remains available only for non-production development until AUTH_REQUIRED=true.
+// fallback remains available only when DEV_AUTH_FALLBACK=true in development.
 app.use("/api/projects", requireAuth, (req, _res, next) => {
   const userId = getRequestUserId(req);
   req.query.userId = userId;
@@ -29,10 +30,18 @@ app.use("/api/projects", requireAuth, (req, _res, next) => {
 }, requireProjectOwner);
 app.use("/api/projects", projectDeleteRouter);
 app.use("/api/projects", projectsRouter);
-app.use("/api/audio", express.static(path.resolve(process.cwd(), "storage", "audio"), { fallthrough: false, maxAge: "1h" }));
-app.use("/api/render-assets", express.static(path.resolve(process.cwd(), "storage", "render-assets"), { fallthrough: false, maxAge: "1h" }));
-app.use("/api/render-files", express.static(path.resolve(process.cwd(), "storage", "renders"), { fallthrough: false, maxAge: "1h" }));
-app.use("/api/export-files", express.static(path.resolve(process.cwd(), "storage", "exports"), { fallthrough: false, maxAge: "1h" }));
+
+// Project media is private. The request must authenticate and the project id in
+// the storage path must belong to the authenticated user before static serving.
+for (const [route, directory] of [
+  ["/api/audio", "audio"],
+  ["/api/render-assets", "render-assets"],
+  ["/api/render-files", "renders"],
+  ["/api/export-files", "exports"],
+]) {
+  app.use(route, requireAuth, requireStoredProjectOwner, express.static(path.resolve(process.cwd(), "storage", directory), { fallthrough: false, maxAge: "1h" }));
+}
+
 app.use("/api/scenes/:sceneId", requireAuth, requireSceneOwner);
 app.use("/api", requireAuth, renderRouter);
 app.use("/api", requireAuth, storyboardRouter);
