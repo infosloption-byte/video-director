@@ -88,6 +88,9 @@ export default function MyResearchPage() {
     }
   }
 
+  // The initial request intentionally hydrates component state from the API.
+  // Suppress the React Compiler advisory for this standard data-loading effect.
+  // oxlint-disable-next-line react(set-state-in-effect)
   useEffect(() => {
     void loadProjects();
   }, []);
