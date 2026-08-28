@@ -91,7 +91,7 @@ export default function StoryboardPage() {
   const tab = normalizeStage(searchParams.get("stage")) || (legacyBoard ? "Storyboard" : "Setup");
 
   useEffect(() => {
-    if (!realProject || tab !== "Storyboard") return undefined;
+    if (!realProject || !["Storyboard", "Preview"].includes(tab)) return undefined;
     let cancelled = false;
 
     async function loadScenes() {
