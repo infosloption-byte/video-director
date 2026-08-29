@@ -27,7 +27,7 @@
 .auth-card__submit { width: 100%; min-height: 50px; justify-content: center; margin-top: 4px; }
 .auth-card__switch { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-soft); display: flex; justify-content: center; gap: 7px; flex-wrap: wrap; color: var(--muted); font-size: .92rem; }
 .auth-card__switch a { color: var(--ink); font-weight: 700; }
-.auth-card__error { margin-bottom: 18px; padding: 12px 14px; border: 1px solid color-mix(in srgb, #c94b4b 35%, var(--border)); background: color-mix(in srgb, #c94b4b 9%, var(--card)); color: var(--ink); border-radius: 12px; line-height: 1.45; }
+.auth-card__error { margin-bottom: 18px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); background: color-mix(in srgb, var(--danger) 9%, var(--card)); color: var(--ink); border-radius: 12px; line-height: 1.45; }
 .auth-card__hint { margin: -3px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
 .auth-card__dev-note { margin-top: 18px; padding: 12px; border-radius: 12px; background: var(--surface-soft); word-break: break-word; font-size: .8rem; }
 .auth-page .hx-header__inner { padding-inline: 24px; }
