@@ -18,6 +18,16 @@ function timelineEnd(track) {
   return (track?.clips || []).reduce((max, clip) => Math.max(max, Number(clip.start || 0) + Number(clip.duration || 0)), 0);
 }
 
+function applyMediaLoad(setMedia, setStatus, items) {
+  setMedia(items);
+  setStatus("ready");
+}
+
+function applyMediaLoadError(setStatus, setMessage, error) {
+  setStatus("error");
+  setMessage(error.message || "Failed to load project media.");
+}
+
 export default function EditorMediaPickerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -42,13 +52,11 @@ export default function EditorMediaPickerPage() {
     void requestMedia()
       .then((items) => {
         if (cancelled) return;
-        setMedia(items);
-        setStatus("ready");
+        applyMediaLoad(setMedia, setStatus, items);
       })
       .catch((error) => {
         if (cancelled) return;
-        setStatus("error");
-        setMessage(error.message || "Failed to load project media.");
+        applyMediaLoadError(setStatus, setMessage, error);
       });
     return () => { cancelled = true; };
   }, [requestMedia]);
@@ -58,12 +66,10 @@ export default function EditorMediaPickerPage() {
     setMessage("");
     void requestMedia()
       .then((items) => {
-        setMedia(items);
-        setStatus("ready");
+        applyMediaLoad(setMedia, setStatus, items);
       })
       .catch((error) => {
-        setStatus("error");
-        setMessage(error.message || "Failed to load project media.");
+        applyMediaLoadError(setStatus, setMessage, error);
       });
   }, [requestMedia]);
 
