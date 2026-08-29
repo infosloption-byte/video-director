@@ -468,7 +468,7 @@ export default function AdvancedEditorPage() {
     <main className="container advanced-editor">
       <header className="advanced-editor__header">
         <div><p className="eyebrow">Advanced video editor · separate workspace</p><h1>{project?.title || "Untitled project"}</h1><p>Shape timing, visuals, captions and audio here without changing the original Storyboard.</p></div>
-        <div className="advanced-editor__actions"><span className="editor-save-state">{saving ? "Saving…" : message || `Version ${version}`}</span><button className="btn btn-ghost" onClick={undo} disabled={!history.length}>Undo</button><button className="btn btn-ghost" onClick={redo} disabled={!future.length}>Redo</button><button className="btn btn-cream" onClick={() => void saveTimeline()} disabled={saving || !dirty}>{saving ? "Saving…" : "Save changes"}</button></div>
+        <div className="advanced-editor__actions"><span className="editor-save-state">{saving ? "Saving…" : message || `Version ${version}`}</span><button className="btn btn-ghost" onClick={undo} disabled={!history.length}>Undo</button><button className="btn btn-ghost" onClick={redo} disabled={!future.length}>Redo</button><button className="btn btn-cream" onClick={() => void saveTimeline()} disabled={saving || !dirty}>{saving ? "Saving…" : "Save changes"}</button><Link className="btn btn-ghost" to={`/editor/${id}/render`}>Render MP4</Link></div>
       </header>
 
       <section className="advanced-editor__topgrid">
