@@ -5,13 +5,6 @@ import { useAuth } from "../context/AuthContext";
 import "../components/ui.css";
 import "./EditorRenderPage.css";
 
-function formatElapsed(seconds) {
-  const total = Math.max(0, Math.floor(Number(seconds || 0)));
-  const minutes = Math.floor(total / 60);
-  const secs = total % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
-
 export default function EditorRenderPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -144,7 +137,7 @@ export default function EditorRenderPage() {
           )}
 
           <div className="editor-render-card__footnote">
-            {status === "completed" ? "Render completed successfully." : `Elapsed time is reported by the render queue; current progress is ${progress}%.`}
+            {status === "completed" ? "Render completed successfully." : `Current render progress is ${progress}%.`}
           </div>
         </section>
 
