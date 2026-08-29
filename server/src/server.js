@@ -2,6 +2,7 @@ import "dotenv/config";
 import app from "./app.js";
 import { startSignalScraper } from "./jobs/scrapeSignals.js";
 import { startRenderWorker } from "./jobs/renderQueue.js";
+import { startMediaProcessor } from "./services/mediaProcessing.js";
 import { prisma } from "./db/client.js";
 
 const PORT = process.env.PORT || 4000;
@@ -11,6 +12,10 @@ const server = app.listen(PORT, () => {
   // Signal scraping is deliberately opt-in at startup. A third-party feed
   // outage must never make the API unavailable while the UI is running.
   startSignalScraper();
+
+  // Large uploaded videos are processed outside the request path. The processor
+  // resumes pending proxy work after an API restart and keeps original uploads intact.
+  startMediaProcessor();
 
   // Rendering is intentionally a separate worker process. Long Remotion/Chromium
   // renders can take minutes and must not share the API process event loop.
