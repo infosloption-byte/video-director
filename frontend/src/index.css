@@ -21,6 +21,9 @@
   --surface-input: #101012;
   --surface-soft: rgba(255, 255, 255, 0.035);
   --shadow-soft: 0 24px 70px rgba(0, 0, 0, 0.08);
+  --shadow-mobile: 0 16px 30px rgba(0, 0, 0, 0.18);
+  --hero-glow: rgba(46, 50, 61, 0.24);
+  --focus-ring: rgba(255, 255, 255, 0.03);
   --radius-lg: 18px;
   --radius-md: 12px;
   --radius-sm: 8px;
@@ -53,6 +56,9 @@ html[data-theme="light"] {
   --surface-input: #fbfaf7;
   --surface-soft: rgba(31, 29, 26, 0.035);
   --shadow-soft: 0 24px 70px rgba(53, 47, 37, 0.09);
+  --shadow-mobile: 0 16px 30px rgba(53, 47, 37, 0.12);
+  --hero-glow: rgba(150, 145, 134, 0.16);
+  --focus-ring: rgba(31, 29, 26, 0.06);
 }
 
 * { box-sizing: border-box; }
