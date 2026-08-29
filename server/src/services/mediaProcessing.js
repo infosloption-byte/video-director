@@ -98,21 +98,20 @@ async function createProxy(sourcePath, outputPath) {
   await ensureRegularFile(outputPath);
 }
 
-async function updateMetadata(mediaId, metadata) {
-  return prisma.projectMedia.update({
-    where: { id: mediaId },
-    data: {
-      durationSeconds: metadata.durationSeconds,
-      width: metadata.width,
-      height: metadata.height,
-    },
-  });
-}
-
 export function shouldProxyMedia(media) {
   return media?.origin === "upload"
     && media?.kind === "video"
     && Number(media?.sizeBytes || 0) >= proxyMinBytes();
+}
+
+async function hasReadableProxy(storageKey) {
+  if (!storageKey) return false;
+  try {
+    await ensureRegularFile(resolveStorageKey(storageKey));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function processMediaProxy(mediaId) {
@@ -122,7 +121,14 @@ export async function processMediaProxy(mediaId) {
   try {
     const media = await prisma.projectMedia.findUnique({ where: { id: mediaId } });
     if (!media || !shouldProxyMedia(media) || !media.storageKey) return null;
-    if (media.proxyStorageKey) return media;
+
+    if (media.proxyStorageKey) {
+      if (await hasReadableProxy(media.proxyStorageKey)) return media;
+      await prisma.projectMedia.update({
+        where: { id: media.id },
+        data: { proxyStorageKey: null, proxyUrl: null, processingError: null, status: "ready" },
+      });
+    }
 
     const sourcePath = resolveStorageKey(media.storageKey);
     await ensureRegularFile(sourcePath);
