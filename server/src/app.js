@@ -45,36 +45,22 @@ app.use("/api/projects", projectsRouter);
 // Editor Remotion workers resolve uploaded/project media using a server-only token.
 // Browser requests without the token still fall back to authenticated ownership checks.
 app.use("/api/render-media", requireRenderAssetAccess, renderMediaRouter);
-
-// Render workers fetch cached B-roll without a browser session. That internal
-// request is authorized with the server-only RENDER_ASSET_TOKEN when configured;
-// browser requests still fall back to normal authenticated ownership checks.
 app.use(
   "/api/render-assets",
   requireRenderAssetAccess,
   express.static(path.resolve(process.cwd(), "storage", "render-assets"), { fallthrough: false, maxAge: "1h" }),
 );
-
-// User-facing narration audio stays private. The Remotion worker uses the same
-// internal render token as cached B-roll, while browser requests fall back to
-// normal authenticated project ownership checks.
 app.use(
   "/api/audio",
   requireRenderAssetAccess,
   express.static(path.resolve(process.cwd(), "storage", "audio"), { fallthrough: false, maxAge: "1h" }),
 );
-
-// Other project media remains strictly authenticated and owner-scoped.
-for (const [route, directory] of [
-  ["/api/render-files", "renders"],
-  ["/api/export-files", "exports"],
-]) {
+for (const [route, directory] of [["/api/render-files", "renders"], ["/api/export-files", "exports"]]) {
   app.use(route, requireAuth, requireStoredProjectOwner, express.static(path.resolve(process.cwd(), "storage", directory), { fallthrough: false, maxAge: "1h" }));
 }
-
 app.use("/api/scenes/:sceneId", requireAuth, requireSceneOwner);
-app.use("/api", requireAuth, editorRenderRouter);
-app.use("/api", requireAuth, renderRouter);
+app.use("/api", requireAuth, expensiveOperationRateLimit, editorRenderRouter);
+app.use("/api", requireAuth, expensiveOperationRateLimit, renderRouter);
 app.use("/api", requireAuth, storyboardRouter);
 app.use("/api", requireAuth, exportRouter);
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found." }));
