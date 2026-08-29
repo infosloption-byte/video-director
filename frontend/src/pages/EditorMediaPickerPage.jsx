@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
@@ -22,6 +22,7 @@ export default function EditorMediaPickerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const clipSequenceRef = useRef(0);
   const [media, setMedia] = useState([]);
   const [filter, setFilter] = useState("video");
   const [status, setStatus] = useState("loading");
@@ -30,8 +31,6 @@ export default function EditorMediaPickerPage() {
   const [query, setQuery] = useState("");
 
   const loadMedia = useCallback(async () => {
-    setStatus("loading");
-    setMessage("");
     try {
       const response = await fetch(`/api/projects/${id}/media`, { credentials: "include", cache: "no-store" });
       const data = await response.json().catch(() => ({}));
@@ -71,9 +70,11 @@ export default function EditorMediaPickerPage() {
       const start = Number(timelineEnd(track).toFixed(3));
       const mediaDuration = Number(item.durationSeconds || 0);
       const duration = Math.max(0.5, Math.min(item.kind === "audio" ? 30 : 15, mediaDuration > 0 ? mediaDuration : 4));
+      clipSequenceRef.current += 1;
+      const clipId = `media-${item.id}-${clipSequenceRef.current}`;
       const clip = item.kind === "audio"
         ? {
-          id: `media-${item.id}-${Date.now()}`,
+          id: clipId,
           type: "audio",
           mediaId: item.id,
           src: item.mediaUrl,
@@ -86,11 +87,11 @@ export default function EditorMediaPickerPage() {
           title: item.title || "Music",
         }
         : {
-          id: `media-${item.id}-${Date.now()}`,
+          id: clipId,
           type: "video",
           mediaId: item.id,
           assetId: null,
-          src: item.mediaUrl,
+          src: item.proxyUrl || item.mediaUrl,
           thumbnailUrl: item.thumbnailUrl,
           start,
           duration,
@@ -121,7 +122,7 @@ export default function EditorMediaPickerPage() {
 
   if (!user) return null;
   if (status === "loading") return <div className="hx-page"><Header /><main className="container editor-media-picker"><div className="editor-state">Loading project media…</div></main></div>;
-  if (status === "error") return <div className="hx-page"><Header right={<Link to={`/editor/${id}`} className="btn btn-ghost">Back to editor</Link>} /><main className="container editor-media-picker"><div className="editor-state editor-state--error"><strong>Media picker couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={() => void loadMedia()}>Retry</button></div></main></div>;
+  if (status === "error") return <div className="hx-page"><Header right={<Link to={`/editor/${id}`} className="btn btn-ghost">Back to editor</Link>} /><main className="container editor-media-picker"><div className="editor-state editor-state--error"><strong>Media picker couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={() => { setStatus("loading"); setMessage(""); void loadMedia(); }}>Retry</button></div></main></div>;
 
   return <div className="hx-page">
     <Header right={<Link to={`/editor/${id}`} className="btn btn-ghost">Back to editor</Link>} />
@@ -142,7 +143,7 @@ export default function EditorMediaPickerPage() {
       <div className="editor-media-picker__grid">
         {visibleMedia.map((item) => <article className="editor-media-picker__card" key={item.id}>
           <div className="editor-media-picker__preview">
-            {item.kind === "video" ? <video src={item.mediaUrl} poster={item.thumbnailUrl || undefined} muted playsInline preload="metadata" controls /> : <audio src={item.mediaUrl} controls preload="metadata" />}
+            {item.kind === "video" ? <video src={item.proxyUrl || item.mediaUrl} poster={item.thumbnailUrl || undefined} muted playsInline preload="metadata" controls /> : <audio src={item.mediaUrl} controls preload="metadata" />}
           </div>
           <div className="editor-media-picker__body">
             <div><strong>{item.title}</strong><span>{item.provider || item.origin} · {item.kind}{item.durationSeconds ? ` · ${Number(item.durationSeconds).toFixed(1)}s` : ""}</span></div>
