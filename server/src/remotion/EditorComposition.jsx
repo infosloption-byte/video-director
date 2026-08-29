@@ -93,23 +93,26 @@ function AudioClip({ clip }) {
 function captionStyle(clip) {
   const position = String(clip.position || "lower-middle");
   const style = String(clip.style || "default");
-  const emphasis = String(clip.emphasis || "normal");
-  const top = position === "top" ? 150 : position === "middle" ? "42%" : "auto";
+  const emphasis = String(clip.emphasis || "none");
+  const top = position === "top" ? 150 : position === "center" ? "42%" : "auto";
   const bottom = position === "lower-middle" ? 300 : position === "bottom" ? 120 : "auto";
-  const background = style === "boxed" ? "rgba(0,0,0,.72)" : "transparent";
+  const highlight = style === "highlight";
+  const minimal = style === "minimal";
+  const bold = style === "bold" || emphasis === "all";
   return {
     left: 70,
     right: 70,
     top,
     bottom,
-    padding: style === "boxed" ? "12px 20px" : 0,
-    fontSize: style === "small" ? 42 : style === "large" ? 72 : 58,
+    padding: highlight ? "10px 18px" : 0,
+    borderRadius: highlight ? 10 : 0,
+    fontSize: minimal ? 44 : 58,
     lineHeight: 1.08,
     textAlign: "center",
-    fontWeight: emphasis === "bold" ? 900 : 700,
-    color: "white",
-    background,
-    textShadow: "0 4px 24px rgba(0,0,0,.65)",
+    fontWeight: bold ? 900 : 700,
+    color: highlight ? "#080808" : "white",
+    background: highlight ? "rgba(255,255,255,.88)" : "transparent",
+    textShadow: minimal || highlight ? "none" : "0 4px 24px rgba(0,0,0,.65)",
   };
 }
 
@@ -123,9 +126,9 @@ function OverlayClip({ clip }) {
   return <div style={{ ...styles.overlay, ...style }}>{clip.text || ""}</div>;
 }
 
-function TrackClips({ track, renderClip }) {
+function TrackClips({ track, fps, renderClip }) {
   return (track?.clips || []).map((clip) => (
-    <Sequence key={clip.id} from={Math.max(0, Math.round(Number(clip.start || 0) * 30))} durationInFrames={clipFrames(clip, 30)}>
+    <Sequence key={clip.id} from={Math.max(0, Math.round(Number(clip.start || 0) * fps))} durationInFrames={clipFrames(clip, fps)}>
       {renderClip(clip)}
     </Sequence>
   ));
@@ -141,7 +144,7 @@ export function HelixEditorComposition({ timeline }) {
 
   return (
     <div style={styles.root}>
-      {videoTrack && <TrackClips track={videoTrack} renderClip={(clip) => <VideoClip clip={clip} />} />}
+      {videoTrack && <TrackClips track={videoTrack} fps={fps} renderClip={(clip) => <VideoClip clip={clip} />} />}
       {audioTracks.flatMap((track) => (track.clips || []).map((clip) => (
         <Sequence key={`audio-${clip.id}`} from={Math.max(0, Math.round(Number(clip.start || 0) * fps))} durationInFrames={clipFrames(clip, fps)}>
           <AudioClip clip={clip} />
