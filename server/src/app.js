@@ -6,6 +6,7 @@ import projectsRouter from "./routes/projects.js";
 import projectDeleteRouter from "./routes/projectDelete.js";
 import editorRouter from "./routes/editor.js";
 import mediaRouter from "./routes/media.js";
+import mediaProxyRouter from "./routes/mediaProxy.js";
 import storyboardRouter from "./routes/storyboard.js";
 import renderRouter from "./routes/render.js";
 import exportRouter from "./routes/export.js";
@@ -35,6 +36,7 @@ app.use("/api/projects", requireAuth, (req, _res, next) => {
 app.use("/api/projects", projectDeleteRouter);
 app.use("/api/projects", editorRouter);
 app.use("/api/projects", mediaRouter);
+app.use("/api/projects", mediaProxyRouter);
 app.use("/api/projects", projectsRouter);
 
 // Render workers fetch cached B-roll without a browser session. That internal
