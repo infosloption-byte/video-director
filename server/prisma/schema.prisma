@@ -50,7 +50,7 @@ model Signal {
   whyReasoning       String            @map("why_reasoning") @db.Text
   sourceName         String?            @map("source_name")
   sourceUrl          String?            @map("source_url") @db.Text
-  rawContent         String?            @map("raw_content") @db.LongText
+  rawContent         String?           @map("raw_content") @db.LongText
   status             SignalStatus      @default(new)
   scrapedAt          DateTime          @default(now()) @map("scraped_at")
   projects           Project[]
@@ -232,12 +232,19 @@ model AuthToken {
 }
 
 model ProjectEditor {
-  id        String   @id @default(uuid())
-  projectId String   @unique @map("project_id")
-  version   Int      @default(1)
-  timeline  Json
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  projectId    String   @unique @map("project_id")
+  version      Int      @default(1)
+  timeline     Json
+  renderStatus String?  @map("render_status")
+  renderVersion Int?    @map("render_version")
+  renderHash   String?  @map("render_hash") @db.Char(64)
+  renderUrl    String?  @map("render_url") @db.Text
+  renderError  String?  @map("render_error") @db.Text
+  renderedAt   DateTime? @map("rendered_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([renderStatus])
   @@map("project_editors")
 }
