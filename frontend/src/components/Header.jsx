@@ -43,7 +43,7 @@ export default function Header({ right }) {
 
   const authenticated = status === "ready" && Boolean(user);
   const userLabel = user?.displayName || user?.email || "Account";
-  const editorMediaLink = editorMatch ? `/media/${editorMatch[1]}?pick=1` : null;
+  const editorMediaLink = editorMatch ? `/editor/${editorMatch[1]}/media-picker` : null;
 
   return (
     <header className="hx-header">
