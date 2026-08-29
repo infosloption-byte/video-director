@@ -2,6 +2,7 @@ import "dotenv/config";
 import app from "./app.js";
 import { startSignalScraper } from "./jobs/scrapeSignals.js";
 import { startRenderWorker } from "./jobs/renderQueue.js";
+import { startEditorRenderWorker } from "./jobs/editorRenderQueue.js";
 import { startMediaProcessor } from "./services/mediaProcessing.js";
 import { prisma } from "./db/client.js";
 
@@ -23,6 +24,10 @@ const server = app.listen(PORT, () => {
   // renders can take minutes and must not share the API process event loop.
   if (String(process.env.RENDER_WORKER_IN_API || "false").toLowerCase() === "true") {
     startRenderWorker();
+  }
+
+  if (String(process.env.EDITOR_RENDER_WORKER_IN_API || "false").toLowerCase() === "true") {
+    startEditorRenderWorker();
   }
 });
 
