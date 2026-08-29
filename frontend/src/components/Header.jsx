@@ -13,6 +13,7 @@ export default function Header({ right }) {
   const desktopMenuRef = useRef(null);
   const mobileMenuRef = useRef(null);
   const showResearchLink = location.pathname !== "/my-research";
+  const editorMatch = location.pathname.match(/^\/editor\/([^/]+)$/);
   const nextTheme = theme === "dark" ? "light" : "dark";
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function Header({ right }) {
 
   const authenticated = status === "ready" && Boolean(user);
   const userLabel = user?.displayName || user?.email || "Account";
+  const editorMediaLink = editorMatch ? `/media/${editorMatch[1]}?pick=1` : null;
 
   return (
     <header className="hx-header">
@@ -53,6 +55,12 @@ export default function Header({ right }) {
 
         <div className="hx-header__desktop">
           <div className="hx-header__right">
+            {authenticated && editorMediaLink && (
+              <Link to={editorMediaLink} className="btn btn-ghost hx-header__compact-action" aria-label="Open media picker" title="Media">
+                <span className="hx-header__action-icon" aria-hidden="true">▤</span>
+                <span className="hx-header__action-label">Media</span>
+              </Link>
+            )}
             {authenticated && showResearchLink && (
               <Link to="/my-research" className="btn btn-ghost hx-header__compact-action" aria-label="Open My Research" title="My Research">
                 <span className="hx-header__action-icon" aria-hidden="true">▦</span>
@@ -73,6 +81,7 @@ export default function Header({ right }) {
                     <div className="hx-header__dropdown" role="menu">
                       <div className="hx-header__dropdown-user"><strong>Hi, {userLabel}</strong><span>{user?.email}</span></div>
                       <Link role="menuitem" to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>
+                      {editorMediaLink && <Link role="menuitem" to={editorMediaLink} onClick={() => setMenuOpen(false)}><span aria-hidden="true">▤</span> Media Library</Link>}
                       <Link role="menuitem" to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
                       <button role="menuitem" type="button" onClick={handleSignOut}>Sign out</button>
                     </div>
@@ -102,6 +111,7 @@ export default function Header({ right }) {
             <>
               <div className="hx-header__mobile-user"><span className="hx-header__mobile-avatar">{String(userLabel).charAt(0).toUpperCase()}</span><div><strong>Hi, {userLabel}</strong><span>{user?.email}</span></div></div>
               <button type="button" className="hx-header__mobile-theme" onClick={toggleTheme}><span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span>{theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}</button>
+              {editorMediaLink && <Link to={editorMediaLink} onClick={() => setMenuOpen(false)}><span aria-hidden="true">▤</span> Media Library</Link>}
               {showResearchLink && <Link to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>}
               <Link to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
               <div className="hx-header__mobile-actions">{right}</div>
