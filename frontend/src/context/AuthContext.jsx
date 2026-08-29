@@ -38,18 +38,14 @@ export function AuthProvider({ children }) {
         signal: controller.signal,
       });
     } catch (err) {
-      if (err?.name !== "AbortError") {
-        setError("Signed out locally, but the server session could not be cleared.");
-      }
+      if (err?.name !== "AbortError") setError("Signed out locally, but the server session could not be cleared.");
     } finally {
       window.clearTimeout(timeoutId);
     }
   }
 
   // oxlint-disable-next-line react(set-state-in-effect)
-  useEffect(() => {
-    void refresh();
-  }, []);
+  useEffect(() => { void refresh(); }, []);
 
   const value = useMemo(() => ({ user, status, error, refresh, signOut }), [user, status, error]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -62,7 +58,9 @@ export function useAuth() {
   return value;
 }
 
+// Workspace routes are always protected in production builds. Local development
+// can opt into the relaxed route shell with VITE_AUTH_REQUIRED=false.
 // oxlint-disable-next-line react(only-export-components)
 export function authRequired() {
-  return String(import.meta.env.VITE_AUTH_REQUIRED || "false").toLowerCase() === "true";
+  return import.meta.env.PROD || String(import.meta.env.VITE_AUTH_REQUIRED || "false").toLowerCase() === "true";
 }
