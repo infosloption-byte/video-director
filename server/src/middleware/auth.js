@@ -105,5 +105,5 @@ export function requireOwner(project) {
 }
 
 export function getRequestUserId(req) {
-  return req.user?.id || DEV_FALLBACK_USER;
+  return req.user?.id || null;
 }
