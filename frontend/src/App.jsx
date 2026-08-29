@@ -4,6 +4,7 @@ import ResearchPage from "./pages/ResearchPage";
 import StoryboardPage from "./pages/StoryboardPage";
 import AdvancedEditorPage from "./pages/AdvancedEditorPage";
 import MediaLibraryPage from "./pages/MediaLibraryPage";
+import EditorMediaPickerPage from "./pages/EditorMediaPickerPage";
 import MyResearchPage from "./pages/MyResearchPage";
 import AccountPage from "./pages/AccountPage";
 import SignInPage from "./pages/SignInPage";
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/research/:id" element={<ProtectedRoute><ResearchPage /></ProtectedRoute>} />
         <Route path="/storyboard/:id" element={<ProtectedRoute><StoryboardPage /></ProtectedRoute>} />
         <Route path="/editor/:id" element={<ProtectedRoute><AdvancedEditorPage /></ProtectedRoute>} />
+        <Route path="/editor/:id/media-picker" element={<ProtectedRoute><EditorMediaPickerPage /></ProtectedRoute>} />
         <Route path="/media/:id" element={<ProtectedRoute><MediaLibraryPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
