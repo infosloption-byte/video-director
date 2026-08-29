@@ -6,6 +6,7 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { prisma } from "../db/client.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
+import { searchJamendoTracks } from "../services/jamendoService.js";
 import {
   ensureMediaStorageDirectory,
   mediaStoragePaths,
@@ -194,6 +195,19 @@ router.get("/:id/media/search", async (req, res) => {
   } catch (error) {
     console.error(`GET /api/projects/${req.params.id}/media/search failed:`, error);
     res.status(502).json({ error: error.message || "External media search failed." });
+  }
+});
+
+router.get("/:id/media/music-search", async (req, res) => {
+  try {
+    const query = String(req.query.query || "").trim().slice(0, 120);
+    if (!query) return res.status(400).json({ error: "Search query is required." });
+    const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 30);
+    const results = await searchJamendoTracks(query, limit);
+    res.json({ provider: "jamendo", query, results });
+  } catch (error) {
+    console.error(`GET /api/projects/${req.params.id}/media/music-search failed:`, error);
+    res.status(502).json({ error: error.message || "External music search failed." });
   }
 });
 
