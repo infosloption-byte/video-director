@@ -43,14 +43,14 @@ model Signal {
   searchQuery        String?           @map("search_query")
   rank               Int?
   category           String
-  heatPct             String?          @map("heat_pct")
+  heatPct             String?           @map("heat_pct")
   heatScore          Decimal?          @map("heat_score") @db.Decimal(6, 2)
   title              String
   description        String?           @db.Text
   whyReasoning       String            @map("why_reasoning") @db.Text
-  sourceName         String?           @map("source_name")
-  sourceUrl          String?           @map("source_url") @db.Text
-  rawContent         String?           @map("raw_content") @db.LongText
+  sourceName         String?            @map("source_name")
+  sourceUrl          String?            @map("source_url") @db.Text
+  rawContent         String?            @map("raw_content") @db.LongText
   status             SignalStatus      @default(new)
   scrapedAt          DateTime          @default(now()) @map("scraped_at")
   projects           Project[]
@@ -98,7 +98,7 @@ model Project {
 
 model ProjectScene {
   id               String    @id @default(uuid())
-  projectId        String   @map("project_id")
+  projectId        String    @map("project_id")
   sceneOrder       Int       @map("scene_order")
   title            String?
   spokenText       String    @map("spoken_text") @db.Text
@@ -174,11 +174,15 @@ model ProjectMedia {
   width           Int?
   height          Int?
   mediaUrl        String             @map("media_url") @db.Text
+  proxyUrl        String?            @map("proxy_url") @db.Text
   thumbnailUrl    String?            @map("thumbnail_url") @db.Text
   sourceUrl       String?            @map("source_url") @db.Text
   provider        String?
   providerAssetId String?            @map("provider_asset_id")
   storageKey      String?            @map("storage_key") @db.Text
+  proxyStorageKey String?            @map("proxy_storage_key") @db.Text
+  thumbnailKey    String?            @map("thumbnail_key") @db.Text
+  processingError String?            @map("processing_error") @db.Text
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
   project         Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -205,7 +209,7 @@ model User {
 model AuthSession {
   id String @id @default(uuid())
   userId String @map("user_id")
-  tokenHash String @unique @map("token_hash") @db.Char(64)
+  tokenHash String @unique @map("token_hash")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
   lastSeenAt DateTime? @map("last_seen_at")
@@ -219,7 +223,7 @@ model AuthToken {
   id String @id @default(uuid())
   userId String @map("user_id")
   kind String @db.VarChar(40)
-  tokenHash String @unique @map("token_hash") @db.Char(64)
+  tokenHash String @unique @map("token_hash")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
