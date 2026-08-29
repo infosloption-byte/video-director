@@ -455,8 +455,9 @@ export default function AdvancedEditorPage() {
   }, []);
 
   if (!user) return null;
-  if (status === "loading") return <div className="hx-page"><Header /><main className="container advanced-editor"><div className="editor-state">Loading editor…</div></main></div>;
-  if (status === "error") return <div className="hx-page"><Header right={<Link to="/my-research" className="btn btn-ghost">My Research</Link>} /><main className="container advanced-editor"><div className="editor-state editor-state--error"><strong>Editor couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={loadEditor}>Retry</button></div></main></div>;
+  if (status === "loading") return <div className="hx-page"><Header /><main className="container advanced-editor"><div className="editor-state" role="status" aria-live="polite"><strong>Loading editor…</strong><span>Preparing your independent editing timeline.</span></div></main></div>;
+  if (status === "error") return <div className="hx-page"><Header right={<Link to="/my-research" className="btn btn-ghost">My Research</Link>} /><main className="container advanced-editor"><div className="editor-state editor-state--error" role="alert"><strong>Editor couldn’t load.</strong><span>{message || "The editor request failed. Please try again."}</span><div className="editor-state__actions"><button className="btn btn-cream" onClick={loadEditor}>Retry</button><Link to="/my-research" className="btn btn-ghost">Back to My Research</Link></div></div></main></div>;
+  if (!timeline) return <div className="hx-page"><Header right={<Link to={`/storyboard/${id}?stage=preview`} className="btn btn-ghost">Back to project</Link>} /><main className="container advanced-editor"><div className="editor-state"><strong>No editable timeline yet.</strong><span>This project has no timeline data available. Return to the project and create or regenerate the Storyboard.</span><div className="editor-state__actions"><button className="btn btn-cream" onClick={loadEditor}>Try again</button><Link to={`/storyboard/${id}?stage=preview`} className="btn btn-ghost">Back to project</Link></div></div></main></div>;
 
   const audioClips = timeline?.tracks?.filter((track) => track.kind === "audio").flatMap((track) => track.clips || []) || [];
   const selectedTransitionIn = normalizeTransition(selected?.transitionIn);
