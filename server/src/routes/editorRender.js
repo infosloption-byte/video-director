@@ -2,8 +2,10 @@ import { Router } from "express";
 import { getEditorRenderQueue, enqueueEditorRender } from "../jobs/editorRenderQueue.js";
 import { prisma } from "../db/client.js";
 import { getEditorTimelineHash } from "../services/editorRenderService.js";
+import { requireProjectOwner } from "../middleware/ownership.js";
 
 const router = Router();
+router.use("/projects/:id", requireProjectOwner);
 
 function normalizeRenderUrl(renderUrl) {
   if (!renderUrl) return null;
