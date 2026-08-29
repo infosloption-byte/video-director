@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "signals:scrape": "node src/jobs/scrapeSignals.js",
     "render:worker": "node src/jobs/renderQueue.js",
+    "editor-render:worker": "node src/jobs/editorRenderQueue.js",
     "media:cleanup": "node src/jobs/cleanupMedia.js",
     "media:cleanup:dry": "node src/jobs/cleanupMedia.js --dry-run",
     "media:process": "node src/jobs/processMedia.js",
