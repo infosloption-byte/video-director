@@ -165,7 +165,7 @@ make/save/refresh edits, and continue using the original Storyboard flow with
 its original source data unchanged.
 
 ## M12 — Media Library & Upload Pipeline
-**Status:** In progress
+**Status:** Done
 
 - [x] `project_media` model and migrations
 - [x] Authenticated media API and ownership enforcement
@@ -173,9 +173,9 @@ its original source data unchanged.
 - [x] File validation and upload progress/recovery
 - [x] Media library search/filter/grid
 - [x] Media metadata, thumbnails, and posters
-- [ ] Editing proxies for large media
+- [x] Editing proxies for large media
 - [x] Distinguish user uploads/generated narration/external cache/render intermediates
-- [ ] Editor media picker
+- [x] Editor media picker
 - [x] Orphan cleanup
 - [x] `MEDIA_STORAGE_ROOT` storage abstraction
 
@@ -193,25 +193,45 @@ its original source data unchanged.
 - [x] Uploaded thumbnails are validated, stored under the owning project, and served through authenticated routes
 - [x] Removing an uploaded asset removes both its source file and stored thumbnail
 - [x] Manual/dry-run orphan cleanup commands remove unreferenced media and stale `.uploading-*` files
+- [x] Large uploaded videos can be transcoded to editor-friendly 720px-wide proxies with ffmpeg
+- [x] Proxy processing persists `processing` / `ready` / `failed` state and resumes after server restart
+- [x] Project media picker can add ready library video/audio assets to the independent editor timeline
+- [x] Proxy/original/thumbnail cleanup covers derived media and temporary processing files
 
-**Current M12 boundary:** metadata/thumb generation is dependency-free and runs in
-the browser. Large-media editing proxies and direct editor media picking remain
-separate slices. Full editor-timeline rendering remains an M13 concern.
+**Acceptance:** uploaded/imported project media can be stored, inspected, previewed,
+reused by the standalone editor, and safely cleaned without mutating Storyboard
+source records.
 
 ## M13 — Editor Rendering Integration & Reliability
-**Status:** Not started
+**Status:** In progress
 
-- [ ] Remotion consumes canonical editor timeline JSON
-- [ ] Trim/split/reorder support in editor render
-- [ ] Uploaded media support
-- [ ] Caption/audio timing synchronization
-- [ ] Editor render preflight
-- [ ] Preserve current render stage telemetry, elapsed time, and ETA
-- [ ] Render version/hash and stale-render protection
-- [ ] Retry-safe rendering
-- [ ] MP4/audio/duration/9:16 validation
-- [ ] Keep storyboard rendering independently available
-- [ ] Automated timeline-to-render tests
+### Implemented first M13 rendering slice
+
+- [x] Remotion consumes canonical `ProjectEditor.timeline` JSON
+- [x] Dedicated `HelixEditorReel` composition is separate from existing `HelixReel`
+- [x] Editor video clips render with trim/offset/duration timing
+- [x] Editor timeline audio clips render with volume/fade timing
+- [x] Caption and overlay clips render from canonical timeline timing
+- [x] Transition/effect presets are consumed by the Remotion editor composition
+- [x] Uploaded/project media resolves through an authenticated render-media endpoint
+- [x] Large-media proxies are preferred by the render-media resolver when available
+- [x] Editor render preflight validates timeline and referenced media ownership/state
+- [x] Editor render stage telemetry exposes preflight/bundle/composition/rendering/finalizing progress
+- [x] Editor render stores version/hash/url/error metadata independently from Storyboard rendering
+- [x] Stale-render protection discards a render when the editor changes during rendering
+- [x] Retry-safe editor render queue with deterministic version/hash job IDs
+- [x] Rendered MP4 is validated with ffprobe for 1080x1920, positive duration, and required audio
+- [x] Dedicated editor render progress screen and `/editor/:id/render` workflow
+- [x] Existing Storyboard `HelixReel` rendering remains independently available
+
+### Remaining M13 work
+
+- [ ] Verify trim/split/reorder parity against real editor timelines with browser-generated fixtures
+- [ ] Verify uploaded media playback from local storage in Remotion worker
+- [ ] Verify caption/audio synchronization against representative projects
+- [ ] Add automated timeline-to-render tests
+- [ ] Add render cancellation / stronger worker recovery semantics
+- [ ] Full render regression QA with real MP4 output
 
 ## M14 — AI Editing Assistant
 **Status:** Not started
@@ -307,4 +327,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — M11 richer editor refinement added drag move/trim, optional Music track, audio fades/volume, caption position/style/emphasis, overlay positioning, and touch-capable timeline interactions in the standalone editor.
 - `2026-08-29` — M11 audio refinement added decoded waveform visualization and synchronized editor audio playback without changing Storyboard source records. Real external music sourcing remains deferred to M12 media-library work.
 - `2026-08-29` — M11 transition/effect refinement added bounded Remotion-safe clip transition metadata and deterministic motion presets with live browser preview, autosave, and undo/redo support. Remotion render integration remains an M13 concern.
-- `2026-08-29` — M12 media library foundation added project-owned media records, authenticated media APIs, Pexels imports, dependency-free streamed uploads, server validation, browser metadata extraction, PNG image/video thumbnails, authenticated media playback, and orphan cleanup. Large-media proxies and direct editor media picking remain outstanding.
+- `2026-08-29` — M12 media library foundation added project-owned media records, authenticated media APIs, Pexels imports, dependency-free streamed uploads, server validation, browser metadata extraction, PNG image/video thumbnails, authenticated media playback, and orphan cleanup.
+- `2026-08-29` — M12 large-media processing added persistent ffmpeg proxies, restart-safe processing, proxy-aware media playback, and project editor media picking without mutating Storyboard source data.
+- `2026-08-29` — M13 editor rendering uses a separate `HelixEditorReel` and render queue so canonical `ProjectEditor.timeline` renders independently of the existing Storyboard render pipeline. Render metadata is version/hash scoped and stale renders are discarded.
