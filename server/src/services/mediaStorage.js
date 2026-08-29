@@ -26,6 +26,20 @@ export function mediaStoragePaths(projectId, extension) {
   };
 }
 
+export function mediaProxyStoragePaths(projectId, mediaId) {
+  const safeProjectId = safeSegment(projectId);
+  const safeMediaId = safeSegment(mediaId);
+  const relativeDirectory = path.posix.join(safeProjectId, "proxies");
+  const storageKey = path.posix.join(relativeDirectory, `${safeMediaId}.mp4`);
+  const tempStorageKey = path.posix.join(relativeDirectory, `.processing-${safeMediaId}-${crypto.randomUUID()}.mp4`);
+  return {
+    storageKey,
+    tempStorageKey,
+    finalPath: resolveStorageKey(storageKey),
+    tempPath: resolveStorageKey(tempStorageKey),
+  };
+}
+
 export function mediaThumbnailStoragePaths(projectId, mediaId) {
   const safeProjectId = safeSegment(projectId);
   const safeMediaId = safeSegment(mediaId);
