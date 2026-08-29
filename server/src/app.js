@@ -17,6 +17,7 @@ import { authOptional, getRequestUserId, requireAuth } from "./middleware/auth.j
 import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.js";
 import { requireRenderAssetAccess, requireStoredProjectOwner } from "./middleware/storageOwnership.js";
 import { sameOriginProtection } from "./middleware/csrf.js";
+import { expensiveOperationRateLimit } from "./middleware/rateLimit.js";
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -25,16 +26,16 @@ app.use(authOptional);
 app.use(sameOriginProtection);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
-app.use("/api/signals", signalsRouter);
+app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
 
 // Bind every project request to the authenticated user. The temporary local-user
 // fallback remains available only when DEV_AUTH_FALLBACK=true in development.
 app.use("/api/projects", requireAuth, (req, _res, next) => {
   const userId = getRequestUserId(req);
-  req.query.userId = userId;
+  if (userId) req.query.userId = userId;
   if (req.body && typeof req.body === "object") req.body.userId = userId;
   next();
-}, requireProjectOwner);
+}, requireProjectOwner, expensiveOperationRateLimit);
 app.use("/api/projects", projectDeleteRouter);
 app.use("/api/projects", editorRouter);
 app.use("/api/projects", mediaRouter);
