@@ -30,20 +30,42 @@ export default function EditorMediaPickerPage() {
   const [savingId, setSavingId] = useState("");
   const [query, setQuery] = useState("");
 
-  const loadMedia = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/projects/${id}/media`, { credentials: "include", cache: "no-store" });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to load project media.");
-      setMedia(data.media || []);
-      setStatus("ready");
-    } catch (error) {
-      setStatus("error");
-      setMessage(error.message || "Failed to load project media.");
-    }
+  const requestMedia = useCallback(async () => {
+    const response = await fetch(`/api/projects/${id}/media`, { credentials: "include", cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Failed to load project media.");
+    return data.media || [];
   }, [id]);
 
-  useEffect(() => { void loadMedia(); }, [loadMedia]);
+  useEffect(() => {
+    let cancelled = false;
+    void requestMedia()
+      .then((items) => {
+        if (cancelled) return;
+        setMedia(items);
+        setStatus("ready");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setStatus("error");
+        setMessage(error.message || "Failed to load project media.");
+      });
+    return () => { cancelled = true; };
+  }, [requestMedia]);
+
+  const retryLoad = useCallback(() => {
+    setStatus("loading");
+    setMessage("");
+    void requestMedia()
+      .then((items) => {
+        setMedia(items);
+        setStatus("ready");
+      })
+      .catch((error) => {
+        setStatus("error");
+        setMessage(error.message || "Failed to load project media.");
+      });
+  }, [requestMedia]);
 
   const visibleMedia = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -122,7 +144,7 @@ export default function EditorMediaPickerPage() {
 
   if (!user) return null;
   if (status === "loading") return <div className="hx-page"><Header /><main className="container editor-media-picker"><div className="editor-state">Loading project media…</div></main></div>;
-  if (status === "error") return <div className="hx-page"><Header right={<Link to={`/editor/${id}`} className="btn btn-ghost">Back to editor</Link>} /><main className="container editor-media-picker"><div className="editor-state editor-state--error"><strong>Media picker couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={() => { setStatus("loading"); setMessage(""); void loadMedia(); }}>Retry</button></div></main></div>;
+  if (status === "error") return <div className="hx-page"><Header right={<Link to={`/editor/${id}`} className="btn btn-ghost">Back to editor</Link>} /><main className="container editor-media-picker"><div className="editor-state editor-state--error"><strong>Media picker couldn’t load.</strong><span>{message}</span><button className="btn btn-cream" onClick={retryLoad}>Retry</button></div></main></div>;
 
   return <div className="hx-page">
     <Header right={<Link to={`/editor/${id}`} className="btn btn-ghost">Back to editor</Link>} />
