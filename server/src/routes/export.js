@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { buildProjectExports, getProjectExportSummary } from "../services/exportService.js";
+import { requireProjectOwner } from "../middleware/ownership.js";
 
 const router = Router();
+router.use("/projects/:id", requireProjectOwner);
 
 router.get("/projects/:id/export", async (req, res) => {
   try {
