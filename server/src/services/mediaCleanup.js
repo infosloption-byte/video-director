@@ -34,12 +34,20 @@ async function removeEmptyDirectories(directory) {
 export async function cleanupMediaStorage({ dryRun = false } = {}) {
   const root = getMediaStorageRoot();
   const records = await prisma.projectMedia.findMany({
-    select: { id: true, projectId: true, origin: true, storageKey: true, thumbnailUrl: true },
+    select: {
+      id: true,
+      projectId: true,
+      origin: true,
+      storageKey: true,
+      proxyStorageKey: true,
+      thumbnailUrl: true,
+    },
   });
 
   const preserved = new Set();
   for (const record of records) {
     if (record.storageKey) preserved.add(normalizeKey(record.storageKey));
+    if (record.proxyStorageKey) preserved.add(normalizeKey(record.proxyStorageKey));
     if (record.origin === "upload" && record.thumbnailUrl) {
       preserved.add(normalizeKey(mediaThumbnailStoragePaths(record.projectId, record.id).storageKey));
     }
@@ -56,7 +64,8 @@ export async function cleanupMediaStorage({ dryRun = false } = {}) {
     const stat = await fs.stat(filePath).catch(() => null);
     if (!stat) continue;
 
-    const isTemporary = path.basename(filePath).startsWith(".uploading-");
+    const basename = path.basename(filePath);
+    const isTemporary = basename.startsWith(".uploading-") || basename.startsWith(".processing-");
     const isStaleTemporary = isTemporary && now - stat.mtimeMs >= TEMP_FILE_MAX_AGE_MS;
     if (preserved.has(relative) && !isStaleTemporary) {
       preservedCount += 1;
