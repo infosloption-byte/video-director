@@ -7,8 +7,10 @@ import projectDeleteRouter from "./routes/projectDelete.js";
 import editorRouter from "./routes/editor.js";
 import mediaRouter from "./routes/media.js";
 import mediaProxyRouter from "./routes/mediaProxy.js";
+import renderMediaRouter from "./routes/renderMedia.js";
 import storyboardRouter from "./routes/storyboard.js";
 import renderRouter from "./routes/render.js";
+import editorRenderRouter from "./routes/editorRender.js";
 import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
 import { authOptional, getRequestUserId, requireAuth } from "./middleware/auth.js";
@@ -39,6 +41,10 @@ app.use("/api/projects", mediaRouter);
 app.use("/api/projects", mediaProxyRouter);
 app.use("/api/projects", projectsRouter);
 
+// Editor Remotion workers resolve uploaded/project media using a server-only token.
+// Browser requests without the token still fall back to authenticated ownership checks.
+app.use("/api/render-media", requireRenderAssetAccess, renderMediaRouter);
+
 // Render workers fetch cached B-roll without a browser session. That internal
 // request is authorized with the server-only RENDER_ASSET_TOKEN when configured;
 // browser requests still fall back to normal authenticated ownership checks.
@@ -66,6 +72,7 @@ for (const [route, directory] of [
 }
 
 app.use("/api/scenes/:sceneId", requireAuth, requireSceneOwner);
+app.use("/api", requireAuth, editorRenderRouter);
 app.use("/api", requireAuth, renderRouter);
 app.use("/api", requireAuth, storyboardRouter);
 app.use("/api", requireAuth, exportRouter);
