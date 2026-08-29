@@ -1,8 +1,8 @@
-.hx-dialog { width: min(520px, calc(100vw - 32px)); max-width: 520px; padding: 0; border: 1px solid var(--border); border-radius: 18px; background: transparent; color: var(--ink); box-shadow: 0 24px 80px rgba(0, 0, 0, .55); }
+.hx-dialog { width: min(520px, calc(100vw - 32px)); max-width: 520px; padding: 0; border: 1px solid var(--border); border-radius: 18px; background: transparent; color: var(--ink); box-shadow: var(--shadow-soft); }
 .hx-dialog::backdrop { background: rgba(0, 0, 0, .68); backdrop-filter: blur(6px); }
-.hx-dialog__surface { padding: 24px; background: #171719; border-radius: 18px; }
+.hx-dialog__surface { padding: 24px; background: var(--bg-raised); border-radius: 18px; }
 .hx-dialog__icon { width: 34px; height: 34px; display: grid; place-items: center; margin-bottom: 16px; border: 1px solid var(--border-soft); border-radius: 50%; color: var(--ink); font: 600 14px var(--font-mono); }
-.hx-dialog--danger .hx-dialog__icon { border-color: rgba(255, 120, 120, .45); color: #ffb1b1; }
+.hx-dialog--danger .hx-dialog__icon { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }
 .hx-dialog__content h2 { margin: 0 0 8px; color: var(--ink); font: 500 25px/1.15 var(--font-serif); }
 .hx-dialog__content p { margin: 0; color: var(--body); line-height: 1.65; }
 .hx-dialog__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
