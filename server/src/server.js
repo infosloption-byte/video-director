@@ -14,8 +14,10 @@ const server = app.listen(PORT, () => {
   startSignalScraper();
 
   // Large uploaded videos are processed outside the request path. The processor
-  // resumes pending proxy work after an API restart and keeps original uploads intact.
-  startMediaProcessor();
+  // resumes pending proxy work after an API restart.
+  if (String(process.env.MEDIA_PROCESSOR_ENABLED || "true").toLowerCase() !== "false") {
+    startMediaProcessor();
+  }
 
   // Rendering is intentionally a separate worker process. Long Remotion/Chromium
   // renders can take minutes and must not share the API process event loop.
