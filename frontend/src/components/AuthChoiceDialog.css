@@ -4,9 +4,9 @@
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: rgba(20, 19, 22, 0.98);
+  background: var(--bg-raised);
   color: var(--body);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  box-shadow: var(--shadow-soft);
 }
 .hx-auth-choice::backdrop { background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(5px); }
 .hx-auth-choice__surface { position: relative; padding: 30px; }
