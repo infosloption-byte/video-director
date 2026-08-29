@@ -5,6 +5,7 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import { prisma } from "../db/client.js";
 import { getBaseMediaUrl, getRenderToken } from "./editorRenderUrls.js";
+import { probeRenderedMedia } from "./mediaProbe.js";
 
 const RENDER_ROOT = path.resolve(process.cwd(), "storage", "renders");
 const ENTRY_POINT = path.resolve(process.cwd(), "src", "remotion", "index.jsx");
@@ -29,10 +30,6 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function roundFrameSeconds(value, fps) {
-  return Number((Math.max(0, Number(value || 0)) * fps).toFixed(6));
-}
-
 function collectMediaIds(timeline) {
   const ids = new Set();
   for (const track of timeline?.tracks || []) {
@@ -41,6 +38,12 @@ function collectMediaIds(timeline) {
     }
   }
   return [...ids];
+}
+
+function timelineHasAudio(timeline) {
+  return (timeline?.tracks || [])
+    .filter((track) => track.kind === "audio" && !track.muted)
+    .some((track) => (track.clips || []).some((clip) => clip.src || clip.mediaId));
 }
 
 function withRenderToken(url) {
@@ -215,6 +218,16 @@ export async function renderEditorProject(projectId, version, expectedHash, { on
     }
 
     await access(outputPath);
+    const rendered = await probeRenderedMedia(outputPath);
+    if (Math.abs(rendered.durationSeconds - duration) > 0.25) {
+      await rm(outputPath, { force: true }).catch(() => {});
+      throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(2)}s differs from editor timeline ${duration.toFixed(2)}s.`);
+    }
+    if (timelineHasAudio(editor.timeline) && !rendered.hasAudio) {
+      await rm(outputPath, { force: true }).catch(() => {});
+      throw new Error("Editor timeline contains audio clips, but the rendered MP4 has no audio stream.");
+    }
+
     await prisma.projectEditor.update({
       where: { projectId },
       data: {
@@ -230,14 +243,16 @@ export async function renderEditorProject(projectId, version, expectedHash, { on
     report(onProgress, "finalizing", 100, "Editor render complete", 100, {
       substeps: [
         { id: "write", label: "Write MP4 file", progress: 100 },
-        { id: "verify", label: "Verify output", progress: 100 },
+        { id: "verify", label: "Verify 1080x1920 MP4 and duration", progress: 100 },
         { id: "persist", label: "Persist render version", progress: 100 },
       ],
       renderVersion: editor.version,
       renderHash: expectedHash,
       renderUrl: output.renderUrl,
+      durationSeconds: rendered.durationSeconds,
+      hasAudio: rendered.hasAudio,
     });
-    return output;
+    return { ...output, durationSeconds: rendered.durationSeconds };
   } catch (error) {
     await prisma.projectEditor.update({
       where: { projectId },
