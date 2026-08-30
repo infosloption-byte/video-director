@@ -18,7 +18,6 @@ export default function EditorAIAssistantPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const [version, setVersion] = useState(null);
-  const [timeline, setTimeline] = useState(null);
   const [instruction, setInstruction] = useState("");
   const [suggestion, setSuggestion] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -28,17 +27,21 @@ export default function EditorAIAssistantPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function loadEditor() {
-    const response = await fetch(`/api/projects/${id}/editor`, { credentials: "include", cache: "no-store" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Unable to load editor.");
-    setVersion(data.editor.version);
-    setTimeline(clone(data.editor.timeline));
-  }
-
   useEffect(() => {
     if (!user) return;
-    loadEditor().catch((loadError) => setError(loadError.message));
+
+    async function loadEditor() {
+      try {
+        const response = await fetch(`/api/projects/${id}/editor`, { credentials: "include", cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Unable to load editor.");
+        setVersion(data.editor.version);
+      } catch (loadError) {
+        setError(loadError.message);
+      }
+    }
+
+    void loadEditor();
   }, [id, user]);
 
   function chooseIntent(nextInstruction) {
@@ -81,7 +84,6 @@ export default function EditorAIAssistantPage() {
       if (!currentResponse.ok) throw new Error(currentData.error || "Unable to refresh the editor before applying.");
       if (Number(currentData.editor.version) !== Number(version)) {
         setVersion(currentData.editor.version);
-        setTimeline(clone(currentData.editor.timeline));
         throw new Error("Editor changed elsewhere. The AI suggestion is stale; generate a new suggestion.");
       }
       const beforeTimeline = clone(currentData.editor.timeline);
@@ -92,7 +94,6 @@ export default function EditorAIAssistantPage() {
       setUndoTimeline(beforeTimeline);
       setUndoVersion(Number(data.editor.version));
       setVersion(Number(data.editor.version));
-      setTimeline(clone(data.editor.timeline));
       setMessage("AI edits applied. You can undo this AI change once before making another AI apply.");
       setPreview(null);
     } catch (applyError) { setError(applyError.message); }
@@ -107,7 +108,6 @@ export default function EditorAIAssistantPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to undo the AI change. Reload the editor and try again.");
       setVersion(Number(data.editor.version));
-      setTimeline(clone(data.editor.timeline));
       setUndoTimeline(null);
       setUndoVersion(null);
       setSuggestion(null);
