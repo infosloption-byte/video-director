@@ -224,13 +224,26 @@ source records.
 - [x] Dedicated editor render progress screen and `/editor/:id/render` workflow
 - [x] Existing Storyboard `HelixReel` rendering remains independently available
 
-### Remaining M13 work
+### M13 automated/reliability work completed
+
+- [x] Browser-style trim/split/reorder timeline fixtures validate against render preflight
+- [x] Automated Remotion timing/metadata regression coverage
+- [x] Automated caption/audio canonical frame mapping coverage
+- [x] Automated authenticated render-media/proxy resolver coverage
+- [x] Automated render-route contract coverage
+- [x] Automated project/editor render ownership coverage
+- [x] Render cancellation for queued storyboard renders
+- [x] Render cancellation for queued editor renders
+- [x] Retry/backoff for transient storyboard renders
+- [x] Retry-aware terminal failure handling for storyboard renders
+- [x] Retry-aware terminal failure handling for editor renders
+- [x] Worker lock/stall recovery configuration
+
+### Remaining M13 validation
 
 - [ ] Verify trim/split/reorder parity against real editor timelines with browser-generated fixtures
 - [ ] Verify uploaded media playback from local storage in Remotion worker
 - [ ] Verify caption/audio synchronization against representative projects
-- [ ] Add automated timeline-to-render tests
-- [ ] Add render cancellation / stronger worker recovery semantics
 - [ ] Full render regression QA with real MP4 output
 
 ## M14 — AI Editing Assistant
@@ -330,3 +343,4 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-29` — M12 media library foundation added project-owned media records, authenticated media APIs, Pexels imports, dependency-free streamed uploads, server validation, browser metadata extraction, PNG image/video thumbnails, authenticated media playback, and orphan cleanup.
 - `2026-08-29` — M12 large-media processing added persistent ffmpeg proxies, restart-safe processing, proxy-aware media playback, and project editor media picking without mutating Storyboard source data.
 - `2026-08-29` — M13 editor rendering uses a separate `HelixEditorReel` and render queue so canonical `ProjectEditor.timeline` renders independently of the existing Storyboard render pipeline. Render metadata is version/hash scoped and stale renders are discarded.
+- `2026-08-30` — M13 reliability work added deterministic regression fixtures, route/ownership tests, safe queued render cancellation, retry/backoff, and retry-aware terminal state handling.
