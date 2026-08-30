@@ -32,7 +32,7 @@ test("preview applies trim, move, split, caption, volume and overlay operations 
     { type: "split_clip", clipId: "v2", at: 1, newClipId: "v2b" },
     { type: "update_caption", clipId: "c1", text: "new caption" },
     { type: "set_volume", clipId: "m1", volume: 0.4 },
-    { type: "add_text_overlay", text: "Hook", start: 1, duration: 2 },
+    { type: "add_text_overlay", id: "ai-overlay-1", text: "Hook", start: 1, duration: 2 },
   ];
   const original = JSON.stringify(timeline);
   const result = previewEditorOperations(timeline, operations);
