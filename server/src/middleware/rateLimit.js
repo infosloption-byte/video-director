@@ -32,6 +32,9 @@ function policyFor(req) {
   if (/^(?:\/[^/]+)?\/projects\/[^/]+\/editor\/render$/.test(path) && method === "POST") {
     return { windowMs: numberEnv("EDITOR_RENDER_RATE_WINDOW_MS", 10 * 60 * 1000), max: numberEnv("EDITOR_RENDER_RATE_LIMIT", 6) };
   }
+  if (/^(?:\/[^/]+)?\/projects\/[^/]+\/editor\/ai\/suggest$/.test(path) && method === "POST") {
+    return { windowMs: numberEnv("EDITOR_AI_RATE_WINDOW_MS", 10 * 60 * 1000), max: numberEnv("EDITOR_AI_RATE_LIMIT", 12) };
+  }
   return null;
 }
 
