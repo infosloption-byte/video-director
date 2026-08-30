@@ -8,3 +8,5 @@
 .editor-state span { max-width: 560px; }
 .editor-state__actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
 .editor-state--error { border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: 18px; background: var(--surface-soft); }
+
+.editor-media-actions{display:grid;gap:8px;margin-top:14px}.editor-media-actions .btn{width:100%;justify-content:center}.editor-media-actions .editor-add-music{margin-top:0}

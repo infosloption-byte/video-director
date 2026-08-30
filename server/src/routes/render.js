@@ -73,6 +73,28 @@ router.post("/projects/:id/render", async (req, res) => {
   }
 });
 
+router.post("/projects/:id/render/cancel", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true, status: true } });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    const job = await getRenderQueue().getJob(project.id);
+    if (!job) return res.status(404).json({ error: "No render job is queued for this project." });
+    const state = await job.getState();
+    if (["waiting", "delayed", "prioritized"].includes(state)) {
+      await job.remove();
+      await prisma.project.update({ where: { id: project.id }, data: { status: "finalize" } });
+      return res.json({ projectId: project.id, status: "cancelled", message: "Queued render cancelled." });
+    }
+    if (state === "active") {
+      return res.status(409).json({ error: "This render is already encoding and cannot be safely cancelled by the queue. Wait for it to finish or restart the dedicated render worker.", code: "RENDER_ACTIVE" });
+    }
+    return res.status(409).json({ error: `Render cannot be cancelled from state ${state}.`, status: state });
+  } catch (error) {
+    console.error(`POST /api/projects/${req.params.id}/render/cancel failed:`, error);
+    res.status(503).json({ error: error.message || "Render cancellation is unavailable." });
+  }
+});
+
 router.get("/projects/:id/render-status", async (req, res) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true, status: true, renderUrl: true } });
