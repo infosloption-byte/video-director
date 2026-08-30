@@ -46,7 +46,8 @@ export async function enqueueRender(projectId) {
     jobId: projectId,
     removeOnComplete: { count: 20 },
     removeOnFail: { count: 50 },
-    attempts: 1,
+    attempts: 2,
+    backoff: { type: "exponential", delay: 3000 },
   });
 }
 
