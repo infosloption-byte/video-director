@@ -40,7 +40,7 @@ export default function EditorRenderPage() {
     return data;
   }, [id]);
 
-  const poll = useCallback(async () => {
+  async function poll() {
     try {
       const data = await fetchStatus();
       const nextStatus = applyStatus(data);
@@ -53,7 +53,7 @@ export default function EditorRenderPage() {
       setError(pollError.message || "Unable to read render status.");
       setBusy(false);
     }
-  }, [applyStatus, fetchStatus]);
+  }
 
   useEffect(() => () => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
