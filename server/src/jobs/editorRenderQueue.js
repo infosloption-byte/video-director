@@ -102,9 +102,15 @@ export async function startEditorRenderWorker() {
   worker.on("completed", (job) => console.log(`[editor-render] Job ${job.id} completed.`));
   worker.on("failed", async (job, error) => {
     console.error(`[editor-render] Job ${job?.id || "unknown"} failed:`, error);
-    if (job?.data?.projectId) {
-      await prisma.projectEditor.update({ where: { projectId: job.data.projectId }, data: { renderStatus: "failed", renderVersion: Number(job.data.version), renderHash: String(job.data.renderHash), renderError: error.message || "Editor render failed." } }).catch(() => {});
+    if (!job?.data?.projectId) return;
+    // Do not publish a terminal failure while BullMQ still has retry attempts.
+    const attemptsMade = Number(job.attemptsMade || 0);
+    const attempts = Number(job.opts?.attempts || 1);
+    if (attemptsMade < attempts) {
+      console.warn(`[editor-render] Job ${job.id} will retry (${attemptsMade}/${attempts}).`);
+      return;
     }
+    await prisma.projectEditor.update({ where: { projectId: job.data.projectId }, data: { renderStatus: "failed", renderVersion: Number(job.data.version), renderHash: String(job.data.renderHash), renderError: error.message || "Editor render failed." } }).catch(() => {});
   });
   worker.on("stalled", (jobId) => console.warn(`[editor-render] Job ${jobId} stalled; worker will attempt recovery.`));
   worker.on("error", (error) => console.error("[editor-render] Worker error:", error));
