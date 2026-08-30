@@ -104,9 +104,16 @@ export async function startRenderWorker() {
   worker.on("completed", (job) => console.log(`[render] Job ${job.id} completed.`));
   worker.on("failed", async (job, error) => {
     console.error(`[render] Job ${job?.id || "unknown"} failed:`, error);
-    if (job?.data?.projectId) {
-      await prisma.project.update({ where: { id: job.data.projectId }, data: { status: "finalize" } }).catch(() => {});
+    if (!job?.data?.projectId) return;
+    // BullMQ emits "failed" for each failed attempt. Keep the project in rendering
+    // while retries remain; only restore the project state after the final attempt.
+    const attemptsMade = Number(job.attemptsMade || 0);
+    const attempts = Number(job.opts?.attempts || 1);
+    if (attemptsMade < attempts) {
+      console.warn(`[render] Job ${job.id} will retry (${attemptsMade}/${attempts}).`);
+      return;
     }
+    await prisma.project.update({ where: { id: job.data.projectId }, data: { status: "finalize" } }).catch(() => {});
   });
   worker.on("stalled", (jobId) => console.warn(`[render] Job ${jobId} stalled; worker will attempt recovery.`));
   worker.on("error", (error) => console.error("[render] Worker error:", error));
