@@ -1,4 +1,4 @@
-const OPERATION_TYPES = new Set(["trim_clip", "move_clip", "split_clip", "delete_clip", "update_caption", "set_volume", "add_text_overlay"]);
+const OPERATION_TYPES = new Set(["trim_clip", "move_clip", "split_clip", "delete_clip", "update_caption", "set_volume", "add_text_overlay", "replace_broll", "regenerate_narration"]);
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -71,6 +71,22 @@ function applyOperation(inputTimeline, operation) {
     if (track.kind !== "audio" && clip.type !== "audio") throw new Error("set_volume requires an audio clip.");
     return replaceClip(timeline, track.id, index, { ...clip, volume: clamp(finite(operation.volume, clip.volume ?? 1), 0, 1) });
   }
+  if (type === "replace_broll") {
+    if (track.kind !== "video" && clip.type !== "video") throw new Error("replace_broll requires a video clip.");
+    const assetId = String(operation.assetId || "").trim();
+    const sourceId = String(operation.sourceId || clip.sourceId || "").trim();
+    if (!assetId) throw new Error("replace_broll requires an assetId.");
+    if (!sourceId) throw new Error("replace_broll requires a sourceId.");
+    const src = String(operation.src || "").trim();
+    if (!src) throw new Error("replace_broll requires a playable asset URL.");
+    return replaceClip(timeline, track.id, index, { ...clip, assetId, sourceId, src, thumbnailUrl: String(operation.thumbnailUrl || clip.thumbnailUrl || "") || null });
+  }
+  if (type === "regenerate_narration") {
+    if (track.kind !== "audio" && clip.type !== "audio") throw new Error("regenerate_narration requires an audio clip.");
+    const text = String(operation.text || "").trim().slice(0, 2000);
+    if (!text) throw new Error("Narration text is required.");
+    return replaceClip(timeline, track.id, index, { ...clip, suggestedText: text, narrationStatus: "regeneration-suggested" });
+  }
   if (type === "split_clip") {
     const splitAt = clamp(finite(operation.at, finite(clip.duration) / 2), 0.05, Math.max(0.05, finite(clip.duration) - 0.05));
     if (splitAt >= finite(clip.duration)) throw new Error("Split point must be inside the clip.");
@@ -91,6 +107,8 @@ export function validateEditorOperations(operations) {
     const type = String(operation.type || "");
     if (!OPERATION_TYPES.has(type)) throw new Error(`Unsupported editor operation: ${type || "unknown"}.`);
     if (type === "add_text_overlay" && !String(operation.id || "").trim()) throw new Error(`Operation ${index + 1} requires a stable id.`);
+    if (type === "replace_broll" && (!String(operation.assetId || "").trim() || !String(operation.src || "").trim())) throw new Error(`Operation ${index + 1} requires a valid B-roll asset.`);
+    if (type === "regenerate_narration" && !String(operation.text || "").trim()) throw new Error(`Operation ${index + 1} requires narration text.`);
     return { ...operation, type };
   });
 }
