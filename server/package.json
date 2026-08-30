@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "test": "node --test test/**/*.test.js",
+    "test:watch": "node --test --watch test/**/*.test.js",
     "signals:scrape": "node src/jobs/scrapeSignals.js",
     "render:worker": "node src/jobs/renderQueue.js",
     "editor-render:worker": "node src/jobs/editorRenderQueue.js",
