@@ -6,6 +6,8 @@ import projectsRouter from "./routes/projects.js";
 import projectDeleteRouter from "./routes/projectDelete.js";
 import editorRouter from "./routes/editor.js";
 import productivityRouter from "./routes/productivity.js";
+import reviewRouter from "./routes/review.js";
+import templatesRouter from "./routes/templates.js";
 import mediaRouter from "./routes/media.js";
 import mediaProxyRouter from "./routes/mediaProxy.js";
 import renderMediaRouter from "./routes/renderMedia.js";
@@ -28,6 +30,7 @@ app.use(sameOriginProtection);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
 app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
+app.use("/api", reviewRouter);
 
 app.use("/api/projects", requireAuth, (req, _res, next) => {
   const userId = getRequestUserId(req);
@@ -35,6 +38,7 @@ app.use("/api/projects", requireAuth, (req, _res, next) => {
   if (req.body && typeof req.body === "object") req.body.userId = userId;
   next();
 }, requireProjectOwner, expensiveOperationRateLimit);
+app.use("/api/templates", requireAuth, templatesRouter);
 app.use("/api/projects", projectDeleteRouter);
 app.use("/api/projects", editorRouter);
 app.use("/api/projects", productivityRouter);
