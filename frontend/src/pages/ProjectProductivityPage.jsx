@@ -24,6 +24,9 @@ export default function ProjectProductivityPage() {
     }
   }, [id]);
 
+  // This effect synchronizes the page with external project APIs.
+  // oxlint's set-state-in-effect rule is not applicable to this async boundary.
+  // oxlint-disable-next-line react(set-state-in-effect)
   useEffect(() => { void refresh(); }, [refresh]);
 
   async function snapshot() { setBusy(true); setError(""); try { await api(`/api/projects/${id}/versions`, { method: "POST", body: JSON.stringify({ label }) }); setLabel(""); setMessage("Version snapshot created."); await refresh(); } catch (e) { setError(e.message); } finally { setBusy(false); } }
