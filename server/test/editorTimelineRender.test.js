@@ -38,7 +38,7 @@ test("browser-style trim/split/reorder fixture remains renderable", () => {
 test("Remotion editor composition derives 30fps 1080x1920 frame metadata", async () => {
   const composition = await source("../src/remotion/EditorComposition.jsx");
   assert.match(composition, /durationInFrames: Math\.max\(1, Math\.ceil\(duration \* fps\)\)/);
-  assert.match(composition, /fps,\n    width: 1080,\n    height: 1920/);
+  assert.match(composition, /fps,\r?\n\s+width: 1080,\r?\n\s+height: 1920/);
   const fps = 30;
   const durationInFrames = Math.ceil(fixture.duration * fps);
   assert.equal(durationInFrames, 300);
