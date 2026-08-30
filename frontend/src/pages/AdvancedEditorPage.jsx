@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
 import EditorWaveform from "../components/EditorWaveform";
@@ -115,6 +115,7 @@ function getVisualPreviewStyle(clip, playhead) {
 
 export default function AdvancedEditorPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [project, setProject] = useState(null);
   const [timeline, setTimeline] = useState(null);
@@ -494,7 +495,7 @@ export default function AdvancedEditorPage() {
             {selected.type === "overlay" && <><label>Overlay text<textarea rows="3" value={selected.text || ""} onChange={(event) => updateSelected("text", event.target.value)} /></label><label>Position<select value={selected.position || "center"} onChange={(event) => updateSelected("position", event.target.value)}><option value="top">Top</option><option value="center">Center</option><option value="bottom">Bottom</option></select></label></>}
             <div className="editor-form__actions"><button className="btn btn-ghost" onClick={splitSelected}>Split</button><button className="btn btn-danger" onClick={deleteSelected} disabled={selected.trackId === "narration"}>Delete</button></div>
           </div>}
-          <button className="btn btn-ghost editor-add-music" onClick={addMusicClip}>+ Add music clip</button>
+          <div className="editor-media-actions"><button className="btn btn-cream" type="button" onClick={() => navigate(`/editor/${id}/media?kind=audio`)}>Browse music library</button><button className="btn btn-ghost editor-add-music" onClick={addMusicClip}>+ Empty music clip</button></div>
         </aside>
       </section>
 
