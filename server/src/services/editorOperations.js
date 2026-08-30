@@ -48,6 +48,14 @@ function applyOperation(inputTimeline, operation) {
   const found = findClip(timeline, operation.clipId);
   if (!found) throw new Error(`Editor clip not found: ${operation.clipId || "unknown"}.`);
   const { track, index, clip } = found;
+
+  if (type === "regenerate_narration") {
+    if (track.kind !== "audio" || clip.id.startsWith("music-")) throw new Error("regenerate_narration requires a narration audio clip.");
+    const text = String(operation.text || "").trim().slice(0, 2000);
+    if (!text) throw new Error("Narration text is required.");
+    return replaceClip(timeline, track.id, index, { ...clip, suggestedText: text, narrationStatus: "regeneration-suggested" });
+  }
+
   assertMutable(track);
 
   if (type === "delete_clip") {
@@ -80,12 +88,6 @@ function applyOperation(inputTimeline, operation) {
     const src = String(operation.src || "").trim();
     if (!src) throw new Error("replace_broll requires a playable asset URL.");
     return replaceClip(timeline, track.id, index, { ...clip, assetId, sourceId, src, thumbnailUrl: String(operation.thumbnailUrl || clip.thumbnailUrl || "") || null });
-  }
-  if (type === "regenerate_narration") {
-    if (track.kind !== "audio" && clip.type !== "audio") throw new Error("regenerate_narration requires an audio clip.");
-    const text = String(operation.text || "").trim().slice(0, 2000);
-    if (!text) throw new Error("Narration text is required.");
-    return replaceClip(timeline, track.id, index, { ...clip, suggestedText: text, narrationStatus: "regeneration-suggested" });
   }
   if (type === "split_clip") {
     const splitAt = clamp(finite(operation.at, finite(clip.duration) / 2), 0.05, Math.max(0.05, finite(clip.duration) - 0.05));
