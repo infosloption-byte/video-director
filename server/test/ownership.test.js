@@ -13,22 +13,20 @@ test("project ownership middleware compares the project owner with the authentic
 
 test("render routes are protected by project ownership middleware", async () => {
   const routes = await source("../src/routes/render.js");
-  assert.match(routes, /requireProjectOwner/);
+  assert.match(routes, /router\.use\("\/projects\/:id",\s*requireProjectOwner\)/);
 });
 
 test("editor render routes are protected by project ownership middleware", async () => {
   const routes = await source("../src/routes/editorRender.js");
-  assert.match(routes, /requireProjectOwner/);
+  assert.match(routes, /router\.use\("\/projects\/:id",\s*requireProjectOwner\)/);
 });
 
-test("render cancellation endpoint is not allowed to bypass ownership checks", async () => {
+test("render cancellation is inside the protected project route scope", async () => {
   const routes = await source("../src/routes/render.js");
-  assert.match(routes, /render\/cancel/);
-  assert.match(routes, /requireProjectOwner/);
+  assert.match(routes, /router\.use\("\/projects\/:id",\s*requireProjectOwner\)[\s\S]*router\.post\("\/projects\/:id\/render\/cancel"/);
 });
 
-test("editor render cancellation endpoint is not allowed to bypass ownership checks", async () => {
+test("editor render cancellation is inside the protected project route scope", async () => {
   const routes = await source("../src/routes/editorRender.js");
-  assert.match(routes, /editor\/render\/cancel/);
-  assert.match(routes, /requireProjectOwner/);
+  assert.match(routes, /router\.use\("\/projects\/:id",\s*requireProjectOwner\)[\s\S]*router\.post\("\/projects\/:id\/editor\/render\/cancel"/);
 });
