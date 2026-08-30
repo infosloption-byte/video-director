@@ -20,10 +20,7 @@ function recalculateDuration(timeline) {
 function replaceClip(timeline, trackId, index, clip) {
   return { ...timeline, tracks: timeline.tracks.map((track) => track.id === trackId ? { ...track, clips: Object.assign([...(track.clips || [])], { [index]: clip }) } : track) };
 }
-
-function assertMutable(track) {
-  if (track.locked) throw new Error("Locked editor tracks cannot be mutated.");
-}
+function assertMutable(track) { if (track.locked) throw new Error("Locked editor tracks cannot be mutated."); }
 
 function applyOperation(inputTimeline, operation) {
   const timeline = clone(inputTimeline);
@@ -50,7 +47,7 @@ function applyOperation(inputTimeline, operation) {
   const { track, index, clip } = found;
 
   if (type === "regenerate_narration") {
-    if (track.kind !== "audio" || clip.id.startsWith("music-")) throw new Error("regenerate_narration requires a narration audio clip.");
+    if (track.id !== "narration" || clip.type !== "audio") throw new Error("regenerate_narration requires a narration audio clip.");
     const text = String(operation.text || "").trim().slice(0, 2000);
     if (!text) throw new Error("Narration text is required.");
     return replaceClip(timeline, track.id, index, { ...clip, suggestedText: text, narrationStatus: "regeneration-suggested" });
@@ -68,9 +65,7 @@ function applyOperation(inputTimeline, operation) {
     const offsetDelta = Math.max(0, finite(operation.offsetDelta));
     return recalculateDuration(replaceClip(timeline, track.id, index, { ...clip, start: Math.max(0, finite(operation.start, clip.start)), duration, offset: Math.max(0, finite(clip.offset) + offsetDelta) }));
   }
-  if (type === "move_clip") {
-    return recalculateDuration(replaceClip(timeline, track.id, index, { ...clip, start: Math.max(0, finite(operation.start, clip.start)) }));
-  }
+  if (type === "move_clip") return recalculateDuration(replaceClip(timeline, track.id, index, { ...clip, start: Math.max(0, finite(operation.start, clip.start)) }));
   if (type === "update_caption") {
     if (track.kind !== "caption" && clip.type !== "caption") throw new Error("update_caption requires a caption clip.");
     return replaceClip(timeline, track.id, index, { ...clip, text: String(operation.text ?? clip.text ?? "").slice(0, 500) });
@@ -83,10 +78,8 @@ function applyOperation(inputTimeline, operation) {
     if (track.kind !== "video" && clip.type !== "video") throw new Error("replace_broll requires a video clip.");
     const assetId = String(operation.assetId || "").trim();
     const sourceId = String(operation.sourceId || clip.sourceId || "").trim();
-    if (!assetId) throw new Error("replace_broll requires an assetId.");
-    if (!sourceId) throw new Error("replace_broll requires a sourceId.");
     const src = String(operation.src || "").trim();
-    if (!src) throw new Error("replace_broll requires a playable asset URL.");
+    if (!assetId || !sourceId || !src) throw new Error("replace_broll requires a valid project asset.");
     return replaceClip(timeline, track.id, index, { ...clip, assetId, sourceId, src, thumbnailUrl: String(operation.thumbnailUrl || clip.thumbnailUrl || "") || null });
   }
   if (type === "split_clip") {
