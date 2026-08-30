@@ -5,6 +5,7 @@ import signalsRouter from "./routes/signals.js";
 import projectsRouter from "./routes/projects.js";
 import projectDeleteRouter from "./routes/projectDelete.js";
 import editorRouter from "./routes/editor.js";
+import productivityRouter from "./routes/productivity.js";
 import mediaRouter from "./routes/media.js";
 import mediaProxyRouter from "./routes/mediaProxy.js";
 import renderMediaRouter from "./routes/renderMedia.js";
@@ -28,8 +29,6 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
 app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
 
-// Bind every project request to the authenticated user. The temporary local-user
-// fallback remains available only when DEV_AUTH_FALLBACK=true in development.
 app.use("/api/projects", requireAuth, (req, _res, next) => {
   const userId = getRequestUserId(req);
   if (userId) req.query.userId = userId;
@@ -38,26 +37,15 @@ app.use("/api/projects", requireAuth, (req, _res, next) => {
 }, requireProjectOwner, expensiveOperationRateLimit);
 app.use("/api/projects", projectDeleteRouter);
 app.use("/api/projects", editorRouter);
+app.use("/api/projects", productivityRouter);
 app.use("/api/projects", mediaRouter);
 app.use("/api/projects", mediaProxyRouter);
 app.use("/api/projects", projectsRouter);
 
-// Editor Remotion workers resolve uploaded/project media using a server-only token.
-// Browser requests without the token still fall back to authenticated ownership checks.
 app.use("/api/render-media", requireRenderAssetAccess, renderMediaRouter);
-app.use(
-  "/api/render-assets",
-  requireRenderAssetAccess,
-  express.static(path.resolve(process.cwd(), "storage", "render-assets"), { fallthrough: false, maxAge: "1h" }),
-);
-app.use(
-  "/api/audio",
-  requireRenderAssetAccess,
-  express.static(path.resolve(process.cwd(), "storage", "audio"), { fallthrough: false, maxAge: "1h" }),
-);
-for (const [route, directory] of [["/api/render-files", "renders"], ["/api/export-files", "exports"]]) {
-  app.use(route, requireAuth, requireStoredProjectOwner, express.static(path.resolve(process.cwd(), "storage", directory), { fallthrough: false, maxAge: "1h" }));
-}
+app.use("/api/render-assets", requireRenderAssetAccess, express.static(path.resolve(process.cwd(), "storage", "render-assets"), { fallthrough: false, maxAge: "1h" }));
+app.use("/api/audio", requireRenderAssetAccess, express.static(path.resolve(process.cwd(), "storage", "audio"), { fallthrough: false, maxAge: "1h" }));
+for (const [route, directory] of [["/api/render-files", "renders"], ["/api/export-files", "exports"]]) app.use(route, requireAuth, requireStoredProjectOwner, express.static(path.resolve(process.cwd(), "storage", directory), { fallthrough: false, maxAge: "1h" }));
 app.use("/api/scenes/:sceneId", requireAuth, requireSceneOwner);
 app.use("/api", requireAuth, expensiveOperationRateLimit, editorRenderRouter);
 app.use("/api", requireAuth, expensiveOperationRateLimit, renderRouter);
