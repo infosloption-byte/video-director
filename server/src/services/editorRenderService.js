@@ -30,7 +30,7 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function collectMediaIds(timeline) {
+export function collectMediaIds(timeline) {
   const ids = new Set();
   for (const track of timeline?.tracks || []) {
     for (const clip of track.clips || []) {
@@ -40,7 +40,7 @@ function collectMediaIds(timeline) {
   return [...ids];
 }
 
-function timelineHasAudio(timeline) {
+export function timelineHasAudio(timeline) {
   return (timeline?.tracks || [])
     .filter((track) => track.kind === "audio" && !track.muted)
     .some((track) => (track.clips || []).some((clip) => clip.src || clip.mediaId));
@@ -84,7 +84,7 @@ function resolveTimeline(timeline, mediaById, projectId) {
   };
 }
 
-function validateTimeline(timeline) {
+export function validateTimeline(timeline) {
   if (!timeline || typeof timeline !== "object") throw new Error("Editor timeline is missing.");
   const fps = Number(timeline.fps || 30);
   if (fps !== 30) throw new Error("Editor renders currently require a 30fps timeline.");
@@ -112,156 +112,47 @@ async function verifyMedia(projectId, ids) {
   return byId;
 }
 
-function renderOutputPath(projectId, version, hash) {
-  return path.join(RENDER_ROOT, projectId, "editor", `${version}-${hash}.mp4`);
-}
-
-function renderUrl(projectId, version, hash) {
-  return `/api/render-files/${encodeURIComponent(projectId)}/editor/${version}-${hash}.mp4`;
-}
-
-function report(onProgress, stage, stageProgress, message, progress, detail = {}) {
-  if (typeof onProgress !== "function") return;
-  void onProgress({
-    progress: Math.round(clamp(Number(progress || 0), 0, 100)),
-    stage,
-    stageProgress: Math.round(clamp(Number(stageProgress || 0), 0, 100)),
-    message,
-    ...detail,
-  });
-}
+function renderOutputPath(projectId, version, hash) { return path.join(RENDER_ROOT, projectId, "editor", `${version}-${hash}.mp4`); }
+function renderUrl(projectId, version, hash) { return `/api/render-files/${encodeURIComponent(projectId)}/editor/${version}-${hash}.mp4`; }
+function report(onProgress, stage, stageProgress, message, progress, detail = {}) { if (typeof onProgress !== "function") return; void onProgress({ progress: Math.round(clamp(Number(progress || 0), 0, 100)), stage, stageProgress: Math.round(clamp(Number(stageProgress || 0), 0, 100)), message, ...detail }); }
 
 export async function renderEditorProject(projectId, version, expectedHash, { onProgress } = {}) {
   if (!getRenderToken()) throw new Error("RENDER_ASSET_TOKEN is not configured. Add it to server/.env before editor rendering.");
-
   const editor = await prisma.projectEditor.findUnique({ where: { projectId } });
   if (!editor) throw new Error("Advanced Editor state not found.");
   if (editor.version !== Number(version)) throw new Error("Editor changed before rendering. Reload and render the latest version.");
   const actualHash = hashTimeline(editor.version, editor.timeline);
   if (actualHash !== expectedHash) throw new Error("Editor timeline hash mismatch. Reload and render again.");
-
   const duration = validateTimeline(editor.timeline);
   const mediaIds = collectMediaIds(editor.timeline);
   const mediaById = await verifyMedia(projectId, mediaIds);
   const timeline = resolveTimeline(editor.timeline, mediaById, projectId);
   const inputProps = { timeline };
-
-  report(onProgress, "preflight", 100, "Editor timeline validated", 8, {
-    substeps: [
-      { id: "timeline", label: "Validate canonical timeline", progress: 100 },
-      { id: "media", label: `Validate ${mediaIds.length} referenced media assets`, progress: 100 },
-      { id: "version", label: `Lock editor version ${editor.version}`, progress: 100 },
-    ],
-  });
-
-  report(onProgress, "bundle", 15, "Bundling the editor composition", 12, {
-    substeps: [
-      { id: "entry", label: "Resolve editor composition", progress: 100 },
-      { id: "bundle", label: "Build Remotion bundle", progress: 15 },
-    ],
-  });
+  report(onProgress, "preflight", 100, "Editor timeline validated", 8, { substeps: [{ id: "timeline", label: "Validate canonical timeline", progress: 100 }, { id: "media", label: `Validate ${mediaIds.length} referenced media assets`, progress: 100 }, { id: "version", label: `Lock editor version ${editor.version}`, progress: 100 }] });
+  report(onProgress, "bundle", 15, "Bundling the editor composition", 12, { substeps: [{ id: "entry", label: "Resolve editor composition", progress: 100 }, { id: "bundle", label: "Build Remotion bundle", progress: 15 }] });
   const serveUrl = await getBundle();
-  report(onProgress, "bundle", 100, "Editor composition bundle ready", 20, {
-    substeps: [
-      { id: "entry", label: "Resolve editor composition", progress: 100 },
-      { id: "bundle", label: "Build Remotion bundle", progress: 100 },
-    ],
-  });
-
+  report(onProgress, "bundle", 100, "Editor composition bundle ready", 20, { substeps: [{ id: "entry", label: "Resolve editor composition", progress: 100 }, { id: "bundle", label: "Build Remotion bundle", progress: 100 }] });
   const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps });
-  report(onProgress, "composition", 100, `Prepared ${duration.toFixed(1)}s editor timeline`, 25, {
-    substeps: [
-      { id: "select", label: "Select HelixEditorReel", progress: 100 },
-      { id: "timeline", label: "Resolve canonical timeline", progress: 100 },
-    ],
-  });
-
+  report(onProgress, "composition", 100, `Prepared ${duration.toFixed(1)}s editor timeline`, 25, { substeps: [{ id: "select", label: "Select HelixEditorReel", progress: 100 }, { id: "timeline", label: "Resolve canonical timeline", progress: 100 }] });
   const outputPath = renderOutputPath(projectId, editor.version, expectedHash);
   await mkdir(path.dirname(outputPath), { recursive: true });
   const output = { renderUrl: renderUrl(projectId, editor.version, expectedHash), outputPath, durationSeconds: duration };
-
-  report(onProgress, "rendering", 0, `Rendering editor version ${editor.version}`, 25, {
-    substeps: [
-      { id: "video", label: "Render video timeline", progress: 0 },
-      { id: "audio", label: "Mix narration and music", progress: 0 },
-      { id: "captions", label: "Render captions and overlays", progress: 0 },
-      { id: "encode", label: "Encode H.264 / AAC", progress: 0 },
-    ],
-  });
-
+  report(onProgress, "rendering", 0, `Rendering editor version ${editor.version}`, 25, { substeps: [{ id: "video", label: "Render video timeline", progress: 0 }, { id: "audio", label: "Mix narration and music", progress: 0 }, { id: "captions", label: "Render captions and overlays", progress: 0 }, { id: "encode", label: "Encode H.264 / AAC", progress: 0 }] });
   try {
-    await renderMedia({
-      composition,
-      serveUrl,
-      codec: "h264",
-      audioCodec: "aac",
-      outputLocation: outputPath,
-      inputProps,
-      chromiumOptions: { disableWebSecurity: true },
-      onProgress: ({ overallProgress = 0 }) => {
-        const stageProgress = Number(overallProgress) * 100;
-        report(onProgress, "rendering", stageProgress, `Rendering editor timeline · ${Math.round(stageProgress)}%`, 25 + Number(overallProgress) * 70, {
-          substeps: [
-            { id: "video", label: "Render video timeline", progress: stageProgress },
-            { id: "audio", label: "Mix narration and music", progress: stageProgress },
-            { id: "captions", label: "Render captions and overlays", progress: stageProgress },
-            { id: "encode", label: "Encode H.264 / AAC", progress: stageProgress },
-          ],
-        });
-      },
-    });
-
+    await renderMedia({ composition, serveUrl, codec: "h264", audioCodec: "aac", outputLocation: outputPath, inputProps, chromiumOptions: { disableWebSecurity: true }, onProgress: ({ overallProgress = 0 }) => { const stageProgress = Number(overallProgress) * 100; report(onProgress, "rendering", stageProgress, `Rendering editor timeline · ${Math.round(stageProgress)}%`, 25 + Number(overallProgress) * 70, { substeps: [{ id: "video", label: "Render video timeline", progress: stageProgress }, { id: "audio", label: "Mix narration and music", progress: stageProgress }, { id: "captions", label: "Render captions and overlays", progress: stageProgress }, { id: "encode", label: "Encode H.264 / AAC", progress: stageProgress }] }); } });
     const current = await prisma.projectEditor.findUnique({ where: { projectId }, select: { version: true, timeline: true } });
-    if (!current || current.version !== editor.version || hashTimeline(current.version, current.timeline) !== expectedHash) {
-      await rm(outputPath, { force: true }).catch(() => {});
-      throw new Error("Editor changed while rendering. The completed file was discarded; render the latest version again.");
-    }
-
+    if (!current || current.version !== editor.version || hashTimeline(current.version, current.timeline) !== expectedHash) { await rm(outputPath, { force: true }).catch(() => {}); throw new Error("Editor changed while rendering. The completed file was discarded; render the latest version again."); }
     await access(outputPath);
     const rendered = await probeRenderedMedia(outputPath);
-    if (Math.abs(rendered.durationSeconds - duration) > 0.25) {
-      await rm(outputPath, { force: true }).catch(() => {});
-      throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(2)}s differs from editor timeline ${duration.toFixed(2)}s.`);
-    }
-    if (timelineHasAudio(editor.timeline) && !rendered.hasAudio) {
-      await rm(outputPath, { force: true }).catch(() => {});
-      throw new Error("Editor timeline contains audio clips, but the rendered MP4 has no audio stream.");
-    }
-
-    await prisma.projectEditor.update({
-      where: { projectId },
-      data: {
-        renderStatus: "ready",
-        renderVersion: editor.version,
-        renderHash: expectedHash,
-        renderUrl: output.renderUrl,
-        renderError: null,
-        renderedAt: new Date(),
-      },
-    });
-
-    report(onProgress, "finalizing", 100, "Editor render complete", 100, {
-      substeps: [
-        { id: "write", label: "Write MP4 file", progress: 100 },
-        { id: "verify", label: "Verify 1080x1920 MP4 and duration", progress: 100 },
-        { id: "persist", label: "Persist render version", progress: 100 },
-      ],
-      renderVersion: editor.version,
-      renderHash: expectedHash,
-      renderUrl: output.renderUrl,
-      durationSeconds: rendered.durationSeconds,
-      hasAudio: rendered.hasAudio,
-    });
+    if (Math.abs(rendered.durationSeconds - duration) > 0.25) { await rm(outputPath, { force: true }).catch(() => {}); throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(2)}s differs from editor timeline ${duration.toFixed(2)}s.`); }
+    if (timelineHasAudio(editor.timeline) && !rendered.hasAudio) { await rm(outputPath, { force: true }).catch(() => {}); throw new Error("Editor timeline contains audio clips, but the rendered MP4 has no audio stream."); }
+    await prisma.projectEditor.update({ where: { projectId }, data: { renderStatus: "ready", renderVersion: editor.version, renderHash: expectedHash, renderUrl: output.renderUrl, renderError: null, renderedAt: new Date() } });
+    report(onProgress, "finalizing", 100, "Editor render complete", 100, { substeps: [{ id: "write", label: "Write MP4 file", progress: 100 }, { id: "verify", label: "Verify 1080x1920 MP4 and duration", progress: 100 }, { id: "persist", label: "Persist render version", progress: 100 }], renderVersion: editor.version, renderHash: expectedHash, renderUrl: output.renderUrl, durationSeconds: rendered.durationSeconds, hasAudio: rendered.hasAudio });
     return { ...output, durationSeconds: rendered.durationSeconds };
   } catch (error) {
-    await prisma.projectEditor.update({
-      where: { projectId },
-      data: { renderStatus: "failed", renderVersion: editor.version, renderHash: expectedHash, renderError: error.message || "Editor render failed." },
-    }).catch(() => {});
+    await prisma.projectEditor.update({ where: { projectId }, data: { renderStatus: "failed", renderVersion: editor.version, renderHash: expectedHash, renderError: error.message || "Editor render failed." } }).catch(() => {});
     throw error;
   }
 }
 
-export function getEditorTimelineHash(version, timeline) {
-  return hashTimeline(version, timeline);
-}
+export function getEditorTimelineHash(version, timeline) { return hashTimeline(version, timeline); }
