@@ -9,206 +9,330 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum SignalOrigin { suggested search }
-enum SourceType { rss hacker_news arxiv semantic_scholar tavily brave }
-enum SourceReliability { peer_reviewed ai_search general_web }
-enum SignalStatus { new used archived }
+enum SignalOrigin {
+  suggested
+  search
+}
+
+enum SourceType {
+  rss
+  hacker_news
+  arxiv
+  semantic_scholar
+  tavily
+  brave
+}
+
+enum SourceReliability {
+  peer_reviewed
+  ai_search
+  general_web
+}
+
+enum SignalStatus {
+  new
+  used
+  archived
+}
 
 model Signal {
-  id String @id @default(uuid())
-  origin SignalOrigin @default(suggested)
-  sourceType SourceType @map("source_type")
-  sourceReliability SourceReliability @map("source_reliability")
-  searchQuery String? @map("search_query")
-  rank Int?
-  category String
-  heatPct String? @map("heat_pct")
-  heatScore Decimal? @map("heat_score") @db.Decimal(6, 2)
-  title String
-  description String? @db.Text
-  whyReasoning String @map("why_reasoning") @db.Text
-  sourceName String? @map("source_name")
-  sourceUrl String? @map("source_url") @db.Text
-  rawContent String? @map("raw_content") @db.LongText
-  status SignalStatus @default(new)
-  scrapedAt DateTime @default(now()) @map("scraped_at")
-  projects Project[]
+  id                 String             @id @default(uuid())
+  origin             SignalOrigin       @default(suggested)
+  sourceType         SourceType         @map("source_type")
+  sourceReliability  SourceReliability  @map("source_reliability")
+  searchQuery        String?            @map("search_query")
+  rank               Int?
+  category           String
+  heatPct            String?            @map("heat_pct")
+  heatScore          Decimal?           @map("heat_score") @db.Decimal(6, 2)
+  title              String
+  description        String?            @db.Text
+  whyReasoning       String             @map("why_reasoning") @db.Text
+  sourceName         String?            @map("source_name")
+  sourceUrl          String?            @map("source_url") @db.Text
+  rawContent         String?            @map("raw_content") @db.LongText
+  status             SignalStatus       @default(new)
+  scrapedAt          DateTime           @default(now()) @map("scraped_at")
+  projects           Project[]
+
   @@map("signals")
 }
 
-enum ProjectStatus { researching setup storyboard finalize rendering published }
+enum ProjectStatus {
+  researching
+  setup
+  storyboard
+  finalize
+  rendering
+  published
+}
+
 model Project {
-  id String @id @default(uuid())
-  userId String @map("user_id")
-  signalId String @map("signal_id")
-  title String?
-  researchSummary String? @map("research_summary") @db.Text
-  researchSources Json? @map("research_sources")
-  monetizationFlags Json? @map("monetization_flags")
-  scriptLengthSeconds Int? @map("script_length_seconds")
-  suggestedLengthSeconds Int? @map("suggested_length_seconds")
-  selectedFramework String? @map("selected_framework")
-  frameworkReasoning String? @map("framework_reasoning") @db.Text
-  suggestedFramework String? @map("suggested_framework")
-  tone String?
-  suggestedTone String? @map("suggested_tone")
-  audienceLevel String? @map("audience_level")
-  seoCaption String? @map("seo_caption") @db.Text
-  durationSeconds Decimal? @map("duration_seconds") @db.Decimal(5, 1)
-  cuts Int?
-  status ProjectStatus @default(researching)
-  renderUrl String? @map("render_url") @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  signal Signal @relation(fields: [signalId], references: [id])
-  scenes ProjectScene[]
-  exports ProjectExport[]
-  editor ProjectEditor?
-  media ProjectMedia[]
-  versions ProjectVersion[]
-  reviewLinks ProjectReviewLink[]
-  activities ProjectActivity[]
+  id                    String              @id @default(uuid())
+  userId                String              @map("user_id")
+  signalId              String              @map("signal_id")
+  title                 String?
+  researchSummary       String?             @map("research_summary") @db.Text
+  researchSources       Json?               @map("research_sources")
+  monetizationFlags     Json?               @map("monetization_flags")
+  scriptLengthSeconds   Int?                @map("script_length_seconds")
+  suggestedLengthSeconds Int?               @map("suggested_length_seconds")
+  selectedFramework     String?             @map("selected_framework")
+  frameworkReasoning    String?             @map("framework_reasoning") @db.Text
+  suggestedFramework    String?             @map("suggested_framework")
+  tone                  String?
+  suggestedTone         String?             @map("suggested_tone")
+  audienceLevel         String?             @map("audience_level")
+  seoCaption            String?             @map("seo_caption") @db.Text
+  durationSeconds       Decimal?            @map("duration_seconds") @db.Decimal(5, 1)
+  cuts                  Int?
+  status                ProjectStatus       @default(researching)
+  renderUrl             String?             @map("render_url") @db.Text
+  createdAt             DateTime            @default(now()) @map("created_at")
+  signal                Signal              @relation(fields: [signalId], references: [id])
+  scenes                ProjectScene[]
+  exports               ProjectExport[]
+  editor                ProjectEditor?
+  media                 ProjectMedia[]
+  versions              ProjectVersion[]
+  reviewLinks           ProjectReviewLink[]
+  activities            ProjectActivity[]
+
   @@map("projects")
 }
+
 model ProjectScene {
-  id String @id @default(uuid())
-  projectId String @map("project_id")
-  sceneOrder Int @map("scene_order")
-  title String?
-  spokenText String @map("spoken_text") @db.Text
-  durationSeconds Decimal? @map("duration_seconds") @db.Decimal(4, 1)
-  whyLine String? @map("why_line") @db.Text
-  whyPicture String? @map("why_picture") @db.Text
-  brollSearchTerm String? @map("broll_search_term")
-  audioUrl String? @map("audio_url") @db.Text
-  wordTimestamps Json? @map("word_timestamps")
-  project Project @relation(fields: [projectId], references: [id])
-  assets SceneAsset[]
+  id               String        @id @default(uuid())
+  projectId        String        @map("project_id")
+  sceneOrder       Int           @map("scene_order")
+  title            String?
+  spokenText       String        @map("spoken_text") @db.Text
+  durationSeconds  Decimal?      @map("duration_seconds") @db.Decimal(4, 1)
+  whyLine          String?       @map("why_line") @db.Text
+  whyPicture       String?       @map("why_picture") @db.Text
+  brollSearchTerm  String?       @map("broll_search_term")
+  audioUrl         String?       @map("audio_url") @db.Text
+  wordTimestamps   Json?         @map("word_timestamps")
+  project          Project       @relation(fields: [projectId], references: [id])
+  assets           SceneAsset[]
+
   @@map("project_scenes")
 }
+
 model SceneAsset {
-  id String @id @default(uuid())
-  sceneId String @map("scene_id")
-  videoUrl String @map("video_url") @db.Text
-  thumbnailUrl String @map("thumbnail_url") @db.Text
-  sortOrder Int @map("sort_order")
-  isSelected Boolean @default(false) @map("is_selected")
-  scene ProjectScene @relation(fields: [sceneId], references: [id])
+  id           String       @id @default(uuid())
+  sceneId      String       @map("scene_id")
+  videoUrl     String       @map("video_url") @db.Text
+  thumbnailUrl String       @map("thumbnail_url") @db.Text
+  sortOrder    Int          @map("sort_order")
+  isSelected   Boolean      @default(false) @map("is_selected")
+  scene        ProjectScene @relation(fields: [sceneId], references: [id])
+
   @@map("scene_assets")
 }
-enum ExportKind { mp4 srt script_txt }
-model ProjectExport { id String @id @default(uuid()); projectId String @map("project_id"); kind ExportKind; fileUrl String @map("file_url") @db.Text; createdAt DateTime @default(now()) @map("created_at"); project Project @relation(fields: [projectId], references: [id]) }
-enum ProjectMediaKind { video image audio caption }
-enum ProjectMediaOrigin { upload generated external storyboard }
-enum ProjectMediaStatus { processing ready failed }
+
+enum ExportKind {
+  mp4
+  srt
+  script_txt
+}
+
+model ProjectExport {
+  id        String      @id @default(uuid())
+  projectId String      @map("project_id")
+  kind      ExportKind
+  fileUrl   String      @map("file_url") @db.Text
+  createdAt DateTime    @default(now()) @map("created_at")
+  project   Project     @relation(fields: [projectId], references: [id])
+
+  @@map("project_exports")
+}
+
+enum ProjectMediaKind {
+  video
+  image
+  audio
+  caption
+}
+
+enum ProjectMediaOrigin {
+  upload
+  generated
+  external
+  storyboard
+}
+
+enum ProjectMediaStatus {
+  processing
+  ready
+  failed
+}
+
 model ProjectMedia {
-  id String @id @default(uuid())
-  projectId String @map("project_id")
-  kind ProjectMediaKind
-  origin ProjectMediaOrigin
-  status ProjectMediaStatus @default(ready)
-  title String
-  filename String?
-  mimeType String? @map("mime_type")
-  sizeBytes BigInt? @map("size_bytes")
-  durationSeconds Decimal? @map("duration_seconds") @db.Decimal(8, 3)
-  width Int?
-  height Int?
-  mediaUrl String @map("media_url") @db.Text
-  proxyUrl String? @map("proxy_url") @db.Text
-  thumbnailUrl String? @map("thumbnail_url") @db.Text
-  sourceUrl String? @map("source_url") @db.Text
-  provider String?
-  providerAssetId String? @map("provider_asset_id")
-  storageKey String? @map("storage_key") @db.Text
-  proxyStorageKey String? @map("proxy_storage_key") @db.Text
-  thumbnailKey String? @map("thumbnail_key") @db.Text
-  processingError String? @map("processing_error") @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                String            @id @default(uuid())
+  projectId         String            @map("project_id")
+  kind              ProjectMediaKind
+  origin            ProjectMediaOrigin
+  status            ProjectMediaStatus @default(ready)
+  title             String
+  filename          String?
+  mimeType          String?           @map("mime_type")
+  sizeBytes         BigInt?           @map("size_bytes")
+  durationSeconds   Decimal?          @map("duration_seconds") @db.Decimal(8, 3)
+  width             Int?
+  height            Int?
+  mediaUrl          String            @map("media_url") @db.Text
+  proxyUrl          String?           @map("proxy_url") @db.Text
+  thumbnailUrl      String?           @map("thumbnail_url") @db.Text
+  sourceUrl         String?           @map("source_url") @db.Text
+  provider          String?
+  providerAssetId   String?           @map("provider_asset_id")
+  storageKey        String?           @map("storage_key") @db.Text
+  proxyStorageKey   String?           @map("proxy_storage_key") @db.Text
+  thumbnailKey      String?           @map("thumbnail_key") @db.Text
+  processingError   String?           @map("processing_error") @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId, kind])
   @@index([projectId, origin])
   @@index([provider])
   @@index([providerAssetId])
   @@map("project_media")
 }
+
 model User {
-  id String @id @default(uuid())
-  email String @unique
-  passwordHash String? @map("password_hash")
-  emailVerifiedAt DateTime? @map("email_verified_at")
-  displayName String? @map("display_name")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  sessions AuthSession[]
-  tokens AuthToken[]
-  templates ProjectTemplate[]
-  versions ProjectVersion[]
-  activities ProjectActivity[]
+  id              String            @id @default(uuid())
+  email           String            @unique
+  passwordHash    String?           @map("password_hash")
+  emailVerifiedAt DateTime?         @map("email_verified_at")
+  displayName     String?           @map("display_name")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  sessions        AuthSession[]
+  tokens          AuthToken[]
+  templates       ProjectTemplate[]
+  versions        ProjectVersion[]
+  activities      ProjectActivity[]
+
   @@map("users")
 }
-model AuthSession { id String @id @default(uuid()); userId String @map("user_id"); tokenHash String @unique @map("token_hash") @db.Char(64); expiresAt DateTime @map("expires_at"); createdAt DateTime @default(now()) @map("created_at"); lastSeenAt DateTime? @map("last_seen_at"); user User @relation(fields: [userId], references: [id], onDelete: Cascade); @@index([userId]); @@index([expiresAt]); @@map("auth_sessions") }
-model AuthToken { id String @id @default(uuid()); userId String @map("user_id"); kind String @db.VarChar(40); tokenHash String @unique @map("token_hash") @db.Char(64); expiresAt DateTime @map("expires_at"); createdAt DateTime @default(now()) @map("created_at"); user User @relation(fields: [userId], references: [id], onDelete: Cascade); @@index([userId, kind]); @@index([expiresAt]); @@map("auth_tokens") }
-model ProjectEditor { id String @id @default(uuid()); projectId String @unique @map("project_id"); version Int @default(1); timeline Json; renderStatus String? @map("render_status"); renderVersion Int? @map("render_version"); renderHash String? @map("render_hash") @db.Char(64); renderUrl String? @map("render_url") @db.Text; renderError String? @map("render_error") @db.Text; renderedAt DateTime? @map("rendered_at"); createdAt DateTime @default(now()) @map("created_at"); updatedAt DateTime @updatedAt @map("updated_at"); project Project @relation(fields: [projectId], references: [id], onDelete: Cascade); @@index([renderStatus]); @@map("project_editors") }
+
+model AuthSession {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  tokenHash  String   @unique @map("token_hash") @db.Char(64)
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime? @map("last_seen_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model AuthToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  kind       String   @db.VarChar(40)
+  tokenHash  String   @unique @map("token_hash") @db.Char(64)
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@index([expiresAt])
+  @@map("auth_tokens")
+}
+
+model ProjectEditor {
+  id           String   @id @default(uuid())
+  projectId    String   @unique @map("project_id")
+  version      Int      @default(1)
+  timeline     Json
+  renderStatus String?  @map("render_status")
+  renderVersion Int?    @map("render_version")
+  renderHash   String?  @map("render_hash") @db.Char(64)
+  renderUrl    String?  @map("render_url") @db.Text
+  renderError  String?  @map("render_error") @db.Text
+  renderedAt   DateTime? @map("rendered_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([renderStatus])
+  @@map("project_editors")
+}
 
 model ProjectVersion {
-  id String @id @default(uuid())
-  projectId String @map("project_id")
-  versionNumber Int @map("version_number")
-  label String @db.VarChar(120)
-  timeline Json
-  createdById String @map("created_by_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy User @relation(fields: [createdById], references: [id])
+  id            String   @id @default(uuid())
+  projectId     String   @map("project_id")
+  versionNumber Int      @map("version_number")
+  label         String   @db.VarChar(120)
+  timeline      Json
+  createdById   String   @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy     User     @relation(fields: [createdById], references: [id])
+
   @@unique([projectId, versionNumber])
   @@index([projectId, createdAt])
   @@map("project_versions")
 }
+
 model ProjectTemplate {
-  id String @id @default(uuid())
-  userId String @map("user_id")
-  name String @db.VarChar(120)
-  description String? @db.VarChar(500)
-  timeline Json
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String   @db.VarChar(120)
+  description String?  @db.VarChar(500)
+  timeline    Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, updatedAt])
   @@map("project_templates")
 }
+
 model ProjectReviewLink {
-  id String @id @default(uuid())
-  projectId String @map("project_id")
-  token String @unique @db.Char(48)
-  expiresAt DateTime? @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  comments ProjectReviewComment[]
+  id         String                @id @default(uuid())
+  projectId  String                @map("project_id")
+  token      String                @unique @db.Char(48)
+  expiresAt  DateTime?             @map("expires_at")
+  revokedAt  DateTime?             @map("revoked_at")
+  createdAt  DateTime              @default(now()) @map("created_at")
+  project    Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments   ProjectReviewComment[]
+
   @@index([projectId, revokedAt])
   @@map("project_review_links")
 }
+
 model ProjectReviewComment {
-  id String @id @default(uuid())
-  reviewLinkId String @map("review_link_id")
-  authorName String @map("author_name") @db.VarChar(120)
-  body String @db.Text
-  resolved Boolean @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-  reviewLink ProjectReviewLink @relation(fields: [reviewLinkId], references: [id], onDelete: Cascade)
+  id           String            @id @default(uuid())
+  reviewLinkId String            @map("review_link_id")
+  authorName   String            @map("author_name") @db.VarChar(120)
+  body         String            @db.Text
+  resolved     Boolean           @default(false)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  reviewLink   ProjectReviewLink @relation(fields: [reviewLinkId], references: [id], onDelete: Cascade)
+
   @@index([reviewLinkId, createdAt])
   @@map("project_review_comments")
 }
+
 model ProjectActivity {
-  id String @id @default(uuid())
-  projectId String @map("project_id")
-  userId String? @map("user_id")
-  action String @db.VarChar(80)
-  metadata Json?
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  userId    String?  @map("user_id")
+  action    String   @db.VarChar(80)
+  metadata  Json?
   createdAt DateTime @default(now()) @map("created_at")
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   @@index([projectId, createdAt])
   @@map("project_activities")
 }
