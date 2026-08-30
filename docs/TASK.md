@@ -29,7 +29,7 @@ Finalize/export.
 production work until the product direction for publishing is decided.
 
 ## M10 — Accounts & Authentication
-**Status:** In progress
+**Status:** Done — implementation complete; acceptance QA remains
 
 - [x] Users/session/token tables and Prisma migration
 - [x] Sign-up/sign-in/sign-out and persistent sessions
@@ -39,15 +39,15 @@ production work until the product direction for publishing is decided.
 - [x] Project/media/render/export ownership protections
 - [x] Secure cookie/session configuration and CSRF strategy
 - [x] Explicit development auth fallback configuration
-- [ ] Replace remaining production `local-user` assumptions
-- [ ] Rate limiting / abuse protection for expensive provider operations
+- [x] Production builds require authentication; `local-user` is development-only
+- [x] Rate limiting / abuse protection for expensive provider operations
 - [ ] Final cross-user verification with multiple real accounts
 
 **Acceptance:** authenticated users can access only their own project and media
 resources, survive refresh, and sign out safely.
 
 ## M10A — Public Discovery, Responsive Navigation & Theme System
-**Status:** In progress
+**Status:** Done — implementation complete; browser QA remains
 
 - [x] Public Signals landing
 - [x] Public search/filter
@@ -66,7 +66,7 @@ resources, survive refresh, and sign out safely.
 - [ ] Audit remaining page-specific hard-coded colors for light theme coverage
 
 ## M11 — Advanced Video Editor Core — **Separate Feature / Workspace**
-**Status:** In progress
+**Status:** Done — implementation complete; acceptance QA remains
 
 **Critical rule:** the Advanced Video Editor is a separate optional workspace.
 It is NOT another step in the existing:
@@ -81,7 +81,7 @@ narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 ### Implemented first slice
 
 - [x] Add protected `/editor/:id` route
-- [x] Add `EditorPage.jsx` and responsive editor shell
+- [x] Add `AdvancedEditorPage.jsx` and responsive editor shell
 - [x] Add dedicated `ProjectEditor` persistence model/migration
 - [x] Add `GET /api/projects/:id/editor`
 - [x] Add version-aware `PATCH /api/projects/:id/editor`
@@ -153,9 +153,14 @@ narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 - [x] Transition/effect changes participate in autosave and bounded undo/redo
 - [x] Existing timelines without transition/effect metadata remain valid
 
-### Remaining M11 work
+### Implemented external media integration
 
-- [ ] Real external music asset picker/library integration
+- [x] External music search via Jamendo
+- [x] External music import into project-owned Media Library
+- [x] Editor media picker can attach imported audio to the independent Music track
+
+### Acceptance QA remaining
+
 - [ ] Editor-specific loading/error/empty states QA
 - [ ] Verify editor changes never mutate Storyboard source records
 - [ ] Full browser QA across supported viewport sizes
@@ -203,7 +208,7 @@ reused by the standalone editor, and safely cleaned without mutating Storyboard
 source records.
 
 ## M13 — Editor Rendering Integration & Reliability
-**Status:** In progress
+**Status:** Done — implementation/reliability complete; runtime acceptance QA remains
 
 ### Implemented first M13 rendering slice
 
@@ -239,7 +244,7 @@ source records.
 - [x] Retry-aware terminal failure handling for editor renders
 - [x] Worker lock/stall recovery configuration
 
-### Remaining M13 validation
+### Remaining M13 runtime validation
 
 - [ ] Verify trim/split/reorder parity against real editor timelines with browser-generated fixtures
 - [ ] Verify uploaded media playback from local storage in Remotion worker
@@ -292,10 +297,10 @@ remain deferred under M9 until separately approved.
 - [ ] No horizontal overflow or inaccessible controls
 - [ ] Destructive actions use the modern Helix confirmation dialog
 - [ ] No generated content committed under `server/storage/`
-- [ ] Authenticated endpoints enforce ownership
-- [ ] Long-running operations expose meaningful stage/progress states
-- [ ] Refresh/reconnect does not lose in-progress task state
-- [ ] Rendered media remains playable and correctly timed
+- [x] Authenticated endpoints enforce ownership (automated ownership tests pass)
+- [x] Long-running operations expose meaningful stage/progress states
+- [x] Refresh/reconnect does not lose persisted editor/render state
+- [ ] Rendered media remains playable and correctly timed against real MP4 output
 - [ ] New migrations are documented and verified against local MySQL
 - [ ] Error states are actionable; no silent/infinite spinners
 - [ ] Existing Signals → Research → Setup → Storyboard → Preview/Finalize remains regression-tested after next-level changes
@@ -338,9 +343,12 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — M11 first slice implemented with a dedicated `ProjectEditor` record, canonical timeline JSON, protected editor route, autosave, and non-destructive editing operations.
 - `2026-08-28` — M11 timeline refinement added playhead playback/seeking, timeline zoom, snap modes, B-roll replacement, preview scrubbing, bounded undo/redo, and keyboard controls without changing Storyboard source data.
 - `2026-08-28` — M11 richer editor refinement added drag move/trim, optional Music track, audio fades/volume, caption position/style/emphasis, overlay positioning, and touch-capable timeline interactions in the standalone editor.
-- `2026-08-29` — M11 audio refinement added decoded waveform visualization and synchronized editor audio playback without changing Storyboard source records. Real external music sourcing remains deferred to M12 media-library work.
-- `2026-08-29` — M11 transition/effect refinement added bounded Remotion-safe clip transition metadata and deterministic motion presets with live browser preview, autosave, and undo/redo support. Remotion render integration remains an M13 concern.
+- `2026-08-29` — M11 audio refinement added decoded waveform visualization and synchronized editor audio playback without changing Storyboard source records.
+- `2026-08-29` — M11 transition/effect refinement added bounded Remotion-safe clip transition metadata and deterministic motion presets with live browser preview, autosave, and undo/redo support.
 - `2026-08-29` — M12 media library foundation added project-owned media records, authenticated media APIs, Pexels imports, dependency-free streamed uploads, server validation, browser metadata extraction, PNG image/video thumbnails, authenticated media playback, and orphan cleanup.
 - `2026-08-29` — M12 large-media processing added persistent ffmpeg proxies, restart-safe processing, proxy-aware media playback, and project editor media picking without mutating Storyboard source data.
 - `2026-08-29` — M13 editor rendering uses a separate `HelixEditorReel` and render queue so canonical `ProjectEditor.timeline` renders independently of the existing Storyboard render pipeline. Render metadata is version/hash scoped and stale renders are discarded.
+- `2026-08-30` — M10 rate limiting and production authentication hardening were implemented; remaining M10 work is acceptance verification with multiple real accounts.
+- `2026-08-30` — M11 external music integration was implemented through Jamendo search/import and the project Media Library/editor picker.
 - `2026-08-30` — M13 reliability work added deterministic regression fixtures, route/ownership tests, safe queued render cancellation, retry/backoff, and retry-aware terminal state handling.
+- `2026-08-30` — M13 composition metadata regression test was made line-ending agnostic so Windows CRLF source files do not cause a false test failure.
