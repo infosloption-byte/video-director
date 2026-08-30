@@ -57,7 +57,7 @@ test("AI can suggest a project-owned B-roll replacement without mutating source 
 test("AI narration regeneration remains an editor suggestion and preserves the locked audio source", () => {
   const original = JSON.stringify(timeline);
   const result = applyEditorOperations(timeline, [{ type: "regenerate_narration", clipId: "n1", text: "A clearer replacement narration." }]);
-  const clip = result.timeline.tracks.find((track) => track.id === "narration").clips[0];
+  const clip = result.tracks.find((track) => track.id === "narration").clips[0];
   assert.equal(JSON.stringify(timeline), original);
   assert.equal(clip.src, "/audio-1.mp3");
   assert.equal(clip.suggestedText, "A clearer replacement narration.");
