@@ -13,7 +13,7 @@ const timeline = {
       { id: "v1", type: "video", sourceId: "scene-1", assetId: "asset-1", src: "/video-1.mp4", thumbnailUrl: "/thumb-1.jpg", start: 0, duration: 4, offset: 0 },
       { id: "v2", type: "video", sourceId: "scene-2", assetId: "asset-2", src: "/video-2.mp4", thumbnailUrl: "/thumb-2.jpg", start: 4, duration: 4, offset: 0 },
     ] },
-    { id: "narration", kind: "audio", locked: false, muted: false, clips: [{ id: "n1", type: "audio", sourceId: "scene-1", src: "/audio-1.mp3", start: 0, duration: 4, volume: 1 }] },
+    { id: "narration", kind: "audio", locked: true, muted: false, clips: [{ id: "n1", type: "audio", sourceId: "scene-1", src: "/audio-1.mp3", start: 0, duration: 4, volume: 1 }] },
     { id: "captions", kind: "caption", locked: false, muted: true, clips: [{ id: "c1", type: "caption", start: 0, duration: 4, text: "old" }] },
     { id: "music", kind: "audio", locked: false, muted: false, clips: [{ id: "m1", type: "audio", start: 0, duration: 8, volume: 1 }] },
     { id: "overlays", kind: "overlay", locked: false, muted: false, clips: [] },
@@ -54,7 +54,7 @@ test("AI can suggest a project-owned B-roll replacement without mutating source 
   assert.equal(clip.sourceId, "scene-1");
 });
 
-test("AI narration regeneration remains an editor suggestion and preserves the current audio source", () => {
+test("AI narration regeneration remains an editor suggestion and preserves the locked audio source", () => {
   const original = JSON.stringify(timeline);
   const result = applyEditorOperations(timeline, [{ type: "regenerate_narration", clipId: "n1", text: "A clearer replacement narration." }]);
   const clip = result.timeline.tracks.find((track) => track.id === "narration").clips[0];
