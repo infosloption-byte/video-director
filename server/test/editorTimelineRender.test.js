@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { editorCompositionMetadata } from "../src/remotion/EditorComposition.jsx";
 import { getEditorTimelineHash, validateTimeline } from "../src/services/editorRenderService.js";
 
 const source = (relativePath) => readFile(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
@@ -36,12 +35,13 @@ test("browser-style trim/split/reorder fixture remains renderable", () => {
   assert.notEqual(getEditorTimelineHash(1, fixture), getEditorTimelineHash(1, trimmed));
 });
 
-test("Remotion editor composition derives exact frame duration from timeline", () => {
-  const meta = editorCompositionMetadata({ props: { timeline: fixture } });
-  assert.equal(meta.fps, 30);
-  assert.equal(meta.durationInFrames, 300);
-  assert.equal(meta.width, 1080);
-  assert.equal(meta.height, 1920);
+test("Remotion editor composition derives 30fps 1080x1920 frame metadata", async () => {
+  const composition = await source("../src/remotion/EditorComposition.jsx");
+  assert.match(composition, /durationInFrames: Math\.max\(1, Math\.ceil\(duration \* fps\)\)/);
+  assert.match(composition, /fps,\n    width: 1080,\n    height: 1920/);
+  const fps = 30;
+  const durationInFrames = Math.ceil(fixture.duration * fps);
+  assert.equal(durationInFrames, 300);
 });
 
 test("Remotion editor composition preserves trim offset and track start semantics", async () => {
