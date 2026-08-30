@@ -183,6 +183,7 @@ router.get("/:id/editor", async (req, res) => {
   }
 });
 
+// Editor mutations intentionally persist only ProjectEditor.timeline; Storyboard scenes/assets remain read-only here.
 router.patch("/:id/editor", async (req, res) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true, scenes: { orderBy: { sceneOrder: "asc" }, include: { assets: { orderBy: { sortOrder: "asc" } } } } } });
