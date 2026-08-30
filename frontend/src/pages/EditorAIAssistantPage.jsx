@@ -8,6 +8,8 @@ const INTENTS = [
   { label: "Tighten pacing", instruction: "Tighten the pacing by shortening unnecessarily long video clips while preserving the story flow." },
   { label: "Improve hook", instruction: "Improve the opening hook. Make the first few seconds more compelling using safe timeline edits and, if useful, a short text overlay." },
   { label: "Clean captions", instruction: "Improve the existing captions for clarity and concise wording without changing their timing." },
+  { label: "Rewrite narration", instruction: "Rewrite the narration for clarity and stronger delivery while preserving the original meaning. Return a narration regeneration suggestion, not a source-media change." },
+  { label: "Replace B-roll", instruction: "Replace weak or repetitive B-roll with stronger existing assets from the same scene while preserving timing and source-scene ownership." },
   { label: "Balance audio", instruction: "Balance the editor audio levels so narration remains clear and music does not overpower it." },
   { label: "B-roll pacing", instruction: "Improve B-roll pacing by tightening or repositioning existing video clips without changing source media." },
 ];
