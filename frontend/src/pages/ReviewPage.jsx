@@ -15,6 +15,9 @@ export default function ReviewPage() {
     }
   }, [token]);
 
+  // This effect synchronizes the page with the external review API.
+  // oxlint's set-state-in-effect rule is not applicable to this async boundary.
+  // oxlint-disable-next-line react(set-state-in-effect)
   useEffect(() => { void load(); }, [load]);
   async function comment(event) { event.preventDefault(); setError(""); setMessage(""); const response = await fetch(`/api/projects/review/${token}/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ authorName: name, body }) }); const data = await response.json().catch(() => ({})); if (!response.ok) return setError(data.error || "Unable to post comment."); setBody(""); setMessage("Comment added."); await load(); }
   if (error && !review) return <div className="hx-page"><main className="container" style={{ maxWidth: 760, padding: 60 }}><h1>Review unavailable</h1><p>{error}</p></main></div>;
