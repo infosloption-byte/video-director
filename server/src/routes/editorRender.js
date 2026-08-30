@@ -85,6 +85,30 @@ router.post("/projects/:id/editor/render", async (req, res) => {
   }
 });
 
+router.post("/projects/:id/editor/render/cancel", async (req, res) => {
+  try {
+    const editor = await prisma.projectEditor.findUnique({ where: { projectId: req.params.id } });
+    if (!editor) return res.status(404).json({ error: "Editor state not found." });
+    const currentHash = getEditorTimelineHash(editor.version, editor.timeline);
+    const jobId = `editor-${req.params.id}-${editor.renderVersion || editor.version}-${editor.renderHash || currentHash}`;
+    const job = await getEditorRenderQueue().getJob(jobId);
+    if (!job) return res.status(404).json({ error: "No editor render job is queued." });
+    const state = await job.getState();
+    if (["waiting", "delayed", "prioritized"].includes(state)) {
+      await job.remove();
+      await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "idle", renderError: null } });
+      return res.json({ projectId: req.params.id, status: "cancelled", message: "Queued editor render cancelled." });
+    }
+    if (state === "active") {
+      return res.status(409).json({ error: "This editor render is already encoding and cannot be safely cancelled by the queue. Wait for it to finish or restart the dedicated editor render worker.", code: "EDITOR_RENDER_ACTIVE" });
+    }
+    return res.status(409).json({ error: `Editor render cannot be cancelled from state ${state}.`, status: state });
+  } catch (error) {
+    console.error(`POST /api/projects/${req.params.id}/editor/render/cancel failed:`, error);
+    res.status(503).json({ error: error.message || "Editor render cancellation is unavailable." });
+  }
+});
+
 router.get("/projects/:id/editor/render-status", async (req, res) => {
   try {
     const editor = await prisma.projectEditor.findUnique({ where: { projectId: req.params.id } });
