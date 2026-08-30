@@ -24,6 +24,8 @@ function compactTimeline(timeline) {
       clips: (track.clips || []).map((clip) => ({
         id: clip.id,
         type: clip.type,
+        sourceId: clip.sourceId,
+        assetId: clip.assetId,
         start: clip.start,
         duration: clip.duration,
         offset: clip.offset,
@@ -34,14 +36,41 @@ function compactTimeline(timeline) {
   };
 }
 
-export async function suggestEditorOperations({ timeline, instruction }) {
+function compactAssets(scenes) {
+  return (scenes || []).map((scene) => ({
+    sceneId: scene.id,
+    title: scene.title,
+    assets: (scene.assets || []).map((asset) => ({
+      assetId: asset.id,
+      videoUrl: asset.videoUrl,
+      thumbnailUrl: asset.thumbnailUrl,
+    })),
+  }));
+}
+
+export async function suggestEditorOperations({ timeline, instruction, scenes = [] }) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("AI editing is not configured. Set GEMINI_API_KEY on the server.");
-  const prompt = `You are the Helix AI editing assistant. Return ONLY JSON. Suggest safe, reversible operations for the independent editor timeline. Never delete or modify source media, storyboard records, narration source records, or external assets. Only use existing clip IDs for edits. For new overlays, create a stable id. Maximum 25 operations. Supported operation types: trim_clip, move_clip, split_clip, delete_clip, update_caption, set_volume, add_text_overlay. JSON shape: {"summary":"short explanation","reasoning":"brief reason","operations":[...]}.
+  const prompt = `You are the Helix AI editing assistant. Return ONLY JSON. Suggest safe, reversible operations for the independent editor timeline. Never delete or modify source media, storyboard records, narration source records, or external assets. Only reference existing timeline clip IDs and B-roll assets listed below. Maximum 25 operations.
+
+Supported operation types:
+- trim_clip: shorten or reposition an existing clip safely.
+- move_clip: change an existing clip start time.
+- split_clip: split an existing clip at a safe point.
+- delete_clip: remove an editor-only clip when it improves pacing.
+- update_caption: rewrite an existing caption for clarity or emphasis.
+- set_volume: adjust an existing audio clip volume.
+- add_text_overlay: add a stable-id editor-only text overlay.
+- replace_broll: replace a video clip with one of the listed assets from the same scene. Include clipId, sourceId, assetId, videoUrl as src, and thumbnailUrl.
+- regenerate_narration: propose improved narration wording for an existing narration audio clip. This is a suggestion only; it must never change source Storyboard narration or audio files directly. Include clipId and the complete replacement text.
+
+For caption requests, use update_caption. For narration requests, use regenerate_narration. For B-roll requests, use replace_broll only with an assetId and URL from the supplied asset list. For hooks/pacing, prefer trim_clip, move_clip, split_clip, and add_text_overlay. Do not invent IDs, URLs, or assets. For a B-roll replacement, keep sourceId equal to the clip's sourceId and choose an asset belonging to that scene.
 
 User instruction: ${String(instruction || "").slice(0, 1200)}
 
-Current editor timeline:\n${JSON.stringify(compactTimeline(timeline))}`;
+Current editor timeline:\n${JSON.stringify(compactTimeline(timeline))}
+
+Available scene B-roll assets:\n${JSON.stringify(compactAssets(scenes))}`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
