@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import "../components/ui.css";
@@ -15,11 +15,16 @@ export default function ProjectProductivityPage() {
   const [versions, setVersions] = useState([]); const [templates, setTemplates] = useState([]); const [activity, setActivity] = useState([]); const [links, setLinks] = useState([]);
   const [label, setLabel] = useState(""); const [templateName, setTemplateName] = useState(""); const [message, setMessage] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
 
-  async function refresh() {
-    const [versionData, templateData, activityData] = await Promise.all([api(`/api/projects/${id}/versions`), api("/api/templates"), api(`/api/projects/${id}/activity`)]);
-    setVersions(versionData.versions || []); setTemplates(templateData.templates || []); setActivity(activityData.activity || []);
-  }
-  useEffect(() => { refresh().catch((loadError) => setError(loadError.message)); }, [id]);
+  const refresh = useCallback(async () => {
+    try {
+      const [versionData, templateData, activityData] = await Promise.all([api(`/api/projects/${id}/versions`), api("/api/templates"), api(`/api/projects/${id}/activity`)]);
+      setVersions(versionData.versions || []); setTemplates(templateData.templates || []); setActivity(activityData.activity || []);
+    } catch (loadError) {
+      setError(loadError.message);
+    }
+  }, [id]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
 
   async function snapshot() { setBusy(true); setError(""); try { await api(`/api/projects/${id}/versions`, { method: "POST", body: JSON.stringify({ label }) }); setLabel(""); setMessage("Version snapshot created."); await refresh(); } catch (e) { setError(e.message); } finally { setBusy(false); } }
   async function restore(version) { setBusy(true); setError(""); try { const editor = await api(`/api/projects/${id}/editor`); await api(`/api/projects/${id}/restore/${version.id}`, { method: "POST", body: JSON.stringify({ version: editor.editor.version }) }); setMessage(`Restored ${version.label}.`); await refresh(); } catch (e) { setError(e.message); } finally { setBusy(false); } }
