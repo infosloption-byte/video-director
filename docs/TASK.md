@@ -78,86 +78,25 @@ Signals → Research → Setup → Storyboard → Preview/Finalize
 Opening/editing in the Advanced Editor must not mutate the existing Storyboard,
 narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 
-### Implemented first slice
+### Implemented
 
-- [x] Add protected `/editor/:id` route
-- [x] Add `AdvancedEditorPage.jsx` and responsive editor shell
-- [x] Add dedicated `ProjectEditor` persistence model/migration
-- [x] Add `GET /api/projects/:id/editor`
-- [x] Add version-aware `PATCH /api/projects/:id/editor`
-- [x] Initialize editor timeline from existing Storyboard scenes/assets/narration/captions without modifying them
-- [x] Independent 9:16 preview area
-- [x] Multi-track timeline: B-roll, Narration, Captions, Overlays
-- [x] Clip selection
-- [x] Start/duration editing
-- [x] Split clip
-- [x] Delete editor clip
-- [x] Reorder video clips
-- [x] Edit caption text
-- [x] Edit audio volume
-- [x] Add text overlays
-- [x] Dirty-state aware autosave
-- [x] Save/version indicator
-- [x] Add **Edit video** entry from My Research
-- [x] Editor access is protected by project ownership/authentication
-
-### Implemented timeline refinement
-
-- [x] Frame-stepped playhead and current-time display
-- [x] Play/pause timeline control with 30fps stepping
-- [x] Timeline ruler seeking by click
-- [x] Playhead shown across ruler and all tracks
-- [x] Timeline zoom control
-- [x] Snap modes for grid/clip boundaries and frame/clip boundaries
-- [x] Start edits use snap behavior
-- [x] Visual B-roll replacement using the existing scene asset set
-- [x] Preview scrubbing follows the selected video clip
-- [x] Bounded undo/redo timeline history
-- [x] Keyboard shortcuts for play/pause, frame stepping, split, delete, undo and redo
-- [x] Improved mobile/compact editor controls for zoom, snap and playback
-
-### Implemented richer editing refinement
-
-- [x] Drag-based clip moving in the timeline
-- [x] Drag-based left/right clip trimming handles
-- [x] Optional Music track in the editor
-- [x] Add editor-only music clips with independent volume/fade metadata
-- [x] Audio volume control with fade-in/fade-out controls
-- [x] Caption position controls
-- [x] Caption style controls
-- [x] Caption emphasis controls
-- [x] Overlay position controls
-- [x] Touch-capable pointer interactions for timeline move/trim controls
-- [x] Mobile-responsive richer inspector and timeline controls
-
-### Implemented audio refinement
-
-- [x] Real waveform visualization for playable narration/music clips
-- [x] Waveform loading from authenticated project audio URLs
-- [x] Cached decoded waveform peaks for repeat renders within the browser session
-- [x] Timeline audio playback synchronized to the editor playhead
-- [x] Active audio clip volume follows clip volume metadata
-- [x] Fade-in/fade-out affect editor preview playback
-- [x] Audio clips pause when the editor is paused
-- [x] No-source music clips remain explicitly unavailable until a real media source is attached
-
-### Implemented transition/effect refinement
-
-- [x] Remotion-safe transition preset metadata on video clips
-- [x] Fade, slide-left, slide-right, and zoom transition presets for clip in/out edges
-- [x] Remotion-safe motion effect metadata on video clips
-- [x] Slow zoom-in, slow zoom-out, pan-left, and pan-right effect presets
-- [x] Effect intensity control
-- [x] Transition duration controls bounded to safe editor ranges
-- [x] Live browser preview of selected video transition/effect state
-- [x] Transition/effect changes participate in autosave and bounded undo/redo
-- [x] Existing timelines without transition/effect metadata remain valid
-
-### Implemented external media integration
-
-- [x] External music search via Jamendo
-- [x] External music import into project-owned Media Library
-- [x] Editor media picker can attach imported audio to the independent Music track
+- [x] Protected `/editor/:id` route and responsive editor shell
+- [x] Dedicated `ProjectEditor` persistence model/migration
+- [x] Version-aware editor GET/PATCH APIs
+- [x] Non-destructive initialization from Storyboard scenes/assets/narration/captions
+- [x] Independent 9:16 preview and multi-track timeline
+- [x] Select/move/trim/split/delete/reorder editor clips
+- [x] Caption text/style/position/emphasis controls
+- [x] Overlay text/position controls
+- [x] Music track with volume/fade metadata
+- [x] Waveform loading and synchronized browser audio playback
+- [x] Timeline zoom, ruler seeking, snapping, scrubbing, keyboard shortcuts
+- [x] Bounded undo/redo and dirty-state autosave/version indicator
+- [x] Touch-capable timeline move/trim controls and responsive inspector
+- [x] Remotion-safe transition/effect metadata and live browser preview
+- [x] External Jamendo music search/import and editor media picker integration
+- [x] My Research “Edit video” entry
+- [x] Editor access protected by project ownership/authentication
 
 ### Acceptance QA remaining
 
@@ -165,43 +104,19 @@ narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 - [ ] Verify editor changes never mutate Storyboard source records
 - [ ] Full browser QA across supported viewport sizes
 
-**Acceptance:** a user can open a completed project in the standalone Editor,
-make/save/refresh edits, and continue using the original Storyboard flow with
-its original source data unchanged.
-
 ## M12 — Media Library & Upload Pipeline
-**Status:** Done
+**Status:** Done — implementation complete; runtime acceptance QA remains
 
-- [x] `project_media` model and migrations
-- [x] Authenticated media API and ownership enforcement
-- [x] Upload video/image/audio/caption files
-- [x] File validation and upload progress/recovery
-- [x] Media library search/filter/grid
-- [x] Media metadata, thumbnails, and posters
-- [x] Editing proxies for large media
-- [x] Distinguish user uploads/generated narration/external cache/render intermediates
-- [x] Editor media picker
-- [x] Orphan cleanup
-- [x] `MEDIA_STORAGE_ROOT` storage abstraction
-
-### Implemented M12 media-library foundation
-
-- [x] Project-owned `ProjectMedia` records are separate from Storyboard and editor source state
-- [x] Pexels video search can import reusable external assets into the project library
-- [x] Uploads stream to project-owned runtime storage instead of being committed to the repository
-- [x] Upload size limits are enforced per media type
-- [x] Upload MIME types, extensions, and common file signatures are validated server-side
-- [x] Uploads use temporary files and cleanup on cancellation/validation/database failures
-- [x] Browser reports upload progress and supports cancellation
-- [x] Uploaded audiovisual metadata is derived in-browser and persisted server-side
-- [x] Browser generates PNG thumbnails/posters for uploaded images and videos
-- [x] Uploaded thumbnails are validated, stored under the owning project, and served through authenticated routes
-- [x] Removing an uploaded asset removes both its source file and stored thumbnail
-- [x] Manual/dry-run orphan cleanup commands remove unreferenced media and stale `.uploading-*` files
-- [x] Large uploaded videos can be transcoded to editor-friendly 720px-wide proxies with ffmpeg
-- [x] Proxy processing persists `processing` / `ready` / `failed` state and resumes after server restart
-- [x] Project media picker can add ready library video/audio assets to the independent editor timeline
-- [x] Proxy/original/thumbnail cleanup covers derived media and temporary processing files
+- [x] Project-owned `ProjectMedia` model and authenticated media APIs
+- [x] Upload video/image/audio/caption files with validation and progress
+- [x] Project-owned runtime storage and cleanup
+- [x] Media search/filter/grid, metadata, thumbnails/posters
+- [x] Pexels imports into the project library
+- [x] Large-video 720px proxy processing with persistent state and restart recovery
+- [x] Editor media picker for ready project video/audio
+- [x] Orphan/temporary/derived-media cleanup
+- [x] Ownership enforcement on project media
+- [ ] Runtime validation with representative uploads across supported media types
 
 **Acceptance:** uploaded/imported project media can be stored, inspected, previewed,
 reused by the standalone editor, and safely cleaned without mutating Storyboard
@@ -210,70 +125,101 @@ source records.
 ## M13 — Editor Rendering Integration & Reliability
 **Status:** Done — implementation/reliability complete; runtime acceptance QA remains
 
-### Implemented first M13 rendering slice
+### Implemented
 
-- [x] Remotion consumes canonical `ProjectEditor.timeline` JSON
-- [x] Dedicated `HelixEditorReel` composition is separate from existing `HelixReel`
-- [x] Editor video clips render with trim/offset/duration timing
-- [x] Editor timeline audio clips render with volume/fade timing
-- [x] Caption and overlay clips render from canonical timeline timing
-- [x] Transition/effect presets are consumed by the Remotion editor composition
-- [x] Uploaded/project media resolves through an authenticated render-media endpoint
-- [x] Large-media proxies are preferred by the render-media resolver when available
-- [x] Editor render preflight validates timeline and referenced media ownership/state
-- [x] Editor render stage telemetry exposes preflight/bundle/composition/rendering/finalizing progress
-- [x] Editor render stores version/hash/url/error metadata independently from Storyboard rendering
-- [x] Stale-render protection discards a render when the editor changes during rendering
-- [x] Retry-safe editor render queue with deterministic version/hash job IDs
-- [x] Rendered MP4 is validated with ffprobe for 1080x1920, positive duration, and required audio
-- [x] Dedicated editor render progress screen and `/editor/:id/render` workflow
-- [x] Existing Storyboard `HelixReel` rendering remains independently available
-
-### M13 automated/reliability work completed
-
-- [x] Browser-style trim/split/reorder timeline fixtures validate against render preflight
-- [x] Automated Remotion timing/metadata regression coverage
-- [x] Automated caption/audio canonical frame mapping coverage
-- [x] Automated authenticated render-media/proxy resolver coverage
-- [x] Automated render-route contract coverage
-- [x] Automated project/editor render ownership coverage
-- [x] Render cancellation for queued storyboard renders
-- [x] Render cancellation for queued editor renders
-- [x] Retry/backoff for transient storyboard renders
-- [x] Retry-aware terminal failure handling for storyboard renders
-- [x] Retry-aware terminal failure handling for editor renders
+- [x] Remotion consumes canonical `ProjectEditor.timeline`
+- [x] Dedicated `HelixEditorReel` remains separate from Storyboard `HelixReel`
+- [x] Video trim/offset/duration timing
+- [x] Timeline audio volume/fade timing
+- [x] Caption/overlay timing
+- [x] Transition/effect metadata consumption
+- [x] Authenticated render-media resolution with proxy preference
+- [x] Editor render preflight, ownership checks, and media-state validation
+- [x] Render stage telemetry and progress workflow
+- [x] Version/hash/url/error metadata and stale-render protection
+- [x] Deterministic retry-safe editor render queue
+- [x] ffprobe validation for 1080x1920, positive duration, and required audio
+- [x] Dedicated `/editor/:id/render` workflow
+- [x] Automated timing, metadata, resolver, route, ownership, cancellation and retry coverage
 - [x] Worker lock/stall recovery configuration
 
-### Remaining M13 runtime validation
+### Runtime validation remaining
 
-- [ ] Verify trim/split/reorder parity against real editor timelines with browser-generated fixtures
-- [ ] Verify uploaded media playback from local storage in Remotion worker
+- [ ] Verify trim/split/reorder parity against real browser-generated editor timelines
+- [ ] Verify uploaded/local media playback in the Remotion worker
 - [ ] Verify caption/audio synchronization against representative projects
 - [ ] Full render regression QA with real MP4 output
 
 ## M14 — AI Editing Assistant
-**Status:** Not started
+**Status:** In progress — implementation has started; acceptance scope remains
 
-- [ ] Structured reversible editor operations
-- [ ] Tighten scene / hooks / B-roll replacement / pacing suggestions
-- [ ] Caption and narration regeneration suggestions
-- [ ] Preview before apply
-- [ ] One-step undoable application
-- [ ] Reasoning display
-- [ ] Never mutate source media directly
-- [ ] Rate-limit AI edit actions
+### Implemented so far
+
+- [x] AI editor assistant workspace foundation
+- [x] AI editor assistant backend route
+- [x] AI assistant lint cleanup and effect handling
+- [x] Non-destructive narration suggestions on the locked narration track
+- [x] Suggestions scoped specifically to the narration track
+- [x] Locked-track handling for suggestion flows
+- [x] Deterministic overlay IDs for generated editor operations
+
+### Remaining M14 work
+
+- [ ] Structured reversible editor operations for supported AI actions
+- [ ] Tighten scene / hook / B-roll replacement / pacing suggestions
+- [ ] Caption and narration regeneration suggestions with explicit preview
+- [ ] One-step undoable application of accepted suggestions
+- [ ] Clear reasoning/explanation display for proposed edits
+- [ ] Enforce source-media immutability for all AI operations
+- [ ] Rate-limit and abuse-protect AI edit actions
+- [ ] Automated acceptance coverage for AI suggestion/apply flows
+- [ ] Real browser QA for AI assistant interactions
 
 ## M15 — Versions, Templates & Review Workflow
-**Status:** Not started
+**Status:** In progress — implementation substantially complete; product UX and runtime QA remain
 
-- [ ] Project versions/snapshots
-- [ ] Version history/restore
-- [ ] Duplicate project
-- [ ] Reusable templates
-- [ ] Read-only share/review links
-- [ ] Optional review comments
-- [ ] Autosave conflict detection
-- [ ] Activity/history view
+### Implemented backend/API
+
+- [x] Project version snapshots
+- [x] Version history listing
+- [x] Version restore
+- [x] Optimistic editor-version conflict detection with `409` protection
+- [x] Project duplication
+- [x] Scene/asset copying during duplication
+- [x] Timeline scene/asset reference remapping during duplication
+- [x] Reusable project templates
+- [x] Template ownership enforcement
+- [x] Public read-only review links
+- [x] Review-link expiry
+- [x] Review-link revocation
+- [x] Public reviewer comments
+- [x] Comment resolution
+- [x] Project activity/history records
+- [x] Project ownership enforcement across project-scoped productivity APIs
+- [x] Acceptance tests covering the M15 route surface and ownership rules
+
+### Implemented UI
+
+- [x] Project productivity workspace
+- [x] Snapshot creation and version history display
+- [x] Version restore action
+- [x] Project duplication action
+- [x] Template creation and listing
+- [x] Review-link creation and display
+- [x] Activity/history display
+
+### M15 remaining product work
+
+- [ ] Add complete review-link management UX, including revoke control and clear status
+- [ ] Add reviewer-facing public review page/browser flow verification
+- [ ] Add reviewer comment/resolution UX validation end-to-end
+- [ ] Add template apply/use workflow to projects
+- [ ] Add stronger template management UX (inspect/delete/apply)
+- [ ] Verify duplication of all relevant project/editor/media relationships with real data
+- [ ] Verify version restore preserves editor consistency and creates the expected version transition
+- [ ] Verify conflict behavior with two concurrent editor sessions
+- [ ] Expand automated integration coverage beyond source-pattern acceptance tests
+- [ ] Full browser/mobile QA for productivity and review workflows
 
 ## M16 — Platform Publishing Abstraction & Analytics
 **Status:** Not started
@@ -305,25 +251,23 @@ remain deferred under M9 until separately approved.
 - [ ] Error states are actionable; no silent/infinite spinners
 - [ ] Existing Signals → Research → Setup → Storyboard → Preview/Finalize remains regression-tested after next-level changes
 - [ ] Opening the Advanced Editor does not change existing Storyboard/narration data
+- [ ] M14 AI assistant flow is regression-tested without source mutation
+- [ ] M15 review/version/template workflows are regression-tested end-to-end
 
-# Recommended execution order
+# Current execution focus
 
 ```text
-M10 Accounts/Auth
-       ↓
-M10A Public Discovery + Navigation + Theme
-       ↓
-M11 Advanced Editor Core (SEPARATE)
-       ↓
-M12 Media Library
-       ↓
-M13 Rendering + Reliability
-       ↓
-M14 AI Editing
-       ↓
-M15 Versions/Templates/Review
-       ↓
-M16 Publishing/Analytics
+1. Finish M14 deterministic AI editing behavior + acceptance coverage
+                         ↓
+2. Finish M15 product UX + end-to-end review/version/template validation
+                         ↓
+3. Complete M13 real-media render/runtime validation
+                         ↓
+4. Run full responsive/auth/regression browser QA
+                         ↓
+5. Synchronize BUILD_PLAN.md and remaining QA documentation
+                         ↓
+6. Start M16 Publishing/Analytics
 
 M9 Facebook production → DEFERRED / separate product decision
 ```
@@ -335,20 +279,13 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — **Advanced Video Editor is a standalone feature/workspace, not a new required step in the core creation flow.**
 - `2026-08-28` — Editor may reuse current scenes, visuals, narration, word timestamps, captions, and Remotion capabilities as source data but must not mutate the source workflow.
 - `2026-08-28` — Editor state is persisted independently from Storyboard data.
-- `2026-08-28` — AI editing comes only after deterministic editor behavior and editor rendering are stable.
-- `2026-08-28` — Facebook production integration remains excluded from the current implementation cycle.
 - `2026-08-28` — Signals remains the public discovery landing page; Direct this Reel is authenticated.
 - `2026-08-28` — Shared navigation uses responsive desktop/mobile account actions.
 - `2026-08-28` — Persistent user-selectable light/dark theme is part of the frontend shell.
 - `2026-08-28` — M11 first slice implemented with a dedicated `ProjectEditor` record, canonical timeline JSON, protected editor route, autosave, and non-destructive editing operations.
-- `2026-08-28` — M11 timeline refinement added playhead playback/seeking, timeline zoom, snap modes, B-roll replacement, preview scrubbing, bounded undo/redo, and keyboard controls without changing Storyboard source data.
-- `2026-08-28` — M11 richer editor refinement added drag move/trim, optional Music track, audio fades/volume, caption position/style/emphasis, overlay positioning, and touch-capable timeline interactions in the standalone editor.
-- `2026-08-29` — M11 audio refinement added decoded waveform visualization and synchronized editor audio playback without changing Storyboard source records.
-- `2026-08-29` — M11 transition/effect refinement added bounded Remotion-safe clip transition metadata and deterministic motion presets with live browser preview, autosave, and undo/redo support.
-- `2026-08-29` — M12 media library foundation added project-owned media records, authenticated media APIs, Pexels imports, dependency-free streamed uploads, server validation, browser metadata extraction, PNG image/video thumbnails, authenticated media playback, and orphan cleanup.
-- `2026-08-29` — M12 large-media processing added persistent ffmpeg proxies, restart-safe processing, proxy-aware media playback, and project editor media picking without mutating Storyboard source data.
-- `2026-08-29` — M13 editor rendering uses a separate `HelixEditorReel` and render queue so canonical `ProjectEditor.timeline` renders independently of the existing Storyboard render pipeline. Render metadata is version/hash scoped and stale renders are discarded.
-- `2026-08-30` — M10 rate limiting and production authentication hardening were implemented; remaining M10 work is acceptance verification with multiple real accounts.
-- `2026-08-30` — M11 external music integration was implemented through Jamendo search/import and the project Media Library/editor picker.
-- `2026-08-30` — M13 reliability work added deterministic regression fixtures, route/ownership tests, safe queued render cancellation, retry/backoff, and retry-aware terminal state handling.
-- `2026-08-30` — M13 composition metadata regression test was made line-ending agnostic so Windows CRLF source files do not cause a false test failure.
+- `2026-08-29` — M12 media library foundation and large-media proxy processing were implemented with project ownership and source isolation.
+- `2026-08-29` — M13 editor rendering/reliability implementation was completed; real-media runtime validation remains.
+- `2026-08-30` — M14 AI editor assistant workspace and route were implemented; subsequent fixes scoped narration suggestions, handled locked tracks, and stabilized lint/effect behavior.
+- `2026-08-30` — M15 versions, duplication, templates, review links, comments, conflict protection, and activity history were implemented with authenticated ownership checks.
+- `2026-08-30` — M15 acceptance coverage was added for route presence, snapshot/restore behavior, duplication/remapping, template validation, review-link lifecycle, activity logging, and project ownership checks.
+- `2026-09-05` — Tracker corrected to reflect the actual repository state: M14 is **In progress**, M15 is **In progress**, M13/M12 remain implementation-complete with runtime QA outstanding, and M16 remains not started.
