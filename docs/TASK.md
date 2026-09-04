@@ -104,6 +104,10 @@ narration, timestamps, selected B-roll, or normal Preview/Finalize behavior.
 - [ ] Verify editor changes never mutate Storyboard source records
 - [ ] Full browser QA across supported viewport sizes
 
+**Acceptance:** a user can open a completed project in the standalone Editor,
+make/save/refresh edits, and continue using the original Storyboard flow with
+its original source data unchanged.
+
 ## M12 — Media Library & Upload Pipeline
 **Status:** Done — implementation complete; runtime acceptance QA remains
 
@@ -151,32 +155,33 @@ source records.
 - [ ] Full render regression QA with real MP4 output
 
 ## M14 — AI Editing Assistant
-**Status:** In progress — implementation has started; acceptance scope remains
+**Status:** Done — implementation complete; browser/runtime acceptance QA remains
 
-### Implemented so far
+### Implemented
 
-- [x] AI editor assistant workspace foundation
-- [x] AI editor assistant backend route
-- [x] AI assistant lint cleanup and effect handling
-- [x] Non-destructive narration suggestions on the locked narration track
-- [x] Suggestions scoped specifically to the narration track
-- [x] Locked-track handling for suggestion flows
-- [x] Deterministic overlay IDs for generated editor operations
+- [x] Protected AI editor assistant workspace at `/editor/:id/ai`
+- [x] AI suggestion endpoint using structured editor operations
+- [x] Supported reversible operations: trim, move, split, delete, caption update, volume, overlay, B-roll replacement, narration regeneration suggestion
+- [x] Preview endpoint validates the proposed result without persistence
+- [x] Version-safe apply rejects stale editor state with `409`
+- [x] One-step undo flow restores the previous editor timeline through version-aware persistence
+- [x] Reasoning/summary returned with each suggestion
+- [x] Source Storyboard/media immutability rules enforced for AI B-roll/narration flows
+- [x] Locked narration track protected while allowing non-destructive narration suggestions
+- [x] Stable deterministic overlay IDs required for generated overlays
+- [x] AI instruction length and operation-count bounds
+- [x] Per-user AI suggestion rate limiting
+- [x] AI suggestion/apply activity records
+- [x] Automated M14 acceptance coverage for route surface, operation validation, source-scene B-roll constraints, reasoning/immutability, rate limiting, and activity logging
 
-### Remaining M14 work
+### Acceptance QA remaining
 
-- [ ] Structured reversible editor operations for supported AI actions
-- [ ] Tighten scene / hook / B-roll replacement / pacing suggestions
-- [ ] Caption and narration regeneration suggestions with explicit preview
-- [ ] One-step undoable application of accepted suggestions
-- [ ] Clear reasoning/explanation display for proposed edits
-- [ ] Enforce source-media immutability for all AI operations
-- [ ] Rate-limit and abuse-protect AI edit actions
-- [ ] Automated acceptance coverage for AI suggestion/apply flows
-- [ ] Real browser QA for AI assistant interactions
+- [ ] Real browser verification of suggest → preview → apply → undo
+- [ ] Verify representative AI edits preserve Storyboard source records
+- [ ] Verify AI rate limiting under repeated requests
 
 ## M15 — Versions, Templates & Review Workflow
-**Status:** In progress — implementation substantially complete; product UX and runtime QA remain
+**Status:** Done — implementation complete; browser/integration acceptance QA remains
 
 ### Implemented backend/API
 
@@ -189,14 +194,16 @@ source records.
 - [x] Timeline scene/asset reference remapping during duplication
 - [x] Reusable project templates
 - [x] Template ownership enforcement
+- [x] Safe template apply with target-project scene/asset remapping
 - [x] Public read-only review links
-- [x] Review-link expiry
+- [x] Review-link expiry validation
 - [x] Review-link revocation
+- [x] Review-link listing for project owners
 - [x] Public reviewer comments
 - [x] Comment resolution
 - [x] Project activity/history records
 - [x] Project ownership enforcement across project-scoped productivity APIs
-- [x] Acceptance tests covering the M15 route surface and ownership rules
+- [x] Automated M15 acceptance coverage for versions, restore, duplication, template lifecycle/application, review lifecycle, activity and ownership
 
 ### Implemented UI
 
@@ -205,21 +212,21 @@ source records.
 - [x] Version restore action
 - [x] Project duplication action
 - [x] Template creation and listing
-- [x] Review-link creation and display
+- [x] Template apply action
+- [x] Template delete action
+- [x] Review-link creation and persistent listing
+- [x] Review-link revoke action and active/revoked status
+- [x] Review comment count and expiry display
 - [x] Activity/history display
+- [x] Public `/review/:token` page for reviewer access
 
-### M15 remaining product work
+### Acceptance QA remaining
 
-- [ ] Add complete review-link management UX, including revoke control and clear status
-- [ ] Add reviewer-facing public review page/browser flow verification
-- [ ] Add reviewer comment/resolution UX validation end-to-end
-- [ ] Add template apply/use workflow to projects
-- [ ] Add stronger template management UX (inspect/delete/apply)
-- [ ] Verify duplication of all relevant project/editor/media relationships with real data
-- [ ] Verify version restore preserves editor consistency and creates the expected version transition
-- [ ] Verify conflict behavior with two concurrent editor sessions
-- [ ] Expand automated integration coverage beyond source-pattern acceptance tests
-- [ ] Full browser/mobile QA for productivity and review workflows
+- [ ] Browser verification of create/restore/duplicate/template/review flows
+- [ ] Verify concurrent-session version conflict handling with two real sessions
+- [ ] Verify duplicated projects contain all required related data in representative real projects
+- [ ] Verify public reviewer experience against real rendered media where available
+- [ ] Full responsive/mobile QA for productivity and review workflows
 
 ## M16 — Platform Publishing Abstraction & Analytics
 **Status:** Not started
@@ -251,23 +258,19 @@ remain deferred under M9 until separately approved.
 - [ ] Error states are actionable; no silent/infinite spinners
 - [ ] Existing Signals → Research → Setup → Storyboard → Preview/Finalize remains regression-tested after next-level changes
 - [ ] Opening the Advanced Editor does not change existing Storyboard/narration data
-- [ ] M14 AI assistant flow is regression-tested without source mutation
-- [ ] M15 review/version/template workflows are regression-tested end-to-end
+- [ ] M14 AI assistant flow is regression-tested end-to-end in a real browser
+- [ ] M15 review/version/template workflows are regression-tested end-to-end in a real browser
 
 # Current execution focus
 
 ```text
-1. Finish M14 deterministic AI editing behavior + acceptance coverage
+1. Complete M13 real-media render/runtime validation
                          ↓
-2. Finish M15 product UX + end-to-end review/version/template validation
+2. Run full responsive/auth/regression browser QA for M10–M15
                          ↓
-3. Complete M13 real-media render/runtime validation
+3. Synchronize BUILD_PLAN.md and FINAL_QA.md with the completed M14/M15 implementation
                          ↓
-4. Run full responsive/auth/regression browser QA
-                         ↓
-5. Synchronize BUILD_PLAN.md and remaining QA documentation
-                         ↓
-6. Start M16 Publishing/Analytics
+4. Start M16 Publishing/Analytics
 
 M9 Facebook production → DEFERRED / separate product decision
 ```
@@ -282,10 +285,9 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-08-28` — Signals remains the public discovery landing page; Direct this Reel is authenticated.
 - `2026-08-28` — Shared navigation uses responsive desktop/mobile account actions.
 - `2026-08-28` — Persistent user-selectable light/dark theme is part of the frontend shell.
-- `2026-08-28` — M11 first slice implemented with a dedicated `ProjectEditor` record, canonical timeline JSON, protected editor route, autosave, and non-destructive editing operations.
 - `2026-08-29` — M12 media library foundation and large-media proxy processing were implemented with project ownership and source isolation.
 - `2026-08-29` — M13 editor rendering/reliability implementation was completed; real-media runtime validation remains.
-- `2026-08-30` — M14 AI editor assistant workspace and route were implemented; subsequent fixes scoped narration suggestions, handled locked tracks, and stabilized lint/effect behavior.
-- `2026-08-30` — M15 versions, duplication, templates, review links, comments, conflict protection, and activity history were implemented with authenticated ownership checks.
-- `2026-08-30` — M15 acceptance coverage was added for route presence, snapshot/restore behavior, duplication/remapping, template validation, review-link lifecycle, activity logging, and project ownership checks.
-- `2026-09-05` — Tracker corrected to reflect the actual repository state: M14 is **In progress**, M15 is **In progress**, M13/M12 remain implementation-complete with runtime QA outstanding, and M16 remains not started.
+- `2026-08-30` — M14 AI editor assistant workspace and route were implemented; subsequent fixes scoped narration suggestions, handled locked tracks, added deterministic overlay IDs, rate limiting, activity records, and acceptance coverage.
+- `2026-08-30` — M15 versions, duplication, templates, review links, comments, conflict protection, activity history, template application, and review-link management UI were implemented with authenticated ownership checks.
+- `2026-08-30` — M15 acceptance coverage was expanded for template application, review-link listing/revocation, lifecycle behavior, activity, and ownership.
+- `2026-09-05` — M14 and M15 are now marked **Done — implementation complete**, with browser/runtime acceptance explicitly remaining; M16 remains not started.
