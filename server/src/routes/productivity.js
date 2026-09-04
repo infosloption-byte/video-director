@@ -15,6 +15,60 @@ async function logActivity(projectId, userId, action, metadata = {}) {
   await prisma.projectActivity.create({ data: { projectId, userId, action, metadata } }).catch(() => {});
 }
 
+function applyTemplateToProject(template, project) {
+  const templateTimeline = jsonClone(template.timeline || {});
+  const targetScenes = project.scenes || [];
+  const sceneIds = new Set(targetScenes.map((scene) => String(scene.id)));
+  const assetsById = new Map();
+  for (const scene of targetScenes) for (const asset of scene.assets || []) assetsById.set(String(asset.id), { scene, asset });
+  const targetScenesByIndex = targetScenes;
+
+  let videoIndex = 0;
+  let narrationIndex = 0;
+  let captionIndex = 0;
+  const tracks = (templateTimeline.tracks || []).map((track) => {
+    const clips = (track.clips || []).map((clip) => {
+      const next = jsonClone(clip);
+      if (track.kind === "video" || next.type === "video") {
+        const targetScene = sceneIds.has(String(next.sourceId))
+          ? targetScenes.find((scene) => String(scene.id) === String(next.sourceId))
+          : targetScenesByIndex[videoIndex];
+        videoIndex += 1;
+        if (!targetScene) return null;
+        const compatibleAsset = assetsById.get(String(next.assetId));
+        const targetAsset = compatibleAsset?.scene?.id === targetScene.id
+          ? compatibleAsset.asset
+          : (targetScene.assets || []).find((asset) => asset.isSelected) || targetScene.assets?.[0] || null;
+        next.sourceId = targetScene.id;
+        next.assetId = targetAsset?.id || null;
+        next.src = targetAsset?.videoUrl || null;
+        next.thumbnailUrl = targetAsset?.thumbnailUrl || null;
+        next.title = next.title || targetScene.title || `Scene ${targetScene.sceneOrder}`;
+      } else if (track.id === "narration" || next.type === "audio") {
+        const targetScene = sceneIds.has(String(next.sourceId))
+          ? targetScenes.find((scene) => String(scene.id) === String(next.sourceId))
+          : targetScenesByIndex[narrationIndex];
+        narrationIndex += 1;
+        if (track.id === "narration" && targetScene) {
+          next.sourceId = targetScene.id;
+          next.src = targetScene.audioUrl || null;
+        }
+      } else if (track.kind === "caption" || next.type === "caption") {
+        const targetScene = sceneIds.has(String(next.sourceId))
+          ? targetScenes.find((scene) => String(scene.id) === String(next.sourceId))
+          : targetScenesByIndex[captionIndex];
+        captionIndex += 1;
+        if (targetScene) next.sourceId = targetScene.id;
+      }
+      return next;
+    }).filter(Boolean);
+    return { ...track, clips };
+  });
+
+  const duration = tracks.flatMap((track) => track.clips || []).reduce((max, clip) => Math.max(max, Number(clip.start || 0) + Number(clip.duration || 0)), 0);
+  return { ...templateTimeline, schemaVersion: 1, fps: Number(templateTimeline.fps || 30), width: 1080, height: 1920, duration: Number(duration.toFixed(3)), tracks };
+}
+
 router.get("/:id/versions", async (req, res) => {
   const project = await projectOr404(req.params.id, req.user.id);
   if (!project) return res.status(404).json({ error: "Project not found." });
@@ -105,18 +159,40 @@ router.post("/:id/template", async (req, res) => {
   res.status(201).json({ template });
 });
 
+router.post("/:id/apply-template/:templateId", async (req, res) => {
+  const project = await projectOr404(req.params.id, req.user.id);
+  if (!project?.editor) return res.status(404).json({ error: "Project editor not found." });
+  const template = await prisma.projectTemplate.findFirst({ where: { id: req.params.templateId, userId: req.user.id } });
+  if (!template) return res.status(404).json({ error: "Template not found." });
+  const expectedVersion = Number(req.body?.version);
+  if (!Number.isInteger(expectedVersion) || expectedVersion !== project.editor.version) return res.status(409).json({ error: "Editor changed elsewhere. Reload before applying this template.", version: project.editor.version });
+  const timeline = applyTemplateToProject(template, project);
+  const editor = await prisma.projectEditor.update({ where: { projectId: project.id }, data: { version: { increment: 1 }, timeline } });
+  await logActivity(project.id, req.user.id, "template.applied", { templateId: template.id });
+  res.json({ editor, template: { id: template.id, name: template.name } });
+});
+
+router.get("/:id/review-links", async (req, res) => {
+  const project = await projectOr404(req.params.id, req.user.id);
+  if (!project) return res.status(404).json({ error: "Project not found." });
+  const reviews = await prisma.projectReviewLink.findMany({ where: { projectId: project.id }, orderBy: { createdAt: "desc" }, take: 100, include: { _count: { select: { comments: true } } } });
+  res.json({ reviews });
+});
+
 router.post("/:id/review-links", async (req, res) => {
   const project = await projectOr404(req.params.id, req.user.id);
   if (!project) return res.status(404).json({ error: "Project not found." });
-  const review = await prisma.projectReviewLink.create({ data: { projectId: project.id, token: token(), expiresAt: req.body?.expiresAt ? new Date(req.body.expiresAt) : null } });
+  const expiresAt = req.body?.expiresAt ? new Date(req.body.expiresAt) : null;
+  if (expiresAt && Number.isNaN(expiresAt.getTime())) return res.status(400).json({ error: "Invalid review-link expiry." });
+  const review = await prisma.projectReviewLink.create({ data: { projectId: project.id, token: token(), expiresAt } });
   await logActivity(project.id, req.user.id, "review_link.created", { reviewLinkId: review.id });
   res.status(201).json({ review });
 });
 
 router.get("/review/:token", async (req, res) => {
-  const review = await prisma.projectReviewLink.findUnique({ where: { token: req.params.token }, include: { project: { select: { id: true, title: true, durationSeconds: true, editor: { select: { version: true, timeline: true, updatedAt: true } } }, comments: { orderBy: { createdAt: "asc" } } } } });
+  const review = await prisma.projectReviewLink.findUnique({ where: { token: req.params.token }, include: { project: { select: { id: true, title: true, durationSeconds: true, renderUrl: true, editor: { select: { version: true, timeline: true, updatedAt: true, renderUrl: true, renderVersion: true } } } }, comments: { orderBy: { createdAt: "asc" } } } });
   if (!review || review.revokedAt || (review.expiresAt && review.expiresAt < new Date())) return res.status(404).json({ error: "Review link is unavailable." });
-  res.json({ review: { id: review.id, project: review.project, comments: review.comments } });
+  res.json({ review: { id: review.id, project: review.project, expiresAt: review.expiresAt, comments: review.comments } });
 });
 
 router.post("/review/:token/comments", async (req, res) => {
@@ -131,7 +207,7 @@ router.post("/review/:token/comments", async (req, res) => {
 
 router.patch("/review/:token/comments/:commentId", async (req, res) => {
   const review = await prisma.projectReviewLink.findUnique({ where: { token: req.params.token } });
-  if (!review || review.revokedAt) return res.status(404).json({ error: "Review link is unavailable." });
+  if (!review || review.revokedAt || (review.expiresAt && review.expiresAt < new Date())) return res.status(404).json({ error: "Review link is unavailable." });
   const comment = await prisma.projectReviewComment.findFirst({ where: { id: req.params.commentId, reviewLinkId: review.id } });
   if (!comment) return res.status(404).json({ error: "Comment not found." });
   const updated = await prisma.projectReviewComment.update({ where: { id: comment.id }, data: { resolved: req.body?.resolved == null ? comment.resolved : Boolean(req.body.resolved) } });
@@ -144,6 +220,7 @@ router.delete("/:id/review-links/:reviewId", async (req, res) => {
   const review = await prisma.projectReviewLink.findFirst({ where: { id: req.params.reviewId, projectId: project.id } });
   if (!review) return res.status(404).json({ error: "Review link not found." });
   await prisma.projectReviewLink.update({ where: { id: review.id }, data: { revokedAt: new Date() } });
+  await logActivity(project.id, req.user.id, "review_link.revoked", { reviewLinkId: review.id });
   res.status(204).end();
 });
 
