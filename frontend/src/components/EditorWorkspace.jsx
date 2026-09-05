@@ -46,6 +46,6 @@ export default function EditorWorkspace() {
         <span>{item.icon}</span><small>{item.label}</small>
       </button>)}
     </nav>
-    {tool && <EditorToolPanel tool={tool} id={id} selectedClip={null} onReplaceMedia={reloadEditor} onApplied={reloadEditor} onClose={closeTool} />}
+    {tool && <EditorToolPanel tool={tool} id={id} selectedClip={{ trackId: "video", clipId: "" }} onReplaceMedia={reloadEditor} onApplied={reloadEditor} onClose={closeTool} />}
   </div>;
 }
