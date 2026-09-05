@@ -1,12 +1,17 @@
-.editor-workspace{--editor-tools-collapsed:72px;--editor-tools-expanded:270px;min-height:100vh;background:var(--bg)}
+.editor-workspace{--editor-tools-collapsed:72px;--editor-tools-expanded:270px;--editor-tools-width:var(--editor-tools-expanded);min-height:100vh;background:var(--bg)}
+.editor-workspace.is-collapsed{--editor-tools-width:var(--editor-tools-collapsed)}
+.editor-workspace.is-expanded{--editor-tools-width:var(--editor-tools-expanded)}
 
 /* Tools, Preview and Inspector are one shared editor panel. */
 .editor-workspace .advanced-editor{padding:24px 20px 40px;margin:0;max-width:none}
 .editor-workspace .advanced-editor__header{margin:0 0 18px;min-height:64px}
-.editor-workspace .advanced-editor__topgrid{margin-left:0;grid-template-columns:var(--editor-tools-expanded) minmax(0,1fr) minmax(280px,360px);gap:0;align-items:stretch;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);overflow:hidden}
-.editor-workspace .editor-preview-card{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:14px;border:0;border-radius:0;background:transparent}
+.editor-workspace .advanced-editor__topgrid{margin-left:0;grid-template-columns:var(--editor-tools-width) minmax(0,1fr) minmax(280px,360px);gap:0;align-items:stretch;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);overflow:hidden}
+
+/* React portals append Tools after Inspector in the DOM, so explicitly define the visual order. */
+.editor-workspace .editor-tools-column{grid-column:1;grid-row:1;order:1}
+.editor-workspace .editor-preview-card{grid-column:2;grid-row:1;order:2;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:14px;border:0;border-radius:0;background:transparent}
+.editor-workspace .advanced-editor__inspector{grid-column:3;grid-row:1;order:3;min-width:0;max-height:calc(100vh - 190px);overflow:auto;padding:14px;border:0;border-left:1px solid var(--border);border-radius:0;background:transparent}
 .editor-workspace .editor-preview-frame{width:min(100%,360px)}
-.editor-workspace .advanced-editor__inspector{min-width:0;max-height:calc(100vh - 190px);overflow:auto;padding:14px;border:0;border-left:1px solid var(--border);border-radius:0;background:transparent}
 .editor-workspace .editor-timeline-card{margin-top:14px;width:100%;border-radius:14px}
 .editor-workspace .editor-timeline-scroll{max-height:42vh;overflow:auto}
 .editor-workspace .editor-tracks{min-height:300px}
@@ -18,8 +23,6 @@
 
 /* Tools occupies the first column of the same panel as Preview and Inspector. */
 .editor-tools-column{position:relative;left:auto;top:auto;right:auto;bottom:auto;width:auto;height:auto;min-width:0;min-height:0;z-index:1;display:flex;flex-direction:column;border:0;border-right:1px solid var(--border);border-radius:0;background:var(--bg-raised);box-shadow:none;overflow:hidden}
-.editor-workspace.is-collapsed .editor-tools-column{width:var(--editor-tools-collapsed)}
-.editor-workspace.is-expanded .editor-tools-column{width:var(--editor-tools-expanded)}
 .editor-tools-column__bar{height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:center;gap:8px;padding:8px;border-bottom:1px solid var(--border-soft);background:var(--surface-soft)}
 .editor-workspace.is-expanded .editor-tools-column__bar{justify-content:space-between;padding-inline:12px}
 .editor-tools-column__title{display:none;font:9px var(--font-mono);letter-spacing:.12em;color:var(--muted)}
@@ -48,13 +51,14 @@
 
 @media (max-width:1100px){
   .editor-workspace{--editor-tools-expanded:250px}
-  .editor-workspace .advanced-editor__topgrid{grid-template-columns:var(--editor-tools-expanded) minmax(0,1fr) minmax(250px,320px)}
+  .editor-workspace .advanced-editor__topgrid{grid-template-columns:var(--editor-tools-width) minmax(0,1fr) minmax(250px,320px)}
 }
 
 @media (max-width:900px){
   .editor-workspace .advanced-editor{padding:18px 12px 72px}
   .editor-workspace .advanced-editor__header{padding-left:0}
   .editor-workspace .advanced-editor__topgrid{grid-template-columns:minmax(0,1fr);border:0;border-radius:0;background:transparent;overflow:visible;gap:14px}
+  .editor-workspace .editor-tools-column,.editor-workspace .editor-preview-card,.editor-workspace .advanced-editor__inspector{grid-column:1;grid-row:auto;order:initial}
   .editor-workspace .editor-preview-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
   .editor-workspace .advanced-editor__inspector{max-height:none;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
   .editor-tools-column{width:100%!important;height:auto;min-height:58px;flex-direction:row;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
