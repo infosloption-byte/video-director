@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import AdvancedEditorPage from "../pages/AdvancedEditorPage";
 import EditorToolPanel from "./EditorToolPanel";
+import "./EditorWorkspace.css";
 
 const TOOLS = [
   { id: "media", label: "Media Library", icon: "▧" },
@@ -11,9 +12,9 @@ const TOOLS = [
 ];
 
 export default function EditorWorkspace() {
+  const { id } = useParams();
   const [params, setParams] = useSearchParams();
   const [tool, setTool] = useState(params.get("tool") || "");
-  const id = window.location.pathname.split("/").filter(Boolean).pop();
 
   useEffect(() => {
     const requested = params.get("tool") || "";
@@ -35,9 +36,7 @@ export default function EditorWorkspace() {
     setParams(nextParams, { replace: true });
   }
 
-  function reloadEditor() {
-    window.location.reload();
-  }
+  function reloadEditor() { window.location.reload(); }
 
   return <div className={`editor-workspace ${tool ? "has-tool-panel" : ""}`}>
     <AdvancedEditorPage />
@@ -47,6 +46,6 @@ export default function EditorWorkspace() {
         <span>{item.icon}</span><small>{item.label}</small>
       </button>)}
     </nav>
-    {tool && <EditorToolPanel tool={tool} id={id} selectedClip={null} onReplaceMedia={() => reloadEditor()} onApplied={() => reloadEditor()} onClose={closeTool} />}
+    {tool && <EditorToolPanel tool={tool} id={id} selectedClip={null} onReplaceMedia={reloadEditor} onApplied={reloadEditor} onClose={closeTool} />}
   </div>;
 }
