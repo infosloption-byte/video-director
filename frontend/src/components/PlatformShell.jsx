@@ -7,9 +7,8 @@ import "./PlatformShell.css";
 const NAV = [
   { label: "Signals", icon: "⌁", path: "/" },
   { label: "My Research", icon: "▦", path: "/my-research", authOnly: true },
-  { label: "About", icon: "ⓘ", path: "/about" },
-  { label: "Support", icon: "?", path: "/support" },
-  { label: "Account", icon: "◎", path: "/account", bottom: true, authOnly: true },
+  { label: "About", icon: "ⓘ", path: "/about", bottom: true },
+  { label: "Support", icon: "?", path: "/support", bottom: true },
 ];
 
 const ICON_PATHS = {
