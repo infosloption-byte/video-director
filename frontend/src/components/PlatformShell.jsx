@@ -5,12 +5,30 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import "./PlatformShell.css";
 
 const NAV = [
-  { label: "Signals", icon: "⌁", path: "/" },
-  { label: "My Research", icon: "▦", path: "/my-research", authOnly: true },
-  { label: "About", icon: "ⓘ", path: "/about" },
-  { label: "Support", icon: "?", path: "/support" },
-  { label: "Account", icon: "◎", path: "/account", bottom: true, authOnly: true },
+  { label: "Signals", icon: "signals", path: "/" },
+  { label: "My Research", icon: "research", path: "/my-research", authOnly: true },
+  { label: "About", icon: "about", path: "/about" },
+  { label: "Support", icon: "support", path: "/support" },
+  { label: "Account", icon: "account", path: "/account", bottom: true, authOnly: true },
 ];
+
+function NavIcon({ name }) {
+  const paths = {
+    signals: <><path d="M4 12h4l2-7 4 14 2-7h4" /></>,
+    research: <><rect x="5" y="4" width="14" height="16" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+    about: <><circle cx="12" cy="12" r="8" /><path d="M12 11v5M12 8h.01" /></>,
+    support: <><path d="M5 7.5A3.5 3.5 0 0 1 8.5 4h7A3.5 3.5 0 0 1 19 7.5v4A3.5 3.5 0 0 1 15.5 15H12l-3.5 3v-3A3.5 3.5 0 0 1 5 11.5z" /><path d="M9 9.5h6M9 12h4" /></>,
+    account: <><circle cx="12" cy="8" r="3" /><path d="M6 20a6 6 0 0 1 12 0" /></>,
+    workspace: <><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></>,
+    storyboard: <><rect x="4" y="5" width="6" height="6" rx="1" /><rect x="14" y="5" width="6" height="6" rx="1" /><rect x="4" y="13" width="6" height="6" rx="1" /><rect x="14" y="13" width="6" height="6" rx="1" /></>,
+    media: <><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" /><circle cx="9" cy="10" r="1.5" /><path d="m5 17 5-5 3 3 2-2 5 5" /></>,
+    editor: <><path d="m14.5 5.5 4 4L9 19H5v-4z" /><path d="m13 7 4 4" /></>,
+    ai: <><path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.3 6.3l2.1 2.1M15.6 15.6l2.1 2.1M17.7 6.3l-2.1 2.1M8.4 15.6l-2.1 2.1" /><circle cx="12" cy="12" r="4" /></>,
+    render: <><path d="m8 5 10 7-10 7z" /></>,
+    productivity: <><rect x="5" y="5" width="14" height="14" rx="2" /><path d="M9 9h6M9 12h6M9 15h4" /></>,
+  };
+  return <svg className="platform-nav__icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] || paths.workspace}</svg>;
+}
 
 export default function PlatformShell({ children }) {
   const location = useLocation();
@@ -40,14 +58,14 @@ export default function PlatformShell({ children }) {
   }, [mobileOpen]);
 
   const workspaceNav = user && projectId ? [
-    { label: "Research", icon: "◌", path: `/research/${projectId}` },
-    { label: "Storyboard", icon: "▤", path: `/storyboard/${projectId}` },
-    { label: "Media Library", icon: "▧", path: `/media/${projectId}` },
-    { label: "Advanced Editor", icon: "✦", path: `/editor/${projectId}` },
+    { label: "Research", icon: "workspace", path: `/research/${projectId}` },
+    { label: "Storyboard", icon: "storyboard", path: `/storyboard/${projectId}` },
+    { label: "Media Library", icon: "media", path: `/media/${projectId}` },
+    { label: "Advanced Editor", icon: "editor", path: `/editor/${projectId}` },
     ...(editorId ? [
-      { label: "AI Assistant", icon: "✧", path: `/editor/${editorId}/ai` },
-      { label: "Render", icon: "▶", path: `/editor/${editorId}/render` },
-      { label: "Productivity", icon: "◫", path: `/editor/${editorId}/productivity` },
+      { label: "AI Assistant", icon: "ai", path: `/editor/${editorId}/ai` },
+      { label: "Render", icon: "render", path: `/editor/${editorId}/render` },
+      { label: "Productivity", icon: "productivity", path: `/editor/${editorId}/productivity` },
     ] : []),
   ] : [];
 
@@ -73,7 +91,7 @@ export default function PlatformShell({ children }) {
 
   const renderNavItem = (item) => (
     <Link key={item.path} to={item.path} className={`platform-nav__item ${isActive(item.path) ? "is-active" : ""}`} title={collapsed ? item.label : undefined} aria-label={item.label}>
-      <span className="platform-nav__icon" aria-hidden="true">{item.icon}</span>
+      <span className="platform-nav__icon" aria-hidden="true"><NavIcon name={item.icon} /></span>
       <span className="platform-nav__label">{item.label}</span>
     </Link>
   );
