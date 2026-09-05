@@ -1,6 +1,6 @@
 .editor-workspace{--editor-tools-collapsed:72px;--editor-tools-expanded:270px;position:relative;min-height:100vh;background:var(--bg)}
 
-/* The editor owns a two-row workspace: top = tools / preview / inspector, bottom = full-width timeline. */
+/* The editor is a true two-row layout. The tools column is part of row one, not a floating overlay. */
 .editor-workspace .advanced-editor{padding:24px 20px 40px;margin:0;max-width:none}
 .editor-workspace .advanced-editor__header{margin:0 0 18px;padding-left:var(--editor-tools-collapsed);min-height:64px}
 .editor-workspace .advanced-editor__topgrid{margin-left:var(--editor-tools-collapsed);grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:14px;align-items:stretch}
@@ -11,20 +11,21 @@
 .editor-workspace .editor-timeline-scroll{max-height:42vh;overflow:auto}
 .editor-workspace .editor-tracks{min-height:300px}
 
-/* Keep the old standalone tool links hidden; their functionality is now owned by the left tool column. */
+/* Old standalone entry points are hidden because these capabilities now live inside the editor. */
 .editor-workspace .advanced-editor__actions a[href*="/ai"],
 .editor-workspace .advanced-editor__actions a[href*="/render"],
 .editor-workspace .editor-media-actions{display:none}
 
-.editor-tools-column{position:fixed;left:14px;top:104px;bottom:18px;width:var(--editor-tools-collapsed);z-index:80;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--bg-raised);box-shadow:var(--shadow-soft);overflow:hidden;transition:width 180ms ease}
+/* Persistent first-column panel: it occupies the reserved left column instead of floating over the editor. */
+.editor-tools-column{position:absolute;left:0;top:106px;bottom:auto;width:var(--editor-tools-collapsed);height:calc(100vh - 106px - 40px);z-index:5;display:flex;flex-direction:column;border:0;border-right:1px solid var(--border);border-radius:0;background:var(--bg-raised);box-shadow:none;overflow:hidden;transition:width 180ms ease}
 .editor-workspace.is-expanded .editor-tools-column{width:var(--editor-tools-expanded)}
-.editor-tools-column__bar{height:48px;display:flex;align-items:center;justify-content:center;gap:8px;padding:8px;border-bottom:1px solid var(--border-soft);background:var(--surface-soft)}
+.editor-tools-column__bar{height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:center;gap:8px;padding:8px;border-bottom:1px solid var(--border-soft);background:var(--surface-soft)}
 .editor-workspace.is-expanded .editor-tools-column__bar{justify-content:space-between;padding-inline:12px}
 .editor-tools-column__title{display:none;font:9px var(--font-mono);letter-spacing:.12em;color:var(--muted)}
 .editor-workspace.is-expanded .editor-tools-column__title{display:block}
 .editor-tools-column__toggle{width:30px;height:30px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
 .editor-tools-column__toggle:hover{background:var(--surface-soft)}
-.editor-tools-column__items{display:grid;gap:6px;padding:8px}
+.editor-tools-column__items{display:grid;gap:6px;padding:8px;overflow:auto}
 .editor-tool-button{display:flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:7px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--body);cursor:pointer;text-align:left}
 .editor-workspace.is-expanded .editor-tool-button{justify-content:flex-start;padding-inline:9px}
 .editor-tool-button:hover,.editor-tool-button.is-active{border-color:var(--border);background:var(--surface-soft);color:var(--ink)}
@@ -32,7 +33,7 @@
 .editor-tool-button__label{display:none;font-size:11px;font-weight:600}
 .editor-workspace.is-expanded .editor-tool-button__label{display:block}
 
-/* The feature content stays in the same left column instead of floating over the preview. */
+/* Feature content is another section of the same left column. It never covers preview/inspector. */
 .editor-tools-column .editor-tool-panel{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:auto;min-height:0;flex:1;border:0;border-top:1px solid var(--border-soft);border-radius:0;background:transparent;box-shadow:none;overflow:hidden}
 .editor-tools-column .editor-tool-panel__header{padding:12px;background:transparent}
 .editor-tools-column .editor-tool-panel__body{padding:10px;overflow:auto}
@@ -54,16 +55,13 @@
   .editor-workspace .advanced-editor__header{padding-left:0}
   .editor-workspace .advanced-editor__topgrid{margin-left:0;grid-template-columns:minmax(0,1fr)}
   .editor-workspace .advanced-editor__inspector{max-height:none}
-  .editor-tools-column{left:10px;right:10px;top:auto;bottom:10px;width:auto;height:58px;flex-direction:row;border-radius:13px}
-  .editor-workspace.is-expanded .editor-tools-column{width:auto;height:min(72vh,620px);top:76px;bottom:76px;right:10px;display:flex;flex-direction:column}
-  .editor-tools-column__bar{height:100%;min-width:48px;border:0;border-right:1px solid var(--border-soft)}
+  .editor-tools-column{position:relative;left:auto;top:auto;bottom:auto;width:100%;height:auto;min-height:58px;flex-direction:row;border-right:0;border-bottom:1px solid var(--border);border-radius:0}
+  .editor-workspace.is-expanded .editor-tools-column{width:100%;height:auto;min-height:320px;display:flex;flex-direction:column}
+  .editor-tools-column__bar{height:58px;min-width:58px;border:0;border-right:1px solid var(--border-soft)}
   .editor-workspace.is-expanded .editor-tools-column__bar{height:48px;min-width:0;border-right:0;border-bottom:1px solid var(--border-soft)}
   .editor-tools-column__items{display:flex;flex:1;align-items:center;justify-content:space-around;overflow:auto}
   .editor-workspace.is-expanded .editor-tools-column__items{display:grid;flex:none}
   .editor-tool-button{min-height:44px}
-  .editor-workspace.is-collapsed .editor-tools-column__toggle{transform:rotate(-90deg)}
-  .editor-workspace.is-collapsed .editor-tools-column__items{padding:5px}
-  .editor-workspace.is-collapsed .editor-tool-button{min-width:54px}
   .editor-workspace .editor-timeline-scroll{max-height:38vh}
 }
 
@@ -71,6 +69,5 @@
   .editor-workspace .advanced-editor__topgrid{grid-template-columns:1fr}
   .editor-workspace .editor-preview-frame{width:min(100%,280px)}
   .editor-workspace .editor-timeline-scroll{max-height:34vh}
-  .editor-tools-column{left:6px;right:6px;bottom:6px}
-  .editor-workspace.is-expanded .editor-tools-column{left:6px;right:6px;top:66px;bottom:66px}
+  .editor-tools-column{min-height:56px}
 }
