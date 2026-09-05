@@ -32,6 +32,16 @@
 .platform-user__copy small { color: var(--muted); font-size: 10px; }
 .platform-shell.is-collapsed .platform-user { justify-content: center; padding: 8px 0; }
 .platform-shell.is-collapsed .platform-user__copy { display: none; }
+.platform-auth-actions { display: flex; flex-direction: column; gap: 6px; }
+.platform-auth-actions a { min-height: 36px; display: flex; align-items: center; justify-content: center; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; font-size: 12px; font-weight: 600; transition: background 120ms ease, color 120ms ease, border-color 120ms ease; }
+.platform-auth-actions__primary { background: var(--ink); color: var(--bg) !important; }
+.platform-auth-actions__primary:hover { opacity: .9; }
+.platform-auth-actions__secondary { background: var(--surface-soft); color: var(--ink) !important; }
+.platform-auth-actions__secondary:hover { background: var(--card-hover); }
+.platform-shell.is-collapsed .platform-auth-actions a { width: 40px; margin: 0 auto; overflow: hidden; padding: 0; font-size: 0; }
+.platform-shell.is-collapsed .platform-auth-actions a::before { font-size: 13px; }
+.platform-shell.is-collapsed .platform-auth-actions__primary::before { content: "→"; }
+.platform-shell.is-collapsed .platform-auth-actions__secondary::before { content: "+"; }
 .platform-footer-actions { display: flex; gap: 4px; margin-top: 5px; }
 .platform-footer-actions button { min-width: 0; flex: 1; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); }
 .platform-footer-actions button:hover { background: var(--surface-soft); color: var(--ink); }
@@ -58,6 +68,8 @@
   .platform-shell.is-collapsed .platform-brand__name, .platform-shell.is-collapsed .platform-nav__label, .platform-shell.is-collapsed .platform-nav__section-title, .platform-shell.is-collapsed .platform-user__copy { display: initial; }
   .platform-shell.is-collapsed .platform-nav__item { justify-content: flex-start; padding: 0 12px; }
   .platform-shell.is-collapsed .platform-user { justify-content: flex-start; padding: 8px 10px; }
+  .platform-shell.is-collapsed .platform-auth-actions a { width: auto; margin: 0; padding: 0 12px; font-size: 12px; }
+  .platform-shell.is-collapsed .platform-auth-actions a::before { display: none; }
   .platform-shell.is-collapsed .platform-footer-actions { flex-direction: row; }
   .platform-main, .platform-shell.is-collapsed .platform-main { margin-left: 0; }
   .platform-topbar { padding: 0 18px; }
