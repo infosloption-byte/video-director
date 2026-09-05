@@ -27,6 +27,52 @@
   min-height: 0;
   overflow: auto;
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.editor-workspace .editor-tools-column,
+.editor-workspace .advanced-editor__inspector,
+.editor-workspace .editor-tools-accordion,
+.editor-workspace .editor-tool-panel__body {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.editor-workspace .editor-tools-column::-webkit-scrollbar,
+.editor-workspace .advanced-editor__inspector::-webkit-scrollbar,
+.editor-workspace .editor-tools-accordion::-webkit-scrollbar,
+.editor-workspace .editor-tool-panel__body::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.editor-workspace .editor-tools-column::-webkit-scrollbar-track,
+.editor-workspace .advanced-editor__inspector::-webkit-scrollbar-track,
+.editor-workspace .editor-tools-accordion::-webkit-scrollbar-track,
+.editor-workspace .editor-tool-panel__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-workspace .editor-tools-column::-webkit-scrollbar-thumb,
+.editor-workspace .advanced-editor__inspector::-webkit-scrollbar-thumb,
+.editor-workspace .editor-tools-accordion::-webkit-scrollbar-thumb,
+.editor-workspace .editor-tool-panel__body::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.editor-workspace .editor-tools-column:hover,
+.editor-workspace .advanced-editor__inspector:hover,
+.editor-workspace .editor-tools-accordion:hover,
+.editor-workspace .editor-tool-panel__body:hover {
+  scrollbar-color: color-mix(in srgb, var(--muted) 42%, transparent) transparent;
+}
+
+.editor-workspace .editor-tools-column:hover::-webkit-scrollbar-thumb,
+.editor-workspace .advanced-editor__inspector:hover::-webkit-scrollbar-thumb,
+.editor-workspace .editor-tools-accordion:hover::-webkit-scrollbar-thumb,
+.editor-workspace .editor-tool-panel__body:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
 }
 
 .editor-workspace .editor-tool-accordion__trigger {
@@ -63,7 +109,6 @@
   color: var(--muted);
 }
 
-/* Tool controls intentionally use the same scale as Inspector form controls. */
 .editor-workspace .editor-tools-column .editor-tool-panel__body {
   padding: 14px 12px 18px;
   max-height: none;
@@ -76,6 +121,8 @@
 .editor-workspace .editor-tools-column .editor-tool-panel__body input:not([type="file"]),
 .editor-workspace .editor-tools-column .editor-tool-panel__body textarea,
 .editor-workspace .editor-tools-column .editor-tool-panel__body select {
+  box-sizing: border-box;
+  width: 100%;
   font-family: inherit;
   font-size: 13px;
   line-height: 1.35;
@@ -126,37 +173,126 @@
   color: var(--muted);
 }
 
+/* Media upload: reserve a dedicated text column so the CTA can never cover the copy. */
 .editor-workspace .editor-tools-column .editor-tool-upload {
-  min-height: 88px;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  min-height: 96px;
   padding: 13px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .editor-workspace .editor-tools-column .editor-tool-upload::before {
-  font-size: 12px;
+  content: "Drop video, image or audio here";
+  grid-column: 1;
+  grid-row: 1;
+  align-self: end;
+  min-width: 0;
+  max-width: 100%;
+  padding-right: 2px;
+  font-size: 11px;
   line-height: 1.35;
+  font-weight: 600;
+  color: var(--ink);
+  pointer-events: none;
 }
 
 .editor-workspace .editor-tools-column .editor-tool-upload::after {
-  top: 34px;
-  font-size: 10px;
+  content: "or click this area to browse files";
+  position: static;
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 2px;
+  font-size: 9px;
   line-height: 1.3;
+  color: var(--muted);
+  pointer-events: none;
 }
 
-.editor-workspace .editor-tools-column .editor-media-item strong,
-.editor-workspace .editor-tools-column .editor-tool-row strong {
+.editor-workspace .editor-tools-column .editor-tool-upload input[type=file] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload .btn {
+  position: relative;
+  z-index: 2;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: end;
+  min-width: 68px;
+  white-space: nowrap;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload:hover {
+  border-color: var(--ink-dim, var(--muted));
+  background: var(--card);
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload:focus-within {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+/* Media cards resize with the available Tools width instead of using fixed thumbnail sizes. */
+.editor-workspace .editor-tools-column .editor-tool-grid {
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 7px;
+}
+
+.editor-workspace .editor-tools-column .editor-media-item {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.editor-workspace .editor-tools-column .editor-media-item__preview {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  min-height: 68px;
+  max-height: 120px;
+}
+
+.editor-workspace .editor-tools-column .editor-media-item strong {
+  min-width: 0;
+  max-width: 100%;
   font-size: 11px;
   line-height: 1.35;
   color: var(--ink);
 }
 
-.editor-workspace .editor-tools-column .editor-media-item small,
-.editor-workspace .editor-tools-column .editor-tool-row span {
+.editor-workspace .editor-tools-column .editor-media-item small {
+  min-width: 0;
+  max-width: 100%;
   font-size: 9px;
   line-height: 1.35;
   color: var(--muted);
 }
 
-/* Preview uses the same fixed row height, with its controls kept inside the card. */
+.editor-workspace .editor-tools-column .editor-media-item .btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Preview controls: three transport buttons stay together; progress and time can wrap without overflow. */
 .editor-workspace .editor-preview-card {
   overflow: hidden;
   justify-content: flex-start;
@@ -176,20 +312,40 @@
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  grid-template-columns: auto auto auto minmax(90px, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+  margin-top: 14px;
+}
+
+.editor-workspace .editor-preview-transport .btn {
+  flex: 0 0 auto;
+  min-width: 54px;
+  min-height: 40px;
+  white-space: nowrap;
 }
 
 .editor-workspace .editor-preview-transport input[type="range"] {
-  min-width: 0;
-  width: 100%;
+  flex: 1 1 90px;
+  width: auto;
+  min-width: 70px;
+  max-width: none;
+  box-sizing: border-box;
 }
 
 .editor-workspace .editor-preview-transport strong,
 .editor-workspace .editor-preview-transport span {
+  flex: 0 0 auto;
   min-width: 0;
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1.3;
   color: var(--muted);
+  white-space: nowrap;
+}
+
+.editor-workspace .editor-preview-transport strong {
+  margin-left: auto;
 }
 
 .editor-workspace .editor-audio-status {
@@ -197,13 +353,11 @@
   overflow: hidden;
 }
 
-/* Inspector owns the scroll; the outer three-panel row never grows because of it. */
 .editor-workspace .advanced-editor__inspector {
   overflow: auto;
   scrollbar-width: thin;
 }
 
-/* The timeline remains below the matched-height editor row. */
 .editor-workspace .editor-timeline-card {
   min-width: 0;
 }
@@ -253,6 +407,10 @@
   .editor-workspace .advanced-editor__inspector {
     overflow: visible;
   }
+
+  .editor-workspace .editor-preview-transport {
+    gap: 7px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -264,6 +422,19 @@
 
   .editor-workspace .editor-tools-column .editor-tool-panel__body {
     padding-inline: 10px;
+  }
+
+  .editor-workspace .editor-tools-column .editor-tool-upload {
+    min-height: 100px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .editor-workspace .editor-tools-column .editor-tool-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-workspace .editor-tools-column .editor-media-item__preview {
+    max-height: 180px;
   }
 
   .editor-workspace .editor-preview-card {
@@ -278,29 +449,30 @@
   }
 
   .editor-workspace .editor-preview-transport {
+    width: 100%;
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
+    align-items: center;
     gap: 7px;
   }
 
   .editor-workspace .editor-preview-transport .btn {
-    flex: 0 0 auto;
+    min-width: 52px;
     min-height: 38px;
   }
 
   .editor-workspace .editor-preview-transport input[type="range"] {
-    flex: 1 1 120px;
+    flex: 1 1 110px;
     min-width: 100px;
   }
 
   .editor-workspace .editor-preview-transport strong {
-    flex: 0 0 auto;
+    margin-left: auto;
     font-size: 10px;
   }
 
   .editor-workspace .editor-preview-transport span {
-    display: none;
+    font-size: 10px;
   }
 
   .editor-workspace .editor-audio-status {
@@ -312,9 +484,34 @@
 }
 
 @media (max-width: 420px) {
+  .editor-workspace .editor-tools-column .editor-tool-upload {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    row-gap: 5px;
+    align-items: start;
+  }
+
+  .editor-workspace .editor-tools-column .editor-tool-upload::before {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .editor-workspace .editor-tools-column .editor-tool-upload::after {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .editor-workspace .editor-tools-column .editor-tool-upload .btn {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: start;
+  }
+
   .editor-workspace .editor-preview-transport input[type="range"] {
     order: 5;
     flex-basis: 100%;
+    min-width: 100%;
   }
 
   .editor-workspace .editor-preview-transport strong {
