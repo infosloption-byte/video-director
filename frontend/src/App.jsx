@@ -19,6 +19,12 @@ import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlatformShell from "./components/PlatformShell";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 
+function SignalsRoute() {
+  const { user, status } = useAuth();
+  if (!authRequired() || status === "loading" || !user) return <SignalsPage />;
+  return <PlatformShell><SignalsPage /></PlatformShell>;
+}
+
 function ProtectedRoute({ children }) {
   const location = useLocation();
   const { user, status } = useAuth();
@@ -30,7 +36,7 @@ function ProtectedRoute({ children }) {
 
 export default function App() {
   return <AuthProvider><Routes>
-    <Route path="/" element={<SignalsPage />} />
+    <Route path="/" element={<SignalsRoute />} />
     <Route path="/signin" element={<SignInPage />} /><Route path="/signup" element={<SignUpPage />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
     <Route path="/review/:token" element={<ReviewPage />} />
