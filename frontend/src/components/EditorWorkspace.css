@@ -5,14 +5,17 @@
 /* Tools, Preview and Inspector are one shared editor panel. */
 .editor-workspace .advanced-editor{padding:24px 20px 40px;margin:0;max-width:none}
 .editor-workspace .advanced-editor__header{margin:0 0 18px;min-height:64px}
-.editor-workspace .advanced-editor__topgrid{margin-left:0;grid-template-columns:var(--editor-tools-width) minmax(0,1fr) minmax(280px,360px);gap:0;align-items:stretch;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);overflow:hidden}
+.editor-workspace .advanced-editor__topgrid{margin-left:0;grid-template-columns:var(--editor-tools-width) minmax(0,1fr) minmax(280px,360px);gap:0;align-items:stretch;border:1px solid var(--border);border-bottom-left-radius:0;border-bottom-right-radius:0;background:var(--card);overflow:hidden}
 
 /* React portals append Tools after Inspector in the DOM, so explicitly define the visual order. */
 .editor-workspace .editor-tools-column{grid-column:1;grid-row:1;order:1}
 .editor-workspace .editor-preview-card{grid-column:2;grid-row:1;order:2;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:14px;border:0;border-radius:0;background:transparent}
 .editor-workspace .advanced-editor__inspector{grid-column:3;grid-row:1;order:3;min-width:0;max-height:calc(100vh - 190px);overflow:auto;padding:14px;border:0;border-left:1px solid var(--border);border-radius:0;background:transparent}
 .editor-workspace .editor-preview-frame{width:min(100%,360px)}
-.editor-workspace .editor-timeline-card{margin-top:14px;width:100%;border-radius:14px}
+
+/* Timeline is the full-width lower section of the same editor shell. */
+.editor-workspace .editor-timeline-card{margin-top:0;width:100%;border-radius:0 0 14px 14px;border-top:0;overflow:hidden}
+.editor-workspace .editor-timeline-toolbar{border-top:1px solid var(--border);}
 .editor-workspace .editor-timeline-scroll{max-height:42vh;overflow:auto}
 .editor-workspace .editor-tracks{min-height:300px}
 
@@ -61,6 +64,7 @@
   .editor-workspace .editor-tools-column,.editor-workspace .editor-preview-card,.editor-workspace .advanced-editor__inspector{grid-column:1;grid-row:auto;order:initial}
   .editor-workspace .editor-preview-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
   .editor-workspace .advanced-editor__inspector{max-height:none;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
+  .editor-workspace .editor-timeline-card{margin-top:14px;border-top:1px solid var(--border);border-radius:14px}
   .editor-tools-column{width:100%!important;height:auto;min-height:58px;flex-direction:row;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
   .editor-workspace.is-expanded .editor-tools-column{height:auto;min-height:320px;display:flex;flex-direction:column}
   .editor-tools-column__bar{height:58px;min-width:58px;border:0;border-right:1px solid var(--border-soft)}
