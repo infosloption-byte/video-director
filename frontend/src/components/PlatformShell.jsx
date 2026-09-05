@@ -6,8 +6,10 @@ import "./PlatformShell.css";
 
 const NAV = [
   { label: "Signals", icon: "⌁", path: "/" },
-  { label: "My Research", icon: "▦", path: "/my-research" },
-  { label: "Account", icon: "◎", path: "/account", bottom: true },
+  { label: "My Research", icon: "▦", path: "/my-research", authOnly: true },
+  { label: "About", icon: "ⓘ", path: "/about" },
+  { label: "Support", icon: "?", path: "/support" },
+  { label: "Account", icon: "◎", path: "/account", bottom: true, authOnly: true },
 ];
 
 export default function PlatformShell({ children }) {
@@ -37,7 +39,7 @@ export default function PlatformShell({ children }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [mobileOpen]);
 
-  const workspaceNav = projectId ? [
+  const workspaceNav = user && projectId ? [
     { label: "Research", icon: "◌", path: `/research/${projectId}` },
     { label: "Storyboard", icon: "▤", path: `/storyboard/${projectId}` },
     { label: "Media Library", icon: "▧", path: `/media/${projectId}` },
@@ -76,6 +78,8 @@ export default function PlatformShell({ children }) {
     </Link>
   );
 
+  const visibleNav = NAV.filter((item) => !item.authOnly || Boolean(user));
+
   return (
     <div className={`platform-shell ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}>
       <aside className="platform-sidebar" aria-label="Platform navigation">
@@ -91,14 +95,14 @@ export default function PlatformShell({ children }) {
 
         <nav className="platform-nav">
           <div className="platform-nav__group">
-            {NAV.filter((item) => !item.bottom).map(renderNavItem)}
+            {visibleNav.filter((item) => !item.bottom).map(renderNavItem)}
           </div>
           {workspaceNav.length > 0 && <div className="platform-nav__section">
             <span className="platform-nav__section-title">Workspace</span>
             {workspaceNav.map(renderNavItem)}
           </div>}
           <div className="platform-nav__group platform-nav__group--bottom">
-            {NAV.filter((item) => item.bottom).map(renderNavItem)}
+            {visibleNav.filter((item) => item.bottom).map(renderNavItem)}
           </div>
         </nav>
 
