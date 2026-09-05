@@ -1,0 +1,323 @@
+/* Final workspace sizing, typography and responsive behavior. Keep Tools, Preview and Inspector on one shared height. */
+
+.editor-workspace .advanced-editor__topgrid {
+  height: clamp(620px, calc(100vh - 170px), 780px);
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.editor-workspace .editor-tools-column,
+.editor-workspace .editor-preview-card,
+.editor-workspace .advanced-editor__inspector {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  box-sizing: border-box;
+}
+
+.editor-workspace .editor-tools-column {
+  font-family: var(--font-sans, inherit);
+  font-size: 13px;
+  color: var(--body);
+}
+
+.editor-workspace .editor-tools-accordion {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.editor-workspace .editor-tool-accordion__trigger {
+  min-height: 68px;
+  grid-template-columns: 34px minmax(0, 1fr) 22px;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.editor-workspace .editor-tool-accordion__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--body);
+  background: var(--surface-input, #101115);
+}
+
+.editor-workspace .editor-tool-accordion__copy strong {
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.editor-workspace .editor-tool-accordion__copy small {
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.editor-workspace .editor-tool-accordion__chevron {
+  font-size: 18px;
+  color: var(--muted);
+}
+
+/* Tool controls intentionally use the same scale as Inspector form controls. */
+.editor-workspace .editor-tools-column .editor-tool-panel__body {
+  padding: 14px 12px 18px;
+  max-height: none;
+  overflow: auto;
+  font-family: var(--font-sans, inherit);
+  font-size: 13px;
+  color: var(--body);
+}
+
+.editor-workspace .editor-tools-column .editor-tool-panel__body input:not([type="file"]),
+.editor-workspace .editor-tools-column .editor-tool-panel__body textarea,
+.editor-workspace .editor-tools-column .editor-tool-panel__body select {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.editor-workspace .editor-tools-column .editor-tool-panel__body label {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink-dim, var(--body));
+}
+
+.editor-workspace .editor-tools-column .editor-tool-copy {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.editor-workspace .editor-tools-column .btn {
+  min-height: 36px;
+  padding: 8px 11px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-tabs button {
+  min-height: 34px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-search input {
+  min-height: 38px;
+  font-size: 13px;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-search .btn {
+  min-height: 38px;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-section h3,
+.editor-workspace .editor-tools-column .editor-tool-section h4 {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.3;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload {
+  min-height: 88px;
+  padding: 13px;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload::before {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload::after {
+  top: 34px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.editor-workspace .editor-tools-column .editor-media-item strong,
+.editor-workspace .editor-tools-column .editor-tool-row strong {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.editor-workspace .editor-tools-column .editor-media-item small,
+.editor-workspace .editor-tools-column .editor-tool-row span {
+  font-size: 9px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* Preview uses the same fixed row height, with its controls kept inside the card. */
+.editor-workspace .editor-preview-card {
+  overflow: hidden;
+  justify-content: flex-start;
+  padding: 14px;
+}
+
+.editor-workspace .editor-preview-frame {
+  flex: 0 1 auto;
+  width: auto;
+  height: min(calc(100% - 112px), 640px);
+  max-width: 100%;
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+}
+
+.editor-workspace .editor-preview-transport {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  grid-template-columns: auto auto auto minmax(90px, 1fr) auto;
+  gap: 8px;
+}
+
+.editor-workspace .editor-preview-transport input[type="range"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.editor-workspace .editor-preview-transport strong,
+.editor-workspace .editor-preview-transport span {
+  min-width: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.editor-workspace .editor-audio-status {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Inspector owns the scroll; the outer three-panel row never grows because of it. */
+.editor-workspace .advanced-editor__inspector {
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+/* The timeline remains below the matched-height editor row. */
+.editor-workspace .editor-timeline-card {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) and (min-width: 901px) {
+  .editor-workspace .advanced-editor__topgrid {
+    height: clamp(600px, calc(100vh - 155px), 740px);
+  }
+
+  .editor-workspace .editor-preview-frame {
+    height: min(calc(100% - 112px), 560px);
+  }
+}
+
+@media (max-width: 900px) {
+  .editor-workspace .advanced-editor__topgrid {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    grid-template-rows: none;
+  }
+
+  .editor-workspace .editor-tools-column,
+  .editor-workspace .editor-preview-card,
+  .editor-workspace .advanced-editor__inspector {
+    height: auto;
+    max-height: none;
+  }
+
+  .editor-workspace .editor-tools-column {
+    min-height: 0;
+  }
+
+  .editor-workspace.is-expanded .editor-tools-column {
+    min-height: 0;
+  }
+
+  .editor-workspace .editor-preview-card {
+    min-height: 600px;
+  }
+
+  .editor-workspace .editor-preview-frame {
+    height: min(62vh, 560px);
+    max-height: calc(100% - 112px);
+  }
+
+  .editor-workspace .advanced-editor__inspector {
+    overflow: visible;
+  }
+}
+
+@media (max-width: 640px) {
+  .editor-workspace .editor-tool-accordion__trigger {
+    min-height: 64px;
+    grid-template-columns: 32px minmax(0, 1fr) 20px;
+    padding-inline: 10px;
+  }
+
+  .editor-workspace .editor-tools-column .editor-tool-panel__body {
+    padding-inline: 10px;
+  }
+
+  .editor-workspace .editor-preview-card {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .editor-workspace .editor-preview-frame {
+    width: min(100%, 280px);
+    height: auto;
+    max-height: none;
+  }
+
+  .editor-workspace .editor-preview-transport {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .editor-workspace .editor-preview-transport .btn {
+    flex: 0 0 auto;
+    min-height: 38px;
+  }
+
+  .editor-workspace .editor-preview-transport input[type="range"] {
+    flex: 1 1 120px;
+    min-width: 100px;
+  }
+
+  .editor-workspace .editor-preview-transport strong {
+    flex: 0 0 auto;
+    font-size: 10px;
+  }
+
+  .editor-workspace .editor-preview-transport span {
+    display: none;
+  }
+
+  .editor-workspace .editor-audio-status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 420px) {
+  .editor-workspace .editor-preview-transport input[type="range"] {
+    order: 5;
+    flex-basis: 100%;
+  }
+
+  .editor-workspace .editor-preview-transport strong {
+    margin-left: auto;
+  }
+}
