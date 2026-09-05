@@ -19,6 +19,7 @@ export default function PlatformShell({ children }) {
     try { return localStorage.getItem("helix.platform.sidebar") === "collapsed"; } catch { return false; }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const projectId = useMemo(() => location.pathname.match(/^(?:\/research|\/storyboard|\/media)\/([^/]+)/)?.[1] || location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "", [location.pathname]);
   const editorId = location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "";
   const userLabel = user?.displayName || user?.email || "Account";
@@ -50,9 +51,15 @@ export default function PlatformShell({ children }) {
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
 
-  function handleSignOut() {
-    void signOut();
-    navigate("/", { replace: true });
+  async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      navigate("/", { replace: true });
+      setSigningOut(false);
+    }
   }
 
   const renderNavItem = (item) => (
@@ -91,16 +98,16 @@ export default function PlatformShell({ children }) {
         <div className="platform-sidebar__footer">
           {user ? (
             <>
-              <button type="button" className="platform-user" onClick={() => navigate("/account")} title={collapsed ? userLabel : undefined}>
+              <button type="button" className="platform-user" onClick={() => navigate("/account")} title={collapsed ? userLabel : undefined} disabled={signingOut}>
                 <span className="platform-user__avatar">{String(userLabel).charAt(0).toUpperCase()}</span>
                 <span className="platform-user__copy"><strong>{userLabel}</strong><small>Account</small></span>
               </button>
               <div className="platform-footer-actions">
-                <button type="button" onClick={toggleTheme} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
+                <button type="button" onClick={toggleTheme} disabled={signingOut} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
                   <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span><span className="platform-nav__label">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
                 </button>
-                <button type="button" onClick={handleSignOut} title="Sign out" aria-label="Sign out">
-                  <span aria-hidden="true">↪</span><span className="platform-nav__label">Sign out</span>
+                <button type="button" className="platform-signout" onClick={handleSignOut} disabled={signingOut} title={signingOut ? "Signing out…" : "Sign out"} aria-label={signingOut ? "Signing out" : "Sign out"} aria-busy={signingOut}>
+                  <span className={signingOut ? "platform-signout__spinner" : ""} aria-hidden="true">{signingOut ? "" : "↪"}</span><span className="platform-nav__label">{signingOut ? "Signing out…" : "Sign out"}</span>
                 </button>
               </div>
             </>
