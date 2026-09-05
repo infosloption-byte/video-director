@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import AdvancedEditorPage from "../pages/AdvancedEditorPage";
 import EditorToolPanel from "./EditorToolPanel";
 import "./EditorWorkspace.css";
+import "./EditorToolsUX.css";
 
 const TOOLS = [
   { id: "media", label: "Media", icon: "▧" },
