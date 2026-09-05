@@ -62,6 +62,13 @@ export default function PlatformShell({ children }) {
     }
   }
 
+  const handleBrandClick = (event) => {
+    if (collapsed) {
+      event.preventDefault();
+      setCollapsed(false);
+    }
+  };
+
   const renderNavItem = (item) => (
     <Link key={item.path} to={item.path} className={`platform-nav__item ${isActive(item.path) ? "is-active" : ""}`} title={collapsed ? item.label : undefined} aria-label={item.label}>
       <span className="platform-nav__icon" aria-hidden="true">{item.icon}</span>
@@ -73,7 +80,7 @@ export default function PlatformShell({ children }) {
     <div className={`platform-shell ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}>
       <aside className="platform-sidebar" aria-label="Platform navigation">
         <div className="platform-sidebar__top">
-          <Link to="/" className="platform-brand" aria-label="Helix workspace">
+          <Link to="/" className="platform-brand" onClick={handleBrandClick} aria-label={collapsed ? "Expand sidebar" : "Helix workspace"} title={collapsed ? "Expand sidebar" : "Helix workspace"}>
             <span className="platform-brand__mark">X</span>
             <span className="platform-brand__name">Helix</span>
           </Link>
