@@ -1,0 +1,62 @@
+/* Final upload/media-library overrides. Loaded after the legacy refinement layer. */
+.editor-workspace .editor-tools-column .editor-tool-upload {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  text-align: center !important;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload::before,
+.editor-workspace .editor-tools-column .editor-tool-upload::after {
+  content: none !important;
+  display: none !important;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload__copy {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload__copy strong {
+  display: block !important;
+  margin: 0 !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  white-space: normal !important;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-upload__copy small,
+.editor-workspace .editor-tools-column .editor-tool-upload__icon {
+  display: none !important;
+}
+
+.editor-workspace .editor-tools-column .editor-tool-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+  width: 100% !important;
+}
+
+@media (max-width: 640px) {
+  .editor-workspace .editor-tools-column .editor-tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .editor-workspace .editor-tools-column .editor-tool-upload {
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+  }
+
+  .editor-workspace .editor-tools-column .editor-tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
