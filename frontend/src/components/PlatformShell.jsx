@@ -66,7 +66,7 @@ export default function PlatformShell({ children }) {
     <div className={`platform-shell ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}>
       <aside className="platform-sidebar" aria-label="Platform navigation">
         <div className="platform-sidebar__top">
-          <Link to="/my-research" className="platform-brand" aria-label="Helix workspace">
+          <Link to="/" className="platform-brand" aria-label="Helix workspace">
             <span className="platform-brand__mark">X</span>
             <span className="platform-brand__name">Helix</span>
           </Link>
@@ -89,18 +89,34 @@ export default function PlatformShell({ children }) {
         </nav>
 
         <div className="platform-sidebar__footer">
-          <button type="button" className="platform-user" onClick={() => navigate("/account")} title={collapsed ? userLabel : undefined}>
-            <span className="platform-user__avatar">{String(userLabel).charAt(0).toUpperCase()}</span>
-            <span className="platform-user__copy"><strong>{userLabel}</strong><small>Account</small></span>
-          </button>
-          <div className="platform-footer-actions">
-            <button type="button" onClick={toggleTheme} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
-              <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span><span className="platform-nav__label">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
-            </button>
-            <button type="button" onClick={handleSignOut} title="Sign out" aria-label="Sign out">
-              <span aria-hidden="true">↪</span><span className="platform-nav__label">Sign out</span>
-            </button>
-          </div>
+          {user ? (
+            <>
+              <button type="button" className="platform-user" onClick={() => navigate("/account")} title={collapsed ? userLabel : undefined}>
+                <span className="platform-user__avatar">{String(userLabel).charAt(0).toUpperCase()}</span>
+                <span className="platform-user__copy"><strong>{userLabel}</strong><small>Account</small></span>
+              </button>
+              <div className="platform-footer-actions">
+                <button type="button" onClick={toggleTheme} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
+                  <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span><span className="platform-nav__label">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+                </button>
+                <button type="button" onClick={handleSignOut} title="Sign out" aria-label="Sign out">
+                  <span aria-hidden="true">↪</span><span className="platform-nav__label">Sign out</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="platform-auth-actions">
+                <Link to="/signin" className="platform-auth-actions__primary">Sign in</Link>
+                <Link to="/signup" className="platform-auth-actions__secondary">Sign up</Link>
+              </div>
+              <div className="platform-footer-actions">
+                <button type="button" onClick={toggleTheme} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
+                  <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span><span className="platform-nav__label">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </aside>
 
