@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import SignalsPage from "./pages/SignalsPage";
 import ResearchPage from "./pages/ResearchPage";
 import StoryboardPage from "./pages/StoryboardPage";
@@ -29,6 +29,11 @@ function ProtectedRoute({ children }) {
   return <PlatformShell>{children}</PlatformShell>;
 }
 
+function LegacyEditorToolRedirect({ tool }) {
+  const { id } = useParams();
+  return <Navigate to={`/editor/${id}?tool=${tool}`} replace />;
+}
+
 export default function App() {
   return <AuthProvider><Routes>
     <Route path="/" element={<SignalsRoute />} />
@@ -40,11 +45,11 @@ export default function App() {
     <Route path="/research/:id" element={<ProtectedRoute><ResearchPage /></ProtectedRoute>} />
     <Route path="/storyboard/:id" element={<ProtectedRoute><StoryboardPage /></ProtectedRoute>} />
     <Route path="/editor/:id" element={<ProtectedRoute><EditorWorkspace /></ProtectedRoute>} />
-    <Route path="/editor/:id/ai" element={<Navigate to="../?tool=ai" replace />} />
-    <Route path="/editor/:id/render" element={<Navigate to="../?tool=render" replace />} />
-    <Route path="/editor/:id/media-picker" element={<Navigate to="../?tool=media" replace />} />
-    <Route path="/editor/:id/productivity" element={<Navigate to="../?tool=productivity" replace />} />
-    <Route path="/media/:id" element={<Navigate to="/editor/:id?tool=media" replace />} />
+    <Route path="/editor/:id/ai" element={<LegacyEditorToolRedirect tool="ai" />} />
+    <Route path="/editor/:id/render" element={<LegacyEditorToolRedirect tool="render" />} />
+    <Route path="/editor/:id/media-picker" element={<LegacyEditorToolRedirect tool="media" />} />
+    <Route path="/editor/:id/productivity" element={<LegacyEditorToolRedirect tool="productivity" />} />
+    <Route path="/media/:id" element={<LegacyEditorToolRedirect tool="media" />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes></AuthProvider>;
 }
