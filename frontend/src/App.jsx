@@ -2,12 +2,6 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import SignalsPage from "./pages/SignalsPage";
 import ResearchPage from "./pages/ResearchPage";
 import StoryboardPage from "./pages/StoryboardPage";
-import AdvancedEditorPage from "./pages/AdvancedEditorPage";
-import EditorAIAssistantPage from "./pages/EditorAIAssistantPage";
-import EditorRenderPage from "./pages/EditorRenderPage";
-import MediaLibraryPage from "./pages/MediaLibraryPage";
-import EditorMediaPickerPage from "./pages/EditorMediaPickerPage";
-import ProjectProductivityPage from "./pages/ProjectProductivityPage";
 import ReviewPage from "./pages/ReviewPage";
 import MyResearchPage from "./pages/MyResearchPage";
 import AccountPage from "./pages/AccountPage";
@@ -17,13 +11,12 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlatformShell from "./components/PlatformShell";
+import EditorWorkspace from "./components/EditorWorkspace";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 
 function SignalsRoute() {
   const { status } = useAuth();
-  if (authRequired() && status === "loading") {
-    return <div className="hx-page"><main className="container" style={{ padding: "80px 0" }}>Checking your session…</main></div>;
-  }
+  if (authRequired() && status === "loading") return <div className="hx-page"><main className="container" style={{ padding: "80px 0" }}>Checking your session…</main></div>;
   return <PlatformShell><SignalsPage /></PlatformShell>;
 }
 
@@ -46,12 +39,12 @@ export default function App() {
     <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
     <Route path="/research/:id" element={<ProtectedRoute><ResearchPage /></ProtectedRoute>} />
     <Route path="/storyboard/:id" element={<ProtectedRoute><StoryboardPage /></ProtectedRoute>} />
-    <Route path="/editor/:id" element={<ProtectedRoute><AdvancedEditorPage /></ProtectedRoute>} />
-    <Route path="/editor/:id/ai" element={<ProtectedRoute><EditorAIAssistantPage /></ProtectedRoute>} />
-    <Route path="/editor/:id/render" element={<ProtectedRoute><EditorRenderPage /></ProtectedRoute>} />
-    <Route path="/editor/:id/media-picker" element={<ProtectedRoute><EditorMediaPickerPage /></ProtectedRoute>} />
-    <Route path="/editor/:id/productivity" element={<ProtectedRoute><ProjectProductivityPage /></ProtectedRoute>} />
-    <Route path="/media/:id" element={<ProtectedRoute><MediaLibraryPage /></ProtectedRoute>} />
+    <Route path="/editor/:id" element={<ProtectedRoute><EditorWorkspace /></ProtectedRoute>} />
+    <Route path="/editor/:id/ai" element={<Navigate to="../?tool=ai" replace />} />
+    <Route path="/editor/:id/render" element={<Navigate to="../?tool=render" replace />} />
+    <Route path="/editor/:id/media-picker" element={<Navigate to="../?tool=media" replace />} />
+    <Route path="/editor/:id/productivity" element={<Navigate to="../?tool=productivity" replace />} />
+    <Route path="/media/:id" element={<Navigate to="/editor/:id?tool=media" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes></AuthProvider>;
 }
