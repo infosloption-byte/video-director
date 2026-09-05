@@ -18,36 +18,39 @@ export default function EditorWorkspace() {
   const [params, setParams] = useSearchParams();
   const requestedTool = params.get("tool");
   const [tool, setTool] = useState(TOOLS.some((item) => item.id === requestedTool) ? requestedTool : "");
-  const [expanded, setExpanded] = useState(Boolean(requestedTool));
+  const [expanded, setExpanded] = useState(true);
   const [topGrid, setTopGrid] = useState(null);
+  const [actions, setActions] = useState(null);
   const [showRender, setShowRender] = useState(false);
 
   useEffect(() => {
     const requested = params.get("tool");
-    const valid = TOOLS.some((item) => item.id === requested);
-    setTool(valid ? requested : "");
     if (requested === "render") {
       const next = new URLSearchParams(params);
       next.delete("tool");
       setParams(next, { replace: true });
+      setTool("");
+      return;
     }
+    setTool(TOOLS.some((item) => item.id === requested) ? requested : "");
   }, [params, setParams]);
 
   useEffect(() => { if (tool) setExpanded(true); }, [tool]);
 
   useEffect(() => {
-    const syncTopGrid = () => {
-      const next = document.querySelector(".advanced-editor__topgrid");
-      setTopGrid((current) => current === next ? current : next);
+    const sync = () => {
+      const nextGrid = document.querySelector(".advanced-editor__topgrid");
+      const nextActions = document.querySelector(".advanced-editor__actions");
+      setTopGrid((current) => current === nextGrid ? current : nextGrid);
+      setActions((current) => current === nextActions ? current : nextActions);
     };
-    syncTopGrid();
-    const observer = new MutationObserver(syncTopGrid);
+    sync();
+    const observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    const actions = document.querySelector(".advanced-editor__actions");
     if (!actions) return undefined;
     const renderLink = actions.querySelector('a[href*="/render"]');
     if (renderLink) renderLink.style.display = "none";
@@ -57,7 +60,7 @@ export default function EditorWorkspace() {
       if (renderLink) renderLink.style.display = "";
       if (aiLink) aiLink.style.display = "";
     };
-  });
+  }, [actions]);
 
   function openTool(next) {
     const value = next === tool ? "" : next;
@@ -78,7 +81,7 @@ export default function EditorWorkspace() {
 
   const toolsPanel = <aside className="editor-tools-column" aria-label="Editor tools">
     <div className="editor-tools-column__bar"><div className="editor-tools-column__title">TOOLS</div><button type="button" className="editor-tools-column__toggle" onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "Collapse editor tools" : "Expand editor tools"} aria-expanded={expanded}>{expanded ? "‹" : "›"}</button></div>
-    <div className="editor-tools-accordion" role="presentation">
+    <div className="editor-tools-accordion">
       {TOOLS.map((item) => {
         const open = tool === item.id;
         return <section key={item.id} className={`editor-tool-accordion ${open ? "is-open" : ""}`}>
@@ -96,7 +99,7 @@ export default function EditorWorkspace() {
   return <div className={`editor-workspace ${expanded ? "is-expanded" : "is-collapsed"} ${tool ? "has-tool-panel" : ""}`}>
     <AdvancedEditorPage />
     {topGrid ? createPortal(toolsPanel, topGrid) : null}
+    {actions ? createPortal(<button type="button" className="editor-render-launch btn btn-ghost" onClick={() => setShowRender(true)} aria-label="Open render dialog">Render MP4</button>, actions) : null}
     {showRender ? createPortal(<EditorRenderModal id={id} onClose={() => setShowRender(false)} />, document.body) : null}
-    {topGrid ? createPortal(<button type="button" className="editor-render-launch btn btn-ghost" onClick={() => setShowRender(true)} aria-label="Open render dialog">Render MP4</button>, document.querySelector(".advanced-editor__actions")) : null}
   </div>;
 }
