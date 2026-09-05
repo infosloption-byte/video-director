@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext.jsx";
@@ -7,8 +7,6 @@ import "./PlatformShell.css";
 const NAV = [
   { label: "Signals", icon: "⌁", path: "/" },
   { label: "My Research", icon: "▦", path: "/my-research", authOnly: true },
-  { label: "About", icon: "ⓘ", path: "/about", bottom: true },
-  { label: "Support", icon: "?", path: "/support", bottom: true },
 ];
 
 const ICON_PATHS = {
@@ -25,7 +23,9 @@ export default function PlatformShell({ children }) {
     try { return localStorage.getItem("helix.platform.sidebar") === "collapsed"; } catch { return false; }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const accountMenuRef = useRef(null);
   const projectId = useMemo(() => location.pathname.match(/^(?:\/research|\/storyboard|\/media)\/([^/]+)/)?.[1] || location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "", [location.pathname]);
   const editorId = location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "";
   const userLabel = user?.displayName || user?.email || "Account";
@@ -34,7 +34,7 @@ export default function PlatformShell({ children }) {
     try { localStorage.setItem("helix.platform.sidebar", collapsed ? "collapsed" : "expanded"); } catch { /* storage is optional */ }
   }, [collapsed]);
 
-  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+  useEffect(() => { setMobileOpen(false); setAccountMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     if (!mobileOpen) return undefined;
@@ -42,6 +42,20 @@ export default function PlatformShell({ children }) {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return undefined;
+    const onPointerDown = (event) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) setAccountMenuOpen(false);
+    };
+    const onKeyDown = (event) => { if (event.key === "Escape") setAccountMenuOpen(false); };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [accountMenuOpen]);
 
   const workspaceNav = user && projectId ? [
     { label: "Research", icon: "◌", path: `/research/${projectId}` },
@@ -63,6 +77,7 @@ export default function PlatformShell({ children }) {
     try {
       await signOut();
     } finally {
+      setAccountMenuOpen(false);
       navigate("/", { replace: true });
       setSigningOut(false);
     }
@@ -82,6 +97,7 @@ export default function PlatformShell({ children }) {
       About: <><circle cx="12" cy="12" r="8" /><path d="M12 10v6M12 7.5h.01" /></>,
       Support: <><circle cx="12" cy="12" r="8" /><path d="M9.5 9.5a2.6 2.6 0 1 1 4.1 2.1c-1 .7-1.6 1.1-1.6 2.4M12 16.5h.01" /></>,
       Account: <><circle cx="12" cy="8.5" r="3" /><path d="M6.5 19a5.5 5.5 0 0 1 11 0" /></>,
+      Settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19 13.2 1.1.8-1.5 2.6-1.3-.5a7 7 0 0 1-1.8 1.1l-.2 1.4h-3l-.2-1.4a7 7 0 0 1-1.8-1.1l-1.3.5-1.5-2.6 1.1-.8a7 7 0 0 1 0-2.4l-1.1-.8 1.5-2.6 1.3.5a7 7 0 0 1 1.8-1.1l.2-1.4h3l.2 1.4a7 7 0 0 1 1.8 1.1l1.3-.5 1.5 2.6-1.1.8a7 7 0 0 1 0 2.4Z" /></>,
       Research: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 4 4" /></>,
       Storyboard: <><rect x="5" y="4" width="14" height="16" rx="2" /><path d="m9 8 2 2-2 2M13 12h3M9 16h7" /></>,
       "Media Library": <><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.3" /><path d="m6 17 4-4 3 3 2-2 3 3" /></>,
@@ -117,45 +133,47 @@ export default function PlatformShell({ children }) {
 
         <nav className="platform-nav">
           <div className="platform-nav__group">
-            {visibleNav.filter((item) => !item.bottom).map(renderNavItem)}
+            {visibleNav.map(renderNavItem)}
           </div>
           {workspaceNav.length > 0 && <div className="platform-nav__section">
             <span className="platform-nav__section-title">Workspace</span>
             {workspaceNav.map(renderNavItem)}
           </div>}
-          <div className="platform-nav__group platform-nav__group--bottom">
-            {visibleNav.filter((item) => item.bottom).map(renderNavItem)}
-          </div>
         </nav>
 
         <div className="platform-sidebar__footer">
           {user ? (
-            <>
-              <button type="button" className="platform-user" onClick={() => navigate("/account")} title={collapsed ? userLabel : undefined} disabled={signingOut}>
+            <div className="platform-account" ref={accountMenuRef}>
+              {accountMenuOpen && <div className="platform-account-menu" role="menu" aria-label="Account menu">
+                <Link to="/about" className="platform-account-menu__item" role="menuitem">
+                  <span className="platform-account-menu__icon">{renderNavIcon({ label: "About" })}</span>
+                  <span>About</span>
+                </Link>
+                <Link to="/support" className="platform-account-menu__item" role="menuitem">
+                  <span className="platform-account-menu__icon">{renderNavIcon({ label: "Support" })}</span>
+                  <span>Support</span>
+                </Link>
+                <Link to="/account" className="platform-account-menu__item" role="menuitem">
+                  <span className="platform-account-menu__icon">{renderNavIcon({ label: "Settings" })}</span>
+                  <span>Settings</span>
+                </Link>
+                <div className="platform-account-menu__divider" />
+                <button type="button" className="platform-account-menu__item platform-account-menu__item--danger" onClick={handleSignOut} disabled={signingOut} role="menuitem" aria-busy={signingOut}>
+                  <span className={signingOut ? "platform-signout__spinner" : "platform-account-menu__icon"} aria-hidden="true">{signingOut ? "" : "↪"}</span>
+                  <span>{signingOut ? "Signing out…" : "Sign Out"}</span>
+                </button>
+              </div>}
+              <button type="button" className={`platform-user ${accountMenuOpen ? "is-open" : ""}`} onClick={() => setAccountMenuOpen((value) => !value)} title={collapsed ? userLabel : undefined} disabled={signingOut} aria-expanded={accountMenuOpen} aria-haspopup="menu">
                 <span className="platform-user__avatar">{String(userLabel).charAt(0).toUpperCase()}</span>
                 <span className="platform-user__copy"><strong>{userLabel}</strong><small>Account</small></span>
+                <span className="platform-user__chevron" aria-hidden="true">⌃</span>
               </button>
-              <div className="platform-footer-actions">
-                <button type="button" onClick={toggleTheme} disabled={signingOut} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
-                  <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span><span className="platform-nav__label">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
-                </button>
-                <button type="button" className="platform-signout" onClick={handleSignOut} disabled={signingOut} title={signingOut ? "Signing out…" : "Sign out"} aria-label={signingOut ? "Signing out" : "Sign out"} aria-busy={signingOut}>
-                  <span className={signingOut ? "platform-signout__spinner" : "platform-signout__icon"} aria-hidden="true">{signingOut ? "" : "↪"}</span><span className="platform-nav__label">{signingOut ? "Signing out…" : "Sign out"}</span>
-                </button>
-              </div>
-            </>
+            </div>
           ) : (
-            <>
-              <div className="platform-auth-actions">
-                <Link to="/signin" className="platform-auth-action platform-auth-actions__primary"><span className="platform-auth-action__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13 5h6v14h-6M5 12h10M11 8l4 4-4 4" /></svg></span><span>Sign in</span></Link>
-                <Link to="/signup" className="platform-auth-action platform-auth-actions__secondary"><span className="platform-auth-action__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="3" /><path d="M6.5 19a5.5 5.5 0 0 1 11 0M19 5v6M16 8h6" /></svg></span><span>Sign up</span></Link>
-              </div>
-              <div className="platform-footer-actions">
-                <button type="button" onClick={toggleTheme} title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
-                  <span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span><span className="platform-nav__label">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
-                </button>
-              </div>
-            </>
+            <div className="platform-auth-actions">
+              <Link to="/signin" className="platform-auth-action platform-auth-actions__primary"><span className="platform-auth-action__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13 5h6v14h-6M5 12h10M11 8l4 4-4 4" /></svg></span><span>Sign in</span></Link>
+              <Link to="/signup" className="platform-auth-action platform-auth-actions__secondary"><span className="platform-auth-action__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="3" /><path d="M6.5 19a5.5 5.5 0 0 1 11 0M19 5v6M16 8h6" /></svg></span><span>Sign up</span></Link>
+            </div>
           )}
         </div>
       </aside>
