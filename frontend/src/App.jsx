@@ -20,8 +20,10 @@ import PlatformShell from "./components/PlatformShell";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 
 function SignalsRoute() {
-  const { user, status } = useAuth();
-  if (!authRequired() || status === "loading" || !user) return <SignalsPage />;
+  const { status } = useAuth();
+  if (authRequired() && status === "loading") {
+    return <div className="hx-page"><main className="container" style={{ padding: "80px 0" }}>Checking your session…</main></div>;
+  }
   return <PlatformShell><SignalsPage /></PlatformShell>;
 }
 
