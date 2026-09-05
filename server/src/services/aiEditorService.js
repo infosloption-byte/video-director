@@ -4,10 +4,52 @@ const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 function extractJson(text) {
   const cleaned = String(text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Gemini may occasionally return a valid JSON object with surrounding prose.
+  }
+
   const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("AI returned no JSON suggestion.");
-  return JSON.parse(cleaned.slice(start, end + 1));
+  if (start < 0) throw new Error("AI returned no JSON suggestion.");
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < cleaned.length; index += 1) {
+    const char = cleaned[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(cleaned.slice(start, index + 1));
+        } catch {
+          throw new Error("AI returned invalid JSON suggestion.");
+        }
+      }
+    }
+  }
+
+  throw new Error("AI returned incomplete JSON suggestion.");
 }
 
 function compactTimeline(timeline) {
