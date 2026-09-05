@@ -1,0 +1,213 @@
+/* Compact editor shell: use the available viewport instead of leaving large gutters. */
+.editor-workspace {
+  --editor-tools-collapsed: 58px;
+  --editor-tools-expanded: 230px;
+}
+
+.editor-workspace .advanced-editor {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 12px 10px 28px;
+}
+
+.editor-workspace .advanced-editor__header {
+  min-height: 0;
+  margin-bottom: 10px;
+  gap: 14px;
+  align-items: center;
+}
+
+.editor-workspace .advanced-editor__header > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.editor-workspace .advanced-editor__header h1 {
+  max-width: 720px;
+  margin: 3px 0 5px;
+  font-size: clamp(1.75rem, 3vw, 2.45rem);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+}
+
+.editor-workspace .advanced-editor__header p:not(.eyebrow) {
+  max-width: 650px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.editor-workspace .advanced-editor__header .eyebrow {
+  margin: 0;
+  font-size: 8px;
+  line-height: 1.2;
+  letter-spacing: .16em;
+}
+
+.editor-workspace .advanced-editor__actions {
+  flex: 0 0 auto;
+  gap: 6px;
+  max-width: 430px;
+}
+
+.editor-workspace .advanced-editor__actions .btn {
+  min-height: 34px;
+  padding: 7px 11px;
+  font-size: 10px;
+}
+
+.editor-workspace .editor-save-state {
+  font-size: 9px;
+}
+
+.editor-workspace .advanced-editor__topgrid {
+  width: 100%;
+  height: clamp(500px, calc(100vh - 205px), 680px);
+  min-height: 0;
+  grid-template-columns: var(--editor-tools-width) minmax(0, 1fr) minmax(250px, 330px);
+  gap: 0;
+}
+
+.editor-workspace .editor-preview-card {
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.editor-workspace .editor-preview-frame {
+  width: min(100%, 310px);
+  height: min(calc(100% - 92px), 500px);
+  max-width: 100%;
+  border-radius: 14px;
+}
+
+.editor-workspace .editor-preview-transport {
+  margin-top: 9px;
+  gap: 5px;
+}
+
+.editor-workspace .editor-preview-transport .btn {
+  min-width: 46px;
+  min-height: 34px;
+  padding: 6px 8px;
+  font-size: 9px;
+}
+
+.editor-workspace .editor-audio-status {
+  margin-top: 6px;
+  padding-top: 5px;
+  font-size: 8px;
+}
+
+.editor-workspace .advanced-editor__inspector {
+  padding: 10px;
+}
+
+.editor-workspace .editor-section-title {
+  padding-bottom: 9px;
+}
+
+.editor-workspace .editor-section-title h2 {
+  font-size: 16px;
+}
+
+.editor-workspace .editor-form {
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.editor-workspace .editor-form label {
+  gap: 4px;
+  font-size: 11px;
+}
+
+.editor-workspace .editor-form input,
+.editor-workspace .editor-form textarea,
+.editor-workspace .editor-form select {
+  padding: 7px 9px;
+  font-size: 11px;
+}
+
+.editor-workspace .editor-form__panel {
+  gap: 7px;
+  padding: 9px;
+}
+
+.editor-workspace .editor-timeline-card {
+  margin-top: 0;
+}
+
+/* The grid naturally reallocates the center column when Tools changes width. */
+.editor-workspace.is-expanded .advanced-editor__topgrid,
+.editor-workspace.is-collapsed .advanced-editor__topgrid {
+  grid-template-columns: var(--editor-tools-width) minmax(0, 1fr) minmax(250px, 330px);
+}
+
+@media (max-width: 1100px) and (min-width: 901px) {
+  .editor-workspace {
+    --editor-tools-expanded: 210px;
+  }
+
+  .editor-workspace .advanced-editor__topgrid {
+    grid-template-columns: var(--editor-tools-width) minmax(0, 1fr) minmax(235px, 300px);
+  }
+
+  .editor-workspace .advanced-editor__header h1 {
+    font-size: clamp(1.65rem, 2.8vw, 2.15rem);
+  }
+}
+
+@media (max-width: 900px) {
+  .editor-workspace .advanced-editor {
+    padding: 10px 8px 24px;
+  }
+
+  .editor-workspace .advanced-editor__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .editor-workspace .advanced-editor__header h1 {
+    max-width: 100%;
+    font-size: clamp(1.55rem, 5vw, 2.15rem);
+  }
+
+  .editor-workspace .advanced-editor__header p:not(.eyebrow) {
+    font-size: 11px;
+  }
+
+  .editor-workspace .advanced-editor__actions {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .editor-workspace .advanced-editor__topgrid {
+    height: auto;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .editor-workspace .editor-preview-card,
+  .editor-workspace .advanced-editor__inspector {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 640px) {
+  .editor-workspace .advanced-editor__header h1 {
+    font-size: 1.6rem;
+  }
+
+  .editor-workspace .advanced-editor__actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .editor-workspace .editor-preview-frame {
+    width: min(100%, 270px);
+    height: auto;
+  }
+}
