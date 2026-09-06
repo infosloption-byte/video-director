@@ -4,96 +4,51 @@ const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 function extractJson(text) {
   const cleaned = String(text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    // Gemini may occasionally return a valid JSON object with surrounding prose.
-  }
-
+  try { return JSON.parse(cleaned); } catch { /* bounded extraction below */ }
   const start = cleaned.indexOf("{");
   if (start < 0) throw new Error("AI returned no JSON suggestion.");
-
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-
+  let depth = 0; let inString = false; let escaped = false;
   for (let index = start; index < cleaned.length; index += 1) {
     const char = cleaned[index];
-
     if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === '"') {
-        inString = false;
-      }
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
       continue;
     }
-
-    if (char === '"') {
-      inString = true;
-      continue;
-    }
+    if (char === '"') { inString = true; continue; }
     if (char === "{") depth += 1;
     if (char === "}") {
       depth -= 1;
       if (depth === 0) {
-        try {
-          return JSON.parse(cleaned.slice(start, index + 1));
-        } catch {
-          throw new Error("AI returned invalid JSON suggestion.");
-        }
+        try { return JSON.parse(cleaned.slice(start, index + 1)); } catch { throw new Error("AI returned invalid JSON suggestion."); }
       }
     }
   }
-
   throw new Error("AI returned incomplete JSON suggestion.");
 }
 
 function compactTimeline(timeline) {
-  return {
-    fps: timeline.fps,
-    width: timeline.width,
-    height: timeline.height,
-    duration: timeline.duration,
-    tracks: (timeline.tracks || []).map((track) => ({
-      id: track.id,
-      kind: track.kind,
-      name: track.name,
-      locked: track.locked,
-      clips: (track.clips || []).map((clip) => ({
-        id: clip.id,
-        type: clip.type,
-        sourceId: clip.sourceId,
-        assetId: clip.assetId,
-        start: clip.start,
-        duration: clip.duration,
-        offset: clip.offset,
-        text: clip.text,
-        volume: clip.volume,
-      })),
-    })),
-  };
+  return { fps: timeline.fps, width: timeline.width, height: timeline.height, duration: timeline.duration, tracks: (timeline.tracks || []).map((track) => ({ id: track.id, kind: track.kind, name: track.name, locked: track.locked, clips: (track.clips || []).map((clip) => ({ id: clip.id, type: clip.type, sourceId: clip.sourceId, assetId: clip.assetId, start: clip.start, duration: clip.duration, offset: clip.offset, text: clip.text, volume: clip.volume })) })) };
+}
+function compactAssets(scenes) { return (scenes || []).map((scene) => ({ sceneId: scene.id, title: scene.title, assets: (scene.assets || []).map((asset) => ({ assetId: asset.id, videoUrl: asset.videoUrl, thumbnailUrl: asset.thumbnailUrl })) })); }
+function compactResearch(researchCorpus) {
+  if (!researchCorpus) return "No persisted research corpus is available.";
+  return JSON.stringify({
+    session: researchCorpus.session,
+    claims: researchCorpus.claims.filter((claim) => claim.verification_status !== "unverified").slice(0, 15),
+    evidence: researchCorpus.evidence.slice(0, 30),
+    sources: researchCorpus.sources.filter((source) => source.read_status === "read").slice(0, 20),
+    conflicts: researchCorpus.conflicts,
+  });
 }
 
-function compactAssets(scenes) {
-  return (scenes || []).map((scene) => ({
-    sceneId: scene.id,
-    title: scene.title,
-    assets: (scene.assets || []).map((asset) => ({
-      assetId: asset.id,
-      videoUrl: asset.videoUrl,
-      thumbnailUrl: asset.thumbnailUrl,
-    })),
-  }));
-}
-
-export async function suggestEditorOperations({ timeline, instruction, scenes = [] }) {
+export async function suggestEditorOperations({ timeline, instruction, scenes = [], researchCorpus = null }) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("AI editing is not configured. Set GEMINI_API_KEY on the server.");
   const prompt = `You are the Helix AI editing assistant. Return ONLY JSON. Suggest safe, reversible operations for the independent editor timeline. Never delete or modify source media, storyboard records, narration source records, or external assets. Only reference existing timeline clip IDs and B-roll assets listed below. Maximum 25 operations.
+
+The persisted research corpus is the factual authority for research-derived edits. Never introduce a factual claim that is not supported by readable evidence. Preserve uncertainty where the corpus records conflicting evidence. Do not treat search metadata or unreadable sources as established evidence.
 
 Supported operation types:
 - trim_clip: shorten or reposition an existing clip safely.
@@ -112,13 +67,11 @@ User instruction: ${String(instruction || "").slice(0, 1200)}
 
 Current editor timeline:\n${JSON.stringify(compactTimeline(timeline))}
 
-Available scene B-roll assets:\n${JSON.stringify(compactAssets(scenes))}`;
+Available scene B-roll assets:\n${JSON.stringify(compactAssets(scenes))}
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json" } }),
-  });
+Reusable verified research corpus:\n${compactResearch(researchCorpus)}`;
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, responseMimeType: "application/json" } }) });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error?.message || "AI suggestion request failed.");
   const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
