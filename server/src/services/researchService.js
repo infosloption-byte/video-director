@@ -2,12 +2,14 @@ import { deepResearchSignal } from "./deepResearchService.js";
 import { verifyResearchBrief } from "./researchVerificationService.js";
 import { adjudicateResearchConflicts, attachEvidenceIndexes } from "./researchAdjudicationService.js";
 
-export async function researchSignal(signal, { onProgress } = {}) {
-  const rawBrief = await deepResearchSignal(signal, { onProgress });
+export async function researchSignal(signal, { onProgress, onActivity } = {}) {
+  const rawBrief = await deepResearchSignal(signal, { onProgress, onActivity });
   const evidenceLinkedBrief = attachEvidenceIndexes(rawBrief);
   onProgress?.("verifying", 88);
+  onActivity?.({ type: "verification.completed", message: "Source traceability and claim verification completed." });
   const verification = verifyResearchBrief(evidenceLinkedBrief);
   const adjudication = await adjudicateResearchConflicts(evidenceLinkedBrief);
+  onActivity?.({ type: "verification.adjudicated", conflicts: adjudication.conflicts.length, message: `${adjudication.conflicts.length} evidence conflict case(s) evaluated.` });
   const mergedVerification = {
     ...verification,
     conflicts: adjudication.conflicts,
