@@ -38,18 +38,18 @@ enum SignalStatus {
 model Signal {
   id                 String             @id @default(uuid())
   origin             SignalOrigin       @default(suggested)
-  sourceType         SourceType
+  sourceType         SourceType         @map("source_type")
   sourceReliability  SourceReliability  @map("source_reliability")
   searchQuery        String?            @map("search_query")
   rank               Int?
   category           String
-  heatPct             String?           @map("heat_pct")
-  heatScore           Decimal?           @map("heat_score") @db.Decimal(6, 2)
+  heatPct            String?            @map("heat_pct")
+  heatScore          Decimal?           @map("heat_score") @db.Decimal(6, 2)
   title              String
   description        String?            @db.Text
   whyReasoning       String             @map("why_reasoning") @db.Text
   sourceName         String?            @map("source_name")
-  sourceUrl           String?            @map("source_url") @db.Text
+  sourceUrl          String?            @map("source_url") @db.Text
   rawContent         String?            @map("raw_content") @db.LongText
   status             SignalStatus       @default(new)
   scrapedAt          DateTime           @default(now()) @map("scraped_at")
@@ -68,7 +68,7 @@ enum ProjectStatus {
 }
 
 model Project {
-  id                    String              @id @default(uuid())
+  id                    String              @id
   userId                String              @map("user_id")
   signalId              String              @map("signal_id")
   title                 String?
@@ -82,7 +82,7 @@ model Project {
   suggestedFramework    String?             @map("suggested_framework")
   tone                  String?
   suggestedTone         String?             @map("suggested_tone")
-  audienceLevel         String?
+  audienceLevel         String?             @map("audience_level")
   seoCaption            String?             @map("seo_caption") @db.Text
   durationSeconds       Decimal?            @map("duration_seconds") @db.Decimal(5, 1)
   cuts                  Int?
@@ -123,41 +123,41 @@ model ResearchSession {
 }
 
 model ResearchPlan {
-  id             String         @id @default(uuid())
-  sessionId      String         @unique @map("session_id")
+  id             String          @id @default(uuid())
+  sessionId      String          @unique @map("session_id")
   lanes          Json
-  queriesPlanned Int            @default(0) @map("queries_planned")
-  queriesRun     Int            @default(0) @map("queries_run")
-  createdAt      DateTime       @default(now()) @map("created_at")
+  queriesPlanned Int             @default(0) @map("queries_planned")
+  queriesRun     Int             @default(0) @map("queries_run")
+  createdAt      DateTime        @default(now()) @map("created_at")
   session        ResearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("research_plans")
 }
 
 model ResearchSource {
-  id               String          @id @default(uuid())
-  sessionId        String          @map("session_id")
-  sourceIndex      Int             @map("source_index")
-  url              String          @db.Text
-  canonicalUrl     String?         @map("canonical_url") @db.Text
-  title            String?         @db.Text
-  publisher        String?
-  sourceClass      String?         @map("source_class") @db.VarChar(60)
-  reliability      String?         @db.VarChar(60)
-  publishedAt      DateTime?       @map("published_at")
-  retrievedAt      DateTime        @default(now()) @map("retrieved_at")
-  readStatus       String          @map("read_status") @db.VarChar(30)
-  readExcerpt      String?         @map("read_excerpt") @db.Text
-  contentHash      String?         @map("content_hash") @db.Char(64)
-  authorityScore   Int?            @map("authority_score")
-  relevanceScore   Int?            @map("relevance_score")
-  evidenceScore    Int?            @map("evidence_score")
-  recencyScore     Int?            @map("recency_score")
-  independenceScore Int?           @map("independence_score")
-  transparencyScore Int?           @map("transparency_score")
-  session          ResearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  evidence         ResearchEvidence[]
-  claimLinks       ResearchClaimSource[]
+  id                  String                @id @default(uuid())
+  sessionId           String                @map("session_id")
+  sourceIndex         Int                   @map("source_index")
+  url                 String                @db.Text
+  canonicalUrl        String?               @map("canonical_url") @db.Text
+  title               String?               @db.Text
+  publisher           String?
+  sourceClass         String?               @map("source_class") @db.VarChar(60)
+  reliability         String?               @db.VarChar(60)
+  publishedAt         DateTime?             @map("published_at")
+  retrievedAt         DateTime              @default(now()) @map("retrieved_at")
+  readStatus          String                @map("read_status") @db.VarChar(30)
+  readExcerpt         String?               @map("read_excerpt") @db.Text
+  contentHash         String?               @map("content_hash") @db.Char(64)
+  authorityScore      Int?                  @map("authority_score")
+  relevanceScore      Int?                  @map("relevance_score")
+  evidenceScore       Int?                  @map("evidence_score")
+  recencyScore        Int?                  @map("recency_score")
+  independenceScore   Int?                  @map("independence_score")
+  transparencyScore   Int?                  @map("transparency_score")
+  session             ResearchSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  evidence            ResearchEvidence[]
+  claimLinks          ResearchClaimSource[]
 
   @@unique([sessionId, sourceIndex])
   @@index([sessionId, readStatus])
@@ -166,19 +166,19 @@ model ResearchSource {
 }
 
 model ResearchEvidence {
-  id           String          @id @default(uuid())
-  sessionId    String          @map("session_id")
-  sourceId     String          @map("source_id")
-  evidenceIndex Int            @map("evidence_index")
-  passageText  String          @db.Text
-  startOffset  Int?            @map("start_offset")
-  endOffset    Int?            @map("end_offset")
-  locator      String?         @db.VarChar(255)
-  evidenceType String?         @map("evidence_type") @db.VarChar(50)
-  createdAt    DateTime        @default(now()) @map("created_at")
-  session      ResearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  source       ResearchSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  claimLinks   ResearchClaimEvidence[]
+  id            String                   @id @default(uuid())
+  sessionId     String                   @map("session_id")
+  sourceId      String                   @map("source_id")
+  evidenceIndex Int                      @map("evidence_index")
+  passageText   String                   @db.Text
+  startOffset   Int?                     @map("start_offset")
+  endOffset     Int?                     @map("end_offset")
+  locator       String?                  @db.VarChar(255)
+  evidenceType  String?                  @map("evidence_type") @db.VarChar(50)
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  session       ResearchSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  source        ResearchSource           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  claimLinks    ResearchClaimEvidence[]
 
   @@unique([sessionId, evidenceIndex])
   @@index([sourceId])
@@ -186,21 +186,21 @@ model ResearchEvidence {
 }
 
 model ResearchClaim {
-  id                 String               @id @default(uuid())
-  sessionId          String               @map("session_id")
-  claimIndex         Int                  @map("claim_index")
-  claimText          String               @db.Text
-  evidenceLevel      String?              @map("evidence_level") @db.VarChar(50)
-  modelConfidence    Int?                 @map("model_confidence")
-  verifiedConfidence Int?                 @map("verified_confidence")
-  verificationStatus String               @map("verification_status") @db.VarChar(40)
-  createdAt           DateTime             @default(now()) @map("created_at")
-  session             ResearchSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id                 String                 @id @default(uuid())
+  sessionId          String                 @map("session_id")
+  claimIndex         Int                    @map("claim_index")
+  claimText          String                 @db.Text
+  evidenceLevel      String?                @map("evidence_level") @db.VarChar(50)
+  modelConfidence    Int?                   @map("model_confidence")
+  verifiedConfidence Int?                   @map("verified_confidence")
+  verificationStatus String                 @map("verification_status") @db.VarChar(40)
+  createdAt           DateTime               @default(now()) @map("created_at")
+  session             ResearchSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sourceLinks         ResearchClaimSource[]
   evidenceLinks       ResearchClaimEvidence[]
   verification        ResearchVerification?
-  conflictsLeft       ResearchConflict[]  @relation("conflict_left")
-  conflictsRight      ResearchConflict[]  @relation("conflict_right")
+  conflictsLeft       ResearchConflict[]    @relation("conflict_left")
+  conflictsRight      ResearchConflict[]    @relation("conflict_right")
 
   @@unique([sessionId, claimIndex])
   @@index([sessionId, verificationStatus])
@@ -230,20 +230,20 @@ model ResearchClaimEvidence {
 }
 
 model ResearchVerification {
-  id                  String         @id @default(uuid())
-  claimId             String         @unique @map("claim_id")
-  corroborationScore  Int            @default(0) @map("corroboration_score")
-  contradictionScore  Int            @default(0) @map("contradiction_score")
-  authorityScore      Int            @default(0) @map("authority_score")
-  relevanceScore      Int            @default(0) @map("relevance_score")
+  id                   String        @id @default(uuid())
+  claimId              String        @unique @map("claim_id")
+  corroborationScore   Int           @default(0) @map("corroboration_score")
+  contradictionScore   Int           @default(0) @map("contradiction_score")
+  authorityScore       Int           @default(0) @map("authority_score")
+  relevanceScore       Int           @default(0) @map("relevance_score")
   evidenceQualityScore Int           @default(0) @map("evidence_quality_score")
-  recencyScore        Int            @default(0) @map("recency_score")
-  independenceScore   Int             @default(0) @map("independence_score")
-  transparencyScore   Int             @default(0) @map("transparency_score")
-  traceable           Boolean         @default(false)
-  notes               String?         @db.Text
-  checkedAt           DateTime        @default(now()) @map("checked_at")
-  claim               ResearchClaim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  recencyScore         Int           @default(0) @map("recency_score")
+  independenceScore    Int           @default(0) @map("independence_score")
+  transparencyScore    Int           @default(0) @map("transparency_score")
+  traceable            Boolean       @default(false)
+  notes                String?       @db.Text
+  checkedAt            DateTime      @default(now()) @map("checked_at")
+  claim                ResearchClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
 
   @@index([authorityScore])
   @@index([corroborationScore])
@@ -251,18 +251,18 @@ model ResearchVerification {
 }
 
 model ResearchConflict {
-  id              String         @id @default(uuid())
-  sessionId       String         @map("session_id")
-  leftClaimId     String         @map("left_claim_id")
-  rightClaimId    String         @map("right_claim_id")
-  overlapScore    Int            @map("overlap_score")
-  reason          String         @db.Text
-  resolution      String?        @db.Text
-  status          String         @default("open") @db.VarChar(30)
-  createdAt       DateTime       @default(now()) @map("created_at")
-  session         ResearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  leftClaim       ResearchClaim  @relation("conflict_left", fields: [leftClaimId], references: [id], onDelete: Cascade)
-  rightClaim      ResearchClaim  @relation("conflict_right", fields: [rightClaimId], references: [id], onDelete: Cascade)
+  id           String         @id @default(uuid())
+  sessionId    String         @map("session_id")
+  leftClaimId  String         @map("left_claim_id")
+  rightClaimId String         @map("right_claim_id")
+  overlapScore Int            @map("overlap_score")
+  reason       String         @db.Text
+  resolution   String?        @db.Text
+  status       String         @default("open") @db.VarChar(30)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  session      ResearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  leftClaim    ResearchClaim  @relation("conflict_left", fields: [leftClaimId], references: [id], onDelete: Cascade)
+  rightClaim   ResearchClaim  @relation("conflict_right", fields: [rightClaimId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, status])
   @@map("research_conflicts")
@@ -286,6 +286,18 @@ model ProjectScene {
   @@map("project_scenes")
 }
 
+model SceneAsset {
+  id           String       @id @default(uuid())
+  sceneId      String       @map("scene_id")
+  videoUrl     String       @map("video_url") @db.Text
+  thumbnailUrl String       @map("thumbnail_url") @db.Text
+  sortOrder    Int          @map("sort_order")
+  isSelected   Boolean      @default(false) @map("is_selected")
+  scene        ProjectScene @relation(fields: [sceneId], references: [id])
+
+  @@map("scene_assets")
+}
+
 enum ExportKind {
   mp4
   srt
@@ -299,6 +311,8 @@ model ProjectExport {
   fileUrl   String      @map("file_url") @db.Text
   createdAt DateTime    @default(now()) @map("created_at")
   project   Project     @relation(fields: [projectId], references: [id])
+
+  @@map("project_exports")
 }
 
 enum ProjectMediaKind {
@@ -344,9 +358,9 @@ model ProjectMedia {
   proxyStorageKey   String?            @map("proxy_storage_key") @db.Text
   thumbnailKey      String?            @map("thumbnail_key") @db.Text
   processingError   String?            @map("processing_error") @db.Text
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, kind])
   @@index([projectId, origin])
@@ -355,9 +369,137 @@ model ProjectMedia {
   @@map("project_media")
 }
 
-enum ProjectMediaOrigin {
-  upload
-  generated
-  external
-  storyboard
+model User {
+  id              String            @id @default(uuid())
+  email           String            @unique
+  passwordHash    String?           @map("password_hash")
+  emailVerifiedAt DateTime?         @map("email_verified_at")
+  displayName     String?           @map("display_name")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  sessions        AuthSession[]
+  tokens          AuthToken[]
+  templates       ProjectTemplate[]
+  versions        ProjectVersion[]
+  activities      ProjectActivity[]
+
+  @@map("users")
+}
+
+model AuthSession {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  tokenHash  String   @unique @map("token_hash") @db.Char(64)
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime? @map("last_seen_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model AuthToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  kind       String   @db.VarChar(40)
+  tokenHash  String   @unique @map("token_hash") @db.Char(64)
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@index([expiresAt])
+  @@map("auth_tokens")
+}
+
+model ProjectEditor {
+  id           String   @id @default(uuid())
+  projectId    String   @unique @map("project_id")
+  version      Int      @default(1)
+  timeline     Json
+  renderStatus String?  @map("render_status")
+  renderVersion Int?    @map("render_version")
+  renderHash   String?  @map("render_hash") @db.Char(64)
+  renderUrl    String?  @map("render_url") @db.Text
+  renderError  String?  @map("render_error") @db.Text
+  renderedAt   DateTime? @map("rendered_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([renderStatus])
+  @@map("project_editors")
+}
+
+model ProjectVersion {
+  id            String   @id @default(uuid())
+  projectId     String   @map("project_id")
+  versionNumber Int      @map("version_number")
+  label         String   @db.VarChar(120)
+  timeline      Json     
+  createdById   String   @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy     User     @relation(fields: [createdById], references: [id])
+
+  @@unique([projectId, versionNumber])
+  @@index([projectId, createdAt])
+  @@map("project_versions")
+}
+
+model ProjectTemplate {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String   @db.VarChar(120)
+  description String?  @db.VarChar(500)
+  timeline    Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+  @@map("project_templates")
+}
+
+model ProjectReviewLink {
+  id         String                @id @default(uuid())
+  projectId  String                @map("project_id")
+  token      String                @unique @db.Char(48)
+  expiresAt  DateTime?             @map("expires_at")
+  revokedAt  DateTime?             @map("revoked_at")
+  createdAt  DateTime              @default(now()) @map("created_at")
+  project    Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments   ProjectReviewComment[]
+
+  @@index([projectId, revokedAt])
+  @@map("project_review_links")
+}
+
+model ProjectReviewComment {
+  id           String            @id @default(uuid())
+  reviewLinkId String            @map("review_link_id")
+  authorName   String            @map("author_name") @db.VarChar(120)
+  body         String            @db.Text
+  resolved     Boolean           @default(false)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  reviewLink   ProjectReviewLink @relation(fields: [reviewLinkId], references: [id], onDelete: Cascade)
+
+  @@index([reviewLinkId, createdAt])
+  @@map("project_review_comments")
+}
+
+model ProjectActivity {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  userId    String?  @map("user_id")
+  action    String   @db.VarChar(80)
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("project_activities")
 }
