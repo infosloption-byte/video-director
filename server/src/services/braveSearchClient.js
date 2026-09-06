@@ -1,4 +1,5 @@
 const API_URL = "https://api.search.brave.com/res/v1/web/search";
+const REQUEST_TIMEOUT_MS = 20000;
 
 export async function searchBrave(query, limit = 8) {
   const apiKey = process.env.BRAVE_API_KEY;
@@ -13,6 +14,7 @@ export async function searchBrave(query, limit = 8) {
       Accept: "application/json",
       "X-Subscription-Token": apiKey,
     },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!res.ok) throw new Error(`Brave Search returned ${res.status}`);
