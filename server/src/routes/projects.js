@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { researchSignal } from "../services/researchService.js";
+import { persistResearchGraph } from "../services/researchGraphService.js";
 import { buildSetupSuggestions, validateSetup } from "../services/setupService.js";
 import { publishFacebookReel } from "../services/facebookService.js";
 
@@ -59,6 +60,7 @@ async function runResearch(projectId, signal) {
       researchSources: { ...(brief), sources: brief.sources || [] }, monetizationFlags: brief.monetization_flags || [], suggestedFramework: brief.recommended_framework || null,
       suggestedLengthSeconds: brief.recommended_length_seconds || null, suggestedTone: brief.recommended_tone || null, status: "setup",
     } });
+    await persistResearchGraph(projectId, brief, { status: "completed" });
     setJob("ready", 100, "Research brief ready", "The evidence-backed brief is ready for guided setup.");
   } catch (error) {
     console.error(`[research] Project ${projectId} failed:`, error);
@@ -105,6 +107,29 @@ router.get("/:id", async (req, res) => {
 router.get("/:id/research", async (req, res) => {
   try { const project = await prisma.project.findUnique({ where: { id: req.params.id } }); if (!project) return res.status(404).json({ error: "Project not found." }); res.json({ project: publicProject(project, researchJobs.get(project.id)) }); }
   catch (error) { console.error("GET /api/projects/:id/research failed:", error); res.status(500).json({ error: "Failed to load research status." }); }
+});
+
+router.get("/:id/research/graph", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    const session = await prisma.researchSession.findFirst({
+      where: { projectId: project.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        plan: true,
+        sources: { orderBy: { sourceIndex: "asc" } },
+        evidence: { orderBy: { evidenceIndex: "asc" } },
+        claims: { orderBy: { claimIndex: "asc" }, include: { verification: true, sourceLinks: { include: { source: true } }, evidenceLinks: { include: { evidence: true } } } },
+        conflicts: { orderBy: { createdAt: "asc" } },
+      },
+    });
+    if (!session) return res.status(404).json({ error: "Research graph is not available yet." });
+    res.json({ session });
+  } catch (error) {
+    console.error(`GET /api/projects/${req.params.id}/research/graph failed:`, error);
+    res.status(500).json({ error: "Failed to load the research evidence graph." });
+  }
 });
 
 router.get("/:id/setup/suggestions", async (req, res) => {
