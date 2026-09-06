@@ -12,10 +12,16 @@ function SourceLink({ source }) {
   return <a href={source.url} target="_blank" rel="noreferrer">Open source ↗</a>;
 }
 
+function VerificationBadge({ claim }) {
+  const status = claim?.verificationStatus || claim?.verification_status || "unverified";
+  return <span className={`research-brief__verification research-brief__verification--${status}`}>{status.replaceAll("_", " ")}</span>;
+}
+
 export default function ResearchPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
+  const [graph, setGraph] = useState(null);
   const [error, setError] = useState("");
   const projectRef = useRef(null);
 
@@ -47,6 +53,19 @@ export default function ResearchPage() {
     return () => { stopped = true; controller?.abort(); if (timer) window.clearTimeout(timer); };
   }, [id]);
 
+  useEffect(() => {
+    if (project?.researchStatus !== "ready") return undefined;
+    let stopped = false;
+    fetch(`/api/projects/${id}/research/graph`, { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Failed to load research evidence.");
+        if (!stopped) setGraph(data.session || null);
+      })
+      .catch(() => { if (!stopped) setGraph(null); });
+    return () => { stopped = true; };
+  }, [id, project?.researchStatus]);
+
   const researchStatus = project?.researchStatus;
   const researchError = researchStatus === "error" ? project?.error : error;
   const research = project?.research;
@@ -59,6 +78,9 @@ export default function ResearchPage() {
   const avoidClaims = deep.claims_to_avoid || [];
   const opportunities = deep.creative_opportunities || [];
   const reliability = deep.reliability_assessment;
+  const verifiedClaims = graph?.claims || [];
+  const graphSources = graph?.sources || [];
+  const graphConflicts = graph?.conflicts || [];
 
   const navigation = (
     <>
@@ -81,19 +103,24 @@ export default function ResearchPage() {
 
             <p className="research-brief__summary">{deep.executive_summary || research.summary}</p>
 
-            {deep.research_metrics && <div className="research-brief__metrics">{[["Sources discovered", deep.research_metrics.discovered_sources], ["Sources read", deep.research_metrics.sources_read], ["Evidence passages", deep.research_metrics.evidence_passages], ["Sources not fully read", deep.research_metrics.sources_unread]].map(([label, value]) => <div key={label}><strong>{value ?? 0}</strong><span>{label}</span></div>)}</div>}
+            {deep.research_metrics && <div className="research-brief__metrics">{[["Sources discovered", deep.research_metrics.discovered_sources], ["Sources read", deep.research_metrics.sources_read], ["Evidence passages", deep.research_metrics.evidence_passages], ["Sources not fully read", deep.research_metrics.sources_unread], ["Claims checked", deep.research_metrics.claims_checked], ["Claims traceable", deep.research_metrics.claims_traceable]].map(([label, value]) => <div key={label}><strong>{value ?? 0}</strong><span>{label}</span></div>)}</div>}
 
             <div className="research-brief__grid">
               {[["What happened", deep.what_happened], ["Why it matters", deep.why_it_matters], ["How it works", deep.mechanism]].map(([title, text]) => text && <article key={title} className="research-brief__panel"><h3>{title}</h3><p>{text}</p></article>)}
             </div>
 
-            {findings.length > 0 && <div><h3>Key findings & evidence confidence</h3><div className="research-brief__finding-list">{findings.map((item, index) => <article key={`${item.claim}-${index}`}><div><span className={`research-brief__level research-brief__level--${item.evidence_level}`}>{item.evidence_level}</span><strong>{item.claim}</strong></div><p>{item.evidence}</p><small>{item.confidence}% confidence · source {item.source_indexes?.map((value) => value + 1).join(", ") || "—"}</small></article>)}</div></div>}
+            {verifiedClaims.length > 0 && <div><h3>Verified claims & provenance</h3><div className="research-brief__finding-list">{verifiedClaims.map((claim) => <article key={claim.id}><div><VerificationBadge claim={claim} /><strong>{claim.claimText}</strong></div><small>{claim.verifiedConfidence ?? 0}% verified confidence · {claim.verification?.authorityScore ?? 0}% authority · {claim.verification?.corroborationScore ?? 0}% corroboration</small><div className="research-brief__provenance">{claim.evidenceLinks?.map((link) => <blockquote key={link.evidenceId}>{link.evidence?.passageText}</blockquote>)}{claim.sourceLinks?.map((link) => <span key={link.sourceId}><SourceLink source={link.source} /></span>)}</div></article>)}</div></div>}
+
+            {findings.length > 0 && <div><h3>Key findings & evidence confidence</h3><div className="research-brief__finding-list">{findings.map((item, index) => <article key={`${item.claim}-${index}`}><div><span className={`research-brief__level research-brief__level--${item.evidence_level}`}>{item.evidence_level}</span><strong>{item.claim}</strong></div><p>{item.evidence}</p><small>{item.confidence}% model confidence · source {item.source_indexes?.map((value) => value + 1).join(", ") || "—"}</small></article>)}</div></div>}
 
             {numbers.length > 0 && <div><h3>Important numbers & data</h3><div className="research-brief__data-grid">{numbers.map((item, index) => <article key={`${item.value}-${index}`}><strong>{item.value}</strong><span>{item.context}</span></article>)}</div></div>}
 
+            {graphConflicts.length > 0 && <div><h3>Detected evidence conflicts</h3><ul>{graphConflicts.map((item) => <li key={item.id}><strong>{item.overlapScore}% claim overlap</strong><span>{item.reason}</span><small>{item.status}</small></li>)}</ul></div>}
             {disagreements.length > 0 && <div><h3>Conflicting evidence</h3><ul>{disagreements.map((item, index) => <li key={`${item.topic}-${index}`}><strong>{item.topic}</strong><span>{item.positions?.join(" / ")}</span><span>{item.resolution}</span><small>{item.confidence}% confidence</small></li>)}</ul></div>}
 
             {reliability && <div className="research-brief__panel research-brief__panel--reliability"><h3>Reliability assessment</h3><p>{reliability.rationale}</p>{reliability.limitations?.length > 0 && <ul>{reliability.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul>}</div>}
+
+            {graphSources.length > 0 && <div><h3>Evidence source quality</h3><div className="research-brief__data-grid">{graphSources.slice(0, 12).map((source) => <article key={source.id}><strong>{source.authorityScore ?? 0}% authority</strong><span>{source.sourceClass || source.reliability || "Source"} · {source.readStatus}</span><SourceLink source={source} /></article>)}</div></div>}
 
             <div className="research-brief__grid">
               {safeClaims.length > 0 && <article className="research-brief__panel"><h3>Claims safe to say</h3><ul>{safeClaims.map((item, index) => <li key={index}>{item}</li>)}</ul></article>}
