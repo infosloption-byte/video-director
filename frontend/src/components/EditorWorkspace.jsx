@@ -9,6 +9,7 @@ import "./EditorToolsUX.css";
 import "./EditorWorkspaceRefinement.css";
 import "./EditorToolsUploadFix.css";
 import "./EditorWorkspaceCompact.css";
+import "./EditorWorkspaceViewport.css";
 
 const TOOLS = [
   { id: "media", label: "Media", icon: "▧", description: "Import, search and organize project assets." },
