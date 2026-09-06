@@ -7,7 +7,7 @@ export async function researchSignal(signal, { onProgress } = {}) {
   const evidenceLinkedBrief = attachEvidenceIndexes(rawBrief);
   onProgress?.("verifying", 88);
   const verification = verifyResearchBrief(evidenceLinkedBrief);
-  const adjudication = adjudicateResearchConflicts(evidenceLinkedBrief);
+  const adjudication = await adjudicateResearchConflicts(evidenceLinkedBrief);
   const mergedVerification = {
     ...verification,
     conflicts: adjudication.conflicts,
@@ -16,6 +16,8 @@ export async function researchSignal(signal, { onProgress } = {}) {
       conflicts_detected: adjudication.conflicts.length,
       conflicts_adjudicated: adjudication.summary.conflictsAdjudicated,
       conflicts_unresolved: adjudication.summary.conflictsUnresolved,
+      adjudication_model_assisted: adjudication.summary.modelAssisted,
+      adjudication_model_error: adjudication.summary.modelError,
     },
   };
   const reliability = {
@@ -38,6 +40,7 @@ export async function researchSignal(signal, { onProgress } = {}) {
       conflicts_detected: adjudication.conflicts.length,
       conflicts_adjudicated: adjudication.summary.conflictsAdjudicated,
       conflicts_unresolved: adjudication.summary.conflictsUnresolved,
+      adjudication_model_assisted: adjudication.summary.modelAssisted,
       traceability_score: verification.summary.traceability_score,
     },
   };
