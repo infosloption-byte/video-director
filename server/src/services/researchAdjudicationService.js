@@ -5,7 +5,7 @@ function clamp(value, fallback = 0) {
 }
 
 const STOP_WORDS = new Set(["about", "after", "again", "also", "because", "being", "between", "could", "from", "have", "into", "more", "most", "other", "over", "such", "than", "that", "their", "there", "these", "they", "this", "through", "were", "which", "with", "would", "your"]);
-const NEGATIVE = /\b(no|not|never|unlikely|fails?|failed|lack(?:s|ed)?|limited|weak|harm(?:s|ful|ed)?|risk(?:s|y)?|worse|declin(?:e|ed|ing)|decreas(?:e|ed|ing)|contra(?:ry|dict)|dispute|uncertain|unsupported)\b/i;
+const NEGATIVE = /\b(no|not|never|unlikely|fails?|failed|lack(?:s|ed)?|limited|weak|harm(?:s|ful|ed)?|risk(?:s|y)?|worse|declin(?:e|d|ing)|decreas(?:e|d|ing)|contra(?:ry|dict)|dispute|uncertain|unsupported|did\s+not|does\s+not)\b/i;
 const POSITIVE = /\b(support(?:s|ed)?|effective|benefit(?:s|ed)?|improv(?:e|d|es|ing)|increase(?:s|d|ing)?|strong|consistent|associated|significant|works|successful|established)\b/i;
 
 function tokens(text) {
@@ -21,9 +21,12 @@ function overlap(left, right) {
 }
 
 function polarity(text) {
-  const negative = NEGATIVE.test(text); const positive = POSITIVE.test(text);
-  if (negative && !positive) return "negative";
-  if (positive && !negative) return "positive";
+  const negative = NEGATIVE.test(text);
+  const positive = POSITIVE.test(text);
+  // Explicit negation should win over a positive keyword contained in the same phrase,
+  // e.g. "did not improve" or "no improvement".
+  if (negative) return "negative";
+  if (positive) return "positive";
   return "neutral";
 }
 
