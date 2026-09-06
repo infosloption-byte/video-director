@@ -112,7 +112,7 @@ router.get("/:id/research", async (req, res) => {
 
 router.get("/:id/research/graph", async (req, res) => {
   try {
-    const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } });
     if (!project) return res.status(404).json({ error: "Project not found." });
     const session = await prisma.researchSession.findFirst({
       where: { projectId: project.id },
