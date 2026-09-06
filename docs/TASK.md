@@ -117,7 +117,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 **Explicit exclusion:** Facebook production OAuth/multi-user Meta publishing remains deferred under M9.
 
 ## M17 — Deep Research Intelligence Engine — New Product Capability
-**Status:** In progress — Phase 2 implementation landed; Phase 3 refinement and runtime verification remain
+**Status:** In progress — Phase 2 core and passage/adjudication refinement implemented; runtime verification remains
 
 **Product goal:** replace basic “search → summarize” with a source-grounded deep research workflow that plans research, discovers diverse sources, reads source content, extracts evidence, verifies claims, surfaces contradictions, scores reliability, and produces a detailed research intelligence brief for downstream video creation.
 
@@ -140,15 +140,16 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Research Brief provenance UI with claim/source/evidence inspection
 - [x] Evidence-index attachment for major findings
 - [x] Deterministic contradiction detection and evidence adjudication foundation
-- [ ] Upgrade adjudication to passage-level semantic/model-assisted resolution
+- [x] Exact passage extraction with source-relative offsets and claim-linked evidence indexes
+- [x] Model-assisted contradiction adjudication with deterministic fallback and explicit method/status
 - [ ] Runtime verification with representative research topics
 
 ### Phase 3 — Professional Research Brief
 - [x] Persistent research graph foundation
 - [x] Executive summary, evidence boundaries, what happened / why it matters / how it works
 - [x] Key findings, important numbers, conflicts, gaps, source-quality/reliability, safe/unsafe claims, creative angle
-- [ ] Enforce 8–15 evidence-backed findings with claim-level citations on all topics
-- [ ] Improve exact passage extraction and provenance quality
+- [x] Enforce 8–15 evidence-backed findings at synthesis schema level
+- [x] Improve exact passage extraction and provenance quality
 - [ ] Research corpus reusable by Storyboard and future AI workflows
 
 ### Phase 4 — Interactive Research Workspace
@@ -197,13 +198,13 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 
 ## Current execution focus
 ```text
-1. M17 exact passage-level evidence extraction
+1. M17 runtime verification across representative topics
                          ↓
-2. M17 robust/model-assisted contradiction adjudication
+2. M17 corpus persistence/reuse by Storyboard + AI workflows
                          ↓
-3. M17 professional 8–15 finding brief + reusable corpus
+3. M17 interactive research workspace
                          ↓
-4. M17 runtime/regression verification
+4. M17 research memory + follow-up
                          ↓
 5. Synchronize BUILD_PLAN.md / FINAL_QA.md
                          ↓
@@ -223,5 +224,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-05` — M14 and M15 marked Done — implementation complete; browser/runtime acceptance remains; M16 remains not started.
 - `2026-09-06` — M17 Deep Research Intelligence Engine approved and started. Phase 1 uses targeted multi-lane discovery, actual source reading, evidence-aware synthesis, richer reliability metadata, and a detailed research workspace/brief.
 - `2026-09-06` — M17 Phase 2 evidence graph persistence, claim provenance, verification dimensions, and deterministic conflict adjudication foundation implemented. Next work is exact passage-level evidence and stronger adjudication.
+- `2026-09-06` — M17 exact source-relative passage extraction, 8–15 finding synthesis constraints, and model-assisted contradiction adjudication were implemented with deterministic fallback and explicit provenance.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
