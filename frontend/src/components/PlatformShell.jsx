@@ -27,7 +27,6 @@ export default function PlatformShell({ children }) {
   const [signingOut, setSigningOut] = useState(false);
   const accountMenuRef = useRef(null);
   const projectId = useMemo(() => location.pathname.match(/^(?:\/research|\/storyboard|\/media)\/([^/]+)/)?.[1] || location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "", [location.pathname]);
-  const editorId = location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "";
   const userLabel = user?.displayName || user?.email || "Account";
 
   useEffect(() => {
@@ -62,11 +61,6 @@ export default function PlatformShell({ children }) {
     { label: "Storyboard", icon: "▤", path: `/storyboard/${projectId}` },
     { label: "Media Library", icon: "▧", path: `/media/${projectId}` },
     { label: "Advanced Editor", icon: "✦", path: `/editor/${projectId}` },
-    ...(editorId ? [
-      { label: "AI Assistant", icon: "✧", path: `/editor/${editorId}/ai` },
-      { label: "Render", icon: "▶", path: `/editor/${editorId}/render` },
-      { label: "Productivity", icon: "◫", path: `/editor/${editorId}/productivity` },
-    ] : []),
   ] : [];
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
