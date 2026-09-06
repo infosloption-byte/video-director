@@ -29,7 +29,7 @@ function polarity(text) {
 
 function confidence(claim = {}) { return clamp(claim.verified_confidence ?? claim.confidence ?? claim.model_confidence); }
 
-export function adjudicateResearchConflicts(brief = {}) {
+function deterministicConflicts(brief = {}) {
   const findings = Array.isArray(brief.key_findings) ? brief.key_findings : [];
   const existing = Array.isArray(brief.verification?.conflicts) ? brief.verification.conflicts : [];
   const conflicts = []; const seen = new Set();
@@ -53,7 +53,7 @@ export function adjudicateResearchConflicts(brief = {}) {
         resolution = `The ${strongerIndex === leftIndex ? "first" : "second"} position has stronger verification support (${strongerConfidence}% vs ${Math.min(leftConfidence, rightConfidence)}%), but the opposing evidence should remain visible.`;
         resolutionConfidence = Math.min(90, Math.max(55, strongerConfidence));
       }
-      conflicts.push({ finding_indexes: [leftIndex, rightIndex], similarity, positions: [left.claim, right.claim], reason: "Similar claims contain materially opposing evidence signals.", resolution, status, confidence: resolutionConfidence });
+      conflicts.push({ finding_indexes: [leftIndex, rightIndex], similarity, positions: [left.claim, right.claim], reason: "Similar claims contain materially opposing evidence signals.", resolution, status, confidence: resolutionConfidence, method: "deterministic" });
     }
   }
 
@@ -62,10 +62,70 @@ export function adjudicateResearchConflicts(brief = {}) {
     if (indexes.length !== 2 || indexes.some((index) => !Number.isInteger(index))) continue;
     const key = `${Math.min(...indexes)}:${Math.max(...indexes)}`;
     if (seen.has(key)) continue;
-    conflicts.push({ ...conflict, status: conflict.status || "unresolved", resolution: conflict.resolution || "Conflicting evidence detected; review the linked source passages before making a definitive claim.", confidence: clamp(conflict.confidence ?? 50) });
+    conflicts.push({ ...conflict, status: conflict.status || "unresolved", resolution: conflict.resolution || "Conflicting evidence detected; review the linked source passages before making a definitive claim.", confidence: clamp(conflict.confidence ?? 50), method: "deterministic" });
   }
 
-  return { conflicts, summary: { conflictsAdjudicated: conflicts.filter((item) => item.status === "adjudicated").length, conflictsUnresolved: conflicts.filter((item) => item.status !== "adjudicated").length } };
+  return conflicts;
+}
+
+function evidenceForConflict(brief, conflict) {
+  const findings = Array.isArray(brief.key_findings) ? brief.key_findings : [];
+  const passages = Array.isArray(brief.evidence_preview) ? brief.evidence_preview : [];
+  return (conflict.finding_indexes || []).map((index) => {
+    const finding = findings[index] || {};
+    const evidenceIndexes = Array.isArray(finding.evidence_indexes) ? finding.evidence_indexes : [];
+    return {
+      finding_index: index,
+      claim: finding.claim,
+      confidence: confidence(finding),
+      evidence_level: finding.evidence_level,
+      passages: evidenceIndexes.slice(0, 3).map((evidenceIndex) => passages[evidenceIndex]).filter(Boolean).map((passage) => ({
+        source_index: passage.source_index,
+        title: passage.title,
+        excerpt: passage.excerpt,
+        locator: passage.locator,
+      })),
+    };
+  });
+}
+
+async function modelAdjudicate(brief, conflicts) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || !conflicts.length) return { conflicts, attempted: false };
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const cases = conflicts.map((conflict, index) => ({ case_index: index, conflict, evidence: evidenceForConflict(brief, conflict) }));
+  const prompt = `You are the Helix research adjudicator. Resolve only the supplied evidence conflicts. Treat exact source passages as the ground truth for what a source actually says. Do not invent evidence, sources, facts, consensus, or causal claims. A conflict may be unresolved when the passages differ in population, method, date, outcome, scope, or certainty. Prefer the better-supported position only when the supplied evidence clearly supports doing so. Return JSON with a conflicts array. Each item must have case_index, status (adjudicated|unresolved), resolution, confidence (0-100), rationale, and winning_finding_index (integer or null).\n\nCASES:\n${JSON.stringify(cases)}`;
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 6000 } }),
+      signal: AbortSignal.timeout(60000),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error?.message || `Gemini adjudicator returned ${response.status}.`);
+    const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+    const start = raw.indexOf("{"); const end = raw.lastIndexOf("}");
+    if (start < 0 || end <= start) throw new Error("Invalid adjudication JSON.");
+    const parsed = JSON.parse(raw.slice(start, end + 1));
+    const decisions = Array.isArray(parsed.conflicts) ? parsed.conflicts : [];
+    const resolved = conflicts.map((conflict, index) => {
+      const decision = decisions.find((item) => Number(item.case_index) === index);
+      if (!decision) return conflict;
+      return { ...conflict, status: decision.status === "adjudicated" ? "adjudicated" : "unresolved", resolution: String(decision.resolution || conflict.resolution), confidence: clamp(decision.confidence ?? conflict.confidence), rationale: String(decision.rationale || ""), winning_finding_index: Number.isInteger(decision.winning_finding_index) ? decision.winning_finding_index : null, method: "model_assisted" };
+    });
+    return { conflicts: resolved, attempted: true };
+  } catch (error) {
+    return { conflicts, attempted: true, error: error.message };
+  }
+}
+
+export async function adjudicateResearchConflicts(brief = {}) {
+  const deterministic = deterministicConflicts(brief);
+  const model = await modelAdjudicate(brief, deterministic);
+  const conflicts = model.conflicts.map((conflict) => ({ ...conflict, adjudication_status: conflict.status }));
+  return { conflicts, summary: { conflictsAdjudicated: conflicts.filter((item) => item.status === "adjudicated").length, conflictsUnresolved: conflicts.filter((item) => item.status !== "adjudicated").length, modelAssisted: model.attempted, modelError: model.error || null } };
 }
 
 export function attachEvidenceIndexes(brief = {}) {
