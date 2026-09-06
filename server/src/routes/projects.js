@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "node:crypto";
 import { prisma } from "../db/client.js";
 import { researchSignal } from "../services/researchService.js";
 import { persistResearchGraph } from "../services/researchGraphService.js";
@@ -92,7 +93,7 @@ router.post("/", async (req, res) => {
     let signal = signalId ? await prisma.signal.findUnique({ where: { id: signalId } }) : null;
     if (!signal && signalInput) signal = await persistSearchSignal(signalInput);
     if (!signal) return res.status(404).json({ error: "Signal not found. Provide signalId or the selected search signal." });
-    const project = await prisma.project.create({ data: { userId: req.user.id, signalId: signal.id, title: signal.title, status: "researching" } });
+    const project = await prisma.project.create({ data: { id: crypto.randomUUID(), userId: req.user.id, signalId: signal.id, title: signal.title, status: "researching" } });
     researchJobs.set(project.id, { status: "queued", progress: 0, label: "Starting deep research", detail: "Preparing the evidence pipeline." });
     void runResearch(project.id, signal);
     res.status(202).json({ project: publicProject(project, researchJobs.get(project.id)) });
