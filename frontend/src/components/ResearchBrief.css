@@ -43,6 +43,14 @@
 .research-brief__panel--reliability ul { margin-top:12px; }
 .research-brief__angle { margin-top:14px !important; padding-top:14px; border-top:1px solid var(--border-soft); }
 .research-brief a { color:var(--ink); font-size:12px; text-decoration:underline; }
+.research-brief__activity { max-width:1120px; margin:20px auto 0; padding:18px; border:1px solid var(--border-soft); border-radius:var(--radius-lg); background:var(--surface); }
+.research-brief__activity > div:first-child { display:flex; align-items:baseline; justify-content:space-between; gap:16px; }
+.research-brief__activity h3 { margin:0; }
+.research-brief__activity > div[role="log"] { display:grid; gap:8px; margin-top:14px; max-height:300px; overflow:auto; }
+.research-brief__activity article { display:grid; grid-template-columns:minmax(150px, .35fr) minmax(0, 1fr) auto; gap:12px; align-items:center; padding:10px 12px; border:1px solid var(--border-soft); border-radius:var(--radius-lg); }
+.research-brief__activity article span { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-dim); }
+.research-brief__activity article strong { color:var(--body); font-size:13px; font-weight:500; }
+.research-brief__activity article small { color:var(--muted); font-family:var(--font-mono); white-space:nowrap; }
 @media (max-width: 1100px) { .research-brief__metrics { grid-template-columns:repeat(3,1fr); } }
-@media (max-width: 900px) { .research-brief__metrics { grid-template-columns:repeat(2,1fr); } .research-brief__data-grid { grid-template-columns:repeat(2,1fr); } }
+@media (max-width: 900px) { .research-brief__metrics { grid-template-columns:repeat(2,1fr); } .research-brief__data-grid { grid-template-columns:repeat(2,1fr); } .research-brief__activity article { grid-template-columns:1fr; gap:4px; } }
 @media (max-width: 640px) { .research-brief { margin-bottom:64px; } .research-brief h2 { font-size:28px; } .research-brief__hero { display:grid; } .research-brief__confidence { text-align:left; width:max-content; } .research-brief__grid, .research-brief__metrics, .research-brief__data-grid { grid-template-columns:1fr; } .research-brief__finding-list article > div { display:grid; } }
