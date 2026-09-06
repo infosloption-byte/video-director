@@ -153,8 +153,8 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Research corpus reusable by Storyboard and future AI workflows
 
 ### Phase 4 — Interactive Research Workspace
-- [ ] Live source discovery stream
-- [ ] Source reading/evidence extraction activity
+- [x] Live source discovery stream
+- [x] Source reading/evidence extraction activity
 - [ ] Live finding cards with confidence indicators
 - [ ] Click-through evidence inspection and source comparison
 - [ ] Contradiction/evidence resolution workspace
@@ -224,5 +224,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-06` — M17 Phase 2 evidence graph persistence, claim provenance, verification dimensions, and deterministic conflict adjudication foundation implemented. Next work is exact passage-level evidence and stronger adjudication.
 - `2026-09-06` — M17 exact source-relative passage extraction, 8–15 finding synthesis constraints, and model-assisted contradiction adjudication were implemented with deterministic fallback and explicit provenance.
 - `2026-09-06` — M17 persisted research corpus is now reusable by Storyboard generation and the AI editor; a protected corpus endpoint exposes normalized sources, passages, claims, verification, and conflicts.
+- `2026-09-06` — M17 interactive research activity now streams plan/search/source-reading/verification events into the Research workspace while the job is running, with a bounded activity history retained in the in-memory research job.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
