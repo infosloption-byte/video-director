@@ -1,0 +1,461 @@
+/* Full-viewport editor shell. Keeps every editor element while removing platform gutters. */
+.platform-content:has(.editor-workspace) {
+  width: 100%;
+  min-width: 0;
+  height: calc(100vh - 64px);
+  min-height: 0;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.platform-content:has(.editor-workspace) > .editor-workspace {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-workspace .advanced-editor-shell {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.editor-workspace .advanced-editor-shell > .advanced-editor {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0 !important;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) minmax(230px, 34vh);
+  gap: 0;
+  overflow: hidden;
+}
+
+/* Compact header: retain title, description and every action without wasting viewport height. */
+.editor-workspace .advanced-editor__header {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 !important;
+  padding: 8px 14px !important;
+  gap: 12px;
+  align-items: center;
+}
+
+.editor-workspace .advanced-editor__header > div:first-child {
+  min-width: 0;
+}
+
+.editor-workspace .advanced-editor__header .eyebrow {
+  margin: 0 0 2px;
+  font-size: 7px;
+  line-height: 1.1;
+}
+
+.editor-workspace .advanced-editor__header h1 {
+  max-width: min(52vw, 620px);
+  margin: 0 0 2px;
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  line-height: 1;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-workspace .advanced-editor__header p:not(.eyebrow) {
+  max-width: min(52vw, 620px);
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-workspace .advanced-editor__actions {
+  min-width: 0;
+  max-width: 50%;
+  gap: 5px;
+}
+
+.editor-workspace .advanced-editor__actions .btn {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 9px;
+}
+
+.editor-workspace .advanced-editor__actions .editor-save-state {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 8px;
+}
+
+/* The upper three-panel editor consumes all remaining height and width. */
+.editor-workspace .advanced-editor__topgrid {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto !important;
+  grid-template-columns: var(--editor-tools-width) minmax(0, 1fr) minmax(250px, 330px);
+  gap: 0;
+  overflow: hidden;
+}
+
+.editor-workspace .editor-tools-column,
+.editor-workspace .editor-preview-card,
+.editor-workspace .advanced-editor__inspector {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.editor-workspace .editor-preview-card {
+  padding: 8px;
+  overflow: hidden;
+}
+
+.editor-workspace .editor-preview-frame {
+  width: min(100%, 300px);
+  height: min(calc(100% - 72px), 430px);
+  max-height: calc(100% - 72px);
+  margin-inline: auto;
+}
+
+.editor-workspace .editor-preview-transport {
+  margin-top: 6px;
+  gap: 4px;
+}
+
+.editor-workspace .editor-preview-transport .btn {
+  min-width: 40px;
+  min-height: 28px;
+  padding: 4px 6px;
+  font-size: 8px;
+}
+
+.editor-workspace .editor-audio-status {
+  margin-top: 4px;
+  padding-top: 4px;
+  font-size: 7px;
+}
+
+.editor-workspace .advanced-editor__inspector {
+  padding: 8px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.editor-workspace .editor-section-title {
+  padding-bottom: 7px;
+}
+
+.editor-workspace .editor-section-title strong {
+  font-size: 15px;
+}
+
+.editor-workspace .editor-section-title span {
+  font-size: 8px;
+}
+
+.editor-workspace .editor-form {
+  gap: 6px;
+  padding-top: 7px;
+}
+
+.editor-workspace .editor-form label {
+  gap: 3px;
+  font-size: 10px;
+}
+
+.editor-workspace .editor-form input,
+.editor-workspace .editor-form textarea,
+.editor-workspace .editor-form select {
+  min-height: 31px;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+
+.editor-workspace .editor-form__panel {
+  gap: 6px;
+  padding: 7px;
+}
+
+.editor-workspace .editor-timeline-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  margin: 0 !important;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.editor-workspace .editor-timeline-toolbar {
+  min-height: 42px;
+  padding: 6px 8px;
+}
+
+.editor-workspace .editor-timeline-scroll {
+  min-height: 0;
+  height: calc(100% - 42px);
+  max-height: none;
+  overflow: auto;
+}
+
+.editor-workspace .editor-ruler {
+  height: 32px;
+}
+
+.editor-workspace .editor-ruler__ticks span {
+  top: 8px;
+  font-size: 8px;
+}
+
+.editor-workspace .editor-tracks {
+  min-height: 0;
+}
+
+.editor-workspace .editor-track {
+  min-height: 54px;
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+.editor-workspace .editor-track-lane {
+  min-height: 54px;
+}
+
+.editor-workspace .editor-track-label {
+  gap: 2px;
+  padding: 6px 8px;
+}
+
+.editor-workspace .editor-track-label strong {
+  font-size: 10px;
+}
+
+.editor-workspace .editor-track-label span {
+  font-size: 7px;
+}
+
+.editor-workspace .editor-clip {
+  top: 7px;
+  height: 40px;
+  padding: 4px 8px;
+}
+
+.editor-workspace .editor-clip span {
+  font-size: 9px;
+}
+
+.editor-workspace .editor-clip small {
+  font-size: 7px;
+}
+
+/* Tablet: preserve all three editor areas, but let Inspector use a second row when needed. */
+@media (max-width: 1100px) and (min-width: 901px) {
+  .editor-workspace .advanced-editor-shell > .advanced-editor {
+    grid-template-rows: auto minmax(0, 1fr) minmax(220px, 32vh);
+  }
+
+  .editor-workspace .advanced-editor__header {
+    padding-inline: 10px !important;
+  }
+
+  .editor-workspace .advanced-editor__header h1 {
+    max-width: 42vw;
+    font-size: clamp(1.15rem, 2vw, 1.5rem);
+  }
+
+  .editor-workspace .advanced-editor__header p:not(.eyebrow) {
+    max-width: 42vw;
+  }
+
+  .editor-workspace .advanced-editor__actions {
+    max-width: 54%;
+  }
+
+  .editor-workspace .advanced-editor__topgrid {
+    grid-template-columns: var(--editor-tools-width) minmax(260px, 1fr) minmax(225px, 285px);
+  }
+
+  .editor-workspace .editor-preview-frame {
+    width: min(100%, 250px);
+  }
+}
+
+/* Tablet / large phone: stack the three panels without horizontal overflow. */
+@media (max-width: 900px) {
+  .platform-content:has(.editor-workspace) {
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+  }
+
+  .platform-content:has(.editor-workspace) > .editor-workspace,
+  .editor-workspace .advanced-editor-shell,
+  .editor-workspace .advanced-editor-shell > .advanced-editor {
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+  }
+
+  .editor-workspace .advanced-editor-shell > .advanced-editor {
+    display: grid;
+    grid-template-rows: auto auto auto;
+  }
+
+  .editor-workspace .advanced-editor__header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px !important;
+    gap: 7px;
+  }
+
+  .editor-workspace .advanced-editor__header h1,
+  .editor-workspace .advanced-editor__header p:not(.eyebrow) {
+    max-width: 100%;
+  }
+
+  .editor-workspace .advanced-editor__header h1 {
+    font-size: clamp(1.15rem, 4vw, 1.55rem);
+  }
+
+  .editor-workspace .advanced-editor__header p:not(.eyebrow) {
+    white-space: normal;
+    font-size: 9px;
+  }
+
+  .editor-workspace .advanced-editor__actions {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .editor-workspace .advanced-editor__actions .btn {
+    flex: 0 0 auto;
+  }
+
+  .editor-workspace .advanced-editor__topgrid {
+    height: auto !important;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .editor-workspace .editor-tools-column {
+    height: auto;
+    min-height: 52px;
+  }
+
+  .editor-workspace.is-expanded .editor-tools-column {
+    min-height: 260px;
+  }
+
+  .editor-workspace .editor-preview-card {
+    height: auto;
+    min-height: 390px;
+    padding: 8px;
+  }
+
+  .editor-workspace .editor-preview-frame {
+    width: min(100%, 280px);
+    height: min(62vh, 430px);
+    max-height: none;
+  }
+
+  .editor-workspace .advanced-editor__inspector {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 8px;
+  }
+
+  .editor-workspace .editor-timeline-card {
+    margin-top: 0 !important;
+  }
+
+  .editor-workspace .editor-timeline-scroll {
+    height: auto;
+    max-height: 46vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-content:has(.editor-workspace) {
+    min-height: calc(100vh - 64px);
+  }
+
+  .editor-workspace .advanced-editor__header {
+    padding: 6px !important;
+  }
+
+  .editor-workspace .advanced-editor__header h1 {
+    font-size: 1.2rem;
+  }
+
+  .editor-workspace .advanced-editor__header p:not(.eyebrow) {
+    font-size: 8px;
+  }
+
+  .editor-workspace .advanced-editor__actions {
+    gap: 4px;
+  }
+
+  .editor-workspace .advanced-editor__actions .btn {
+    min-height: 28px;
+    padding: 4px 7px;
+    font-size: 8px;
+  }
+
+  .editor-workspace .editor-preview-card {
+    min-height: 340px;
+  }
+
+  .editor-workspace .editor-preview-frame {
+    width: min(100%, 240px);
+    height: min(58vh, 390px);
+  }
+
+  .editor-workspace .editor-preview-transport {
+    grid-template-columns: auto auto auto minmax(60px, 1fr) auto;
+  }
+
+  .editor-workspace .editor-preview-transport span {
+    display: none;
+  }
+
+  .editor-workspace .editor-timeline-toolbar {
+    min-height: 44px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .editor-workspace .editor-timeline-scroll {
+    max-height: 42vh;
+  }
+
+  .editor-workspace .editor-track {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .editor-workspace .editor-track-label {
+    padding: 5px 6px;
+  }
+
+  .editor-workspace .editor-track-label strong {
+    font-size: 9px;
+  }
+}
