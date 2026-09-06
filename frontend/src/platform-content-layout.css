@@ -1,0 +1,36 @@
+/* Shared page gutter: Research stage is the layout reference. Editor is intentionally excluded. */
+.platform-content > .hx-page:not(:has(.editor-workspace)) {
+  padding: 40px 80px 80px !important;
+  width: 100%;
+  min-width: 0;
+}
+
+.platform-content > .hx-page:not(:has(.editor-workspace)) .hx-board {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.platform-content > .hx-page:not(:has(.editor-workspace)) .container {
+  width: 100%;
+  max-width: none;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+@media (max-width: 1024px) {
+  .platform-content > .hx-page:not(:has(.editor-workspace)) {
+    padding: 36px 32px 64px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .platform-content > .hx-page:not(:has(.editor-workspace)) {
+    padding: 28px 24px 56px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .platform-content > .hx-page:not(:has(.editor-workspace)) {
+    padding: 20px 18px 48px !important;
+  }
+}
