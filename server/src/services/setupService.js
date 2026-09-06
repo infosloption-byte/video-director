@@ -21,6 +21,12 @@ function frameworkLabel(key) {
   return FRAMEWORKS.find((item) => item.key === key)?.label || "How It Works";
 }
 
+function researchSources(project) {
+  if (Array.isArray(project?.researchSources)) return project.researchSources;
+  if (Array.isArray(project?.researchSources?.sources)) return project.researchSources.sources;
+  return [];
+}
+
 export function buildSetupSuggestions(project) {
   const flags = Array.isArray(project.monetizationFlags) ? project.monetizationFlags : [];
   const risky = hasHighRisk(flags);
@@ -32,7 +38,8 @@ export function buildSetupSuggestions(project) {
     ? Number(project.suggestedLengthSeconds)
     : 30;
   const tone = TONES.includes(project.suggestedTone) ? project.suggestedTone : "Calm & authoritative";
-  const audience = project.researchSources?.some((source) => source?.source_reliability === "peer_reviewed")
+  const sources = researchSources(project);
+  const audience = sources.some((source) => source?.source_reliability === "peer_reviewed")
     ? "General public"
     : "General public";
 
