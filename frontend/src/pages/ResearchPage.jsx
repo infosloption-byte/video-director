@@ -11,7 +11,7 @@ import "./ResearchStageUX.css";
 
 function SourceLink({ source }) { if (!source?.url) return null; return <a href={source.url} target="_blank" rel="noreferrer">Open source ↗</a>; }
 function VerificationBadge({ claim }) { const status = claim?.verificationStatus || claim?.verification_status || "unverified"; return <span className={`research-brief__verification research-brief__verification--${status}`}>{status.replaceAll("_", " ")}</span>; }
-function activityLabel(item) { const labels = { "research.started": "Deep research started", "research.plan_created": "Research plan created", "search.started": "Targeted source discovery started", "search.completed": "Source discovery completed", "source.queue_ready": "Priority sources selected", "source.read_started": "Reading source", "source.read_complete": "Source read successfully", "source.read_failed": "Source could not be fully read", "verification.started": "Evidence verification started", "verification.completed": "Source and claim verification completed", "verification.adjudicated": "Evidence conflicts adjudicated", "research.corpus_persisted": "Research corpus persisted", "research.ready": "Research brief ready", "research.failed": "Research failed" }; return labels[item?.type] || "Research activity"; }
+function activityLabel(item) { const labels = { "research.started": "Deep research started", "research.retry_started": "Manual research retry started", "research.plan_created": "Research plan created", "search.started": "Targeted source discovery started", "search.completed": "Source discovery completed", "source.queue_ready": "Priority sources selected", "source.read_started": "Reading source", "source.read_complete": "Source read successfully", "source.read_failed": "Source could not be fully read", "verification.started": "Evidence verification started", "verification.completed": "Source and claim verification completed", "verification.adjudicated": "Evidence conflicts adjudicated", "research.corpus_persisted": "Research corpus persisted", "research.ready": "Research brief ready", "research.failed": "Research failed" }; return labels[item?.type] || "Research activity"; }
 function formatActivityDetail(item) { if (item?.type === "source.read_complete") return `${item.title || item.url || "Source"} · ${item.chars || 0} characters read`; if (item?.type === "source.read_failed") return `${item.title || item.url || "Source"} · ${item.status || "unavailable"}`; return item?.message || item?.title || "Helix is processing the research corpus."; }
 function normalizeClaimText(value) { return String(value || "").replace(/\s+/g, " ").trim().toLowerCase(); }
 
@@ -23,6 +23,7 @@ export default function ResearchPage() {
   const [activity, setActivity] = useState([]);
   const [selectedFinding, setSelectedFinding] = useState(null);
   const [error, setError] = useState("");
+  const [retrying, setRetrying] = useState(false);
   const projectRef = useRef(null);
 
   async function loadGraph() {
@@ -30,6 +31,26 @@ export default function ResearchPage() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Failed to load research evidence.");
     setGraph(data.session || null);
+  }
+
+  async function retryResearch() {
+    if (retrying) return;
+    setRetrying(true);
+    setError("");
+    setActivity([]);
+    setGraph(null);
+    setSelectedFinding(null);
+    try {
+      const response = await fetch(`/api/projects/${id}/research/retry`, { method: "POST", headers: { "Content-Type": "application/json" } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to retry research.");
+      projectRef.current = data.project || projectRef.current;
+      setProject(data.project || null);
+    } catch (err) {
+      setError(err.message || "Failed to retry research.");
+    } finally {
+      setRetrying(false);
+    }
   }
 
   useEffect(() => {
@@ -107,7 +128,7 @@ export default function ResearchPage() {
     <div className="hx-page">
       <Header right={navigation} />
       <main className="container">
-        <ResearchProgress status={researchError ? "error" : researchStatus || "queued"} progress={project?.researchProgress ?? 0} stageLabel={project?.researchStageLabel} stageDetail={project?.researchStageDetail} error={researchError} onBack={() => navigate("/")} />
+        <ResearchProgress status={researchError ? "error" : researchStatus || "queued"} progress={project?.researchProgress ?? 0} stageLabel={project?.researchStageLabel} stageDetail={project?.researchStageDetail} error={researchError} onBack={() => navigate("/")} onRetry={retryResearch} retrying={retrying} />
         {activity.length > 0 && researchStatus !== "ready" && <section className="research-brief__activity" aria-label="Live research activity"><div><p className="eyebrow">Live research stream</p><h3>What Helix is doing now</h3></div><div role="log" aria-live="polite">{activity.slice(-12).reverse().map((item) => <article key={item.id}><span>{activityLabel(item)}</span><strong>{formatActivityDetail(item)}</strong><small>{new Date(item.at).toLocaleTimeString()}</small></article>)}</div></section>}
         {researchStatus === "ready" && activity.length > 0 && <section className="research-brief__activity" aria-label="Research activity history"><div><p className="eyebrow">Research activity</p><h3>Evidence pipeline history</h3></div><div role="log">{activity.slice(-12).reverse().map((item) => <article key={item.id}><span>{activityLabel(item)}</span><strong>{formatActivityDetail(item)}</strong><small>{new Date(item.at).toLocaleTimeString()}</small></article>)}</div></section>}
         {researchStatus === "ready" && research && <section className="research-brief research-brief--deep" aria-labelledby="research-brief-title">
