@@ -1,4 +1,5 @@
 const API_URL = "https://api.semanticscholar.org/graph/v1/paper/search";
+const REQUEST_TIMEOUT_MS = 20000;
 
 export async function searchSemanticScholar(query, limit = 8) {
   const url = new URL(API_URL);
@@ -6,7 +7,7 @@ export async function searchSemanticScholar(query, limit = 8) {
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("fields", "title,abstract,url,externalIds,publicationDate,venue,authors");
 
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Semantic Scholar returned ${res.status}`);
   const data = await res.json();
 
