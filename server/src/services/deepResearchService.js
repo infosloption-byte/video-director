@@ -58,8 +58,16 @@ async function synthesize(topic, plan, sources, onProgress) {
   const evidence = sources.map((source, index) => ({ index: source.researchSourceIndex ?? index, title: source.title, url: source.sourceUrl, source_name: source.sourceName, source_class: source.sourceClass, source_reliability: source.sourceReliability, published_at: source.publishedAt, quality_prior: Math.round(sourceQuality(source) * 100), content: source.content || source.description || "No readable source text available." }));
   const prompt = `You are Helix Deep Research Director. Research topic: ${topic}\n\nRESEARCH PLAN:\n${JSON.stringify(plan)}\n\nEVIDENCE CORPUS:\n${JSON.stringify(evidence)}\n\nProduce a detailed evidence-backed research intelligence brief. Aim for 8–15 major findings. Do not invent facts, numbers, quotes, sources, consensus, or evidence. Every important finding must cite one or more exact source_indexes from the supplied evidence corpus. Distinguish source authority from claim confidence. Prefer primary, academic, government and institutional evidence, but do not automatically treat peer review as proof. Explicitly identify conflicting evidence and methodological or access limitations. If a source could not be read, do not infer its contents from its title. The output is for a video research workflow, so explain the mechanism clearly and separately provide claims that are safe to say and claims that should be avoided. Return JSON only according to the schema.`;
   onProgress?.("synthesizing", 72);
-  const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema: DEEP_SCHEMA, temperature: 0.1, maxOutputTokens: 12000 } }), signal: AbortSignal.timeout(120000) });
-  const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data?.error?.message || `Gemini returned ${response.status}.`); const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim(); if (!text) throw new Error("Deep research model returned no brief."); return extractJson(text);
+  const request = (generationConfig) => fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig }), signal: AbortSignal.timeout(120000) });
+  let response = await request({ responseMimeType: "application/json", responseSchema: DEEP_SCHEMA, temperature: 0.1, maxOutputTokens: 12000 });
+  let data = await response.json().catch(() => ({}));
+  if (!response.ok && response.status === 400 && /invalid argument/i.test(data?.error?.message || "")) {
+    console.warn(`[research] Gemini rejected the structured-output schema for model ${model}; retrying with plain JSON output.`);
+    response = await request({ responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 12000 });
+    data = await response.json().catch(() => ({}));
+  }
+  if (!response.ok) throw new Error(data?.error?.message || `Gemini returned ${response.status}.`);
+  const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim(); if (!text) throw new Error("Deep research model returned no brief."); return extractJson(text);
 }
 
 export async function deepResearchSignal(signal, { onProgress, onActivity } = {}) {
