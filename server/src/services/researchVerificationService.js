@@ -17,10 +17,41 @@ function sourceAuthority(source = {}) {
   return 55;
 }
 
+function sourceRelevance(source = {}) {
+  const explicit = Number(source.relevance);
+  if (Number.isFinite(explicit)) return clamp(explicit);
+  if (source.note || source.search_query || source.searchQuery) return 80;
+  return 65;
+}
+
+function sourceEvidenceQuality(source = {}) {
+  if (source.read_status === "read") return source.source_class === "academic" || source.source_class === "government" ? 90 : 78;
+  return 15;
+}
+
+function sourceRecency(source = {}) {
+  const value = source.published_at || source.publishedAt;
+  if (!value) return 35;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 25;
+  const ageDays = Math.max(0, (Date.now() - date.getTime()) / 86400000);
+  if (ageDays <= 30) return 100;
+  if (ageDays <= 180) return 90;
+  if (ageDays <= 365) return 78;
+  if (ageDays <= 1095) return 60;
+  return 40;
+}
+
+function sourceTransparency(source = {}) {
+  if (source.read_status !== "read") return 20;
+  const hasPublisher = Boolean(source.publisher || source.source_name);
+  const hasDate = Boolean(source.published_at || source.publishedAt);
+  const hasUrl = Boolean(source.url);
+  return clamp((hasPublisher ? 30 : 0) + (hasDate ? 30 : 0) + (hasUrl ? 40 : 0));
+}
+
 function sourceIndependence(source = {}) {
-  const host = hostname(source.url || source.sourceUrl);
-  if (!host) return 0;
-  return 1;
+  return hostname(source.url || source.sourceUrl) ? 100 : 0;
 }
 
 function buildSourceMap(sources = []) {
@@ -45,26 +76,40 @@ function verifyFinding(finding, sourceMap, evidencePreview) {
   const validIndexes = [...new Set(requested)].filter((index) => sourceMap.has(index));
   const invalidIndexes = requested.filter((index) => !sourceMap.has(index));
   const sources = validIndexes.map((index) => sourceMap.get(index));
-  const readableSources = sources.filter((source) => source.read_status === "read" || evidencePreview.some((evidence) => evidence.source_index === source.index));
+  const readableSources = sources.filter((source) => source.read_status === "read" || evidencePreview.some((evidence) => Number(evidence.source_index) === source.index));
   const domains = new Set(sources.map((source) => hostname(source.url)).filter(Boolean));
   const authority = sources.length ? sources.reduce((sum, source) => sum + sourceAuthority(source), 0) / sources.length : 0;
+  const relevance = sources.length ? sources.reduce((sum, source) => sum + sourceRelevance(source), 0) / sources.length : 0;
+  const evidenceQuality = sources.length ? sources.reduce((sum, source) => sum + sourceEvidenceQuality(source), 0) / sources.length : 0;
+  const recency = sources.length ? sources.reduce((sum, source) => sum + sourceRecency(source), 0) / sources.length : 0;
+  const transparency = sources.length ? sources.reduce((sum, source) => sum + sourceTransparency(source), 0) / sources.length : 0;
   const corroboration = Math.min(100, readableSources.length * 30 + Math.max(0, domains.size - 1) * 15);
   const modelConfidence = clamp(finding?.confidence);
-  const evidenceConfidence = validIndexes.length ? Math.round((modelConfidence * 0.45) + (authority * 0.25) + (corroboration * 0.30)) : 0;
+  const verifiedConfidence = validIndexes.length ? Math.round((modelConfidence * 0.35) + (authority * 0.15) + (relevance * 0.10) + (evidenceQuality * 0.15) + (recency * 0.05) + (corroboration * 0.20)) : Math.min(modelConfidence, 25);
   const traceable = validIndexes.length > 0 && readableSources.length > 0;
+  const evidenceIndexes = [];
+  evidencePreview.forEach((evidence, evidenceIndex) => {
+    if (validIndexes.includes(Number(evidence.source_index))) evidenceIndexes.push(evidenceIndex);
+  });
 
   return {
     claim: finding?.claim || "",
     evidence_level: finding?.evidence_level || "unverified",
     model_confidence: modelConfidence,
-    verified_confidence: traceable ? evidenceConfidence : Math.min(modelConfidence, 25),
+    verified_confidence: traceable ? verifiedConfidence : Math.min(modelConfidence, 25),
     traceable,
     source_indexes: validIndexes,
+    evidence_indexes: evidenceIndexes,
     invalid_source_indexes: [...new Set(invalidIndexes)],
     readable_source_indexes: readableSources.map((source) => source.index),
     independent_domains: domains.size,
     corroboration_score: clamp(corroboration),
     authority_score: clamp(authority),
+    relevance_score: clamp(relevance),
+    evidence_quality_score: clamp(evidenceQuality),
+    recency_score: clamp(recency),
+    independence_score: clamp(domains.size ? Math.min(100, domains.size * 50) : 0),
+    transparency_score: clamp(transparency),
     verification_status: !traceable ? "unverified" : readableSources.length > 1 && domains.size > 1 ? "corroborated" : "single_source",
   };
 }
@@ -102,7 +147,7 @@ export function verifyResearchBrief(brief = {}) {
   const sourceQuality = sources.length ? Math.round(sources.reduce((sum, source) => sum + sourceAuthority(source), 0) / sources.length) : 0;
 
   return {
-    verification_version: "m17-phase2-v1",
+    verification_version: "m17-phase2-v2",
     generated_at: new Date().toISOString(),
     summary: {
       claims_checked: verifiedClaims.length,
@@ -122,8 +167,12 @@ export function verifyResearchBrief(brief = {}) {
       source_index: source.index,
       url: source.url,
       authority: sourceAuthority(source),
-      readable: source.read_status === "read",
+      relevance: sourceRelevance(source),
+      evidence_quality: sourceEvidenceQuality(source),
+      recency: sourceRecency(source),
       independence: sourceIndependence(source),
+      transparency: sourceTransparency(source),
+      readable: source.read_status === "read",
       reliability_basis: source.source_reliability || source.source_class || "unknown",
     })),
     guardrails: {
