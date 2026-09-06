@@ -59,7 +59,6 @@ export default function PlatformShell({ children }) {
   const workspaceNav = user && projectId ? [
     { label: "Research", icon: "◌", path: `/research/${projectId}` },
     { label: "Storyboard", icon: "▤", path: `/storyboard/${projectId}` },
-    { label: "Media Library", icon: "▧", path: `/media/${projectId}` },
     { label: "Advanced Editor", icon: "✦", path: `/editor/${projectId}` },
   ] : [];
 
