@@ -5,6 +5,7 @@ import ResearchProgress from "../components/ResearchProgress";
 import "../components/ui.css";
 import "../components/ResearchProgress.css";
 import "../components/ResearchBrief.css";
+import "./ResearchStageUX.css";
 
 export default function ResearchPage() {
   const { id } = useParams();
