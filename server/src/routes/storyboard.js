@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { generateStoryboard } from "../services/storyboardService.js";
+import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
 import { synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
 import { requireProjectOwner } from "../middleware/ownership.js";
@@ -15,21 +16,27 @@ function normalizeAudioUrl(audioUrl, projectId, sceneId) {
   if (value === legacy || value.includes(`/api/audio/projects/${projectId}/scenes/`)) return `/api/audio/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp3`;
   return value;
 }
-
 function publicScene(scene) {
   return { id: scene.id, sceneOrder: scene.sceneOrder, title: scene.title, spokenText: scene.spokenText, durationSeconds: scene.durationSeconds == null ? null : Number(scene.durationSeconds), whyLine: scene.whyLine, whyPicture: scene.whyPicture, brollSearchTerm: scene.brollSearchTerm, audioUrl: normalizeAudioUrl(scene.audioUrl, scene.projectId, scene.id), wordTimestamps: scene.wordTimestamps || [], assets: (scene.assets || []).map((asset) => ({ id: asset.id, videoUrl: asset.videoUrl, thumbnailUrl: asset.thumbnailUrl, sortOrder: asset.sortOrder, isSelected: asset.isSelected })) };
 }
-
 async function loadProjectScenes(id) {
   return prisma.project.findUnique({ where: { id }, include: { scenes: { include: { assets: { orderBy: { sortOrder: "asc" } } }, orderBy: { sceneOrder: "asc" } } } });
 }
 
 router.get("/projects/:id/scenes", async (req, res) => {
+  try { const project = await loadProjectScenes(req.params.id); if (!project) return res.status(404).json({ error: "Project not found." }); res.json({ projectId: project.id, status: project.status, scenes: project.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })) }); }
+  catch (error) { console.error("GET /api/projects/:id/scenes failed:", error); res.status(500).json({ error: "Failed to load storyboard scenes." }); }
+});
+
+router.get("/projects/:id/research-corpus", async (req, res) => {
   try {
-    const project = await loadProjectScenes(req.params.id);
-    if (!project) return res.status(404).json({ error: "Project not found." });
-    res.json({ projectId: project.id, status: project.status, scenes: project.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })) });
-  } catch (error) { console.error("GET /api/projects/:id/scenes failed:", error); res.status(500).json({ error: "Failed to load storyboard scenes." }); }
+    const corpus = await loadResearchCorpus(req.params.id);
+    if (!corpus) return res.status(404).json({ error: "Research corpus is not available yet." });
+    res.json({ projectId: req.params.id, corpus });
+  } catch (error) {
+    console.error(`GET /api/projects/${req.params.id}/research-corpus failed:`, error);
+    res.status(500).json({ error: "Failed to load the reusable research corpus." });
+  }
 });
 
 router.post("/projects/:id/generate-scenes", async (req, res) => {
@@ -38,7 +45,9 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
     if (!project) return res.status(404).json({ error: "Project not found." });
     if (!project.researchSummary) return res.status(409).json({ error: "Complete research before generating scenes." });
     if (!project.scriptLengthSeconds || !project.selectedFramework || !project.tone || !project.audienceLevel) return res.status(409).json({ error: "Complete guided setup before generating scenes." });
-    const scenes = await generateStoryboard({ project, signal: project.signal });
+    const researchCorpus = await loadResearchCorpus(project.id);
+    if (!researchCorpus) return res.status(409).json({ error: "The persisted research corpus is not available. Complete research before generating scenes." });
+    const scenes = await generateStoryboard({ project, signal: project.signal, researchCorpus });
     const withAssets = await Promise.all(scenes.map(async (scene) => ({ scene, assets: await searchPexelsVideos(scene.broll_search_term, 5) })));
     const missingAssets = withAssets.find((item) => item.assets.length < 5);
     if (missingAssets) throw new Error(`Pexels returned fewer than 5 usable visuals for scene ${missingAssets.scene.scene_order}.`);
