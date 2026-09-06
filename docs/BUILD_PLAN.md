@@ -34,9 +34,17 @@ The Signals page is the public landing/discovery experience.
 ### Stage B — Deep Research
 
 Selecting a signal after authentication triggers the existing research stage.
-Research remains automatic and progresses through source reading,
-cross-checking, drafting, and ready states. The user-facing progress state must
+Research is source-grounded and progresses through planning, targeted discovery,
+actual source reading, evidence extraction, verification, contradiction
+adjudication, synthesis, and ready states. The user-facing progress state must
 remain informative rather than a blank spinner.
+
+M17 adds a persisted research evidence graph containing research sessions,
+plans, sources, exact evidence passages, claims, claim/source and claim/evidence
+relationships, verification scores, and explicit conflict cases. The Research
+workspace exposes live activity, finding confidence, provenance inspection,
+source comparison, corpus metrics, contradiction review, corpus-grounded
+follow-up questions, focused reruns, and brief regeneration from stored research.
 
 ### Stage C — Guided Setup
 
@@ -45,9 +53,11 @@ audience. No change is introduced by the public landing/navigation enhancement.
 
 ### Stage D — Storyboard Generation & Visual Selection
 
-Storyboard generation and live visual selection remain unchanged. Existing
-scenes, narration, word timestamps, captions, and B-roll selections remain the
-source data for the current flow.
+Storyboard generation consumes the persisted research corpus when available.
+Only readable, non-unverified claims are supplied as factual grounding, along
+with evidence passages, sources, and explicit conflict state. Existing scenes,
+narration, word timestamps, captions, and B-roll selections remain the source
+data for the current flow.
 
 ### Stage E — Finalize, Export & Download
 
@@ -244,6 +254,24 @@ CREATE TABLE project_editors (
 The `ProjectEditor` record is intentionally separate from `ProjectScene` and
 stores only editor state. It is not a replacement for storyboard data.
 
+M17 research graph tables:
+
+```text
+research_sessions
+research_plans
+research_sources
+research_evidence
+research_claims
+research_claim_sources
+research_claim_evidence
+research_verifications
+research_conflicts
+```
+
+Research session identifiers use bounded internal key lengths so MySQL composite
+indexes remain within MySQL limits. Sessions are versioned so focused reruns
+retain previous corpora rather than replacing history.
+
 Planned later media/version tables remain:
 
 ```text
@@ -251,7 +279,7 @@ project_versions
 project_media
 ```
 
-Implementation must remain backwards-compatible with the M0–M10A schema.
+Implementation must remain backwards-compatible with the M0–M15 schema.
 
 ---
 
@@ -276,21 +304,38 @@ GET   /api/projects/:id/editor
 PATCH /api/projects/:id/editor
 ```
 
-`GET` initializes an editor document from the current selected Storyboard scene
-assets, scene durations, narration URLs, and caption text when none exists.
-`PATCH` saves a version-aware canonical timeline and rejects stale writes.
-
-Planned later editor endpoints:
+M17 research endpoints currently implemented/protected:
 
 ```text
-POST  /api/projects/:id/editor/versions
-GET   /api/projects/:id/editor/versions
-POST  /api/projects/:id/editor/restore/:versionId
-POST  /api/projects/:id/editor/render
+GET  /api/projects/:id/research
+GET  /api/projects/:id/research/activity
+GET  /api/projects/:id/research/graph
+GET  /api/projects/:id/research/memory
+GET  /api/projects/:id/research/metrics
+POST /api/projects/:id/research/follow-up
+POST /api/projects/:id/research/rerun
+POST /api/projects/:id/research/regenerate
+POST /api/projects/:id/research/conflicts/:conflictId/resolve
 ```
+
+`research/memory` returns the complete normalized persisted corpus. Follow-up
+questions are answered only from stored claims/evidence and are marked
+unverified when no relevant corpus evidence exists. Reruns create a new
+versioned session without deleting prior sessions. Brief regeneration
+revalidates stored research without repeating external source research.
 
 Project creation and every project-scoped resource remains authenticated and
 owner-scoped. Editor autosave is version-aware and must reject stale writes.
+
+M17 Storyboard reuse is explicit through the existing:
+
+```text
+GET /api/projects/:id/research-corpus
+```
+
+and `generateStoryboard()` receives the persisted corpus so verified claims,
+readable evidence passages, sources, and conflicts can directly ground scene
+generation.
 
 ---
 
@@ -313,11 +358,25 @@ Search and research use the existing combined cascade:
 Merge/dedupe results, preserve reliability tier, and rank by source tier,
 recency, and relevance.
 
+M17 research adds targeted research lanes for definition, mechanism, evidence,
+data, counter-evidence, and recent developments, then reads selected source
+content instead of relying only on search metadata.
+
 ---
 
 ## 7. Gemini contract & AI editing
 
-Existing research/setup/storyboard contracts remain unchanged.
+Research synthesis returns a structured brief with an evidence-backed 8–15
+finding contract, exact evidence passage indexes, reliability assessment, safe
+claims, claims to avoid, disagreements, and creative opportunities.
+
+Research verification remains separate from model confidence. Contradiction
+adjudication may use Gemini but has a deterministic fallback and records its
+method/status.
+
+Storyboard generation receives the persisted research corpus and is instructed
+not to present unverified claims as established facts.
+
 Future AI editing calls must return structured, reversible operations.
 
 AI must not directly delete or overwrite source media.
@@ -332,7 +391,10 @@ AI must not directly delete or overwrite source media.
 | `Header.jsx` | Signed-out auth CTAs, signed-in identity/greeting, My Research, compact page actions, three-dot menu, mobile menu, theme toggle |
 | `SignalCard.jsx` | Authentication gate before project creation |
 | `MyResearchPage.jsx` | Authenticated project history, filters, delete, explicit Edit video entry |
-| `StoryboardPage.jsx` | Existing flow unchanged |
+| `ResearchPage.jsx` | Deep research progress, activity stream, evidence-backed findings, provenance inspection, metrics, conflict review, follow-up, rerun, regeneration |
+| `ResearchFindingInspector.jsx` | Exact passage inspection and two-source comparison |
+| `ResearchWorkspacePanels.jsx` | Corpus metrics, corpus-grounded follow-up, conflict resolution, focused rerun and stored-corpus regeneration controls |
+| `StoryboardPage.jsx` | Existing flow unchanged; generated scenes are grounded by persisted research corpus |
 | `EditorPage.jsx` | Original editor retained for compatibility/reference |
 | `AdvancedEditorPage.jsx` | Richer standalone editing workspace, waveform/audio playback, transitions and effects |
 | `EditorWaveform.jsx` | Client-side authenticated waveform decoding/drawing for editor audio clips |
@@ -340,6 +402,9 @@ AI must not directly delete or overwrite source media.
 
 The Advanced Editor timeline remains horizontally scrollable on small screens
 and uses responsive inspector/transport controls for compact viewports.
+
+The Research workspace also uses responsive evidence cards, comparison panels,
+metrics grids, and conflict controls from phone through desktop sizes.
 
 ---
 
@@ -359,23 +424,19 @@ Completed baseline:
 10. Phase 9 — Direct-to-Facebook development integration; production deferred
 11. Phase 10 — Accounts & authentication foundation
 12. Phase 10A — Public discovery landing, responsive navigation & theme system
-
-Current:
-
-13. **Phase 11 — Advanced video editor core (separate workspace) — In progress**
-
-Current M11 audio and transition/effect refinement is complete for browser
-waveform visualization, synchronized playback/mixing of already playable project
-audio, bounded transition presets, and deterministic motion effects. The next
-editor slice is media-library integration and final editor QA.
-
-Next:
-
+13. Phase 11 — Advanced video editor core (separate workspace)
 14. Phase 12 — Media library & upload pipeline
 15. Phase 13 — Editor rendering integration + reliability
 16. Phase 14 — AI editing assistant
 17. Phase 15 — Versions, templates & review workflow
-18. Phase 16 — Platform publishing abstraction + analytics
+18. **Phase 17 — Deep Research Intelligence Engine — implementation complete; runtime acceptance remains**
+
+Current post-M17 work is runtime acceptance across representative research
+topics and cross-milestone release QA.
+
+Next product milestone after M17 acceptance:
+
+19. Phase 16 — Platform publishing abstraction + analytics
 
 ---
 
@@ -411,13 +472,22 @@ server/
     routes/
       signals.js
       projects.js
+      research.js
       auth.js
       editor.js          # M11
       render.js
       export.js
+      storyboard.js
     services/
       sourceCascade.js
       researchService.js
+      deepResearchService.js
+      researchVerificationService.js
+      researchAdjudicationService.js
+      researchGraphService.js
+      researchCorpusService.js
+      researchMemoryService.js
+      storyboardService.js
       geminiService.js
       pexelsService.js
       ttsService.js
@@ -432,12 +502,14 @@ frontend/src/
     StoryboardPage.jsx
     MyResearchPage.jsx
     EditorPage.jsx
-    AdvancedEditorPage.jsx # M11 richer workspace
+    AdvancedEditorPage.jsx
   components/
     Header.jsx
     SignalCard.jsx
     AuthChoiceDialog.jsx
-    EditorWaveform.jsx       # M11 audio waveform
+    ResearchFindingInspector.jsx
+    ResearchWorkspacePanels.jsx
+    EditorWaveform.jsx
 ```
 
 ---
@@ -461,6 +533,16 @@ Every milestone must pass:
 - Advanced Editor remains optional and non-destructive to Storyboard/narration data
 - Public Signals discovery remains usable without login
 
+M17-specific acceptance gates remain:
+
+- Representative runtime research succeeds for science, technology, current-events, and controversial topics.
+- Read failures and inaccessible sources remain visibly unverified.
+- Every major claim shown as established has traceable source/evidence support.
+- Conflicting evidence remains visible and never silently averaged away.
+- Focused reruns create a new version and retain historical research sessions.
+- Follow-up responses explicitly distinguish grounded evidence from corpus gaps.
+- Storyboard generation uses the persisted corpus and ignores unverified claims as factual grounding.
+
 ---
 
 ## 13. Product decisions
@@ -477,9 +559,12 @@ Every milestone must pass:
 - M11 richer editor interaction uses a separate frontend workspace with drag/trim, music/fades, caption controls, and touch-capable timeline interaction.
 - M11 audio refinement adds client-side waveform visualization and playhead-synchronized editor audio playback without modifying Storyboard source records.
 - M11 transition/effect refinement uses whitelisted transition and motion preset metadata with bounded parameters and live browser preview; Remotion render consumption remains deferred to M13.
+- M17 research is source-grounded, inspectable, persisted, versioned, and reusable by Storyboard and AI workflows.
+- M17 follow-up questions must not invent answers outside the stored corpus.
+- M17 focused reruns retain prior research sessions rather than deleting or replacing evidence history.
 
 **Explicitly deferred:**
-- Facebook production OAuth, multi-user Meta publishing, App Review, and final publishing UX.
+- Facebook production OAuth, multi-user Meta publishing, App Review, and final publishing UX are intentionally deferred until product direction for publishing is decided.
 
 **Critical separation rule:** the public landing/navigation enhancement and the
 Advanced Editor must not turn the existing Signals → Research → Setup →
