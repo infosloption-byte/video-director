@@ -1,5 +1,5 @@
 CREATE TABLE `research_sessions` (
-  `id` VARCHAR(191) NOT NULL,
+  `id` VARCHAR(64) NOT NULL,
   `project_id` VARCHAR(191) NOT NULL,
   `version` INTEGER NOT NULL DEFAULT 1,
   `status` VARCHAR(40) NOT NULL,
@@ -13,8 +13,8 @@ CREATE TABLE `research_sessions` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `research_plans` (
-  `id` VARCHAR(191) NOT NULL,
-  `session_id` VARCHAR(191) NOT NULL,
+  `id` VARCHAR(64) NOT NULL,
+  `session_id` VARCHAR(64) NOT NULL,
   `lanes` JSON NOT NULL,
   `queries_planned` INTEGER NOT NULL DEFAULT 0,
   `queries_run` INTEGER NOT NULL DEFAULT 0,
@@ -25,14 +25,14 @@ CREATE TABLE `research_plans` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `research_sources` (
-  `id` VARCHAR(191) NOT NULL,
-  `session_id` VARCHAR(191) NOT NULL,
+  `id` VARCHAR(64) NOT NULL,
+  `session_id` VARCHAR(64) NOT NULL,
   `source_index` INTEGER NOT NULL,
   `url` TEXT NOT NULL,
   `canonical_url` TEXT NULL,
   `title` TEXT NULL,
   `publisher` VARCHAR(191) NULL,
-  `source_class` VARCHAR(60) NULL,
+  `source_class` VARCHAR(50) NULL,
   `reliability` VARCHAR(60) NULL,
   `published_at` DATETIME(3) NULL,
   `retrieved_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -53,9 +53,9 @@ CREATE TABLE `research_sources` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `research_evidence` (
-  `id` VARCHAR(191) NOT NULL,
-  `session_id` VARCHAR(191) NOT NULL,
-  `source_id` VARCHAR(191) NOT NULL,
+  `id` VARCHAR(64) NOT NULL,
+  `session_id` VARCHAR(64) NOT NULL,
+  `source_id` VARCHAR(64) NOT NULL,
   `evidence_index` INTEGER NOT NULL,
   `passage_text` TEXT NOT NULL,
   `start_offset` INTEGER NULL,
@@ -71,8 +71,8 @@ CREATE TABLE `research_evidence` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `research_claims` (
-  `id` VARCHAR(191) NOT NULL,
-  `session_id` VARCHAR(191) NOT NULL,
+  `id` VARCHAR(64) NOT NULL,
+  `session_id` VARCHAR(64) NOT NULL,
   `claim_index` INTEGER NOT NULL,
   `claim_text` TEXT NOT NULL,
   `evidence_level` VARCHAR(50) NULL,
@@ -87,8 +87,8 @@ CREATE TABLE `research_claims` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `research_claim_sources` (
-  `claim_id` VARCHAR(191) NOT NULL,
-  `source_id` VARCHAR(191) NOT NULL,
+  `claim_id` VARCHAR(64) NOT NULL,
+  `source_id` VARCHAR(64) NOT NULL,
   PRIMARY KEY (`claim_id`, `source_id`),
   INDEX `research_claim_sources_source_id_idx` (`source_id`),
   CONSTRAINT `research_claim_sources_claim_id_fkey` FOREIGN KEY (`claim_id`) REFERENCES `research_claims` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -96,8 +96,8 @@ CREATE TABLE `research_claim_sources` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `research_claim_evidence` (
-  `claim_id` VARCHAR(191) NOT NULL,
-  `evidence_id` VARCHAR(191) NOT NULL,
+  `claim_id` VARCHAR(64) NOT NULL,
+  `evidence_id` VARCHAR(64) NOT NULL,
   PRIMARY KEY (`claim_id`, `evidence_id`),
   INDEX `research_claim_evidence_evidence_id_idx` (`evidence_id`),
   CONSTRAINT `research_claim_evidence_claim_id_fkey` FOREIGN KEY (`claim_id`) REFERENCES `research_claims` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -105,8 +105,8 @@ CREATE TABLE `research_claim_evidence` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `research_verifications` (
-  `id` VARCHAR(191) NOT NULL,
-  `claim_id` VARCHAR(191) NOT NULL,
+  `id` VARCHAR(64) NOT NULL,
+  `claim_id` VARCHAR(64) NOT NULL,
   `corroboration_score` INTEGER NOT NULL DEFAULT 0,
   `contradiction_score` INTEGER NOT NULL DEFAULT 0,
   `authority_score` INTEGER NOT NULL DEFAULT 0,
@@ -126,10 +126,10 @@ CREATE TABLE `research_verifications` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `research_conflicts` (
-  `id` VARCHAR(191) NOT NULL,
-  `session_id` VARCHAR(191) NOT NULL,
-  `left_claim_id` VARCHAR(191) NOT NULL,
-  `right_claim_id` VARCHAR(191) NOT NULL,
+  `id` VARCHAR(64) NOT NULL,
+  `session_id` VARCHAR(64) NOT NULL,
+  `left_claim_id` VARCHAR(64) NOT NULL,
+  `right_claim_id` VARCHAR(64) NOT NULL,
   `overlap_score` INTEGER NOT NULL,
   `reason` TEXT NOT NULL,
   `resolution` TEXT NULL,
