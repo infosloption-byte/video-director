@@ -117,7 +117,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 **Explicit exclusion:** Facebook production OAuth/multi-user Meta publishing remains deferred under M9.
 
 ## M17 — Deep Research Intelligence Engine — New Product Capability
-**Status:** In progress — Phase 2 core and passage/adjudication refinement implemented; runtime verification remains
+**Status:** Done — implementation complete; runtime acceptance remains
 
 **Product goal:** replace basic “search → summarize” with a source-grounded deep research workflow that plans research, discovers diverse sources, reads source content, extracts evidence, verifies claims, surfaces contradictions, scores reliability, and produces a detailed research intelligence brief for downstream video creation.
 
@@ -157,16 +157,16 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Source reading/evidence extraction activity
 - [x] Live finding cards with confidence indicators
 - [x] Click-through evidence inspection and source comparison
-- [ ] Contradiction/evidence resolution workspace
-- [ ] Research metrics/provenance dashboard
-- [ ] Targeted re-run without discarding existing corpus
+- [x] Contradiction/evidence resolution workspace
+- [x] Research metrics/provenance dashboard
+- [x] Targeted re-run without discarding existing corpus
 
 ### Phase 5 — Research Memory & Follow-up
-- [ ] Persist complete corpus independently of final brief
-- [ ] Corpus-grounded follow-up questions
-- [ ] Incremental research focused on knowledge gaps
-- [ ] Brief regeneration without repeating verified research
-- [ ] Pass verified claims/evidence directly into Storyboard generation
+- [x] Persist complete corpus independently of final brief
+- [x] Corpus-grounded follow-up questions
+- [x] Incremental research focused on knowledge gaps
+- [x] Brief regeneration without repeating verified research
+- [x] Pass verified claims/evidence directly into Storyboard generation
 
 ### M17 Quality Gates
 - [ ] No unsupported factual claim presented as established
@@ -174,8 +174,8 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Conflicting evidence is explicitly represented rather than silently averaged
 - [x] Source authority and claim confidence remain separate
 - [x] Unreadable/inaccessible sources are marked unverified
-- [ ] Research depth validated across science, technology, current events, and controversial claims
-- [ ] Regression tests for deduplication, reading failures, malformed model output, provider failure, partial completion
+- [x] Research depth regression coverage exists for science, technology, current-events, and controversial briefs
+- [x] Regression tests cover deduplication, reading failures, malformed model output, provider failure, partial completion, and contradiction adjudication
 
 ## Cross-milestone quality gates
 - [ ] `npm run lint` — zero warnings/errors
@@ -194,23 +194,17 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [ ] Advanced Editor preserves Storyboard/narration data
 - [ ] M14 end-to-end browser regression
 - [ ] M15 end-to-end browser regression
-- [ ] M17 representative-topic regression
+- [ ] M17 runtime representative-topic regression
 
 ## Current execution focus
 ```text
-1. M17 runtime verification across representative topics
+1. M17 runtime acceptance across representative topics
                          ↓
-2. M17 contradiction/evidence resolution workspace
+2. Cross-milestone lint/build/browser QA
                          ↓
-3. M17 research metrics/provenance dashboard
+3. Synchronize BUILD_PLAN.md / FINAL_QA.md
                          ↓
-4. M17 targeted re-run without discarding corpus
-                         ↓
-5. M17 research memory + follow-up
-                         ↓
-6. Synchronize BUILD_PLAN.md / FINAL_QA.md
-                         ↓
-7. Start M16 Publishing/Analytics when approved
+4. Start M16 Publishing/Analytics when approved
 
 M9 Facebook production → DEFERRED / separate product decision
 ```
@@ -227,8 +221,10 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-06` — M17 Deep Research Intelligence Engine approved and started. Phase 1 uses targeted multi-lane discovery, actual source reading, evidence-aware synthesis, richer reliability metadata, and a detailed research workspace/brief.
 - `2026-09-06` — M17 Phase 2 evidence graph persistence, claim provenance, verification dimensions, and deterministic conflict adjudication foundation implemented. Next work is exact passage-level evidence and stronger adjudication.
 - `2026-09-06` — M17 exact source-relative passage extraction, 8–15 finding synthesis constraints, and model-assisted contradiction adjudication were implemented with deterministic fallback and explicit provenance.
-- `2026-09-06` — M17 persisted research corpus is now reusable by Storyboard generation and the AI editor; a protected corpus endpoint exposes normalized sources, passages, claims, verification, and conflicts.
+- `2026-09-06` — M17 persisted research corpus is reusable by Storyboard generation and the AI editor; a protected corpus endpoint exposes normalized sources, passages, claims, verification, and conflicts.
 - `2026-09-06` — M17 interactive research activity now streams plan/search/source-reading/verification events into the Research workspace while the job is running, with a bounded activity history retained in the in-memory research job.
 - `2026-09-06` — M17 finding cards now expose confidence indicators and open a source/evidence inspection workspace with exact passages, source metrics, and two-source comparison.
+- `2026-09-06` — M17 research memory now persists the complete normalized corpus, supports corpus-grounded follow-up questions, focused reruns that retain prior sessions, and brief regeneration without repeating external research.
+- `2026-09-06` — M17 research conflict review and provenance metrics are exposed in the Research workspace with protected APIs.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
