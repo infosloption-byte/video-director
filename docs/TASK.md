@@ -155,8 +155,8 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 ### Phase 4 — Interactive Research Workspace
 - [x] Live source discovery stream
 - [x] Source reading/evidence extraction activity
-- [ ] Live finding cards with confidence indicators
-- [ ] Click-through evidence inspection and source comparison
+- [x] Live finding cards with confidence indicators
+- [x] Click-through evidence inspection and source comparison
 - [ ] Contradiction/evidence resolution workspace
 - [ ] Research metrics/provenance dashboard
 - [ ] Targeted re-run without discarding existing corpus
@@ -200,13 +200,17 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 ```text
 1. M17 runtime verification across representative topics
                          ↓
-2. M17 interactive research workspace
+2. M17 contradiction/evidence resolution workspace
                          ↓
-3. M17 research memory + follow-up
+3. M17 research metrics/provenance dashboard
                          ↓
-4. Synchronize BUILD_PLAN.md / FINAL_QA.md
+4. M17 targeted re-run without discarding corpus
                          ↓
-5. Start M16 Publishing/Analytics when approved
+5. M17 research memory + follow-up
+                         ↓
+6. Synchronize BUILD_PLAN.md / FINAL_QA.md
+                         ↓
+7. Start M16 Publishing/Analytics when approved
 
 M9 Facebook production → DEFERRED / separate product decision
 ```
@@ -225,5 +229,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-06` — M17 exact source-relative passage extraction, 8–15 finding synthesis constraints, and model-assisted contradiction adjudication were implemented with deterministic fallback and explicit provenance.
 - `2026-09-06` — M17 persisted research corpus is now reusable by Storyboard generation and the AI editor; a protected corpus endpoint exposes normalized sources, passages, claims, verification, and conflicts.
 - `2026-09-06` — M17 interactive research activity now streams plan/search/source-reading/verification events into the Research workspace while the job is running, with a bounded activity history retained in the in-memory research job.
+- `2026-09-06` — M17 finding cards now expose confidence indicators and open a source/evidence inspection workspace with exact passages, source metrics, and two-source comparison.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
