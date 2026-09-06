@@ -1,4 +1,5 @@
 const API_URL = "https://api.tavily.com/search";
+const REQUEST_TIMEOUT_MS = 20000;
 
 export async function searchTavily(query, limit = 8) {
   const apiKey = process.env.TAVILY_API_KEY;
@@ -14,6 +15,7 @@ export async function searchTavily(query, limit = 8) {
       search_depth: "basic",
       include_answer: false,
     }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!res.ok) throw new Error(`Tavily returned ${res.status}`);
