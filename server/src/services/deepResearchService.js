@@ -4,6 +4,7 @@ const MAX_DISCOVERY_RESULTS = 36;
 const MAX_READABLE_SOURCES = 12;
 const MAX_SOURCE_CHARS = 12000;
 const MAX_EVIDENCE_CHARS = 1800;
+const MAX_PASSAGES_PER_FINDING = 3;
 
 const SOURCE_WEIGHTS = {
   peer_reviewed: 0.95,
@@ -96,7 +97,7 @@ const DEEP_SCHEMA = {
     what_happened: { type: "string" },
     why_it_matters: { type: "string" },
     mechanism: { type: "string" },
-    key_findings: { type: "array", maxItems: 12, items: { type: "object", properties: { claim: { type: "string" }, evidence: { type: "string" }, confidence: { type: "integer", minimum: 0, maximum: 100 }, evidence_level: { type: "string", enum: ["established", "strong", "mixed", "limited", "unverified", "disputed"] }, source_indexes: { type: "array", items: { type: "integer" } } }, required: ["claim", "evidence", "confidence", "evidence_level", "source_indexes"] } },
+    key_findings: { type: "array", minItems: 8, maxItems: 15, items: { type: "object", properties: { claim: { type: "string" }, evidence: { type: "string" }, confidence: { type: "integer", minimum: 0, maximum: 100 }, evidence_level: { type: "string", enum: ["established", "strong", "mixed", "limited", "unverified", "disputed"] }, source_indexes: { type: "array", items: { type: "integer" } } }, required: ["claim", "evidence", "confidence", "evidence_level", "source_indexes"] } },
     important_numbers: { type: "array", maxItems: 12, items: { type: "object", properties: { value: { type: "string" }, context: { type: "string" }, source_indexes: { type: "array", items: { type: "integer" } } }, required: ["value", "context", "source_indexes"] } },
     disagreements: { type: "array", maxItems: 8, items: { type: "object", properties: { topic: { type: "string" }, positions: { type: "array", items: { type: "string" } }, resolution: { type: "string" }, confidence: { type: "integer", minimum: 0, maximum: 100 } }, required: ["topic", "positions", "resolution", "confidence"] } },
     knowledge_gaps: { type: "array", maxItems: 8, items: { type: "string" } },
@@ -126,13 +127,69 @@ function extractJson(text) {
   throw new Error("Deep research model returned invalid JSON.");
 }
 
+function tokenize(value = "") {
+  return new Set(String(value).toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((token) => token.length > 3));
+}
+
+function textOverlap(left = "", right = "") {
+  const a = tokenize(left); const b = tokenize(right);
+  if (!a.size || !b.size) return 0;
+  let shared = 0;
+  for (const token of a) if (b.has(token)) shared += 1;
+  return shared / Math.max(1, Math.min(a.size, b.size));
+}
+
+function exactPassages(content = "", limit = MAX_PASSAGES_PER_FINDING) {
+  const source = String(content || "");
+  const matches = [];
+  const regex = /[^.!?\n]+(?:[.!?](?=\s|$)|$)/g;
+  for (const match of source.matchAll(regex)) {
+    const text = match[0].trim();
+    if (text.length < 40) continue;
+    const start = match.index + match[0].indexOf(text);
+    matches.push({ text, start, end: start + text.length });
+  }
+  if (matches.length <= limit) return matches;
+  const selected = [];
+  for (let index = 0; index < matches.length; index += 1) {
+    if (index % 2 === 0 || selected.length < limit) selected.push(matches[index]);
+    if (selected.length >= limit) break;
+  }
+  return selected;
+}
+
+function attachExactEvidence(readResults, brief) {
+  const findings = Array.isArray(brief.key_findings) ? brief.key_findings : [];
+  const passages = [];
+  const enriched = findings.map((finding, findingIndex) => {
+    const sourceIndexes = [...new Set((finding.source_indexes || []).map(Number).filter(Number.isInteger))];
+    const candidates = [];
+    for (const sourceIndex of sourceIndexes) {
+      const source = readResults.find((item, index) => index === sourceIndex);
+      if (!source?.content) continue;
+      for (const passage of exactPassages(source.content)) {
+        candidates.push({ ...passage, source_index: sourceIndex, title: source.title, score: textOverlap(`${finding.claim} ${finding.evidence}`, passage.text) });
+      }
+    }
+    const selected = candidates.sort((a, b) => b.score - a.score).slice(0, MAX_PASSAGES_PER_FINDING);
+    const evidenceIndexes = [];
+    for (const passage of selected) {
+      const evidenceIndex = passages.length;
+      passages.push({ evidence_index: evidenceIndex, source_index: passage.source_index, title: passage.title, excerpt: passage.text, start_offset: passage.start, end_offset: passage.end, locator: `chars:${passage.start}-${passage.end}`, evidence_type: "claim_support" });
+      evidenceIndexes.push(evidenceIndex);
+    }
+    return { ...finding, evidence_indexes: evidenceIndexes, evidence_passage_count: evidenceIndexes.length };
+  });
+  return { ...brief, key_findings: enriched, evidence_preview: passages, evidence_passage_quality: { exact: passages.length, claim_linked: findings.length ? Math.round(enriched.filter((finding) => finding.evidence_indexes?.length).length / findings.length * 100) : 0 } };
+}
+
 async function synthesize(topic, plan, sources, onProgress) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const evidence = sources.map((source, index) => ({
-    index,
+    index: source.researchSourceIndex ?? index,
     title: source.title,
     url: source.sourceUrl,
     source_name: source.sourceName,
@@ -142,13 +199,13 @@ async function synthesize(topic, plan, sources, onProgress) {
     quality_prior: Math.round(sourceQuality(source) * 100),
     content: source.content || source.description || "No readable source text available.",
   }));
-  const prompt = `You are Helix Deep Research Director. Research topic: ${topic}\n\nRESEARCH PLAN:\n${JSON.stringify(plan)}\n\nEVIDENCE CORPUS:\n${JSON.stringify(evidence)}\n\nProduce a detailed evidence-backed research intelligence brief. Do not invent facts, numbers, quotes, sources, or consensus. Every important claim must be traceable to source_indexes. Distinguish source authority from claim confidence. Prefer primary, academic, government and institutional evidence, but do not automatically treat peer review as proof. Explicitly identify conflicting evidence and methodological or access limitations. If a source could not be read, do not infer its contents from its title. The output is for a video research workflow, so explain the mechanism clearly and separately provide claims that are safe to say and claims that should be avoided. Return JSON only according to the schema.`;
+  const prompt = `You are Helix Deep Research Director. Research topic: ${topic}\n\nRESEARCH PLAN:\n${JSON.stringify(plan)}\n\nEVIDENCE CORPUS:\n${JSON.stringify(evidence)}\n\nProduce a detailed evidence-backed research intelligence brief. Aim for 8–15 major findings. Do not invent facts, numbers, quotes, sources, consensus, or evidence. Every important finding must cite one or more exact source_indexes from the supplied evidence corpus. Distinguish source authority from claim confidence. Prefer primary, academic, government and institutional evidence, but do not automatically treat peer review as proof. Explicitly identify conflicting evidence and methodological or access limitations. If a source could not be read, do not infer its contents from its title. The output is for a video research workflow, so explain the mechanism clearly and separately provide claims that are safe to say and claims that should be avoided. Return JSON only according to the schema.`;
 
   onProgress?.("synthesizing", 72);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema: DEEP_SCHEMA, temperature: 0.1, maxOutputTokens: 10000 } }),
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema: DEEP_SCHEMA, temperature: 0.1, maxOutputTokens: 12000 } }),
     signal: AbortSignal.timeout(120000),
   });
   const data = await response.json().catch(() => ({}));
@@ -184,12 +241,13 @@ export async function deepResearchSignal(signal, { onProgress } = {}) {
   for (let index = 0; index < readingQueue.length; index += 3) {
     const batch = await Promise.all(readingQueue.slice(index, index + 3).map(readSource));
     readResults.push(...batch);
-    onProgress?.("reading", Math.min(68, 30 + Math.round((readResults.length / readingQueue.length) * 38)));
+    onProgress?.("reading", Math.min(68, 30 + Math.round((readResults.length / Math.max(1, readingQueue.length)) * 38)));
   }
 
-  const readable = readResults.filter((item) => item.content).slice(0, MAX_READABLE_SOURCES);
+  const readable = readResults.filter((item) => item.content).slice(0, MAX_READABLE_SOURCES).map((item) => ({ ...item, researchSourceIndex: readResults.indexOf(item) }));
   onProgress?.("verifying", 70);
-  const brief = await synthesize(topic, plan, readable.length ? readable : readResults, onProgress);
+  const brief = await synthesize(topic, plan, readable.length ? readable : readResults.map((item) => ({ ...item, researchSourceIndex: readResults.indexOf(item) })), onProgress);
+  const evidenceLinkedBrief = attachExactEvidence(readResults, brief);
 
   const sources = readResults.map((item, index) => ({
     index,
@@ -201,30 +259,29 @@ export async function deepResearchSignal(signal, { onProgress } = {}) {
     source_reliability: item.sourceReliability,
     quality_prior: Math.round(sourceQuality(item) * 100),
     read_status: item.readStatus,
+    read_excerpt: item.content ? item.content.slice(0, MAX_SOURCE_CHARS) : null,
     published_at: item.publishedAt,
   }));
 
-  const evidencePreview = readable.map((item) => ({
-    source_index: readResults.indexOf(item),
-    title: item.title,
-    excerpt: item.content.slice(0, MAX_EVIDENCE_CHARS),
-  }));
+  const normalizedEvidence = (evidenceLinkedBrief.evidence_preview || []).map((item) => ({ ...item, source_index: Number(item.source_index) }));
+  const finalBrief = { ...evidenceLinkedBrief, evidence_preview: normalizedEvidence };
 
   onProgress?.("ready", 100);
   return {
-    ...brief,
+    ...finalBrief,
     research_plan: plan,
     research_metrics: {
       discovered_sources: discovered.length,
       sources_selected: readingQueue.length,
       sources_read: readable.length,
       sources_unread: readResults.length - readable.length,
-      evidence_passages: evidencePreview.length,
+      evidence_passages: normalizedEvidence.length,
+      exact_passages: normalizedEvidence.length,
+      findings_with_evidence: (finalBrief.key_findings || []).filter((finding) => finding.evidence_indexes?.length).length,
     },
     sources,
-    evidence_preview: evidencePreview,
-    key_facts: (brief.key_findings || []).map((item) => item.claim).slice(0, 12),
-    mechanism_summary: brief.mechanism,
+    key_facts: (finalBrief.key_findings || []).map((item) => item.claim).slice(0, 15),
+    mechanism_summary: finalBrief.mechanism,
     monetization_flags: [],
   };
 }
