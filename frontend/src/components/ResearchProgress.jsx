@@ -12,7 +12,7 @@ const STEPS = [
 
 const STATUS_INDEX = { queued: 0, planning: 0, discovering: 1, reading: 2, verifying: 3, synthesizing: 4, ready: 5, error: 0 };
 
-export default function ResearchProgress({ status, progress = 0, stageLabel, stageDetail, error, onBack }) {
+export default function ResearchProgress({ status, progress = 0, stageLabel, stageDetail, error, onBack, onRetry, retrying = false }) {
   const safeProgress = Math.min(100, Math.max(0, Number(progress) || 0));
   const currentIndex = status === "error" ? Math.min(4, Math.max(0, Math.floor(safeProgress / 22))) : (STATUS_INDEX[status] ?? 0);
   const running = !["ready", "error"].includes(status);
@@ -58,7 +58,7 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
         })}
       </div>
 
-      {error && <div className="research-progress__error"><strong>Research couldn't finish.</strong><span>{error}</span><button className="btn btn-ghost" onClick={onBack}>Choose another signal</button></div>}
+      {error && <div className="research-progress__error"><strong>Research couldn't finish.</strong><span>{error}</span><div><button className="btn btn-cream" onClick={onRetry} disabled={retrying}>{retrying ? "Retrying research…" : "Retry research"}</button><button className="btn btn-ghost" onClick={onBack} disabled={retrying}>Choose another signal</button></div></div>}
     </section>
   );
 }
