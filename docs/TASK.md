@@ -150,7 +150,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Key findings, important numbers, conflicts, gaps, source-quality/reliability, safe/unsafe claims, creative angle
 - [x] Enforce 8–15 evidence-backed findings at synthesis schema level
 - [x] Improve exact passage extraction and provenance quality
-- [ ] Research corpus reusable by Storyboard and future AI workflows
+- [x] Research corpus reusable by Storyboard and future AI workflows
 
 ### Phase 4 — Interactive Research Workspace
 - [ ] Live source discovery stream
@@ -200,15 +200,13 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 ```text
 1. M17 runtime verification across representative topics
                          ↓
-2. M17 corpus persistence/reuse by Storyboard + AI workflows
+2. M17 interactive research workspace
                          ↓
-3. M17 interactive research workspace
+3. M17 research memory + follow-up
                          ↓
-4. M17 research memory + follow-up
+4. Synchronize BUILD_PLAN.md / FINAL_QA.md
                          ↓
-5. Synchronize BUILD_PLAN.md / FINAL_QA.md
-                         ↓
-6. Start M16 Publishing/Analytics when approved
+5. Start M16 Publishing/Analytics when approved
 
 M9 Facebook production → DEFERRED / separate product decision
 ```
@@ -225,5 +223,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-06` — M17 Deep Research Intelligence Engine approved and started. Phase 1 uses targeted multi-lane discovery, actual source reading, evidence-aware synthesis, richer reliability metadata, and a detailed research workspace/brief.
 - `2026-09-06` — M17 Phase 2 evidence graph persistence, claim provenance, verification dimensions, and deterministic conflict adjudication foundation implemented. Next work is exact passage-level evidence and stronger adjudication.
 - `2026-09-06` — M17 exact source-relative passage extraction, 8–15 finding synthesis constraints, and model-assisted contradiction adjudication were implemented with deterministic fallback and explicit provenance.
+- `2026-09-06` — M17 persisted research corpus is now reusable by Storyboard generation and the AI editor; a protected corpus endpoint exposes normalized sources, passages, claims, verification, and conflicts.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
