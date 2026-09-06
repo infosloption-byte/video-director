@@ -49,7 +49,7 @@ function buildEvidence(brief, sourceRecords) {
   return rows;
 }
 
-export async function persistResearchGraph(projectId, brief, { status = "completed" } = {}) {
+export async function persistResearchGraph(projectId, brief, { status = "completed", version = null } = {}) {
   if (!projectId || !brief) return null;
   const verification = brief.verification || {};
   const sources = Array.isArray(brief.sources) ? brief.sources : [];
@@ -58,8 +58,10 @@ export async function persistResearchGraph(projectId, brief, { status = "complet
   const claims = verifiedClaims.length ? verifiedClaims : findings.map((finding, index) => ({
     id: `claim-${index + 1}`, claim: finding.claim, evidence_level: finding.evidence_level, model_confidence: finding.confidence,
     verified_confidence: finding.confidence, verification_status: "unverified", source_indexes: finding.source_indexes || [] }));
+  const existingSession = await prisma.researchSession.findFirst({ where: { projectId }, orderBy: { version: "desc" }, select: { version: true } });
+  const nextVersion = Number.isInteger(version) && version > 0 ? version : (existingSession?.version || 0) + 1;
 
-  const session = await prisma.researchSession.create({ data: { projectId, version: 1, status, completedAt: status === "completed" ? new Date() : null } });
+  const session = await prisma.researchSession.create({ data: { projectId, version: nextVersion, status, completedAt: status === "completed" ? new Date() : null } });
   const lanes = brief.research_plan || brief.plan || brief.research_lanes || [];
   await prisma.researchPlan.create({ data: { sessionId: session.id, lanes: lanes || [],
     queriesPlanned: Array.isArray(lanes) ? lanes.length : Number(brief.research_metrics?.queries_planned || 0),
@@ -128,7 +130,7 @@ export async function persistResearchGraph(projectId, brief, { status = "complet
     const leftClaim = claimRecords[leftIndex]; const rightClaim = claimRecords[rightIndex];
     if (!leftClaim || !rightClaim || leftClaim.id === rightClaim.id) continue;
     await prisma.researchConflict.create({ data: { sessionId: session.id, leftClaimId: leftClaim.id, rightClaimId: rightClaim.id,
-      overlapScore: clamp(conflict.overlap ?? conflict.similarity), reason: String(conflict.reason || conflict.resolution || "Conflicting evidence detected."), status: conflict.status || "open" } });
+      overlapScore: clamp(conflict.overlap ?? conflict.similarity), reason: String(conflict.reason || conflict.resolution || "Conflicting evidence detected."), resolution: conflict.resolution ? String(conflict.resolution).slice(0, 10000) : null, status: conflict.status || "open" } });
   }
   return session;
 }
