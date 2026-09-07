@@ -46,51 +46,14 @@ function buildStoredBriefFallback(brief) {
     verificationStatus: item.verificationStatus || item.status || "stored-brief",
     verifiedConfidence: Number(item.verifiedConfidence ?? item.confidence ?? 0),
   })).filter((item) => item.claimText);
-
-  const summarySections = [
-    brief?.executive_summary,
-    brief?.mechanism_summary,
-    brief?.what_happened,
-    brief?.why_it_matters,
-    brief?.how_it_works,
-    brief?.key_findings,
-    brief?.key_facts,
-    brief?.important_numbers,
-    brief?.safe_claims,
-    brief?.creative_opportunities,
-  ];
+  const summarySections = [brief?.executive_summary, brief?.mechanism_summary, brief?.what_happened, brief?.why_it_matters, brief?.how_it_works, brief?.key_findings, brief?.key_facts, brief?.important_numbers, brief?.safe_claims, brief?.creative_opportunities];
   summarySections.forEach((section, sectionIndex) => {
     const text = asText(section);
     if (!text) return;
-    evidence.push({
-      id: `brief-summary-${sectionIndex + 1}`,
-      passageText: text,
-      locator: "Persisted research brief",
-      sourceId: null,
-      evidenceIndex: evidence.length + 1,
-    });
+    evidence.push({ id: `brief-summary-${sectionIndex + 1}`, passageText: text, locator: "Persisted research brief", sourceId: null, evidenceIndex: evidence.length + 1 });
   });
-
-  const sources = sourceItems.map((source, index) => ({
-    id: source.id || `brief-source-${index + 1}`,
-    title: source.title || source.name || source.url || `Source ${index + 1}`,
-    url: source.url || source.link || null,
-    readStatus: source.readStatus || "read",
-    authorityScore: Number(source.authorityScore || source.authority || 0),
-  }));
-
-  return {
-    id: `stored-brief-${Date.now()}`,
-    version: Number(brief?.version || 1),
-    status: "completed",
-    createdAt: null,
-    completedAt: null,
-    plan: null,
-    sources,
-    evidence,
-    claims,
-    conflicts: [],
-  };
+  const sources = sourceItems.map((source, index) => ({ id: source.id || `brief-source-${index + 1}`, title: source.title || source.name || source.url || `Source ${index + 1}`, url: source.url || source.link || null, readStatus: source.readStatus || "read", authorityScore: Number(source.authorityScore || source.authority || 0) }));
+  return { id: `stored-brief-${Date.now()}`, version: Number(brief?.version || 1), status: "completed", createdAt: null, completedAt: null, plan: null, sources, evidence, claims, conflicts: [] };
 }
 
 function isStrengthQuestion(question) {
@@ -101,56 +64,12 @@ function buildStrengthAnswer(corpus) {
   const sources = Array.isArray(corpus?.sources) ? corpus.sources : [];
   const evidence = Array.isArray(corpus?.evidence) ? corpus.evidence : [];
   const sourceMap = new Map(sources.map((source) => [source.id, source]));
-  const rankedEvidence = evidence
-    .map((item, index) => {
-      const source = sourceMap.get(item.sourceId);
-      return {
-        item,
-        index,
-        authority: Number(source?.authorityScore || 0),
-        hasSource: Boolean(source),
-        quality: Number(item.evidenceQuality || item.qualityScore || item.quality || 0),
-      };
-    })
-    .sort((a, b) => {
-      if (a.hasSource !== b.hasSource) return a.hasSource ? -1 : 1;
-      return ((b.authority * 0.7) + (b.quality * 0.3)) - ((a.authority * 0.7) + (a.quality * 0.3));
-    })
-    .slice(0, 5);
-
-  const top = rankedEvidence.slice(0, 3).map(({ item, authority, hasSource }, index) => {
-    const source = sourceMap.get(item.sourceId);
-    const attribution = hasSource && source?.title ? ` — ${source.title}` : " — persisted research brief";
-    return `${index + 1}. ${item.passageText}${attribution}${hasSource && authority ? ` (authority ${Math.round(authority)})` : ""}`;
-  }).join("\n");
-
-  return {
-    grounded: true,
-    answer: top
-      ? `The strongest stored evidence is the source-backed material, prioritizing higher-authority sources and explicit evidence quality.\n\n${top}`
-      : "The stored research does not contain discrete evidence passages yet, so there is no evidence ranking to report.",
-    evidence: rankedEvidence.map(({ item, authority, hasSource }) => {
-      const source = sourceMap.get(item.sourceId);
-      return {
-        id: item.id,
-        passageText: item.passageText,
-        locator: item.locator,
-        sourceId: item.sourceId,
-        evidenceIndex: item.evidenceIndex,
-        sourceTitle: source?.title || null,
-        sourceUrl: source?.url || null,
-        sourceAuthority: authority,
-        sourceBacked: hasSource,
-      };
-    }),
-    relatedClaims: [],
-    searchUsed: false,
-    sources: rankedEvidence.map(({ item }) => sourceMap.get(item.sourceId)).filter((source) => source?.url).map((source) => ({ title: source.title, url: source.url }))
-  };
+  const rankedEvidence = evidence.map((item, index) => { const source = sourceMap.get(item.sourceId); return { item, index, authority: Number(source?.authorityScore || 0), hasSource: Boolean(source), quality: Number(item.evidenceQuality || item.qualityScore || item.quality || 0) }; }).sort((a, b) => { if (a.hasSource !== b.hasSource) return a.hasSource ? -1 : 1; return ((b.authority * 0.7) + (b.quality * 0.3)) - ((a.authority * 0.7) + (a.quality * 0.3)); }).slice(0, 5);
+  const top = rankedEvidence.slice(0, 3).map(({ item, authority, hasSource }, index) => { const source = sourceMap.get(item.sourceId); const attribution = hasSource && source?.title ? ` — ${source.title}` : " — persisted research brief"; return `${index + 1}. ${item.passageText}${attribution}${hasSource && authority ? ` (authority ${Math.round(authority)})` : ""}`; }).join("\n");
+  return { grounded: true, answer: top ? `The strongest stored evidence is the source-backed material, prioritizing higher-authority sources and explicit evidence quality.\n\n${top}` : "The stored research does not contain discrete evidence passages yet, so there is no evidence ranking to report.", evidence: rankedEvidence.map(({ item, authority, hasSource }) => { const source = sourceMap.get(item.sourceId); return { id: item.id, passageText: item.passageText, locator: item.locator, sourceId: item.sourceId, evidenceIndex: item.evidenceIndex, sourceTitle: source?.title || null, sourceUrl: source?.url || null, sourceAuthority: authority, sourceBacked: hasSource }; }), relatedClaims: [], searchUsed: false, sources: rankedEvidence.map(({ item }) => sourceMap.get(item.sourceId)).filter((source) => source?.url).map((source) => ({ title: source.title, url: source.url })) };
 }
 
-// This router is mounted at /api/projects in app.js, so project routes must
-// start at /:id rather than /projects/:id.
+// This router is mounted at /api/projects in app.js, so project routes must start at /:id rather than /projects/:id.
 router.post("/:id/research/rerun", async (req, res) => {
   try {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, include: { signal: true } });
@@ -160,18 +79,10 @@ router.post("/:id/research/rerun", async (req, res) => {
     const topic = focus ? `${baseTopic}: focus on ${focus}` : baseTopic;
     const signal = { ...project.signal, title: topic, description: focus ? `${project.signal?.description || ""}\nFocused research question: ${focus}`.trim() : project.signal?.description || "" };
     const brief = await researchSignal(signal);
-    await prisma.project.update({ where: { id: project.id }, data: {
-      researchSummary: `${brief.executive_summary || brief.mechanism_summary || ""}\n\n${(brief.key_facts || []).map((fact) => `• ${fact}`).join("\n")}`.trim(),
-      researchSources: { ...(brief), sources: brief.sources || [], rerun: { focused: Boolean(focus), focus: focus || null, previousCorpusRetained: true } },
-      monetizationFlags: brief.monetization_flags || [], suggestedFramework: brief.recommended_framework || null,
-      suggestedLengthSeconds: brief.recommended_length_seconds || null, suggestedTone: brief.recommended_tone || null,
-    } });
+    await prisma.project.update({ where: { id: project.id }, data: { researchSummary: `${brief.executive_summary || brief.mechanism_summary || ""}\n\n${(brief.key_facts || []).map((fact) => `• ${fact}`).join("\n")}`.trim(), researchSources: { ...(brief), sources: brief.sources || [], rerun: { focused: Boolean(focus), focus: focus || null, previousCorpusRetained: true } }, monetizationFlags: brief.monetization_flags || [], suggestedFramework: brief.recommended_framework || null, suggestedLengthSeconds: brief.recommended_length_seconds || null, suggestedTone: brief.recommended_tone || null } });
     await persistResearchGraph(project.id, brief, { status: "completed" });
     res.status(202).json({ projectId: project.id, focused: Boolean(focus), focus: focus || null, corpusRetained: true, message: "A new research session was created; previous persisted sessions were retained." });
-  } catch (error) {
-    console.error(`POST /api/projects/${req.params.id}/research/rerun failed:`, error);
-    res.status(500).json({ error: error.message || "Failed to rerun research." });
-  }
+  } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/rerun failed:`, error); res.status(500).json({ error: error.message || "Failed to rerun research." }); }
 });
 
 router.post("/:id/research/regenerate", async (req, res) => {
@@ -183,35 +94,23 @@ router.post("/:id/research/regenerate", async (req, res) => {
     const regenerated = await revalidateStoredBrief(storedBrief);
     await prisma.project.update({ where: { id: project.id }, data: { researchSources: regenerated } });
     res.json({ projectId: project.id, regenerated: true, repeatedExternalResearch: false, researchMetrics: regenerated.research_metrics || null });
-  } catch (error) {
-    console.error(`POST /api/projects/${req.params.id}/research/regenerate failed:`, error);
-    res.status(500).json({ error: error.message || "Failed to regenerate the research brief." });
-  }
+  } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/regenerate failed:`, error); res.status(500).json({ error: error.message || "Failed to regenerate the research brief." }); }
 });
 
 router.post("/:id/research/chat", async (req, res) => {
   try {
-    const project = await prisma.project.findFirst({
-      where: { id: req.params.id, userId: req.user.id },
-      select: { id: true, researchSources: true }
-    });
+    const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } });
     if (!project) return res.status(404).json({ error: "Project not found." });
-
     const question = String(req.body?.question || "").trim().slice(0, 2000);
     if (!question) return res.status(400).json({ error: "A research question is required." });
-
     const session = await getResearchSession(req.params.id, req.user.id);
-    const storedBrief = project.researchSources && typeof project.researchSources === "object" ? project.researchSources : null;
-    const corpus = session || (storedBrief ? buildStoredBriefFallback(storedBrief) : null);
-    if (!corpus) return res.status(404).json({ error: "Research memory is not available yet." });
-
+    if (!session) return res.status(409).json({ error: "The persisted research corpus is not available yet. Complete research before asking Helix." });
     if (isStrengthQuestion(question)) {
-      res.json({ question, ...buildStrengthAnswer(corpus), source: session ? "research-corpus" : "persisted-brief" });
+      res.json({ question, ...buildStrengthAnswer(session), source: "research-corpus" });
       return;
     }
-
-    const result = await answerResearchQuestion(corpus, question);
-    res.json({ question, ...result, source: session ? "research-corpus" : "persisted-brief" });
+    const result = await answerResearchQuestion(session, question);
+    res.json({ question, ...result, source: "research-corpus" });
   } catch (error) {
     console.error(`POST /api/projects/${req.params.id}/research/chat failed:`, error);
     res.status(500).json({ error: error.message || "Failed to answer the research question." });
