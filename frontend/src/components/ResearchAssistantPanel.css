@@ -7,6 +7,15 @@
   align-items: start;
 }
 
+/* When Ask Helix is closed, the research brief owns the full workspace. */
+.research-workspace-layout--assistant-closed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.research-workspace-layout--assistant-closed .research-assistant {
+  display: none;
+}
+
 .research-workspace-layout > .research-brief {
   min-width: 0;
   max-width: none;
