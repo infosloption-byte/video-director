@@ -25,11 +25,15 @@ test("M17 follow-up answers only from persisted evidence", () => {
   assert.match(result.answer, /improved outcomes/i);
   assert.equal(result.evidence.length, 1);
   assert.equal(result.evidence[0].id, "e1");
-  assert.equal(result.grounded, undefined);
+  assert.equal(result.grounded, true);
+  assert.equal(result.searchUsed, false);
 });
 
-test("M17 follow-up refuses to invent an answer when corpus is irrelevant", () => {
+test("R6 follow-up explicitly marks an unsupported answer and never searches the web", () => {
   const result = answerResearchQuestion(session, "What is the capital of France?");
   assert.match(result.answer, /No sufficiently relevant evidence/i);
+  assert.match(result.answer, /did not perform a web search/i);
   assert.equal(result.evidence.length, 0);
+  assert.equal(result.grounded, false);
+  assert.equal(result.searchUsed, false);
 });
