@@ -177,6 +177,55 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Research depth regression coverage exists for science, technology, current-events, and controversial briefs
 - [x] Regression tests cover deduplication, reading failures, malformed model output, provider failure, partial completion, and contradiction adjudication
 
+## M17R — Research Workspace Refinement & Acceptance
+**Status:** In progress
+
+**Goal:** refine the Research page from a feature-complete research dashboard into a clear, trustworthy, responsive research workspace without adding unnecessary product complexity.
+
+### Phase R1 — Information hierarchy & visual refinement
+- [ ] Establish a stronger page hierarchy: progress → executive brief → key findings → evidence → sources/review → creative/action
+- [ ] Reduce competing card treatments and excessive visual density
+- [ ] Make the executive summary the primary reading surface
+- [ ] Improve section headings, supporting labels, spacing rhythm, and scanability
+- [ ] Preserve the global non-editor page spacing rules; do not reintroduce unwanted outer page padding
+- [ ] Keep Advanced Video Editor layout behavior unchanged
+
+### Phase R2 — Research progress & activity UX
+- [ ] Replace/augment the dense progress presentation with a clear research pipeline: planning → discovering → reading → verifying → resolving → synthesizing → ready
+- [ ] Clearly distinguish current activity from completed activity history
+- [ ] Improve loading, retry, failed-source, and partial-completion states
+- [ ] Surface useful progress context without overwhelming the user
+
+### Phase R3 — Evidence & trust UX
+- [ ] Make finding confidence, evidence strength, and verification status immediately understandable
+- [ ] Improve evidence inspector hierarchy around claim → confidence → supporting passages → sources → conflicts
+- [ ] Make unread/unavailable/contradictory evidence visibly unverified
+- [ ] Improve source quality presentation across authority, evidence quality, relevance, recency, independence, and transparency
+- [ ] Ensure unsupported claims never visually read as established facts
+
+### Phase R4 — Workspace actions & downstream flow
+- [ ] Make Ask Helix, follow-up, rerun, regenerate, and conflict-resolution actions clearer and less competing
+- [ ] Add/strengthen a primary “Continue to Storyboard” path after research acceptance
+- [ ] Preserve corpus-grounded behavior for Ask Helix, follow-ups, reruns, regeneration, and Storyboard handoff
+
+### Phase R5 — Responsive & accessibility QA
+- [ ] Validate Research at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440 px
+- [ ] Remove horizontal overflow and inaccessible controls at compact widths
+- [ ] Verify keyboard focus, button semantics, tab navigation, and screen-reader labels
+- [ ] Review dark/light theme contrast and disabled/error states
+- [ ] Use the shared modern scrollbar treatment consistently
+
+### Phase R6 — Runtime acceptance
+- [ ] Test representative science, technology, current-events, and controversial research topics
+- [ ] Verify live activity polling reaches terminal state cleanly
+- [ ] Verify exact evidence/source inspection after refresh
+- [ ] Verify contradiction resolution and confidence updates
+- [ ] Verify Ask Helix answers only from persisted research corpus and clearly marks unsupported answers
+- [ ] Verify focused rerun retains prior corpus and regeneration does not repeat external research unnecessarily
+- [ ] Verify Storyboard receives only readable, non-unverified research grounding
+
+**Refinement order:** R1 → R2 → R3 → R4 → R5 → R6.
+
 ## Cross-milestone quality gates
 - [ ] `npm run lint` — zero warnings/errors
 - [ ] `npm run build` succeeds
@@ -200,11 +249,13 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 ```text
 1. M17 runtime acceptance across representative topics
                          ↓
-2. Cross-milestone lint/build/browser QA
+2. M17R Research Workspace refinement
                          ↓
-3. Synchronize BUILD_PLAN.md / FINAL_QA.md
+3. Cross-milestone lint/build/browser QA
                          ↓
-4. Start M16 Publishing/Analytics when approved
+4. Synchronize BUILD_PLAN.md / FINAL_QA.md
+                         ↓
+5. Start M16 Publishing/Analytics when approved
 
 M9 Facebook production → DEFERRED / separate product decision
 ```
@@ -226,5 +277,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-06` — M17 finding cards now expose confidence indicators and open a source/evidence inspection workspace with exact passages, source metrics, and two-source comparison.
 - `2026-09-06` — M17 research memory now persists the complete normalized corpus, supports corpus-grounded follow-up questions, focused reruns that retain prior sessions, and brief regeneration without repeating external research.
 - `2026-09-06` — M17 research conflict review and provenance metrics are exposed in the Research workspace with protected APIs.
+- `2026-09-07` — M17R Research Workspace Refinement added as the next focused workstream. Refinement prioritizes information hierarchy, progress/activity clarity, evidence trust UX, downstream actions, responsive/accessibility QA, and runtime acceptance before M16.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
