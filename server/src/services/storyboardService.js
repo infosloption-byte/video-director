@@ -108,11 +108,24 @@ function buildFallbackStoryboard({ project, signal, length }) {
 
 function buildResearchGrounding(researchCorpus) {
   if (!researchCorpus) return "No persisted research corpus is available. Use only the project research summary.";
+  const readableSources = researchCorpus.sources.filter((source) => source.read_status === "read");
+  const readableSourceIndexes = new Set(readableSources.map((source) => source.index));
+  const verifiedClaims = researchCorpus.claims.filter((claim) => {
+    const status = String(claim.verification_status || "").toLowerCase();
+    if (!status || ["unverified", "unavailable", "unread", "failed", "contradictory", "conflicted"].includes(status)) return false;
+    const sourceIndexes = Array.isArray(claim.source_indexes) ? claim.source_indexes : [];
+    const evidenceIndexes = Array.isArray(claim.evidence_indexes) ? claim.evidence_indexes : [];
+    return sourceIndexes.some((index) => readableSourceIndexes.has(index)) && evidenceIndexes.length > 0;
+  });
+  const allowedClaimIndexes = new Set(verifiedClaims.map((claim) => claim.index));
+  const allowedEvidenceIndexes = new Set(verifiedClaims.flatMap((claim) => claim.evidence_indexes || []));
+  const evidence = researchCorpus.evidence.filter((item) => allowedEvidenceIndexes.has(item.index) && readableSourceIndexes.has(item.source_index));
+  const usedSourceIndexes = new Set(evidence.map((item) => item.source_index));
   return JSON.stringify({
     session: researchCorpus.session,
-    claims: researchCorpus.claims.filter((claim) => claim.verification_status !== "unverified"),
-    evidence: researchCorpus.evidence,
-    sources: researchCorpus.sources.filter((source) => source.read_status === "read"),
+    claims: verifiedClaims.filter((claim) => allowedClaimIndexes.has(claim.index)),
+    evidence,
+    sources: readableSources.filter((source) => usedSourceIndexes.has(source.index)),
     conflicts: researchCorpus.conflicts,
   });
 }
@@ -133,6 +146,7 @@ Rules:
 - B-roll terms should describe visible subjects/actions, not abstract claims.
 - Prefer verified, evidence-linked claims with readable source passages.
 - Do not turn source metadata, titles, or search snippets into factual claims without evidence.
+- If the supplied research corpus has no eligible verified evidence for a point, do not state that point as a fact; frame it as an open question or omit it.
 - The selected framework is ${project.selectedFramework || "how-it-works"}; tone is ${project.tone || "Conversational"}; audience is ${project.audienceLevel || "General public"}.
 
 Signal:
