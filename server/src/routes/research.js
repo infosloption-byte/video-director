@@ -2,9 +2,25 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { researchSignal } from "../services/researchService.js";
 import { persistResearchGraph } from "../services/researchGraphService.js";
-import { revalidateStoredBrief } from "../services/researchMemoryService.js";
+import { answerResearchQuestion, revalidateStoredBrief } from "../services/researchMemoryService.js";
 
 const router = Router();
+
+async function getResearchSession(projectId, userId) {
+  const project = await prisma.project.findFirst({ where: { id: projectId, userId }, select: { id: true } });
+  if (!project) return null;
+  return prisma.researchSession.findFirst({
+    where: { projectId },
+    orderBy: { version: "desc" },
+    include: {
+      plan: true,
+      sources: { orderBy: { sourceIndex: "asc" } },
+      evidence: { orderBy: { evidenceIndex: "asc" } },
+      claims: { orderBy: { claimIndex: "asc" }, include: { verification: true, sourceLinks: { include: { source: true } }, evidenceLinks: { include: { evidence: true } } } },
+      conflicts: { orderBy: { createdAt: "asc" } }
+    }
+  });
+}
 
 router.post("/projects/:id/research/rerun", async (req, res) => {
   try {
@@ -41,6 +57,20 @@ router.post("/projects/:id/research/regenerate", async (req, res) => {
   } catch (error) {
     console.error(`POST /api/projects/${req.params.id}/research/regenerate failed:`, error);
     res.status(500).json({ error: error.message || "Failed to regenerate the research brief." });
+  }
+});
+
+router.post("/projects/:id/research/chat", async (req, res) => {
+  try {
+    const session = await getResearchSession(req.params.id, req.user.id);
+    if (!session) return res.status(404).json({ error: "Research memory is not available yet." });
+    const question = String(req.body?.question || "").trim().slice(0, 2000);
+    if (!question) return res.status(400).json({ error: "A research question is required." });
+    const result = await answerResearchQuestion(session, question);
+    res.json({ question, ...result });
+  } catch (error) {
+    console.error(`POST /api/projects/${req.params.id}/research/chat failed:`, error);
+    res.status(500).json({ error: error.message || "Failed to answer the research question." });
   }
 });
 
