@@ -93,6 +93,62 @@ function buildStoredBriefFallback(brief) {
   };
 }
 
+function isStrengthQuestion(question) {
+  return /\b(strongest|strong|best|reliable|reliab(?:le|ility)|highest confidence|most convincing|most credible)\b/i.test(String(question));
+}
+
+function buildStrengthAnswer(corpus) {
+  const sources = Array.isArray(corpus?.sources) ? corpus.sources : [];
+  const evidence = Array.isArray(corpus?.evidence) ? corpus.evidence : [];
+  const sourceMap = new Map(sources.map((source) => [source.id, source]));
+  const rankedEvidence = evidence
+    .map((item, index) => {
+      const source = sourceMap.get(item.sourceId);
+      return {
+        item,
+        index,
+        authority: Number(source?.authorityScore || 0),
+        hasSource: Boolean(source),
+        quality: Number(item.evidenceQuality || item.qualityScore || item.quality || 0),
+      };
+    })
+    .sort((a, b) => {
+      if (a.hasSource !== b.hasSource) return a.hasSource ? -1 : 1;
+      return ((b.authority * 0.7) + (b.quality * 0.3)) - ((a.authority * 0.7) + (a.quality * 0.3));
+    })
+    .slice(0, 5);
+
+  const top = rankedEvidence.slice(0, 3).map(({ item, authority, hasSource }, index) => {
+    const source = sourceMap.get(item.sourceId);
+    const attribution = hasSource && source?.title ? ` — ${source.title}` : " — persisted research brief";
+    return `${index + 1}. ${item.passageText}${attribution}${hasSource && authority ? ` (authority ${Math.round(authority)})` : ""}`;
+  }).join("\n");
+
+  return {
+    grounded: true,
+    answer: top
+      ? `The strongest stored evidence is the source-backed material, prioritizing higher-authority sources and explicit evidence quality.\n\n${top}`
+      : "The stored research does not contain discrete evidence passages yet, so there is no evidence ranking to report.",
+    evidence: rankedEvidence.map(({ item, authority, hasSource }) => {
+      const source = sourceMap.get(item.sourceId);
+      return {
+        id: item.id,
+        passageText: item.passageText,
+        locator: item.locator,
+        sourceId: item.sourceId,
+        evidenceIndex: item.evidenceIndex,
+        sourceTitle: source?.title || null,
+        sourceUrl: source?.url || null,
+        sourceAuthority: authority,
+        sourceBacked: hasSource,
+      };
+    }),
+    relatedClaims: [],
+    searchUsed: false,
+    sources: rankedEvidence.map(({ item }) => sourceMap.get(item.sourceId)).filter((source) => source?.url).map((source) => ({ title: source.title, url: source.url }))
+  };
+}
+
 // This router is mounted at /api/projects in app.js, so project routes must
 // start at /:id rather than /projects/:id.
 router.post("/:id/research/rerun", async (req, res) => {
@@ -148,6 +204,11 @@ router.post("/:id/research/chat", async (req, res) => {
     const storedBrief = project.researchSources && typeof project.researchSources === "object" ? project.researchSources : null;
     const corpus = session || (storedBrief ? buildStoredBriefFallback(storedBrief) : null);
     if (!corpus) return res.status(404).json({ error: "Research memory is not available yet." });
+
+    if (isStrengthQuestion(question)) {
+      res.json({ question, ...buildStrengthAnswer(corpus), source: session ? "research-corpus" : "persisted-brief" });
+      return;
+    }
 
     const result = await answerResearchQuestion(corpus, question);
     res.json({ question, ...result, source: session ? "research-corpus" : "persisted-brief" });
