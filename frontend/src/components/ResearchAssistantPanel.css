@@ -1,3 +1,5 @@
+@import "../pages/ResearchEnhancements.css";
+
 .research-workspace-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
