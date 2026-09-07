@@ -1,0 +1,108 @@
+.research-brief__synthesis-panel {
+  margin: 0 0 10px;
+}
+
+.research-brief__synthesis-panel p:last-child {
+  max-width: 900px;
+  white-space: pre-line;
+  font-size: 14px;
+  line-height: 1.72;
+}
+
+.research-source-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.research-source-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+}
+
+.research-source-table th,
+.research-source-table td {
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.research-source-table th {
+  color: var(--ink-dim);
+  background: var(--card);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.research-source-table td {
+  color: var(--body);
+  line-height: 1.4;
+}
+
+.research-source-table tbody tr + tr td {
+  border-top: 1px solid var(--border-soft);
+}
+
+.research-source-table td:first-child {
+  width: 30%;
+}
+
+.research-source-table td:first-child strong {
+  color: var(--ink);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.research-source-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 3px 7px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.research-source-status--read { color: var(--ink); }
+.research-source-status--failed,
+.research-source-status--empty,
+.research-source-status--unsupported,
+.research-source-status--non_text { color: var(--muted); }
+
+.research-brief__creative-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.research-brief__creative-summary .research-brief__panel {
+  min-width: 0;
+}
+
+.research-brief__creative-summary .research-brief__panel h3 {
+  margin-bottom: 8px;
+}
+
+.research-brief__creative-summary .research-brief__panel p {
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .research-brief__creative-summary {
+    grid-template-columns: 1fr;
+  }
+}
