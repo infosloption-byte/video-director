@@ -32,6 +32,15 @@ test("R6 rerun retains prior sessions and regeneration avoids external research"
   assert.match(route, /repeatedExternalResearch: false/);
 });
 
+test("R6 persisted research inspection, metrics and conflict resolution endpoints exist", async () => {
+  const route = await source("../src/routes/research.js");
+  assert.match(route, /router\.get\("\/:id\/research\/graph"/);
+  assert.match(route, /router\.get\("\/:id\/research\/memory"/);
+  assert.match(route, /router\.get\("\/:id\/research\/metrics"/);
+  assert.match(route, /router\.post\("\/:id\/research\/conflicts\/:conflictId\/resolve"/);
+  assert.match(route, /current research session/i);
+});
+
 test("R6 research UI stops both polling loops at terminal states", async () => {
   const page = await source("../../frontend/src/pages/ResearchPage.jsx");
   assert.match(page, /researchStatus === "ready" \|\| nextProject\?\.researchStatus === "error"/);
