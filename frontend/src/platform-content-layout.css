@@ -3,8 +3,16 @@
   min-height: calc(100vh - 64px);
 }
 
-.platform-content > .hx-page:not(:has(.editor-workspace)) {
+/* Shared page gutter for non-editor, non-research pages. */
+.platform-content > .hx-page:not(:has(.editor-workspace)):not(:has(.research-progress)) {
   padding: 40px 30px 0 !important;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Research workspace owns its own internal spacing; remove the shell gutter. */
+.platform-content > .hx-page:has(.research-progress) {
+  padding: 0 !important;
   width: 100%;
   min-width: 0;
 }
@@ -15,6 +23,13 @@
 }
 
 .platform-content > .hx-page:not(:has(.editor-workspace)) .container {
+  width: 100%;
+  max-width: none;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.platform-content > .hx-page:has(.research-progress) .container {
   width: 100%;
   max-width: none;
   padding-left: 0 !important;
