@@ -93,7 +93,9 @@ function buildStoredBriefFallback(brief) {
   };
 }
 
-router.post("/projects/:id/research/rerun", async (req, res) => {
+// This router is mounted at /api/projects in app.js, so project routes must
+// start at /:id rather than /projects/:id.
+router.post("/:id/research/rerun", async (req, res) => {
   try {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, include: { signal: true } });
     if (!project) return res.status(404).json({ error: "Project not found." });
@@ -116,7 +118,7 @@ router.post("/projects/:id/research/rerun", async (req, res) => {
   }
 });
 
-router.post("/projects/:id/research/regenerate", async (req, res) => {
+router.post("/:id/research/regenerate", async (req, res) => {
   try {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true, researchSources: true } });
     if (!project) return res.status(404).json({ error: "Project not found." });
@@ -131,7 +133,7 @@ router.post("/projects/:id/research/regenerate", async (req, res) => {
   }
 });
 
-router.post("/projects/:id/research/chat", async (req, res) => {
+router.post("/:id/research/chat", async (req, res) => {
   try {
     const project = await prisma.project.findFirst({
       where: { id: req.params.id, userId: req.user.id },
