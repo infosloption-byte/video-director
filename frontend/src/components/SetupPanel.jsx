@@ -92,9 +92,25 @@ export default function SetupPanel({ projectId, onComplete }) {
     <div className="setup-panel">
       <div className="setup-panel__intro">
         <p className="eyebrow">Guided setup</p>
-        <h2>Four choices. Helix already picked the starting point.</h2>
-        <p>Keep the recommendations or change any choice in one tap. Nothing here requires typing.</p>
+        <h2>Shape the video without changing the research.</h2>
+        <p>Helix has already completed the research for this project. Choose how that research should be turned into a short-form story.</p>
       </div>
+
+      <section className="setup-research-bridge" aria-labelledby="setup-research-bridge-title">
+        <div className="setup-research-bridge__icon" aria-hidden="true">✓</div>
+        <div className="setup-research-bridge__copy">
+          <p className="mono-label">RESEARCH FOUNDATION</p>
+          <h3 id="setup-research-bridge-title">This setup stays connected to the completed research</h3>
+          <p>The storyboard will use the same persisted research corpus for this project. Setup only controls presentation — length, narrative framework, tone, and audience — not the factual foundation.</p>
+          <div className="setup-research-bridge__flow" aria-label="Research to storyboard flow">
+            <span>Completed research</span>
+            <span aria-hidden="true">→</span>
+            <strong>Guided setup</strong>
+            <span aria-hidden="true">→</span>
+            <span>Research-grounded storyboard</span>
+          </div>
+        </div>
+      </section>
 
       <ChoiceRow title="Script length" reasoning={suggestions.length.reasoning} options={suggestions.length.options} value={choices.length} onChange={(value) => setChoices((current) => ({ ...current, length: value }))} renderOption={(value) => `${value}s`} />
       <ChoiceRow title="Script template" reasoning={suggestions.framework.reasoning} options={suggestions.framework.options} value={choices.framework} onChange={(value) => setChoices((current) => ({ ...current, framework: value }))} renderOption={(option) => LABELS[option.key] || option.label} />

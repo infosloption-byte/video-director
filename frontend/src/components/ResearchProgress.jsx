@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { IconArrowLeft, IconCheck } from "./Icons";
+import ResearchConflictActions from "./ResearchConflictActions";
 import "./ResearchProgress.css";
+import "./ResearchConflictActions.css";
 
 const STEPS = [
   ["planning", "Planning", "Breaking the topic into answerable evidence questions."],
@@ -15,8 +18,13 @@ const STEPS = [
 const STATUS_INDEX = { queued: 0, planning: 0, discovering: 1, reading: 2, verifying: 3, resolving: 4, synthesizing: 5, ready: 6, error: 0 };
 
 export default function ResearchProgress({ status, progress = 0, stageLabel, stageDetail, error, onBack, onRetry, retrying = false, projectId }) {
+  const navigate = useNavigate();
   const [stopping, setStopping] = useState(false);
   const [stoppedLocally, setStoppedLocally] = useState(false);
+  const [actionBusy, setActionBusy] = useState("");
+  const [focusedRerunOpen, setFocusedRerunOpen] = useState(false);
+  const [focus, setFocus] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const resolvedProjectId = projectId || (typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean).pop() : "");
   const safeProgress = Math.min(100, Math.max(0, Number(progress) || 0));
   const effectiveStatus = stoppedLocally ? "error" : status;
@@ -40,6 +48,37 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
     } finally {
       setStopping(false);
     }
+  }
+
+  async function runReportAction(action, body = {}) {
+    if (!resolvedProjectId || actionBusy) return false;
+    setActionBusy(action);
+    setActionMessage("");
+    try {
+      const response = await fetch(`/api/projects/${resolvedProjectId}/research/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Failed to ${action} research.`);
+      setActionMessage(action === "rerun" ? "Focused rerun started with the existing corpus retained." : "Research brief regenerated from persisted research without repeating external research.");
+      window.setTimeout(() => window.location.reload(), 700);
+      return true;
+    } catch (actionError) {
+      setActionMessage(actionError.message || `Failed to ${action} research.`);
+      return false;
+    } finally {
+      setActionBusy("");
+    }
+  }
+
+  async function handleFocusedRerun(event) {
+    event.preventDefault();
+    const trimmed = focus.trim();
+    if (!trimmed || actionBusy) return;
+    const ok = await runReportAction("rerun", { focus: trimmed });
+    if (ok) setFocusedRerunOpen(false);
   }
 
   return (
@@ -80,6 +119,30 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
           );
         })}
       </div>
+
+      {effectiveStatus === "ready" && resolvedProjectId && (
+        <>
+          <div className="research-progress__ready-actions" aria-label="Research next actions">
+            <button className="btn btn-cream research-progress__primary-action" type="button" onClick={() => navigate(`/storyboard/${resolvedProjectId}?stage=setup`)}>Continue to Storyboard →</button>
+            <div className="research-progress__secondary-actions">
+              <button className="btn btn-ghost" type="button" onClick={() => void runReportAction("regenerate")} disabled={Boolean(actionBusy)}>{actionBusy === "regenerate" ? "Regenerating…" : "Regenerate brief"}</button>
+              <button className="btn btn-ghost" type="button" onClick={() => setFocusedRerunOpen((value) => !value)} disabled={Boolean(actionBusy)} aria-expanded={focusedRerunOpen}>Focused rerun</button>
+            </div>
+            {focusedRerunOpen && (
+              <form className="research-progress__rerun-form" onSubmit={handleFocusedRerun}>
+                <label htmlFor="research-rerun-focus">Research focus</label>
+                <div>
+                  <input id="research-rerun-focus" value={focus} onChange={(event) => setFocus(event.target.value)} maxLength={400} placeholder="e.g. focus on recent evidence or a disputed mechanism" disabled={Boolean(actionBusy)} />
+                  <button className="btn btn-cream" type="submit" disabled={Boolean(actionBusy) || !focus.trim()}>{actionBusy === "rerun" ? "Starting…" : "Run focus"}</button>
+                </div>
+                <span>Creates a new focused research session while retaining earlier persisted sessions.</span>
+              </form>
+            )}
+            {actionMessage && <p className="research-progress__action-message" role="status">{actionMessage}</p>}
+          </div>
+          <ResearchConflictActions projectId={resolvedProjectId} />
+        </>
+      )}
 
       {running && resolvedProjectId && <div className="research-progress__stop"><button className="btn btn-ghost" type="button" onClick={stopResearch} disabled={stopping}>{stopping ? "Stopping research…" : "Stop research"}</button><span>Stop now and retry this research run later.</span></div>}
       {effectiveError && <div className="research-progress__error" role="alert"><strong>{stopped ? "Research stopped." : "Research couldn't finish."}</strong><span>{effectiveError}</span><div><button className="btn btn-cream" onClick={onRetry} disabled={retrying || stopping}>{retrying ? "Retrying research…" : "Retry research"}</button><button className="btn btn-ghost" onClick={onBack} disabled={retrying || stopping}>Choose another signal</button></div></div>}
