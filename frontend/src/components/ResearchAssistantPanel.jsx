@@ -1,20 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function ResearchAssistantPanel({ projectId }) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === "Escape" && !busy) {
-        setQuestion("");
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [busy]);
 
   async function ask(event) {
     event.preventDefault();
@@ -63,7 +53,7 @@ export default function ResearchAssistantPanel({ projectId }) {
 
     {error && <p className="research-assistant__error" role="alert">{error}</p>}
     <form className="research-assistant__form" onSubmit={ask}>
-      <textarea aria-label="Ask Helix about this research" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask a question about this research…" rows={3} disabled={busy} />
+      <textarea autoFocus aria-label="Ask Helix about this research" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask a question about this research…" rows={3} disabled={busy} />
       <div className="research-assistant__form-footer"><span>Stored research corpus · no new search</span><button className="btn btn-cream" type="submit" disabled={busy || !question.trim()}>{busy ? "Thinking…" : "Ask Helix"}</button></div>
     </form>
   </aside>;
