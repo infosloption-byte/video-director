@@ -7,7 +7,7 @@ const MAX_EVIDENCE_CHARS = 1800;
 const MAX_PASSAGES_PER_FINDING = 3;
 const MODEL_LIST_TIMEOUT_MS = 20000;
 const GEMINI_REQUEST_TIMEOUT_MS = 120000;
-const DEFAULT_GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
+const DEFAULT_GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
 
 const SOURCE_WEIGHTS = { peer_reviewed: 0.95, government: 0.95, primary: 0.92, trusted_news: 0.82, ai_search: 0.68, general_web: 0.45 };
 function cleanText(value = "") { return String(value).replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<noscript[\s\S]*?<\/noscript>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/\s+/g, " ").trim(); }
@@ -65,10 +65,7 @@ async function listAvailableGeminiModels(apiKey) {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`, { signal: AbortSignal.timeout(MODEL_LIST_TIMEOUT_MS) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return [];
-    return (data.models || [])
-      .filter((item) => Array.isArray(item.supportedGenerationMethods) && item.supportedGenerationMethods.includes("generateContent"))
-      .map((item) => normalizeModelName(item.name))
-      .filter(isUsableModel);
+    return (data.models || []).filter((item) => Array.isArray(item.supportedGenerationMethods) && item.supportedGenerationMethods.includes("generateContent")).map((item) => normalizeModelName(item.name)).filter(isUsableModel);
   } catch (error) {
     console.warn(`[research] Unable to list Gemini models for failover: ${error.message || "request failed"}`);
     return [];
@@ -76,7 +73,7 @@ async function listAvailableGeminiModels(apiKey) {
 }
 
 async function resolveGeminiModelChain(apiKey, configuredModel) {
-  const preferred = normalizeModelName(configuredModel || process.env.GEMINI_MODEL || "gemini-2.5-flash");
+  const preferred = normalizeModelName(configuredModel || process.env.GEMINI_MODEL || "gemini-3.5-flash-lite");
   const configuredFallbacks = String(process.env.GEMINI_MODEL_FALLBACKS || "").split(",").map(normalizeModelName).filter(Boolean);
   const discovered = await listAvailableGeminiModels(apiKey);
   const ordered = [];
@@ -91,7 +88,7 @@ async function resolveGeminiModelChain(apiKey, configuredModel) {
 
 async function synthesize(topic, plan, sources, onProgress, onActivity) {
   const apiKey = process.env.GEMINI_API_KEY; if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
-  const configuredModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const configuredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   const evidence = sources.map((source, index) => ({ index: source.researchSourceIndex ?? index, title: source.title, url: source.sourceUrl, source_name: source.sourceName, source_class: source.sourceClass, source_reliability: source.sourceReliability, published_at: source.publishedAt, quality_prior: Math.round(sourceQuality(source) * 100), content: source.content || source.description || "No readable source text available." }));
   const prompt = `You are Helix Deep Research Director. Research topic: ${topic}\n\nRESEARCH PLAN:\n${JSON.stringify(plan)}\n\nEVIDENCE CORPUS:\n${JSON.stringify(evidence)}\n\nProduce a detailed evidence-backed research intelligence brief. Aim for 8–15 major findings. Do not invent facts, numbers, quotes, sources, consensus, or evidence. Every important finding must cite one or more exact source_indexes from the supplied evidence corpus. Distinguish source authority from claim confidence. Prefer primary, academic, government and institutional evidence, but do not automatically treat peer review as proof. Explicitly identify conflicting evidence and methodological or access limitations. If a source could not be read, do not infer its contents from its title. The output is for a video research workflow, so explain the mechanism clearly and separately provide claims that are safe to say and claims that should be avoided. Return JSON only according to the schema.`;
   onProgress?.("synthesizing", 72);
@@ -103,32 +100,28 @@ async function synthesize(topic, plan, sources, onProgress, onActivity) {
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const request = (generationConfig) => fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig }), signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS) });
     onActivity?.({ type: "research.model_attempt", model, attempt: modelIndex + 1, total: models.length, message: `Synthesizing with ${model}.` });
-    let response = await request({ responseMimeType: "application/json", responseSchema: DEEP_SCHEMA, temperature: 0.1, maxOutputTokens: 12000 });
+    let response;
+    try { response = await request({ responseMimeType: "application/json", responseSchema: DEEP_SCHEMA, temperature: 0.1, maxOutputTokens: 12000 }); }
+    catch (error) {
+      lastError = error; onActivity?.({ type: "research.model_failed", model, status: error?.status || 408, transient: true, message: `Model ${model} failed: ${error?.message || "request timeout"}` });
+      if (models[modelIndex + 1]) { console.warn(`[research] Gemini model ${model} failed (${error.message}); failing over to ${models[modelIndex + 1]}.`); onActivity?.({ type: "research.model_fallback", from_model: model, to_model: models[modelIndex + 1], message: `Falling back to ${models[modelIndex + 1]} after ${model} failed.` }); continue; }
+      break;
+    }
     let data = await response.json().catch(() => ({}));
     if (!response.ok && response.status === 400 && /invalid argument/i.test(data?.error?.message || "")) {
       console.warn(`[research] Gemini rejected the structured-output schema for model ${model}; retrying with plain JSON output.`);
-      response = await request({ responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 12000 });
-      data = await response.json().catch(() => ({}));
+      try { response = await request({ responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 12000 }); data = await response.json().catch(() => ({})); } catch (error) { lastError = error; response = { ok: false, status: 408 }; data = {}; }
     }
     if (response.ok) {
       const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
-      if (text) {
-        onActivity?.({ type: "research.model_success", model, attempt: modelIndex + 1, message: `Research synthesis completed with ${model}.` });
-        return extractJson(text);
-      }
+      if (text) { onActivity?.({ type: "research.model_success", model, attempt: modelIndex + 1, message: `Research synthesis completed with ${model}.` }); return extractJson(text); }
       lastError = new Error(`Gemini model ${model} returned no brief.`);
-    } else {
-      lastError = new Error(data?.error?.message || `Gemini returned ${response.status}.`);
-    }
+    } else lastError = new Error(data?.error?.message || `Gemini returned ${response.status}.`);
     const message = lastError.message || "Gemini synthesis failed.";
     const canFailover = isTransientModelFailure(response.status, message) || /invalid argument/i.test(message);
     onActivity?.({ type: "research.model_failed", model, status: response.status, transient: canFailover, message: `Model ${model} failed: ${message}` });
     if (!canFailover) throw lastError;
-    const nextModel = models[modelIndex + 1];
-    if (nextModel) {
-      console.warn(`[research] Gemini model ${model} failed (${message}); failing over to ${nextModel}.`);
-      onActivity?.({ type: "research.model_fallback", from_model: model, to_model: nextModel, message: `Falling back to ${nextModel} after ${model} failed.` });
-    }
+    if (models[modelIndex + 1]) { console.warn(`[research] Gemini model ${model} failed (${message}); failing over to ${models[modelIndex + 1]}.`); onActivity?.({ type: "research.model_fallback", from_model: model, to_model: models[modelIndex + 1], message: `Falling back to ${models[modelIndex + 1]} after ${model} failed.` }); }
   }
   throw lastError || new Error("All configured Gemini research models failed.");
 }
