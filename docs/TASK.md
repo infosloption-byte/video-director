@@ -191,17 +191,17 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [ ] Keep Advanced Video Editor layout behavior unchanged
 
 ### Phase R2 — Research progress & activity UX
-- [ ] Replace/augment the dense progress presentation with a clear research pipeline: planning → discovering → reading → verifying → resolving → synthesizing → ready
-- [ ] Clearly distinguish current activity from completed activity history
-- [ ] Improve loading, retry, failed-source, and partial-completion states
-- [ ] Surface useful progress context without overwhelming the user
+- [x] Replace/augment the dense progress presentation with a clear research pipeline: planning → discovering → reading → verifying → resolving → synthesizing → ready
+- [x] Clearly distinguish current activity from completed activity history
+- [x] Improve loading, retry, failed-source, and partial-completion states
+- [x] Surface useful progress context without overwhelming the user
 
 ### Phase R3 — Evidence & trust UX
-- [ ] Make finding confidence, evidence strength, and verification status immediately understandable
-- [ ] Improve evidence inspector hierarchy around claim → confidence → supporting passages → sources → conflicts
-- [ ] Make unread/unavailable/contradictory evidence visibly unverified
-- [ ] Improve source quality presentation across authority, evidence quality, relevance, recency, independence, and transparency
-- [ ] Ensure unsupported claims never visually read as established facts
+- [x] Make finding confidence, evidence strength, and verification status immediately understandable
+- [x] Improve evidence inspector hierarchy around claim → confidence → supporting passages → sources → conflicts
+- [x] Make unread/unavailable/contradictory evidence visibly unverified
+- [x] Improve source quality presentation across authority, evidence quality, relevance, recency, independence, and transparency
+- [x] Ensure unsupported claims never visually read as established facts
 
 ### Phase R4 — Workspace actions & downstream flow
 - [ ] Make Ask Helix, follow-up, rerun, regenerate, and conflict-resolution actions clearer and less competing
@@ -278,5 +278,7 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-06` — M17 research memory now persists the complete normalized corpus, supports corpus-grounded follow-up questions, focused reruns that retain prior sessions, and brief regeneration without repeating external research.
 - `2026-09-06` — M17 research conflict review and provenance metrics are exposed in the Research workspace with protected APIs.
 - `2026-09-07` — M17R Research Workspace Refinement added as the next focused workstream. Refinement prioritizes information hierarchy, progress/activity clarity, evidence trust UX, downstream actions, responsive/accessibility QA, and runtime acceptance before M16.
+- `2026-09-08` — M17R R2 compacted the live research pipeline and activity history so progress remains visible without dominating the workspace.
+- `2026-09-08` — M17R R3 strengthened finding trust hierarchy, separated verification confidence from model confidence/evidence strength, made unread sources explicitly non-evidence, and exposed six source-quality dimensions in the evidence inspector.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
