@@ -117,7 +117,7 @@ export default function PlatformShell({ children }) {
     <aside className="platform-sidebar" aria-label="Platform navigation">
       <div className="platform-sidebar__top">
         <Link to="/" className="platform-brand" onClick={handleBrandClick} aria-label={collapsed ? "Expand sidebar" : "Helix workspace"} title={collapsed ? "Expand sidebar" : "Helix workspace"}><span className="platform-brand__mark">X</span><span className="platform-brand__name">Helix</span></Link>
-        <button type="button" className="platform-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"><span aria-hidden="true">{collapsed ? "›" : "‹"}</span></button>
+        <button type="button" className="platform-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}><span aria-hidden="true">{collapsed ? "›" : "‹"}</span></button>
       </div>
       <nav className="platform-nav">
         <div className="platform-nav__group">{visibleNav.map(renderNavItem)}</div>
