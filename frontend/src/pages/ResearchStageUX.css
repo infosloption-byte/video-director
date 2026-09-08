@@ -7,6 +7,23 @@
 .research-progress__step { min-height: 46px; padding: 0 10px; gap: 8px; }
 .research-progress__marker { width: 24px; height: 24px; }
 
+/* M17R: live work stays compact; history remains available on demand. */
+.research-brief__activity-history { margin: 0 auto 18px; max-width:1120px; border:1px solid var(--border-soft); border-radius:var(--radius-lg); background:var(--surface); overflow:hidden; }
+.research-brief__activity-history summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 12px; cursor:pointer; list-style:none; }
+.research-brief__activity-history summary::-webkit-details-marker { display:none; }
+.research-brief__activity-history summary:hover { background:var(--card); }
+.research-brief__activity-history summary > span:first-child { min-width:0; display:grid; gap:2px; }
+.research-brief__activity-history summary strong { color:var(--ink); font-size:11px; }
+.research-brief__activity-history summary span span { color:var(--muted); font-size:9px; line-height:1.35; }
+.research-brief__activity-history summary > span:last-child { flex:0 0 auto; color:var(--muted); font:9px var(--font-mono); text-transform:uppercase; letter-spacing:.05em; }
+.research-brief__activity { border-top:1px solid var(--border-soft); padding:8px 12px; }
+.research-brief__activity [role="log"] { display:grid; gap:0; }
+.research-brief__activity article { display:grid; grid-template-columns:170px minmax(0,1fr) auto; align-items:center; gap:10px; min-width:0; padding:7px 0; border-bottom:1px solid var(--border-soft); }
+.research-brief__activity article:last-child { border-bottom:0; }
+.research-brief__activity article > span { color:var(--muted); font-size:9px; text-transform:uppercase; letter-spacing:.04em; }
+.research-brief__activity article strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--body); font-size:10px; font-weight:500; }
+.research-brief__activity article small { color:var(--muted); font:9px var(--font-mono); white-space:nowrap; }
+
 /* M17R: the completed state is a report, not a technical dashboard. */
 .research-report { max-width: 1120px; margin: 0 auto 72px; padding: 12px 0 48px; }
 .research-report__hero { display:flex; align-items:flex-start; justify-content:space-between; gap:28px; padding:24px 0 22px; border-top:1px solid var(--border-soft); border-bottom:1px solid var(--border-soft); }
@@ -134,6 +151,7 @@
   .research-report__source-chevron { display:none; }
   .research-report__handoff { align-items:stretch; flex-direction:column; }
   .research-report__handoff-actions { justify-content:flex-end; }
+  .research-brief__activity article { grid-template-columns:145px minmax(0,1fr) auto; }
 }
 
 @media (max-width:640px) {
@@ -154,6 +172,11 @@
   .research-report__handoff-actions { display:grid; grid-template-columns:1fr; }
   .research-report__handoff-actions .btn { width:100%; }
   .research-detail-drawer,.research-assistant-drawer { padding:14px; }
+  .research-brief__activity-history summary { align-items:flex-start; }
+  .research-brief__activity article { grid-template-columns:1fr auto; gap:3px 8px; }
+  .research-brief__activity article > span { grid-column:1 / -1; }
+  .research-brief__activity article strong { grid-column:1; white-space:normal; }
+  .research-brief__activity article small { grid-column:2; grid-row:2; }
 }
 
 @media (prefers-reduced-motion:reduce) {
