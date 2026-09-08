@@ -1,4 +1,6 @@
 .research-trust { color:var(--body); }
+
+/* R3: make trust state readable before the user reaches the detailed passage list. */
 .research-trust__claim { display:grid; grid-template-columns:150px minmax(0,1fr); gap:14px; margin-top:14px; padding:12px; border:1px solid var(--border-soft); border-radius:var(--radius-lg); background:var(--card); }
 .research-trust__claim--unverified,.research-trust__claim--pending,.research-trust__claim--evidence_linked { border-style:dashed; }
 .research-trust__claim--corroborated,.research-trust__claim--verified { background:var(--surface); }
@@ -24,6 +26,8 @@
 .research-trust__metric-grid div > span { color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.04em; }
 .research-trust__compare-card--unread { border-style:dashed; }
 .research-trust__unread-note { margin:0 !important; padding:7px 8px; border-left:2px solid var(--border-soft); color:var(--muted) !important; font-size:10px !important; }
+
+/* Finding cards: trust is signaled by the existing verification class instead of color-heavy badges. */
 .research-report__finding { position:relative; }
 .research-report__finding::before { content:""; position:absolute; left:0; top:18px; bottom:18px; width:2px; background:var(--border-soft); }
 .research-report__finding:has(.research-report__verification--corroborated)::before,
@@ -38,6 +42,8 @@
 .research-report__finding-meta > span:first-child { color:var(--ink-dim); font-weight:600; }
 .research-report__finding-meta > span:nth-child(2),
 .research-report__finding-meta > span:nth-child(3) { color:var(--muted); }
+
+/* Source rows make inaccessible sources visibly different without implying failure is evidence. */
 .research-report__source:has(.research-report__status--failed) summary,
 .research-report__source:has(.research-report__status--http-403) summary,
 .research-report__source:has(.research-report__status--http-404) summary,
@@ -48,6 +54,7 @@
 .research-report__source:has(.research-report__status--http-404) .research-report__status,
 .research-report__source:has(.research-report__status--empty) .research-report__status,
 .research-report__source:has(.research-report__status--non-text) .research-report__status { border-style:dashed; }
+
 @media (max-width:760px) {
   .research-trust__claim { grid-template-columns:1fr; }
   .research-trust__claim-status { padding:0 0 8px; border-right:0; border-bottom:1px solid var(--border-soft); }
@@ -55,9 +62,13 @@
   .research-trust__confidence-card:last-child { grid-column:1 / -1; }
   .research-trust__metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
 @media (max-width:520px) {
   .research-trust__confidence-grid { grid-template-columns:1fr; }
   .research-trust__confidence-card:last-child { grid-column:auto; }
   .research-trust__metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
-@media (prefers-reduced-motion:reduce) { .research-report__finding-card { transition:none; } }
+
+@media (prefers-reduced-motion:reduce) {
+  .research-report__finding-card { transition:none; }
+}

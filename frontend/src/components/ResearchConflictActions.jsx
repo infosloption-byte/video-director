@@ -44,7 +44,6 @@ export default function ResearchConflictActions({ projectId }) {
       setOpenId(null);
       setResolution("");
       setMessage(status === "adjudicated" ? "Conflict marked adjudicated and saved." : "Conflict remains unresolved and the note was saved.");
-      window.setTimeout(() => window.location.reload(), 700);
     } catch (error) {
       setMessage(error.message || "Failed to update the research conflict.");
     } finally {
