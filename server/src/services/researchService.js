@@ -28,7 +28,7 @@ export async function researchSignal(signal, { onProgress, onActivity } = {}) {
     verification_score: verification.summary.average_claim_confidence,
     traceability_score: verification.summary.traceability_score,
   };
-  onProgress?.("ready", 100);
+  onProgress?.("synthesizing", 96);
   return {
     ...evidenceLinkedBrief,
     verification: mergedVerification,

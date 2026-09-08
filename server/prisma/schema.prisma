@@ -103,7 +103,7 @@ model Project {
 }
 
 model ResearchSession {
-  id          String            @id @default(uuid())
+  id          String @db.VarChar(64)            @id @default(uuid())
   projectId   String            @map("project_id")
   version     Int               @default(1)
   status      String            @db.VarChar(40)
@@ -123,7 +123,7 @@ model ResearchSession {
 }
 
 model ResearchPlan {
-  id             String          @id @default(uuid())
+  id             String @db.VarChar(64)          @id @default(uuid())
   sessionId      String          @unique @map("session_id")
   lanes          Json
   queriesPlanned Int             @default(0) @map("queries_planned")
@@ -135,14 +135,14 @@ model ResearchPlan {
 }
 
 model ResearchSource {
-  id                  String                @id @default(uuid())
-  sessionId           String                @map("session_id")
+  id                  String @db.VarChar(64)                @id @default(uuid())
+  sessionId           String @db.VarChar(64)                @map("session_id")
   sourceIndex         Int                   @map("source_index")
   url                 String                @db.Text
   canonicalUrl        String?               @map("canonical_url") @db.Text
   title               String?               @db.Text
   publisher           String?
-  sourceClass         String?               @map("source_class") @db.VarChar(60)
+  sourceClass         String?               @map("source_class") @db.VarChar(50)
   reliability         String?               @db.VarChar(60)
   publishedAt         DateTime?             @map("published_at")
   retrievedAt         DateTime              @default(now()) @map("retrieved_at")
@@ -166,9 +166,9 @@ model ResearchSource {
 }
 
 model ResearchEvidence {
-  id            String                   @id @default(uuid())
-  sessionId     String                   @map("session_id")
-  sourceId      String                   @map("source_id")
+  id            String @db.VarChar(64)                   @id @default(uuid())
+  sessionId     String @db.VarChar(64)                   @map("session_id")
+  sourceId      String @db.VarChar(64)                   @map("source_id")
   evidenceIndex Int                      @map("evidence_index")
   passageText   String                   @db.Text
   startOffset   Int?                     @map("start_offset")
@@ -186,8 +186,8 @@ model ResearchEvidence {
 }
 
 model ResearchClaim {
-  id                 String                 @id @default(uuid())
-  sessionId          String                 @map("session_id")
+  id                 String @db.VarChar(64)                 @id @default(uuid())
+  sessionId          String @db.VarChar(64)                 @map("session_id")
   claimIndex         Int                    @map("claim_index")
   claimText          String                 @db.Text
   evidenceLevel      String?                @map("evidence_level") @db.VarChar(50)
@@ -208,8 +208,8 @@ model ResearchClaim {
 }
 
 model ResearchClaimSource {
-  claimId  String         @map("claim_id")
-  sourceId String         @map("source_id")
+  claimId  String @db.VarChar(64)         @map("claim_id")
+  sourceId String @db.VarChar(64)         @map("source_id")
   claim    ResearchClaim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
   source   ResearchSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
@@ -219,8 +219,8 @@ model ResearchClaimSource {
 }
 
 model ResearchClaimEvidence {
-  claimId    String           @map("claim_id")
-  evidenceId String           @map("evidence_id")
+  claimId    String @db.VarChar(64)           @map("claim_id")
+  evidenceId String @db.VarChar(64)           @map("evidence_id")
   claim      ResearchClaim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
   evidence   ResearchEvidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
 
@@ -230,7 +230,7 @@ model ResearchClaimEvidence {
 }
 
 model ResearchVerification {
-  id                   String        @id @default(uuid())
+  id                   String @db.VarChar(64)        @id @default(uuid())
   claimId              String        @unique @map("claim_id")
   corroborationScore   Int           @default(0) @map("corroboration_score")
   contradictionScore   Int           @default(0) @map("contradiction_score")
@@ -251,10 +251,10 @@ model ResearchVerification {
 }
 
 model ResearchConflict {
-  id           String         @id @default(uuid())
-  sessionId    String         @map("session_id")
-  leftClaimId  String         @map("left_claim_id")
-  rightClaimId String         @map("right_claim_id")
+  id           String @db.VarChar(64)         @id @default(uuid())
+  sessionId    String @db.VarChar(64)         @map("session_id")
+  leftClaimId  String @db.VarChar(64)         @map("left_claim_id")
+  rightClaimId String @db.VarChar(64)         @map("right_claim_id")
   overlapScore Int            @map("overlap_score")
   reason       String         @db.Text
   resolution   String?        @db.Text

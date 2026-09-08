@@ -108,8 +108,25 @@ export default function ResearchPage() {
 
   useEffect(() => {
     if (project?.researchStatus !== "ready") return undefined;
-    loadGraph().catch(() => {}).finally(() => {});
-    return () => {};
+    let stopped = false;
+    let attempt = 0;
+    async function loadGraphWithRetry() {
+      try {
+        await loadGraph();
+      } catch (err) {
+        if (stopped) return;
+        attempt += 1;
+        // The research corpus can take a moment to finish persisting right after
+        // the job reports "ready". Retry briefly before surfacing an error.
+        if (attempt <= 5) {
+          window.setTimeout(loadGraphWithRetry, 800);
+        } else {
+          setError(err.message || "Failed to load research evidence.");
+        }
+      }
+    }
+    void loadGraphWithRetry();
+    return () => { stopped = true; };
   }, [id, project?.researchStatus]);
 
   const researchStatus = project?.researchStatus;
