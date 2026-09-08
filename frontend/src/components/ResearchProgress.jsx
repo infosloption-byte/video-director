@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IconArrowLeft, IconCheck } from "./Icons";
+import ResearchConflictActions from "./ResearchConflictActions";
 import "./ResearchProgress.css";
+import "./ResearchConflictActions.css";
 
 const STEPS = [
   ["planning", "Planning", "Breaking the topic into answerable evidence questions."],
@@ -119,24 +121,27 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
       </div>
 
       {effectiveStatus === "ready" && resolvedProjectId && (
-        <div className="research-progress__ready-actions" aria-label="Research next actions">
-          <button className="btn btn-cream research-progress__primary-action" type="button" onClick={() => navigate(`/storyboard/${resolvedProjectId}?stage=setup`)}>Continue to Storyboard →</button>
-          <div className="research-progress__secondary-actions">
-            <button className="btn btn-ghost" type="button" onClick={() => void runReportAction("regenerate")} disabled={Boolean(actionBusy)}>{actionBusy === "regenerate" ? "Regenerating…" : "Regenerate brief"}</button>
-            <button className="btn btn-ghost" type="button" onClick={() => setFocusedRerunOpen((value) => !value)} disabled={Boolean(actionBusy)} aria-expanded={focusedRerunOpen}>Focused rerun</button>
+        <>
+          <div className="research-progress__ready-actions" aria-label="Research next actions">
+            <button className="btn btn-cream research-progress__primary-action" type="button" onClick={() => navigate(`/storyboard/${resolvedProjectId}?stage=setup`)}>Continue to Storyboard →</button>
+            <div className="research-progress__secondary-actions">
+              <button className="btn btn-ghost" type="button" onClick={() => void runReportAction("regenerate")} disabled={Boolean(actionBusy)}>{actionBusy === "regenerate" ? "Regenerating…" : "Regenerate brief"}</button>
+              <button className="btn btn-ghost" type="button" onClick={() => setFocusedRerunOpen((value) => !value)} disabled={Boolean(actionBusy)} aria-expanded={focusedRerunOpen}>Focused rerun</button>
+            </div>
+            {focusedRerunOpen && (
+              <form className="research-progress__rerun-form" onSubmit={handleFocusedRerun}>
+                <label htmlFor="research-rerun-focus">Research focus</label>
+                <div>
+                  <input id="research-rerun-focus" value={focus} onChange={(event) => setFocus(event.target.value)} maxLength={400} placeholder="e.g. focus on recent evidence or a disputed mechanism" disabled={Boolean(actionBusy)} />
+                  <button className="btn btn-cream" type="submit" disabled={Boolean(actionBusy) || !focus.trim()}>{actionBusy === "rerun" ? "Starting…" : "Run focus"}</button>
+                </div>
+                <span>Creates a new focused research session while retaining earlier persisted sessions.</span>
+              </form>
+            )}
+            {actionMessage && <p className="research-progress__action-message" role="status">{actionMessage}</p>}
           </div>
-          {focusedRerunOpen && (
-            <form className="research-progress__rerun-form" onSubmit={handleFocusedRerun}>
-              <label htmlFor="research-rerun-focus">Research focus</label>
-              <div>
-                <input id="research-rerun-focus" value={focus} onChange={(event) => setFocus(event.target.value)} maxLength={400} placeholder="e.g. focus on recent evidence or a disputed mechanism" disabled={Boolean(actionBusy)} />
-                <button className="btn btn-cream" type="submit" disabled={Boolean(actionBusy) || !focus.trim()}>{actionBusy === "rerun" ? "Starting…" : "Run focus"}</button>
-              </div>
-              <span>Creates a new focused research session while retaining earlier persisted sessions.</span>
-            </form>
-          )}
-          {actionMessage && <p className="research-progress__action-message" role="status">{actionMessage}</p>}
-        </div>
+          <ResearchConflictActions projectId={resolvedProjectId} />
+        </>
       )}
 
       {running && resolvedProjectId && <div className="research-progress__stop"><button className="btn btn-ghost" type="button" onClick={stopResearch} disabled={stopping}>{stopping ? "Stopping research…" : "Stop research"}</button><span>Stop now and retry this research run later.</span></div>}
