@@ -105,7 +105,7 @@ export default function ResearchFindingInspector({ finding, claim, evidence = []
     <aside className="research-brief__evidence-inspector research-trust" aria-labelledby="research-evidence-inspector-title">
       <div className="research-brief__inspector-head">
         <div><p className="eyebrow">Evidence inspection</p><h3 id="research-evidence-inspector-title">How this finding is supported</h3></div>
-        <button type="button" className="btn btn-ghost" onClick={onClose} aria-label="Close evidence inspection">Close</button>
+        <button autoFocus type="button" className="btn btn-ghost" onClick={onClose} aria-label="Close evidence inspection">Close</button>
       </div>
 
       <div className={`research-trust__claim research-trust__claim--${status}`}>
