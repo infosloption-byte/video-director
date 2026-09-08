@@ -30,11 +30,11 @@ export default function ResearchAssistantPanel({ projectId }) {
     }
   }
 
-  return <aside className="research-assistant" aria-label="Research assistant">
+  return <aside className="research-assistant" aria-labelledby="research-assistant-title">
     <div className="research-assistant__head">
       <div>
         <p className="eyebrow">Research assistant</p>
-        <h2>Ask Helix</h2>
+        <h2 id="research-assistant-title">Ask Helix</h2>
       </div>
       <span className="research-assistant__status">Research corpus</span>
     </div>
