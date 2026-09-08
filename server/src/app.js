@@ -4,6 +4,7 @@ import path from "node:path";
 import signalsRouter from "./routes/signals.js";
 import projectsRouter from "./routes/projects.js";
 import researchRouter from "./routes/research.js";
+import researchControlRouter from "./routes/researchControl.js";
 import projectDeleteRouter from "./routes/projectDelete.js";
 import editorRouter from "./routes/editor.js";
 import productivityRouter from "./routes/productivity.js";
@@ -45,6 +46,7 @@ app.use("/api/projects", editorRouter);
 app.use("/api/projects", productivityRouter);
 app.use("/api/projects", mediaRouter);
 app.use("/api/projects", mediaProxyRouter);
+app.use("/api/projects", researchControlRouter);
 app.use("/api/projects", researchRouter);
 app.use("/api/projects", projectsRouter);
 
