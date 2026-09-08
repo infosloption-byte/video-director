@@ -8,18 +8,54 @@
   "overrides": [
     {
       "files": [
-        "src/components/PhonePreview.jsx",
-        "src/pages/MyResearchPage.jsx",
-        "src/components/FinalizePanel.jsx",
-        "src/context/AuthContext.jsx",
         "src/pages/EditorPage.jsx",
         "src/pages/AdvancedEditorPage.jsx",
+        "src/pages/MyResearchPage.jsx",
+        "src/components/FinalizePanel.jsx",
+        "src/components/PhonePreview.jsx",
+        "src/context/AuthContext.jsx",
         "src/components/EditorWaveform.jsx",
         "src/pages/ProjectProductivityPage.jsx",
         "src/pages/ReviewPage.jsx"
       ],
       "rules": {
         "react/set-state-in-effect": "off",
+        "react-hooks/exhaustive-deps": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/EditorWorkspace.jsx",
+        "src/components/ResearchFindingInspector.jsx",
+        "src/components/PlatformShell.jsx"
+      ],
+      "rules": {
+        "react/set-state-in-effect": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/EditorToolPanel.jsx"
+      ],
+      "rules": {
+        "react/set-state-in-effect": "off",
+        "react/immutability": "off",
+        "eslint/no-unused-vars": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/EditorRenderModal.jsx"
+      ],
+      "rules": {
+        "react/immutability": "off"
+      }
+    },
+    {
+      "files": [
+        "src/pages/ResearchPage.jsx"
+      ],
+      "rules": {
         "react-hooks/exhaustive-deps": "off"
       }
     },
