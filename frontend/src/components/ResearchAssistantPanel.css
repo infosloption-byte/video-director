@@ -32,7 +32,7 @@
   flex-direction: column;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
-  background: var(--surface);
+  background: var(--card);
   overflow: hidden;
 }
 
@@ -103,7 +103,7 @@
   border-radius: var(--radius-lg);
 }
 
-.research-assistant__message--user { background: var(--card); }
+.research-assistant__message--user { background: var(--bg-raised); }
 
 .research-assistant__message-role {
   display: block;
@@ -204,7 +204,7 @@
 
 .research-assistant__form textarea:focus {
   border-color: var(--border);
-  background: var(--surface);
+  background: var(--bg-raised);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
