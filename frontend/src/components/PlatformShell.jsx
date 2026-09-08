@@ -5,8 +5,8 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import "./PlatformShell.css";
 
 const NAV = [
-  { label: "Signals", icon: "⌁", path: "/" },
-  { label: "My Research", icon: "▦", path: "/my-research", authOnly: true },
+  { label: "Signals", icon: "Signals", path: "/" },
+  { label: "My Research", icon: "My Research", path: "/my-research", authOnly: true },
 ];
 
 export default function PlatformShell({ children }) {
@@ -68,12 +68,12 @@ export default function PlatformShell({ children }) {
   }, [accountMenuOpen]);
 
   const workspaceNav = user && projectId ? [
-    { label: "Research", icon: "◌", path: `/research/${projectId}` },
-    { label: "Storyboard", icon: "▤", path: `/storyboard/${projectId}` },
-    { label: "Advanced Editor", icon: "✦", path: `/editor/${projectId}` },
+    { label: "Research", icon: "Research", path: `/research/${projectId}` },
+    { label: "Storyboard", icon: "Storyboard", path: `/storyboard/${projectId}` },
+    { label: "Advanced Editor", icon: "Advanced Editor", path: `/editor/${projectId}` },
   ] : recentProjects.map((project) => ({
     label: project.title || "Untitled research",
-    icon: "◌",
+    icon: "Research",
     path: `/research/${project.id}`,
   }));
 
@@ -117,7 +117,7 @@ export default function PlatformShell({ children }) {
     <aside className="platform-sidebar" aria-label="Platform navigation">
       <div className="platform-sidebar__top">
         <Link to="/" className="platform-brand" onClick={handleBrandClick} aria-label={collapsed ? "Expand sidebar" : "Helix workspace"} title={collapsed ? "Expand sidebar" : "Helix workspace"}><span className="platform-brand__mark">X</span><span className="platform-brand__name">Helix</span></Link>
-        <button type="button" className="platform-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}><span aria-hidden="true">{collapsed ? "›" : "‹"}</span></button>
+        <button type="button" className="platform-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"><span aria-hidden="true">{collapsed ? "›" : "‹"}</span></button>
       </div>
       <nav className="platform-nav">
         <div className="platform-nav__group">{visibleNav.map(renderNavItem)}</div>
