@@ -1,9 +1,10 @@
 import { deepResearchSignal } from "./deepResearchService.js";
 import { verifyResearchBrief } from "./researchVerificationService.js";
 import { adjudicateResearchConflicts, attachEvidenceIndexes } from "./researchAdjudicationService.js";
+import { normalizeResearchBrief } from "./researchNormalization.js";
 
 export async function researchSignal(signal, { onProgress, onActivity } = {}) {
-  const rawBrief = await deepResearchSignal(signal, { onProgress, onActivity });
+  const rawBrief = normalizeResearchBrief(await deepResearchSignal(signal, { onProgress, onActivity }));
   const evidenceLinkedBrief = attachEvidenceIndexes(rawBrief);
   onProgress?.("verifying", 88);
   onActivity?.({ type: "verification.completed", message: "Source traceability and claim verification completed." });
