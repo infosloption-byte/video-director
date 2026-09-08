@@ -1,4 +1,4 @@
-.setup-panel { max-width: 920px; margin: 0 auto; }
+.setup-panel { margin: 0; }
 .setup-panel__intro { margin-bottom: 24px; }
 .setup-panel__intro h2 { margin: 6px 0 10px; }
 .setup-panel__intro > p:last-child { max-width: 760px; }

@@ -5,10 +5,12 @@ import PhonePreview from "../components/PhonePreview";
 import StepCard from "../components/StepCard";
 import SetupPanel from "../components/SetupPanel";
 import FinalizePanel from "../components/FinalizePanel";
+import ResearchReport from "../components/ResearchReport";
 import { IconArrowLeft, IconInfo, IconArrowRight, IconCheck } from "../components/Icons";
 import { storyboards } from "../data/signals";
 import "../components/ui.css";
 import "../components/SetupPanel.css";
+import "../pages/ResearchStageUX.css";
 import "./StoryboardPage.css";
 
 const TABS = [
@@ -262,15 +264,7 @@ export default function StoryboardPage() {
             </div>
           </div>
 
-          {tab === "Research" && (
-            <section className="research-brief">
-              <p className="eyebrow">Research brief</p>
-              <h2>What Helix found</h2>
-              <p>{project.research?.summary}</p>
-              {project.research?.sources?.length > 0 && <div><h3>Supporting sources</h3><ul>{project.research.sources.map((source, index) => <li key={`${source.url}-${index}`}><strong>{source.title}</strong><span>{source.note}</span><small>{source.source_reliability}</small></li>)}</ul></div>}
-              <div className="setup-actions"><button className="btn btn-cream" onClick={() => changeTab("Setup")}>Continue to setup <IconArrowRight className="btn-icon" /></button></div>
-            </section>
-          )}
+          {tab === "Research" && <ResearchReport projectId={id} project={project} onContinueSetup={() => changeTab("Setup")} />}
 
           {tab === "Setup" && <SetupPanel projectId={id} onComplete={(updated) => { setProject((current) => ({ ...current, ...updated })); changeTab("Storyboard"); }} />}
 

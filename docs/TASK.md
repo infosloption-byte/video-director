@@ -39,7 +39,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Authenticated greeting/My Research/account menu/mobile navigation
 - [x] Persistent light/dark theme and theme toggles
 - [x] Sign-in/sign-up UX and safe redirects
-- [ ] Browser QA at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440
+- [ ] Browser QA at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440 px
 - [ ] Production-auth verification
 - [ ] Remaining hard-coded color audit
 
@@ -208,6 +208,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Add/strengthen a primary “Continue to Storyboard” path after research acceptance
 - [x] Preserve corpus-grounded behavior for Ask Helix, follow-ups, reruns, regeneration, and Storyboard handoff
 - [x] Make the Research → Setup → Storyboard lineage explicit in the guided setup UI: the same persisted research corpus remains the factual foundation while setup controls presentation choices
+- [x] Keep the Storyboard Research stage aligned with the dedicated Research report so both entry points expose the same persisted research details
 
 ### Phase R5 — Responsive & accessibility QA
 - [ ] Validate Research at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440 px
@@ -285,5 +286,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-08` — M17R R3 strengthened finding trust hierarchy, separated verification confidence from model confidence/evidence strength, made unread sources explicitly non-evidence, and exposed six source-quality dimensions in the evidence inspector.
 - `2026-09-08` — M17R R4 clarified accepted-report actions, added a primary Continue to Storyboard path, exposed focused rerun and brief regeneration controls, and added persisted unresolved-conflict review controls.
 - `2026-09-08` — M17R downstream handoff UX now explicitly explains that Setup does not replace or regenerate research: the Storyboard is generated from the same persisted project research corpus, while length/framework/tone/audience control presentation.
+- `2026-09-09` — M17R aligned the Storyboard `stage=research` view with the dedicated Research report, removed the guided setup panel width cap, and gave Ask Helix an explicit opaque surface so research details and assistant interactions remain readable across both entry points.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
