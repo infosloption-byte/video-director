@@ -17,20 +17,21 @@ const STATUS_INDEX = { queued: 0, planning: 0, discovering: 1, reading: 2, verif
 export default function ResearchProgress({ status, progress = 0, stageLabel, stageDetail, error, onBack, onRetry, retrying = false, projectId }) {
   const [stopping, setStopping] = useState(false);
   const [stoppedLocally, setStoppedLocally] = useState(false);
+  const resolvedProjectId = projectId || (typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean).pop() : "");
   const safeProgress = Math.min(100, Math.max(0, Number(progress) || 0));
   const effectiveStatus = stoppedLocally ? "error" : status;
   const effectiveError = stoppedLocally ? "Research was stopped by the user." : error;
   const currentIndex = effectiveStatus === "error" ? Math.min(STEPS.length - 1, Math.max(0, Math.floor(safeProgress / (100 / STEPS.length)))) : (STATUS_INDEX[effectiveStatus] ?? 0);
   const running = !["ready", "error"].includes(effectiveStatus);
   const stopped = effectiveStatus === "error" && /stopped by the user/i.test(effectiveError || "");
-  const currentLabel = stageLabel || (effectiveStatus === "error" ? (stopped ? "Research stopped" : "Research stopped") : effectiveStatus === "ready" ? "Research brief ready" : "Preparing deep research");
+  const currentLabel = stageLabel || (effectiveStatus === "error" ? "Research stopped" : effectiveStatus === "ready" ? "Research brief ready" : "Preparing deep research");
   const currentDetail = stageDetail || (effectiveStatus === "error" ? (stopped ? "The research run was stopped before the evidence brief was completed." : "Helix could not complete the evidence pipeline.") : effectiveStatus === "ready" ? "The evidence-backed brief is ready for guided setup." : "Helix is preparing the evidence pipeline.");
 
   async function stopResearch() {
-    if (!projectId || stopping || !running) return;
+    if (!resolvedProjectId || stopping || !running) return;
     setStopping(true);
     try {
-      const response = await fetch(`/api/projects/${projectId}/research/stop`, { method: "POST", headers: { "Content-Type": "application/json" } });
+      const response = await fetch(`/api/projects/${resolvedProjectId}/research/stop`, { method: "POST", headers: { "Content-Type": "application/json" } });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to stop research.");
       setStoppedLocally(true);
@@ -80,7 +81,7 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
         })}
       </div>
 
-      {running && projectId && <div className="research-progress__stop"><button className="btn btn-ghost" type="button" onClick={stopResearch} disabled={stopping}>{stopping ? "Stopping research…" : "Stop research"}</button><span>Stop now and retry this research run later.</span></div>}
+      {running && resolvedProjectId && <div className="research-progress__stop"><button className="btn btn-ghost" type="button" onClick={stopResearch} disabled={stopping}>{stopping ? "Stopping research…" : "Stop research"}</button><span>Stop now and retry this research run later.</span></div>}
       {effectiveError && <div className="research-progress__error" role="alert"><strong>{stopped ? "Research stopped." : "Research couldn't finish."}</strong><span>{effectiveError}</span><div><button className="btn btn-cream" onClick={onRetry} disabled={retrying || stopping}>{retrying ? "Retrying research…" : "Retry research"}</button><button className="btn btn-ghost" onClick={onBack} disabled={retrying || stopping}>Choose another signal</button></div></div>}
     </section>
   );
