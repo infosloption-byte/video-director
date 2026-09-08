@@ -1,10 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ResearchAssistantPanel({ projectId }) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !busy) {
+        setQuestion("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [busy]);
 
   async function ask(event) {
     event.preventDefault();
@@ -36,25 +46,25 @@ export default function ResearchAssistantPanel({ projectId }) {
         <p className="eyebrow">Research assistant</p>
         <h2>Ask Helix</h2>
       </div>
-      <span className="research-assistant__status">Corpus aware</span>
+      <span className="research-assistant__status">Research corpus</span>
     </div>
-    <p className="research-assistant__intro">Ask anything about this completed research. Helix checks the stored evidence first, then uses Gemini web search when the corpus does not establish an answer.</p>
+    <p className="research-assistant__intro">Ask about this completed research. Helix answers from the stored research corpus first and clearly says when that corpus does not establish an answer.</p>
 
     <div className="research-assistant__messages" aria-live="polite">
       {messages.length === 0 && <div className="research-assistant__empty"><strong>Continue the research</strong><span>Examples: “What evidence is strongest?”, “What is still uncertain?”, or “What changed recently?”</span></div>}
       {messages.map((message, index) => <article key={`${message.role}-${index}`} className={`research-assistant__message research-assistant__message--${message.role}`}>
-        <span className="research-assistant__message-role">{message.role === "user" ? "You" : message.searchUsed ? "Helix · web search" : "Helix · research corpus"}</span>
+        <span className="research-assistant__message-role">{message.role === "user" ? "You" : "Helix · research corpus"}</span>
         <p>{message.text}</p>
         {message.evidence?.length > 0 && <div className="research-assistant__evidence"><strong>Supporting evidence</strong>{message.evidence.map((item) => <blockquote key={item.id}>{item.passageText}<small>{item.locator || `Evidence ${Number(item.evidenceIndex) + 1}`}</small></blockquote>)}</div>}
         {message.sources?.length > 0 && <div className="research-assistant__sources"><strong>Web sources</strong>{message.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.title}</a>)}</div>}
       </article>)}
-      {busy && <div className="research-assistant__typing">Helix is checking the research…</div>}
+      {busy && <div className="research-assistant__typing" role="status">Helix is checking the research…</div>}
     </div>
 
-    {error && <p className="research-assistant__error">{error}</p>}
+    {error && <p className="research-assistant__error" role="alert">{error}</p>}
     <form className="research-assistant__form" onSubmit={ask}>
       <textarea aria-label="Ask Helix about this research" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask a question about this research…" rows={3} disabled={busy} />
-      <div className="research-assistant__form-footer"><span>Evidence first · web fallback</span><button className="btn btn-cream" type="submit" disabled={busy || !question.trim()}>{busy ? "Thinking…" : "Ask Helix"}</button></div>
+      <div className="research-assistant__form-footer"><span>Stored research corpus · no new search</span><button className="btn btn-cream" type="submit" disabled={busy || !question.trim()}>{busy ? "Thinking…" : "Ask Helix"}</button></div>
     </form>
   </aside>;
 }
