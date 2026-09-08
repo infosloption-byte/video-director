@@ -207,6 +207,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Make Ask Helix, follow-up, rerun, regenerate, and conflict-resolution actions clearer and less competing
 - [x] Add/strengthen a primary “Continue to Storyboard” path after research acceptance
 - [x] Preserve corpus-grounded behavior for Ask Helix, follow-ups, reruns, regeneration, and Storyboard handoff
+- [x] Make the Research → Setup → Storyboard lineage explicit in the guided setup UI: the same persisted research corpus remains the factual foundation while setup controls presentation choices
 
 ### Phase R5 — Responsive & accessibility QA
 - [ ] Validate Research at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440 px
@@ -223,6 +224,8 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [ ] Verify Ask Helix answers only from persisted research corpus and clearly marks unsupported answers
 - [ ] Verify focused rerun retains prior corpus and regeneration does not repeat external research unnecessarily
 - [ ] Verify Storyboard receives only readable, non-unverified research grounding
+- [x] Add automated acceptance contracts for corpus-only Ask Helix behavior, Storyboard grounding filters, rerun/regeneration retention, research memory/metrics/conflict APIs, and polling terminal-state guards
+- [x] Add branch CI workflow for server tests plus frontend lint/build; live/browser runtime acceptance remains intentionally unmarked until a real runtime run is available
 
 **Refinement order:** R1 → R2 → R3 → R4 → R5 → R6.
 
@@ -281,5 +284,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-08` — M17R R2 compacted the live research pipeline and activity history so progress remains visible without dominating the workspace.
 - `2026-09-08` — M17R R3 strengthened finding trust hierarchy, separated verification confidence from model confidence/evidence strength, made unread sources explicitly non-evidence, and exposed six source-quality dimensions in the evidence inspector.
 - `2026-09-08` — M17R R4 clarified accepted-report actions, added a primary Continue to Storyboard path, exposed focused rerun and brief regeneration controls, and added persisted unresolved-conflict review controls.
+- `2026-09-08` — M17R downstream handoff UX now explicitly explains that Setup does not replace or regenerate research: the Storyboard is generated from the same persisted project research corpus, while length/framework/tone/audience control presentation.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
