@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ResearchFindingInspector from "./ResearchFindingInspector";
 import ResearchAssistantPanel from "./ResearchAssistantPanel";
 import "./ResearchAssistantPanel.css";
@@ -46,14 +46,14 @@ export default function ResearchReport({ projectId, project, onContinueSetup }) 
   const [selectedFinding, setSelectedFinding] = useState(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
 
-  async function loadGraph() {
+  const loadGraph = useCallback(async () => {
     const response = await fetch(`/api/projects/${projectId}/research/graph`, { cache: "no-store" });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Failed to load saved evidence details.");
     setGraph(data.session || null);
-  }
+  }, [projectId]);
 
-  async function retryGraph() {
+  const retryGraph = useCallback(async () => {
     if (graphLoading) return;
     setGraphLoading(true);
     setGraphError("");
@@ -64,7 +64,7 @@ export default function ResearchReport({ projectId, project, onContinueSetup }) 
     } finally {
       setGraphLoading(false);
     }
-  }
+  }, [graphLoading, loadGraph]);
 
   useEffect(() => {
     let stopped = false;
@@ -94,7 +94,7 @@ export default function ResearchReport({ projectId, project, onContinueSetup }) 
       stopped = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [projectId, project?.researchStatus]);
+  }, [loadGraph, project?.researchStatus]);
 
   const research = project?.research;
   const deep = research?.sources && typeof research.sources === "object" && !Array.isArray(research.sources)
@@ -137,16 +137,20 @@ export default function ResearchReport({ projectId, project, onContinueSetup }) 
   const inspectedClaim = selectedFinding
     ? verifiedClaims.find((claim) => normalizeClaimText(claim.claimText) === normalizeClaimText(selectedFinding.claim))
     : null;
-  const selectedEvidence = useMemo(() => {
-    if (!selectedFinding) return [];
-    if (inspectedClaim?.evidenceLinks?.length) return inspectedClaim.evidenceLinks.map((link) => link.evidence).filter(Boolean);
-    return (selectedFinding.evidence_indexes || []).map((index) => graphEvidence.find((item) => Number(item.evidenceIndex) === Number(index))).filter(Boolean);
-  }, [selectedFinding, inspectedClaim, graphEvidence]);
-  const selectedSources = useMemo(() => {
-    if (!selectedFinding) return [];
-    if (inspectedClaim?.sourceLinks?.length) return inspectedClaim.sourceLinks.map((link) => link.source).filter(Boolean);
-    return (selectedFinding.source_indexes || []).map((index) => sources.find((source) => Number(source.sourceIndex) === Number(index))).filter(Boolean);
-  }, [selectedFinding, inspectedClaim, sources]);
+  const selectedEvidence = !selectedFinding
+    ? []
+    : inspectedClaim?.evidenceLinks?.length
+      ? inspectedClaim.evidenceLinks.map((link) => link.evidence).filter(Boolean)
+      : (selectedFinding.evidence_indexes || [])
+        .map((index) => graphEvidence.find((item) => Number(item.evidenceIndex) === Number(index)))
+        .filter(Boolean);
+  const selectedSources = !selectedFinding
+    ? []
+    : inspectedClaim?.sourceLinks?.length
+      ? inspectedClaim.sourceLinks.map((link) => link.source).filter(Boolean)
+      : (selectedFinding.source_indexes || [])
+        .map((index) => sources.find((source) => Number(source.sourceIndex) === Number(index)))
+        .filter(Boolean);
 
   if (!project) return null;
 
