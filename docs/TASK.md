@@ -230,6 +230,43 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 
 **Refinement order:** R1 → R2 → R3 → R4 → R5 → R6.
 
+## M18 — User-Directed Research Conversation
+**Status:** In progress
+
+**Goal:** let users start from their own topic on Signals, investigate through a NotebookLM-style evidence-grounded conversation, and then hand the accumulated research context into the existing Research → Setup → Storyboard flow. This is an interaction layer over the existing deep-research mechanism, not a separate chatbot/research engine.
+
+### Phase 1 — Signals entry & conversation workspace
+- [x] Add “Research your own topic” entry alongside platform-discovered Signals
+- [x] Add protected `/research/new` topic entry screen
+- [x] Add protected `/research-conversation/:id` workspace with chat + working research memory
+- [x] Add responsive chat composer, source links, evidence indicators, and research-state messaging
+- [ ] Browser QA for desktop/tablet/mobile conversation layout
+
+### Phase 2 — Shared research mechanism
+- [x] Create user-directed research project through the existing Project/ResearchSession pipeline
+- [x] Run the same `researchSignal` deep-research mechanism for the initial user topic
+- [x] Persist the conversation alongside the research brief/corpus
+- [x] Ground follow-up questions with the persisted ResearchSession evidence/claims
+- [x] Add targeted follow-up research for knowledge gaps rather than corpus-only answers
+- [x] Add streamed per-message research activity and source discovery UI
+
+### Phase 3 — Brief handoff
+- [x] Expose “Build brief & continue” from the conversation workspace
+- [x] Reuse the existing Research report as the handoff destination
+- [ ] Promote conversation questions/direction into an explicit downstream research brief section
+- [ ] Verify Setup consumes the same persisted corpus without triggering unnecessary duplicate research
+- [ ] Verify Storyboard receives only verified/readable evidence from the conversation-backed project
+
+### Phase 4 — Trust & acceptance
+- [x] Clearly state that chat text is not itself treated as verified fact
+- [x] Keep follow-up answers corpus-grounded
+- [x] Add acceptance coverage for conversation persistence/refresh
+- [x] Add acceptance coverage for unsupported follow-up questions
+- [ ] Add representative-topic runtime QA across science, technology, current events, and controversial topics
+- [ ] Verify ownership, rate limits, and failure recovery for conversation endpoints
+
+**Implementation rule:** Signals-origin research and user-topic research must converge on the same persisted research corpus and downstream Setup/Storyboard pipeline. Do not introduce a generic LLM-only chat path.
+
 ## Cross-milestone quality gates
 - [ ] `npm run lint` — zero warnings/errors
 - [ ] `npm run build` succeeds
@@ -248,18 +285,21 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [ ] M14 end-to-end browser regression
 - [ ] M15 end-to-end browser regression
 - [ ] M17 runtime representative-topic regression
+- [ ] M18 research conversation end-to-end regression
 
 ## Current execution focus
 ```text
-1. M17 runtime acceptance across representative topics
+1. M18 user-directed research conversation implementation
                          ↓
-2. M17R Research Workspace refinement
+2. M17 runtime acceptance across representative topics
                          ↓
-3. Cross-milestone lint/build/browser QA
+3. M17R Research Workspace refinement + responsive/runtime QA
                          ↓
-4. Synchronize BUILD_PLAN.md / FINAL_QA.md
+4. Cross-milestone lint/build/browser QA
                          ↓
-5. Start M16 Publishing/Analytics when approved
+5. Synchronize BUILD_PLAN.md / FINAL_QA.md
+                         ↓
+6. Start M16 Publishing/Analytics when approved
 
 M9 Facebook production → DEFERRED / separate product decision
 ```
@@ -288,5 +328,8 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-08` — M17R downstream handoff UX now explicitly explains that Setup does not replace or regenerate research: the Storyboard is generated from the same persisted project research corpus, while length/framework/tone/audience control presentation.
 - `2026-09-09` — M17R aligned the Storyboard `stage=research` view with the dedicated Research report, removed the guided setup panel width cap, and gave Ask Helix an explicit opaque surface so research details and assistant interactions remain readable across both entry points.
 - `2026-09-09` — M17R R1 visual refinement pass strengthened Research report hierarchy, promoted the executive brief reading surface, reduced visual competition between cards, improved responsive section behavior, and added a shared modern scrollbar treatment without changing the Advanced Video Editor layout.
+- `2026-09-09` — M18 User-Directed Research Conversation approved and started. Signals now provides a second entry path for users to investigate their own topics; the conversation workspace is explicitly an evidence-grounded layer over the existing deep-research corpus and converges on the normal Research → Setup → Storyboard flow.
+- `2026-09-09` — M18 Phase 2 now performs a focused follow-up research pass when the persisted conversation corpus cannot answer a question with sufficient evidence. The new sources/evidence are persisted as a new ResearchSession version while conversation answers continue to search the accumulated project corpus.
+- `2026-09-09` — M18 conversation research now streams per-message activity over SSE, surfaces discovered/reading sources in the live workspace, retains bounded activity snapshots for reconnects, and resolves or fails the pending assistant message when a focused follow-up research pass completes.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
