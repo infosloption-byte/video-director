@@ -8,6 +8,7 @@ import { answerResearchQuestion } from "../services/researchMemoryService.js";
 const router = Router();
 const jobs = new Map();
 const MAX_MESSAGES = 60;
+const MAX_FOLLOWUPS = 30;
 
 function projectView(project) {
   const job = jobs.get(project.id);
@@ -63,6 +64,61 @@ async function runInitialResearch(projectId, signal) {
   }
 }
 
+async function runFollowUpResearch(projectId, question) {
+  const setJob = (status, progress, detail) => jobs.set(projectId, { status, progress, detail });
+  const signal = {
+    id: crypto.randomUUID(),
+    origin: "search",
+    sourceType: "research_conversation",
+    sourceReliability: "general_web",
+    searchQuery: question,
+    category: "TECHNOLOGY",
+    title: question,
+    description: `Targeted research requested from a user-directed research conversation: ${question}`,
+    whyReasoning: "Triggered because the persisted research corpus did not contain sufficiently relevant evidence for the user's follow-up question.",
+    status: "used"
+  };
+  try {
+    setJob("planning", 8, "The existing corpus does not cover this question well enough, so Helix is planning a focused evidence search.");
+    const brief = await researchSignal(signal, {
+      onProgress: (stage, progress) => {
+        const detail = ({
+          planning: "Planning a focused follow-up around the knowledge gap.",
+          discovering: "Searching for sources specific to this unanswered question.",
+          reading: "Reading the most relevant follow-up sources.",
+          verifying: "Checking the new evidence and its source quality.",
+          synthesizing: "Adding the new evidence to the research corpus."
+        })[stage] || "Helix is researching the follow-up question.";
+        setJob(stage, progress, detail);
+      },
+      onActivity: (activity) => {
+        if (activity?.type === "source.read_started") {
+          setJob("reading", 64, `Reading follow-up source: ${activity.title || activity.url || "selected source"}.`);
+        }
+      }
+    });
+    await persistResearchGraph(projectId, brief, { status: "completed" });
+    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { researchSources: true } });
+    const current = project?.researchSources && typeof project.researchSources === "object" ? project.researchSources : {};
+    const followups = Array.isArray(current.research_followups) ? current.research_followups : [];
+    await prisma.project.update({ where: { id: projectId }, data: {
+      researchSources: {
+        ...current,
+        research_followups: [...followups, {
+          question,
+          searchedAt: new Date().toISOString(),
+          sourceCount: Array.isArray(brief.sources) ? brief.sources.length : 0,
+          knowledgeGap: true
+        }].slice(-MAX_FOLLOWUPS)
+      }
+    } });
+    setJob("ready", 100, "Focused research was added to the persisted corpus. You can continue the conversation.");
+  } catch (error) {
+    console.error(`[research-conversation] Follow-up for ${projectId} failed:`, error);
+    setJob("error", jobs.get(projectId)?.progress || 0, error.message || "Follow-up research failed.");
+  }
+}
+
 router.post("/", async (req, res) => {
   try {
     const topic = String(req.body?.topic || "").trim().slice(0, 255);
@@ -105,10 +161,22 @@ router.post("/:id/messages", async (req, res) => {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id } });
     if (!project) return res.status(404).json({ error: "Research conversation not found." });
     const job = jobs.get(project.id);
-    if (!project.researchSummary || (job && job.status !== "ready")) return res.status(409).json({ error: "Helix is still researching this topic. Follow-up questions will be available when the corpus is ready." });
+    if (!project.researchSummary || (job && !["ready", "error"].includes(job.status))) return res.status(409).json({ error: "Helix is still researching this topic. Follow-up questions will be available when the corpus is ready." });
     const question = String(req.body?.question || "").trim().slice(0, 2000);
     if (!question) return res.status(400).json({ error: "A research question is required." });
-    const result = answerResearchQuestion(await loadSession(project.id), question);
+    if (job?.status === "error") jobs.delete(project.id);
+
+    const session = await loadSession(project.id);
+    const result = answerResearchQuestion(session, question);
+    if (!result.grounded) {
+      jobs.set(project.id, { status: "queued", progress: 0, detail: "The existing corpus needs more evidence for this question." });
+      void runFollowUpResearch(project.id, question);
+      const messages = [...getMessages(project).filter((message) => !message.optimistic), { role: "user", content: question }, { role: "assistant", content: "I don't have enough evidence in the current research corpus for that question. I’m doing a focused research pass now rather than guessing. I’ll add the new evidence to this same research memory.", researchPending: true, sources: [], evidence: [] }].slice(-MAX_MESSAGES);
+      const current = project.researchSources && typeof project.researchSources === "object" ? project.researchSources : {};
+      await prisma.project.update({ where: { id: project.id }, data: { researchSources: { ...current, research_conversation: { messages } } } });
+      return res.status(202).json({ question, grounded: false, searchUsed: true, researchPending: true, answer: "I don't have enough evidence in the current research corpus for that question. I’m doing a focused research pass now rather than guessing.", evidence: [], relatedClaims: [], sources: [], messages, activity: jobs.get(project.id) });
+    }
+
     const messages = [...getMessages(project).filter((message) => !message.optimistic), { role: "user", content: question }, { role: "assistant", content: result.answer, sources: result.sources || [], evidence: result.evidence || [] }].slice(-MAX_MESSAGES);
     const current = project.researchSources && typeof project.researchSources === "object" ? project.researchSources : {};
     await prisma.project.update({ where: { id: project.id }, data: { researchSources: { ...current, research_conversation: { messages } } } });
@@ -120,13 +188,22 @@ router.post("/:id/messages", async (req, res) => {
 });
 
 async function loadSession(projectId) {
-  return prisma.researchSession.findFirst({ where: { projectId }, orderBy: { version: "desc" }, include: {
+  const sessions = await prisma.researchSession.findMany({ where: { projectId }, orderBy: { version: "asc" }, include: {
     plan: true,
     sources: { orderBy: { sourceIndex: "asc" } },
     evidence: { orderBy: { evidenceIndex: "asc" } },
     claims: { orderBy: { claimIndex: "asc" }, include: { verification: true, sourceLinks: { include: { source: true } }, evidenceLinks: { include: { evidence: true } } } },
     conflicts: { orderBy: { createdAt: "asc" } }
   } });
+  if (!sessions.length) return null;
+  const latest = sessions[sessions.length - 1];
+  return {
+    ...latest,
+    sources: sessions.flatMap((item) => item.sources || []),
+    evidence: sessions.flatMap((item) => item.evidence || []),
+    claims: sessions.flatMap((item) => item.claims || []),
+    conflicts: sessions.flatMap((item) => item.conflicts || [])
+  };
 }
 
 export default router;
