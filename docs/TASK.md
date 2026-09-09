@@ -233,7 +233,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 ## M18 — User-Directed Research Conversation
 **Status:** In progress
 
-**Goal:** let users start from their own topic on Signals, investigate through a NotebookLM-style evidence-grounded conversation, and then hand the accumulated research context into the existing Research → Setup → Storyboard flow. This is an interaction layer over the existing deep-research mechanism, not a separate research/research engine.
+**Goal:** let users start from their own topic on Signals, investigate through a NotebookLM-style evidence-grounded conversation, and then hand the accumulated research context into the existing Research → Setup → Storyboard flow. This is an interaction layer over the existing deep-research mechanism, not a separate chatbot/research engine.
 
 ### Phase 1 — Signals entry & conversation workspace
 - [x] Add “Research your own topic” entry alongside platform-discovered Signals
@@ -260,8 +260,8 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 ### Phase 4 — Trust & acceptance
 - [x] Clearly state that chat text is not itself treated as verified fact
 - [x] Keep follow-up answers corpus-grounded
-- [ ] Add acceptance coverage for conversation persistence/refresh
-- [ ] Add acceptance coverage for unsupported follow-up questions
+- [x] Add acceptance coverage for conversation persistence/refresh
+- [x] Add acceptance coverage for unsupported follow-up questions
 - [ ] Add representative-topic runtime QA across science, technology, current events, and controversial topics
 - [ ] Verify ownership, rate limits, and failure recovery for conversation endpoints
 
