@@ -10,21 +10,24 @@ const jobs = new Map();
 const MAX_MESSAGES = 60;
 
 function projectView(project) {
+  const job = jobs.get(project.id);
   return {
     id: project.id,
     title: project.title,
     status: project.status,
-    researchStatus: jobs.get(project.id)?.status || (project.researchSummary ? "ready" : "researching"),
-    researchProgress: Number(jobs.get(project.id)?.progress ?? (project.researchSummary ? 100 : 0)),
-    researchStageDetail: jobs.get(project.id)?.detail || null,
+    researchStatus: job?.status || (project.researchSummary ? "ready" : "researching"),
+    researchProgress: Number(job?.progress ?? (project.researchSummary ? 100 : 0)),
+    researchStageDetail: job?.detail || null,
     research: project.researchSources || null,
   };
 }
 
 function getMessages(project) {
   const stored = project.researchSources && typeof project.researchSources === "object" ? project.researchSources.research_conversation : null;
-  if (Array.isArray(stored?.messages)) return stored.messages;
-  return [{ role: "user", content: project.title }];
+  if (Array.isArray(stored?.messages) && stored.messages.length) return stored.messages;
+  const messages = [{ role: "user", content: project.title }];
+  if (project.researchSummary) messages.push({ role: "assistant", content: project.researchSummary, sources: Array.isArray(project.researchSources?.sources) ? project.researchSources.sources.slice(0, 5) : [] });
+  return messages;
 }
 
 async function runInitialResearch(projectId, signal) {
@@ -102,7 +105,7 @@ router.post("/:id/messages", async (req, res) => {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id } });
     if (!project) return res.status(404).json({ error: "Research conversation not found." });
     const job = jobs.get(project.id);
-    if (!project.researchSummary || job?.status !== "ready") return res.status(409).json({ error: "Helix is still researching this topic. Follow-up questions will be available when the corpus is ready." });
+    if (!project.researchSummary || (job && job.status !== "ready")) return res.status(409).json({ error: "Helix is still researching this topic. Follow-up questions will be available when the corpus is ready." });
     const question = String(req.body?.question || "").trim().slice(0, 2000);
     if (!question) return res.status(400).json({ error: "A research question is required." });
     const result = answerResearchQuestion(await loadSession(project.id), question);
