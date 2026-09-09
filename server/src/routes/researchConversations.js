@@ -174,7 +174,7 @@ router.post("/:id/messages", async (req, res) => {
       const messages = [...getMessages(project).filter((message) => !message.optimistic), { role: "user", content: question }, { role: "assistant", content: "I don't have enough evidence in the current research corpus for that question. I’m doing a focused research pass now rather than guessing. I’ll add the new evidence to this same research memory.", researchPending: true, sources: [], evidence: [] }].slice(-MAX_MESSAGES);
       const current = project.researchSources && typeof project.researchSources === "object" ? project.researchSources : {};
       await prisma.project.update({ where: { id: project.id }, data: { researchSources: { ...current, research_conversation: { messages } } } });
-      return res.status(202).json({ question, grounded: false, searchUsed: true, researchPending: true, answer: "I don't have enough evidence in the current research corpus for that question. I’m doing a focused research pass now rather than guessing.", evidence: [], relatedClaims: [], sources: [], messages, activity: jobs.get(project.id) });
+      return res.status(202).json({ question, grounded: false, searchUsed: true, researchPending: true, answer: "I don't have enough evidence in the current research corpus for that question. I’m doing a focused research pass now rather than guessing.", evidence: [], relatedClaims: [], sources: [], messages, activity: jobs.get(project.id), project: projectView(project) });
     }
 
     const messages = [...getMessages(project).filter((message) => !message.optimistic), { role: "user", content: question }, { role: "assistant", content: result.answer, sources: result.sources || [], evidence: result.evidence || [] }].slice(-MAX_MESSAGES);
