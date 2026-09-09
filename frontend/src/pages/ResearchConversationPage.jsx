@@ -10,7 +10,7 @@ function statusLabel(status) {
 }
 
 function sourceLabel(source = {}) {
-  try { return new URL(source.url).hostname.replace(/^www\\./, ""); } catch { return source.url || "Source"; }
+  try { return new URL(source.url).hostname.replace(/^www\./, ""); } catch { return source.url || "Source"; }
 }
 
 export default function ResearchConversationPage() {
@@ -28,18 +28,22 @@ export default function ResearchConversationPage() {
   const reloadRef = useRef(null);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/research-conversations/${id}`);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Failed to load research conversation.");
-    setProject(data.project); setMessages(Array.isArray(data.messages) ? data.messages : []); setActivity(data.activity || null); setLoading(false);
-    return data.project;
+    try {
+      const res = await fetch(`/api/research-conversations/${id}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to load research conversation.");
+      setProject(data.project); setMessages(Array.isArray(data.messages) ? data.messages : []); setActivity(data.activity || null); setLoading(false); setError("");
+      return data.project;
+    } catch (err) {
+      setError(err.message || "Failed to load research conversation.");
+      setLoading(false);
+      throw err;
+    }
   }, [id]);
 
-  // oxlint-disable-next-line react(set-state-in-effect) -- route hydration intentionally synchronizes persisted server state into local UI state.
   useEffect(() => {
-    let cancelled = false;
-    load().catch((err) => { if (!cancelled) { setError(err.message); setLoading(false); } });
-    return () => { cancelled = true; };
+    void load();
+    return undefined;
   }, [load]);
 
   useEffect(() => {
