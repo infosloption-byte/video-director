@@ -247,7 +247,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [x] Run the same `researchSignal` deep-research mechanism for the initial user topic
 - [x] Persist the conversation alongside the research brief/corpus
 - [x] Ground follow-up questions with the persisted ResearchSession evidence/claims
-- [ ] Add targeted follow-up research for knowledge gaps rather than corpus-only answers
+- [x] Add targeted follow-up research for knowledge gaps rather than corpus-only answers
 - [ ] Add streamed per-message research activity and source discovery UI
 
 ### Phase 3 — Brief handoff
@@ -329,5 +329,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-09` — M17R aligned the Storyboard `stage=research` view with the dedicated Research report, removed the guided setup panel width cap, and gave Ask Helix an explicit opaque surface so research details and assistant interactions remain readable across both entry points.
 - `2026-09-09` — M17R R1 visual refinement pass strengthened Research report hierarchy, promoted the executive brief reading surface, reduced visual competition between cards, improved responsive section behavior, and added a shared modern scrollbar treatment without changing the Advanced Video Editor layout.
 - `2026-09-09` — M18 User-Directed Research Conversation approved and started. Signals now provides a second entry path for users to investigate their own topics; the conversation workspace is explicitly an evidence-grounded layer over the existing deep-research corpus and converges on the normal Research → Setup → Storyboard flow.
+- `2026-09-09` — M18 Phase 2 now performs a focused follow-up research pass when the persisted conversation corpus cannot answer a question with sufficient evidence. The new sources/evidence are persisted as a new ResearchSession version while conversation answers continue to search the accumulated project corpus.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
