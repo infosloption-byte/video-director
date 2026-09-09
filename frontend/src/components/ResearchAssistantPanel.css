@@ -232,3 +232,89 @@
   .research-workspace-layout { grid-template-columns: minmax(0, 1fr); }
   .research-assistant { position: static; max-width: none; max-height: none; }
 }
+
+/* Research report hierarchy refinements. */
+.research-report__hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.research-report__confidence {
+  min-width: 116px;
+}
+
+/* The storyboard already presents the project title in its stage header. */
+.hx-board .research-report__hero h2 {
+  display: none;
+}
+
+.hx-board .research-report__hero-copy > p:not(.eyebrow) {
+  max-width: 760px;
+}
+
+/* Put the handoff immediately after the report intro instead of burying it at the end. */
+.research-report {
+  display: flex;
+  flex-direction: column;
+}
+
+.research-report__hero { order: 1; }
+.research-report__alert { order: 2; }
+.research-report__handoff {
+  order: 3;
+  margin-top: 18px;
+  margin-bottom: 4px;
+}
+.research-report__section,
+.research-report__guardrails { order: 4; }
+
+/* Ask Helix is a workspace, not a nested card inside another card. */
+.research-assistant {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.research-assistant__messages {
+  border-top: 0;
+  border-bottom: 0;
+  padding-inline: 0;
+}
+
+.research-assistant__message,
+.research-assistant__empty,
+.research-assistant__typing {
+  margin-inline: 0;
+}
+
+.research-assistant__form {
+  padding-inline: 0;
+}
+
+@media (max-width: 900px) {
+  .research-report__hero-actions {
+    justify-content: flex-start;
+  }
+
+  .research-report__handoff {
+    margin-top: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .research-report__hero-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .research-report__confidence {
+    flex: 1 1 130px;
+  }
+
+  .research-report__hero-actions > .btn {
+    flex: 1 1 130px;
+  }
+}
