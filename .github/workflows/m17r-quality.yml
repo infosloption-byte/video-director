@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - m17r-research-report-ux
+      - m17r-refinement-and-qa
   pull_request:
     branches:
       - main
