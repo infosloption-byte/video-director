@@ -1,7 +1,6 @@
 /* M17R refinement: make the completed research page read like a report first,
    while keeping evidence, sources and actions available without visual noise. */
 .research-report {
-  max-width: 1180px;
   padding-top: 8px;
 }
 
