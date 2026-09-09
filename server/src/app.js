@@ -5,6 +5,7 @@ import signalsRouter from "./routes/signals.js";
 import projectsRouter from "./routes/projects.js";
 import researchRouter from "./routes/research.js";
 import researchControlRouter from "./routes/researchControl.js";
+import researchConversationsRouter from "./routes/researchConversations.js";
 import projectDeleteRouter from "./routes/projectDelete.js";
 import editorRouter from "./routes/editor.js";
 import productivityRouter from "./routes/productivity.js";
@@ -33,6 +34,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
 app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
 app.use("/api", reviewRouter);
+app.use("/api/research-conversations", requireAuth, expensiveOperationRateLimit, researchConversationsRouter);
 
 app.use("/api/projects", requireAuth, (req, _res, next) => {
   const userId = getRequestUserId(req);
