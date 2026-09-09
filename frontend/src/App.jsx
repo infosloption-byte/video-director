@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import SignalsPage from "./pages/SignalsPage";
 import ResearchPage from "./pages/ResearchPage";
+import ResearchConversationStartPage from "./pages/ResearchConversationStartPage";
+import ResearchConversationPage from "./pages/ResearchConversationPage";
 import StoryboardPage from "./pages/StoryboardPage";
 import ReviewPage from "./pages/ReviewPage";
 import MyResearchPage from "./pages/MyResearchPage";
@@ -42,6 +44,8 @@ export default function App() {
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
     <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+    <Route path="/research/new" element={<ProtectedRoute><ResearchConversationStartPage /></ProtectedRoute>} />
+    <Route path="/research-conversation/:id" element={<ProtectedRoute><ResearchConversationPage /></ProtectedRoute>} />
     <Route path="/research/:id" element={<ProtectedRoute><ResearchPage /></ProtectedRoute>} />
     <Route path="/storyboard/:id" element={<ProtectedRoute><StoryboardPage /></ProtectedRoute>} />
     <Route path="/editor/:id" element={<ProtectedRoute><EditorWorkspace /></ProtectedRoute>} />
