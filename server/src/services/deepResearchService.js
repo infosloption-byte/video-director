@@ -7,7 +7,7 @@ const MAX_SOURCE_CHARS = 12000;
 const MAX_PASSAGES_PER_FINDING = 3;
 const MODEL_LIST_TIMEOUT_MS = 20000;
 const GEMINI_REQUEST_TIMEOUT_MS = 120000;
-const DEFAULT_GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"];
+const DEFAULT_GEMINI_FALLBACK_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash"];
 const SOURCE_WEIGHTS = { peer_reviewed: 0.95, government: 0.95, primary: 0.92, trusted_news: 0.82, ai_search: 0.68, general_web: 0.45 };
 function cleanText(value = "") { return String(value).replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<noscript[\s\S]*?<\/noscript>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/\s+/g, " ").trim(); }
 function hostname(url) { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } }
