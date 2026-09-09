@@ -183,12 +183,12 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 **Goal:** refine the Research page from a feature-complete research dashboard into a clear, trustworthy, responsive research workspace without adding unnecessary product complexity.
 
 ### Phase R1 — Information hierarchy & visual refinement
-- [ ] Establish a stronger page hierarchy: progress → executive brief → key findings → evidence → sources/review → creative/action
-- [ ] Reduce competing card treatments and excessive visual density
-- [ ] Make the executive summary the primary reading surface
-- [ ] Improve section headings, supporting labels, spacing rhythm, and scanability
-- [ ] Preserve the global non-editor page spacing rules; do not reintroduce unwanted outer page padding
-- [ ] Keep Advanced Video Editor layout behavior unchanged
+- [x] Establish a stronger page hierarchy: progress → executive brief → key findings → evidence → sources/review → creative/action
+- [x] Reduce competing card treatments and excessive visual density
+- [x] Make the executive summary the primary reading surface
+- [x] Improve section headings, supporting labels, spacing rhythm, and scanability
+- [x] Preserve the global non-editor page spacing rules; do not reintroduce unwanted outer page padding
+- [x] Keep Advanced Video Editor layout behavior unchanged
 
 ### Phase R2 — Research progress & activity UX
 - [x] Replace/augment the dense progress presentation with a clear research pipeline: planning → discovering → reading → verifying → resolving → synthesizing → ready
@@ -215,7 +215,7 @@ Backend wiring, signal feed/search, research, guided setup, storyboard/live prev
 - [ ] Remove horizontal overflow and inaccessible controls at compact widths
 - [ ] Verify keyboard focus, button semantics, tab navigation, and screen-reader labels
 - [ ] Review dark/light theme contrast and disabled/error states
-- [ ] Use the shared modern scrollbar treatment consistently
+- [x] Use the shared modern scrollbar treatment consistently
 
 ### Phase R6 — Runtime acceptance
 - [ ] Test representative science, technology, current-events, and controversial research topics
@@ -287,5 +287,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-08` — M17R R4 clarified accepted-report actions, added a primary Continue to Storyboard path, exposed focused rerun and brief regeneration controls, and added persisted unresolved-conflict review controls.
 - `2026-09-08` — M17R downstream handoff UX now explicitly explains that Setup does not replace or regenerate research: the Storyboard is generated from the same persisted project research corpus, while length/framework/tone/audience control presentation.
 - `2026-09-09` — M17R aligned the Storyboard `stage=research` view with the dedicated Research report, removed the guided setup panel width cap, and gave Ask Helix an explicit opaque surface so research details and assistant interactions remain readable across both entry points.
+- `2026-09-09` — M17R R1 visual refinement pass strengthened Research report hierarchy, promoted the executive brief reading surface, reduced visual competition between cards, improved responsive section behavior, and added a shared modern scrollbar treatment without changing the Advanced Video Editor layout.
 
 **Implementation reference:** use NotebookLM-style source grounding/inspectability and modern Deep Research patterns for iterative planning, discovery, reading, cross-checking, and progress visibility. Do not copy proprietary UI or behavior directly.
