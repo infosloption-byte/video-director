@@ -59,7 +59,7 @@ function jobSnapshot(projectId) {
 }
 
 function sendSse(res, event, payload) {
-  res.write(`event: ${event}\\ndata: ${JSON.stringify(payload)}\\n\\n`);
+  res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
 }
 
 function emit(projectId, event, payload) {
@@ -217,7 +217,7 @@ async function runFollowUpResearch(projectId, question, messageId) {
     const current = project?.researchSources && typeof project.researchSources === "object" ? project.researchSources : {};
     const stored = Array.isArray(current.research_conversation?.messages) ? current.research_conversation.messages : [];
     const followups = Array.isArray(current.research_followups) ? current.research_followups : [];
-    const messages = [...stored].map((message) => message.id === messageId + ":assistant"
+    const messages = [...stored].map((message) => message.id === `${messageId}:assistant`
       ? { ...message, content: result.answer, sources: result.sources || [], evidence: result.evidence || [], researchPending: false, grounded: result.grounded, source: "research-corpus" }
       : message);
     await prisma.project.update({ where: { id: projectId }, data: {
@@ -234,7 +234,7 @@ async function runFollowUpResearch(projectId, question, messageId) {
     const project = await prisma.project.findUnique({ where: { id: projectId }, select: { researchSources: true } }).catch(() => null);
     const current = project?.researchSources && typeof project.researchSources === "object" ? project.researchSources : {};
     const stored = Array.isArray(current.research_conversation?.messages) ? current.research_conversation.messages : [];
-    const messages = stored.map((message) => message.id === messageId + ":assistant"
+    const messages = stored.map((message) => message.id === `${messageId}:assistant`
       ? { ...message, content: "The focused research pass failed. No new evidence was added to the corpus, so Helix will not guess an answer.", researchPending: false, researchError: true, grounded: false }
       : message);
     await prisma.project.update({ where: { id: projectId }, data: { researchSources: { ...current, research_conversation: { messages } } } }).catch(() => {});
@@ -284,7 +284,7 @@ router.get("/:id/events", async (req, res) => {
     subscribers.set(project.id, listeners);
     sendSse(res, "snapshot", { project: projectView(project), activity: jobSnapshot(project.id) });
     const heartbeat = setInterval(() => {
-      if (!res.writableEnded) res.write(": keep-alive\\n\\n");
+      if (!res.writableEnded) res.write(": keep-alive\n\n");
     }, 15000);
     const cleanup = () => {
       clearInterval(heartbeat);
