@@ -13,7 +13,7 @@ test("M18 conversation streams per-message research activity and discovered sour
   assert.match(route, /messageId/);
   assert.match(route, /recordActivity\(projectId, activity/);
   assert.match(route, /discoveredSources/);
-  assert.match(route, /message\.id === messageId \+ ":assistant"/);
+  assert.match(route, /message\.id === `\$\{messageId\}:assistant`/);
   assert.match(page, /new EventSource\(`/);
   assert.match(page, /addEventListener\("activity"/);
   assert.match(page, /addEventListener\("sources"/);
@@ -28,4 +28,24 @@ test("M18 follow-up research completes the pending conversation message from the
   assert.match(route, /source: "research-corpus"/);
   assert.match(route, /Focused research answer is ready/);
   assert.match(route, /researchError: true/);
+});
+
+test("M18 conversation persistence and trust boundaries survive refresh", async () => {
+  const route = await source("../src/routes/researchConversations.js");
+  assert.match(route, /research_conversation/);
+  assert.match(route, /getMessages\(project\)/);
+  assert.match(route, /findFirst\(\{ where: \{ id: req\.params\.id, userId: req\.user\.id \} \}\)/);
+  assert.match(route, /No new evidence was added to the corpus, so Helix will not guess an answer/);
+  assert.match(route, /The existing corpus needs more evidence for this question/);
+  assert.match(route, /researchPending: true/);
+});
+
+test("M18 unsupported follow-ups cannot silently become established facts", async () => {
+  const memory = await source("../src/services/researchMemoryService.js");
+  const route = await source("../src/routes/researchConversations.js");
+  assert.match(memory, /grounded: false/);
+  assert.match(memory, /No sufficiently relevant evidence was found in the stored research corpus/);
+  assert.match(memory, /did not perform a web search for this follow-up/);
+  assert.match(route, /I’m doing a focused research pass now rather than guessing/);
+  assert.match(route, /Focused research completed; the evidence is still insufficient to answer safely/);
 });
