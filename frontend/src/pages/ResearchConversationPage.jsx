@@ -37,6 +37,7 @@ export default function ResearchConversationPage() {
 
   useEffect(() => {
     let cancelled = false;
+    // oxlint-disable-next-line react(set-state-in-effect) -- initial async hydration synchronizes this route with persisted server state.
     load().catch((err) => { if (!cancelled) { setError(err.message); setLoading(false); } });
     return () => { cancelled = true; };
   }, [load]);
