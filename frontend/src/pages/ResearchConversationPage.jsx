@@ -10,7 +10,7 @@ function statusLabel(status) {
 }
 
 function sourceLabel(source = {}) {
-  try { return new URL(source.url).hostname.replace(/^www\./, ""); } catch { return source.url || "Source"; }
+  try { return new URL(source.url).hostname.replace(/^www\\./, ""); } catch { return source.url || "Source"; }
 }
 
 export default function ResearchConversationPage() {
@@ -35,9 +35,9 @@ export default function ResearchConversationPage() {
     return data.project;
   }, [id]);
 
+  // oxlint-disable-next-line react(set-state-in-effect) -- route hydration intentionally synchronizes persisted server state into local UI state.
   useEffect(() => {
     let cancelled = false;
-    // oxlint-disable-next-line react(set-state-in-effect) -- initial async hydration synchronizes this route with persisted server state.
     load().catch((err) => { if (!cancelled) { setError(err.message); setLoading(false); } });
     return () => { cancelled = true; };
   }, [load]);
