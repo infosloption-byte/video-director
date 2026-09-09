@@ -42,6 +42,8 @@ export default function ResearchConversationPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Helix could not answer that question.");
       setMessages(data.messages || []);
+      if (data.project) setProject(data.project);
+      if (data.activity) setActivity(data.activity);
     } catch (err) { setMessages((current) => current.filter((message) => !message.optimistic)); setError(err.message); }
     finally { setSending(false); }
   }
