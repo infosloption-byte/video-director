@@ -159,6 +159,7 @@ export default function ResearchConversationPage() {
   const [streamConnected, setStreamConnected] = useState(false);
   const [thinkingElapsed, setThinkingElapsed] = useState(0);
   const [stoppedRequest, setStoppedRequest] = useState(null);
+  const [activeMessageId, setActiveMessageId] = useState(null);
   const messagesRef = useRef(null);
   const stickToBottomRef = useRef(true);
   const activeRequestRef = useRef(null);
@@ -198,7 +199,10 @@ export default function ResearchConversationPage() {
     }
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   useEffect(() => {
     const stream = new EventSource(`/api/research-conversations/${id}/events`);
@@ -229,6 +233,7 @@ export default function ResearchConversationPage() {
       if (completed || data.messages.some((message) => message?.role === "assistant" && message?.conversationOnly && !message.researchPending)) {
         setSending(false);
         pendingMessageIdRef.current = null;
+        setActiveMessageId(null);
         setStoppedRequest(null);
       }
     });
@@ -244,6 +249,7 @@ export default function ResearchConversationPage() {
         setSending(false);
         setBuildingBrief(false);
         pendingMessageIdRef.current = null;
+        setActiveMessageId(null);
         refresh();
       }
     });
@@ -274,10 +280,7 @@ export default function ResearchConversationPage() {
   }, [messages, activity?.activity?.length, scrollMessagesToBottom]);
 
   useEffect(() => {
-    if (!sending) {
-      setThinkingElapsed(0);
-      return undefined;
-    }
+    if (!sending) return undefined;
     const started = Date.now();
     const timer = window.setInterval(() => setThinkingElapsed(Math.floor((Date.now() - started) / 1000)), 250);
     return () => window.clearInterval(timer);
@@ -291,12 +294,15 @@ export default function ResearchConversationPage() {
     if (!conversationMode && !ready) return;
 
     setSending(true);
+    setThinkingElapsed(0);
+    setActiveMessageId(null);
     setStoppedRequest(null);
     setError("");
     stoppingRef.current = false;
     stickToBottomRef.current = true;
     const pendingId = `pending-${Date.now()}`;
     pendingMessageIdRef.current = pendingId;
+    setActiveMessageId(pendingId);
     lastRequestRef.current = { value, initial };
     setMessages((current) => {
       const cleaned = current.filter((message) => message.id !== replaceMessageId);
@@ -320,6 +326,7 @@ export default function ResearchConversationPage() {
       if (!data.researchPending) {
         setSending(false);
         pendingMessageIdRef.current = null;
+        setActiveMessageId(null);
         setStoppedRequest(null);
       }
     } catch (err) {
@@ -328,19 +335,22 @@ export default function ResearchConversationPage() {
       setError(err.message || "Helix could not answer that question.");
       setSending(false);
       pendingMessageIdRef.current = null;
+      setActiveMessageId(null);
     } finally {
       if (activeRequestRef.current === controller) activeRequestRef.current = null;
     }
   }, [project, sending, buildingBrief, id]);
 
   useEffect(() => {
-    if (loading || !project || project.researchStatus !== "conversation" || sending || buildingBrief || initialStartedRef.current) return;
+    if (loading || !project || project.researchStatus !== "conversation" || sending || buildingBrief || initialStartedRef.current) return undefined;
     const hasAssistant = messages.some((message) => message?.role === "assistant");
     const onlyTopic = messages.length === 1 && messages[0]?.role === "user" && messages[0]?.content === project.title;
     if (!hasAssistant && onlyTopic) {
       initialStartedRef.current = true;
-      void submitQuestion(project.title, { initial: true });
+      const timer = window.setTimeout(() => { void submitQuestion(project.title, { initial: true }); }, 0);
+      return () => window.clearTimeout(timer);
     }
+    return undefined;
   }, [loading, project, messages, sending, buildingBrief, submitQuestion]);
 
   async function stopGeneration() {
@@ -357,7 +367,9 @@ export default function ResearchConversationPage() {
     activeRequestRef.current = null;
     pendingMessageIdRef.current = null;
     setSending(false);
+    setThinkingElapsed(0);
     setBuildingBrief(false);
+    setActiveMessageId(null);
     if (pendingId && lastRequest) {
       setMessages((current) => current.map((message) => message.id === pendingId ? { ...message, content: "This request was stopped before Helix finished answering.", researchPending: false, stopped: true, grounded: false } : message));
     }
@@ -387,6 +399,7 @@ export default function ResearchConversationPage() {
     stickToBottomRef.current = true;
     const systemMessage = { id: `brief-request-${Date.now()}`, role: "assistant", content: "I’m scanning our conversation now and turning your questions and priorities into the full evidence-backed research brief.", researchPending: true, grounded: false, sources: [], evidence: [] };
     pendingMessageIdRef.current = systemMessage.id;
+    setActiveMessageId(systemMessage.id);
     setMessages((current) => [...current, systemMessage].slice(-60));
     try {
       const res = await fetch(`/api/research-conversations/${id}/brief`, { method: "POST", headers: { "Content-Type": "application/json" } });
@@ -398,6 +411,7 @@ export default function ResearchConversationPage() {
     } catch (err) {
       setBuildingBrief(false);
       pendingMessageIdRef.current = null;
+      setActiveMessageId(null);
       setMessages((current) => current.filter((message) => message.id !== systemMessage.id));
       setError(err.message || "Failed to build the research brief.");
     }
@@ -414,7 +428,6 @@ export default function ResearchConversationPage() {
   const liveEvents = Array.isArray(activity?.activity) ? activity.activity.slice(-6).reverse() : [];
   const liveSources = Array.isArray(activity?.discoveredSources) ? activity.discoveredSources : [];
   const thinking = Boolean(sending || activity?.conversationThinking || buildingBrief);
-  const activeMessageId = pendingMessageIdRef.current;
 
   return (
     <div className="hx-page rc-page">
@@ -435,7 +448,6 @@ export default function ResearchConversationPage() {
               {messages.length === 0 && <div className="rc-welcome"><span className="eyebrow">Start here</span><h2>What do you want to understand?</h2><p>Ask questions, test angles, and clarify what you want the final research brief to investigate.</p></div>}
               {messages.map((message, index) => {
                 const isPending = Boolean(message.researchPending);
-                const showLive = isPending && (activeMessageId === message.id || message.id === stoppedRequest?.messageId);
                 return <article className={`rc-message rc-message--${message.role}${isPending ? " rc-message--pending" : ""}${message.stopped ? " rc-message--stopped" : ""}`} key={message.id || `${message.role}-${index}`}>
                   <span className="rc-message__role">{message.role === "user" ? "You" : "Helix"}</span>
                   <div className="rc-message__body"><MarkdownContent content={message.content} /></div>
