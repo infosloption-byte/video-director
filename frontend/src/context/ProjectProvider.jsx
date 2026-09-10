@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { ProjectContext } from "./ProjectContext.jsx";
+import { ProjectContext } from "./ProjectContext.js";
 
 export function ProjectProvider({ children }) {
   const { user } = useAuth();
