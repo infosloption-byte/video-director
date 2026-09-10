@@ -15,7 +15,7 @@ import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlatformShell from "./components/PlatformShell";
 import EditorWorkspace from "./components/EditorWorkspace";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
-import { ProjectProvider } from "./context/ProjectContext.jsx";
+import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
 function SignalsRoute() {
   const { status } = useAuth();
