@@ -34,6 +34,16 @@ router.post("/:id/research/stop", async (req, res) => {
   try {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id } });
     if (!project) return res.status(404).json({ error: "Project not found." });
+
+    const conversationKey = `conversation:${project.id}`;
+    if (hasActiveResearchController(conversationKey)) {
+      cancelResearch(conversationKey);
+      return res.status(202).json({
+        conversationStopped: true,
+        project: { id: project.id, title: project.title, researchStatus: "conversation", researchProgress: 0, researchStageDetail: "Generation stopped by the user." }
+      });
+    }
+
     if (project.researchSummary) return res.status(409).json({ error: "This research is already complete." });
     if (!hasActiveResearchController(project.signalId) || !cancelResearch(project.signalId)) return res.status(409).json({ error: "Research is not currently running." });
     const current = stoppedResearch.get(project.id) || { progress: 0, activities: [] };
