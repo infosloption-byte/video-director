@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
 
-const ProjectContext = createContext(null);
+export const ProjectContext = createContext(null);
 
 export function ProjectProvider({ children }) {
   const { user } = useAuth();
@@ -60,7 +60,6 @@ export function ProjectProvider({ children }) {
   }, []);
 
   // Keep the shared project list aligned with the authenticated account.
-  // oxlint-disable-next-line react(set-state-in-effect)
   useEffect(() => {
     if (!user) {
       clearProjects();
@@ -72,11 +71,4 @@ export function ProjectProvider({ children }) {
 
   const value = useMemo(() => ({ projects, loading, error, refreshProjects, addProject, removeProject }), [projects, loading, error, refreshProjects, addProject, removeProject]);
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
-}
-
-// oxlint-disable-next-line react(only-export-components)
-export function useProjects() {
-  const value = useContext(ProjectContext);
-  if (!value) throw new Error("useProjects must be used inside ProjectProvider");
-  return value;
 }
