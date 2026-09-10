@@ -10,7 +10,8 @@ export function ProjectProvider({ children }) {
   const [error, setError] = useState("");
   const requestVersionRef = useRef(0);
 
-  const clearProjects = useCallback(() => {
+  const clearProjects = useCallback(async () => {
+    await Promise.resolve();
     requestVersionRef.current += 1;
     setProjects([]);
     setLoading(false);
@@ -19,11 +20,12 @@ export function ProjectProvider({ children }) {
 
   const refreshProjects = useCallback(async () => {
     if (!user) {
-      clearProjects();
+      await clearProjects();
       return [];
     }
 
     const requestVersion = ++requestVersionRef.current;
+    await Promise.resolve();
     setLoading(true);
     setError("");
 
@@ -62,7 +64,7 @@ export function ProjectProvider({ children }) {
   // Keep the shared project list aligned with the authenticated account.
   useEffect(() => {
     if (!user) {
-      clearProjects();
+      void clearProjects();
       return undefined;
     }
     void refreshProjects();
