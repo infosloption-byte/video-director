@@ -6,12 +6,12 @@
 .rc-heading h1 { margin: 0 0 12px; color: var(--ink); font: 500 clamp(32px, 4.5vw, 52px)/1.08 var(--font-serif); letter-spacing: -.015em; overflow-wrap: anywhere; }
 .rc-heading p:not(.eyebrow) { margin: 0; color: var(--body); font-size: 15px; line-height: 1.65; }
 .rc-status { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; border: 1px solid var(--border-soft); border-radius: 999px; padding: 8px 11px; color: var(--muted); background: var(--card); font: 10px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
-.rc-status--ready { color: var(--ink); }
+.rc-status--ready, .rc-status--conversation { color: var(--ink); }
 .rc-status__dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: currentColor; }
 .rc-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 22px; align-items: start; }
 .rc-chat, .rc-brief { min-width: 0; border: 1px solid var(--border-soft); border-radius: var(--radius-lg); background: var(--card); box-shadow: var(--shadow-sm); }
-.rc-chat { height: min(680px, calc(100svh - 300px)); min-height: 560px; display: flex; flex-direction: column; overflow: hidden; }
-.rc-chat__messages { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; overflow-x: hidden; padding: 24px; overscroll-behavior: contain; scrollbar-gutter: stable; scroll-behavior: smooth; }
+.rc-chat { height: min(700px, calc(100svh - 300px)); min-height: 560px; display: flex; flex-direction: column; overflow: hidden; }
+.rc-chat__messages { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 24px; overscroll-behavior: contain; scrollbar-gutter: stable; scroll-behavior: smooth; }
 .rc-welcome { max-width: 580px; margin: 90px auto; text-align: center; }
 .rc-welcome .eyebrow { margin: 0 0 12px; }
 .rc-welcome h2 { margin: 0 0 10px; font: 500 32px/1.15 var(--font-serif); color: var(--ink); }
@@ -23,10 +23,10 @@
 .rc-message__role { display: block; margin-bottom: 7px; color: var(--muted); font: 10px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
 .rc-message__body { white-space: pre-wrap; color: var(--body); font-size: 14px; line-height: 1.7; }
 .rc-message--user .rc-message__body { color: var(--ink); }
+.rc-message__meta { display: block; margin-top: 10px; color: var(--muted); font: 9px/1.4 var(--font-mono); text-transform: uppercase; letter-spacing: .05em; }
 .rc-message__sources { display: grid; gap: 5px; margin-top: 14px; padding-top: 11px; border-top: 1px solid var(--border-soft); }
 .rc-message__sources strong, .rc-message__evidence { color: var(--muted); font: 9px/1.4 var(--font-mono); text-transform: uppercase; letter-spacing: .05em; }
 .rc-message__sources a { overflow: hidden; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.rc-message--typing { opacity: .72; }
 .rc-message__live { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font: 10px/1.4 var(--font-mono); text-transform: uppercase; letter-spacing: .04em; }
 .rc-message__live-status { margin-left: auto; color: var(--ink); }
 .rc-spinner { width: 9px; height: 9px; flex: 0 0 auto; border: 1px solid var(--border); border-top-color: transparent; border-radius: 50%; animation: rc-spin .8s linear infinite; }
@@ -72,6 +72,7 @@
 .rc-metrics { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
 .rc-metrics div { padding: 13px 0; }
 .rc-metrics div:nth-child(even) { padding-left: 12px; border-left: 1px solid var(--border-soft); }
+.rc-metrics div:last-child { grid-column: 1 / -1; border-top: 1px solid var(--border-soft); }
 .rc-metrics strong, .rc-metrics span { display: block; }
 .rc-metrics strong { color: var(--ink); font: 500 20px/1.1 var(--font-serif); }
 .rc-metrics span { margin-top: 4px; color: var(--muted); font: 9px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .05em; }
@@ -92,5 +93,5 @@
 .rc-start__form textarea:focus { border-color: var(--border); box-shadow: 0 0 0 3px var(--focus-ring); }
 .rc-start__footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 12px; }
 .rc-start__footer span { max-width: 500px; color: var(--muted); font-size: 11px; line-height: 1.5; }
-@media (max-width: 980px) { .rc-workspace { grid-template-columns: 1fr; } .rc-brief { position: static; order: -1; } .rc-chat { height: min(680px, calc(100svh - 280px)); } }
-@media (max-width: 640px) { .rc-shell { padding-top: 28px; } .rc-heading { flex-direction: column; gap: 14px; } .rc-heading h1 { font-size: 36px; } .rc-chat { height: calc(100svh - 250px); min-height: 520px; max-height: 760px; } .rc-chat__messages { padding: 16px; } .rc-message { max-width: 92%; } .rc-live { margin: 0 0 14px; padding: 12px; } .rc-live__source { grid-template-columns: minmax(0, 1fr); gap: 4px; } .rc-live__events { max-height: 130px; } .rc-composer { padding: 12px; } .rc-composer__footer, .rc-start__footer { align-items: stretch; flex-direction: column; } .rc-composer__footer .btn, .rc-start__footer .btn { width: 100%; justify-content: center; } .rc-start { padding-top: 42px; } .rc-start__intro h1 { font-size: 40px; } .rc-start__form { padding: 15px; } }
+@media (max-width: 980px) { .rc-workspace { grid-template-columns: 1fr; } .rc-brief { position: static; order: -1; } .rc-chat { height: min(700px, calc(100svh - 260px)); } }
+@media (max-width: 640px) { .rc-shell { padding-top: 28px; } .rc-heading { flex-direction: column; gap: 14px; } .rc-heading h1 { font-size: 36px; } .rc-chat { height: calc(100svh - 240px); min-height: 520px; max-height: 760px; } .rc-chat__messages { padding: 16px; } .rc-message { max-width: 92%; } .rc-live { padding: 12px; } .rc-live__source { grid-template-columns: minmax(0, 1fr); gap: 4px; } .rc-live__events { max-height: 130px; } .rc-composer { padding: 12px; } .rc-composer__footer, .rc-start__footer { align-items: stretch; flex-direction: column; } .rc-composer__footer .btn, .rc-start__footer .btn { width: 100%; justify-content: center; } .rc-start { padding-top: 42px; } .rc-start__intro h1 { font-size: 40px; } .rc-start__form { padding: 15px; } }
