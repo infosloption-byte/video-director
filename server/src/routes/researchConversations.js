@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { prisma } from "../db/client.js";
 import { researchSignal } from "../services/researchService.js";
 import { persistResearchGraph } from "../services/researchGraphService.js";
+import { answerResearchConversation } from "../services/researchConversationService.js";
 import { answerResearchQuestion } from "../services/researchMemoryService.js";
 
 const router = Router();
@@ -12,35 +13,64 @@ const MAX_MESSAGES = 60;
 const MAX_FOLLOWUPS = 30;
 const MAX_ACTIVITY = 120;
 const MAX_DISCOVERED_SOURCES = 12;
+const RESEARCH_CONTEXT_MESSAGES = 20;
+
+const RESEARCH_STAGES = new Set(["queued", "planning", "discovering", "reading", "verifying", "synthesizing", "stopped", "error"]);
 
 function projectView(project) {
   const job = jobs.get(project.id);
+  const researchStatus = job?.status || (project.researchSummary ? "ready" : "conversation");
   return {
     id: project.id,
     title: project.title,
     status: project.status,
-    researchStatus: job?.status || (project.researchSummary ? "ready" : "researching"),
+    researchStatus,
     researchProgress: Number(job?.progress ?? (project.researchSummary ? 100 : 0)),
     researchStageDetail: job?.detail || null,
     research: project.researchSources || null,
   };
 }
 
+function getStoredConversation(project) {
+  return project.researchSources && typeof project.researchSources === "object"
+    ? project.researchSources.research_conversation
+    : null;
+}
+
 function getMessages(project) {
-  const stored = project.researchSources && typeof project.researchSources === "object" ? project.researchSources.research_conversation : null;
+  const stored = getStoredConversation(project);
   if (Array.isArray(stored?.messages) && stored.messages.length) return stored.messages;
   const messages = [{ id: `topic-${project.id}`, role: "user", content: project.title }];
-  if (project.researchSummary) messages.push({ id: `brief-${project.id}`, role: "assistant", content: project.researchSummary, sources: Array.isArray(project.researchSources?.sources) ? project.researchSources.sources.slice(0, 5) : [] });
+  if (project.researchSummary) {
+    messages.push({
+      id: `brief-${project.id}`,
+      role: "assistant",
+      content: project.researchSummary,
+      sources: Array.isArray(project.researchSources?.sources) ? project.researchSources.sources.slice(0, 5) : [],
+      researchBrief: true,
+      grounded: true,
+      source: "deep-research"
+    });
+  }
   return messages;
 }
 
 function defaultJob(project) {
-  return { status: project.researchSummary ? "ready" : "researching", progress: project.researchSummary ? 100 : 0, detail: project.researchSummary ? "The research corpus is ready for conversation." : "Helix is working through the evidence pipeline.", messageId: null, question: null, activity: [], discoveredSources: [] };
+  const researching = Boolean(project.researchSummary);
+  return {
+    status: researching ? "ready" : "conversation",
+    progress: researching ? 100 : 0,
+    detail: researching ? "The research corpus is ready for conversation." : "Conversation is ready. Explore the topic, then build the research brief when you are satisfied with the direction.",
+    messageId: null,
+    question: null,
+    activity: [],
+    discoveredSources: []
+  };
 }
 
 function ensureJob(projectId, fallbackProject = null) {
   if (!jobs.has(projectId) && fallbackProject) jobs.set(projectId, defaultJob(fallbackProject));
-  if (!jobs.has(projectId)) jobs.set(projectId, { status: "queued", progress: 0, detail: "Preparing the evidence pipeline.", messageId: null, question: null, activity: [], discoveredSources: [] });
+  if (!jobs.has(projectId)) jobs.set(projectId, { status: "conversation", progress: 0, detail: "Conversation is ready.", messageId: null, question: null, activity: [], discoveredSources: [] });
   return jobs.get(projectId);
 }
 
@@ -138,34 +168,67 @@ function recordActivity(projectId, activity, { messageId = null } = {}) {
   emit(projectId, "sources", next.discoveredSources);
 }
 
-async function persistConversationMessages(projectId, messages) {
+async function persistConversationMessages(projectId, messages, extra = {}) {
   const project = await prisma.project.findUnique({ where: { id: projectId }, select: { researchSources: true } });
   if (!project) return;
   const current = project.researchSources && typeof project.researchSources === "object" ? project.researchSources : {};
-  await prisma.project.update({ where: { id: projectId }, data: { researchSources: { ...current, research_conversation: { messages: messages.slice(-MAX_MESSAGES) } } } });
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { researchSources: { ...current, ...extra, research_conversation: { ...(current.research_conversation || {}), messages: messages.slice(-MAX_MESSAGES) } } }
+  });
 }
 
-async function runInitialResearch(projectId, signal) {
+function buildResearchContext(topic, messages) {
+  const context = messages
+    .slice(-RESEARCH_CONTEXT_MESSAGES)
+    .map((message) => `${message.role === "user" ? "USER" : "HELIX"}: ${String(message.content || "").trim()}`)
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, 10000);
+  return context ? `${topic}\n\nResearch direction from the conversation:\n${context}` : topic;
+}
+
+async function runInitialResearch(projectId, signal, conversationMessages) {
+  const researchTopic = buildResearchContext(signal.title, conversationMessages);
+  const researchSignalInput = { ...signal, title: researchTopic };
   const setJob = (status, progress, detail) => updateJob(projectId, { status, progress, detail, messageId: "initial", question: signal.title });
   try {
-    setJob("planning", 5, "Breaking the topic into evidence, mechanism, data, recent developments, and counter-evidence questions.");
-    const brief = await researchSignal(signal, {
+    setJob("planning", 5, "Scanning the conversation to turn your questions and priorities into a focused research plan.");
+    const brief = await researchSignal(researchSignalInput, {
       onProgress: (stage, progress) => {
         const detail = ({
-          planning: "Breaking the topic into focused research questions.",
+          planning: "Using the conversation to define focused evidence lanes.",
           discovering: "Searching academic, institutional, news, and independent sources.",
           reading: "Opening selected sources and extracting available evidence.",
           verifying: "Comparing claims, source quality, and conflicting findings.",
-          synthesizing: "Building the evidence-backed research brief.",
+          synthesizing: "Building the evidence-backed research brief from the full research pass.",
           ready: "The research corpus is ready for conversation."
         })[stage] || "Helix is working through the evidence pipeline.";
         setJob(stage, progress, detail);
       },
       onActivity: (activity) => recordActivity(projectId, activity, { messageId: "initial" }),
     });
+
+    const storedMessages = conversationMessages.slice(-MAX_MESSAGES);
+    const completedMessage = {
+      id: `brief-${projectId}-${Date.now()}`,
+      role: "assistant",
+      content: String(brief.executive_summary || brief.mechanism_summary || "The evidence-backed research brief is ready.").trim(),
+      sources: Array.isArray(brief.sources) ? brief.sources.slice(0, 5) : [],
+      evidence: Array.isArray(brief.evidence_preview) ? brief.evidence_preview.slice(0, 5) : [],
+      grounded: true,
+      researchBrief: true,
+      source: "deep-research"
+    };
+
     await prisma.project.update({ where: { id: projectId }, data: {
-      researchSummary: String(brief.executive_summary || brief.mechanism_summary || "").trim(),
-      researchSources: { ...brief, sources: brief.sources || [], research_conversation: { messages: [{ id: `topic-${projectId}`, role: "user", content: signal.title }] } },
+      researchSummary: completedMessage.content,
+      researchSources: {
+        ...brief,
+        sources: brief.sources || [],
+        research_conversation: { messages: [...storedMessages, completedMessage].slice(-MAX_MESSAGES) },
+        research_conversation_context: researchTopic.slice(signal.title.length).trim()
+      },
       monetizationFlags: brief.monetization_flags || [],
       suggestedFramework: brief.recommended_framework || null,
       suggestedLengthSeconds: brief.recommended_length_seconds || null,
@@ -173,6 +236,7 @@ async function runInitialResearch(projectId, signal) {
       status: "setup"
     } });
     await persistResearchGraph(projectId, brief, { status: "completed" });
+    emit(projectId, "conversation", { messages: [...storedMessages, completedMessage].slice(-MAX_MESSAGES) });
     setJob("ready", 100, "The research corpus is ready for conversation.");
   } catch (error) {
     console.error(`[research-conversation] Project ${projectId} failed:`, error);
@@ -227,6 +291,7 @@ async function runFollowUpResearch(projectId, question, messageId) {
         research_conversation: { messages: messages.slice(-MAX_MESSAGES) }
       }
     } });
+    emit(projectId, "conversation", { messages: messages.slice(-MAX_MESSAGES) });
     recordActivity(projectId, { type: "message.completed", message: result.grounded ? "Focused research answer is ready." : "Focused research completed, but the new corpus still cannot support this question without guessing." }, { messageId });
     setJob("ready", 100, result.grounded ? "Focused research was added and the follow-up answer is ready." : "Focused research completed; the evidence is still insufficient to answer safely.");
   } catch (error) {
@@ -238,6 +303,7 @@ async function runFollowUpResearch(projectId, question, messageId) {
       ? { ...message, content: "The focused research pass failed. No new evidence was added to the corpus, so Helix will not guess an answer.", researchPending: false, researchError: true, grounded: false }
       : message);
     await prisma.project.update({ where: { id: projectId }, data: { researchSources: { ...current, research_conversation: { messages } } } }).catch(() => {});
+    emit(projectId, "conversation", { messages });
     recordActivity(projectId, { type: "message.failed", message: error.message || "Focused research failed." }, { messageId });
     setJob("error", jobs.get(projectId)?.progress || 0, error.message || "Follow-up research failed.");
   }
@@ -260,9 +326,8 @@ router.post("/", async (req, res) => {
       status: "used"
     } });
     const project = await prisma.project.create({ data: { id: crypto.randomUUID(), userId: req.user.id, signalId: signal.id, title: topic, status: "researching" } });
-    jobs.set(project.id, { status: "queued", progress: 0, detail: "Preparing the evidence pipeline.", messageId: "initial", question: topic, activity: [], discoveredSources: [] });
-    void runInitialResearch(project.id, signal);
-    res.status(202).json({ project: projectView(project), messages: [{ id: `topic-${project.id}`, role: "user", content: topic }] });
+    jobs.set(project.id, { status: "conversation", progress: 0, detail: "Conversation is ready. Explore the topic before building the research brief.", messageId: null, question: topic, activity: [], discoveredSources: [] });
+    res.status(202).json({ project: projectView(project), messages: [{ id: `topic-${project.id}`, role: "user", content: topic }], activity: jobSnapshot(project.id) });
   } catch (error) {
     console.error("POST /api/research-conversations failed:", error);
     res.status(500).json({ error: "Failed to start research conversation." });
@@ -312,16 +377,74 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+router.post("/:id/brief", async (req, res) => {
+  try {
+    const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id } });
+    if (!project) return res.status(404).json({ error: "Research conversation not found." });
+    if (project.researchSummary) return res.status(409).json({ error: "The research brief has already been built.", project: projectView(project) });
+    const job = jobs.get(project.id);
+    if (job && RESEARCH_STAGES.has(job.status)) return res.status(409).json({ error: "The research brief is already being built." });
+
+    const messages = getMessages(project).filter((message) => message.role === "user" || message.role === "assistant").slice(-MAX_MESSAGES);
+    const signal = await prisma.signal.findUnique({ where: { id: project.signalId } });
+    if (!signal) return res.status(409).json({ error: "The original research topic could not be found." });
+
+    updateJob(project.id, {
+      status: "queued",
+      progress: 0,
+      detail: "Scanning the conversation and preparing the evidence pipeline.",
+      messageId: "initial",
+      question: project.title,
+      activity: [],
+      discoveredSources: []
+    });
+    await persistConversationMessages(project.id, messages);
+    void runInitialResearch(project.id, signal, messages);
+    res.status(202).json({
+      researchPending: true,
+      message: "I’m scanning the conversation and starting the full evidence-backed research pass.",
+      project: projectView(project),
+      messages,
+      activity: jobSnapshot(project.id)
+    });
+  } catch (error) {
+    console.error(`POST /api/research-conversations/${req.params.id}/brief failed:`, error);
+    res.status(500).json({ error: error.message || "Failed to build the research brief." });
+  }
+});
+
 router.post("/:id/messages", async (req, res) => {
   try {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id } });
     if (!project) return res.status(404).json({ error: "Research conversation not found." });
-    const job = jobs.get(project.id);
-    if (!project.researchSummary || (job && !["ready", "error"].includes(job.status))) return res.status(409).json({ error: "Helix is still researching this topic. Follow-up questions will be available when the corpus is ready." });
     const question = String(req.body?.question || "").trim().slice(0, 2000);
     if (!question) return res.status(400).json({ error: "A research question is required." });
-    if (job?.status === "error") jobs.delete(project.id);
 
+    const job = jobs.get(project.id);
+    const conversationMode = !project.researchSummary && (!job || job.status === "conversation");
+    const ready = Boolean(project.researchSummary) && (!job || ["ready", "error"].includes(job.status));
+    if (!conversationMode && !ready) return res.status(409).json({ error: "The research brief is being built. Follow-up questions will be available when the research corpus is ready." });
+
+    if (conversationMode) {
+      const currentMessages = getMessages(project).filter((message) => !message.optimistic);
+      const userMessage = { id: crypto.randomUUID(), role: "user", content: question };
+      const history = [...currentMessages, userMessage].slice(-MAX_MESSAGES);
+      const answer = await answerResearchConversation({ topic: project.title, messages: history });
+      const assistantMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: answer,
+        grounded: false,
+        conversationOnly: true,
+        source: "research-scoping"
+      };
+      const messages = [...history, assistantMessage].slice(-MAX_MESSAGES);
+      await persistConversationMessages(project.id, messages, { research_conversation_state: "exploration" });
+      res.json({ question, answer, grounded: false, searchUsed: false, researchPending: false, messages, activity: jobSnapshot(project.id), project: projectView(project) });
+      return;
+    }
+
+    if (job?.status === "error") jobs.delete(project.id);
     const session = await loadSession(project.id);
     const result = answerResearchQuestion(session, question);
     if (!result.grounded) {
@@ -339,7 +462,7 @@ router.post("/:id/messages", async (req, res) => {
       return res.status(202).json({ question, grounded: false, searchUsed: true, researchPending: true, answer: "I don't have enough evidence in the current research corpus for that question. I’m doing a focused research pass now rather than guessing.", evidence: [], relatedClaims: [], sources: [], messages, activity: jobSnapshot(project.id), project: projectView(project) });
     }
 
-    const messages = [...getMessages(project).filter((message) => !message.optimistic), { id: crypto.randomUUID(), role: "user", content: question }, { id: crypto.randomUUID(), role: "assistant", content: result.answer, sources: result.sources || [], evidence: result.evidence || [], grounded: true }].slice(-MAX_MESSAGES);
+    const messages = [...getMessages(project).filter((message) => !message.optimistic), { id: crypto.randomUUID(), role: "user", content: question }, { id: crypto.randomUUID(), role: "assistant", content: result.answer, sources: result.sources || [], evidence: result.evidence || [], grounded: true, source: "research-corpus" }].slice(-MAX_MESSAGES);
     await persistConversationMessages(project.id, messages);
     res.json({ question, ...result, source: "research-corpus", messages });
   } catch (error) {
