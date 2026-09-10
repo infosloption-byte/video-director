@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import { useProjects } from "../context/ProjectContext.jsx";
 import "./ResearchConversationPage.css";
 
 export default function ResearchConversationStartPage() {
   const navigate = useNavigate();
+  const { addProject } = useProjects();
   const [topic, setTopic] = useState("");
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
@@ -18,6 +20,7 @@ export default function ResearchConversationStartPage() {
       const res = await fetch("/api/research-conversations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: value }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to start research.");
+      addProject(data.project);
       navigate(`/research-conversation/${data.project.id}`);
     } catch (err) { setError(err.message); setStarting(false); }
   }
