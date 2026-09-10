@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { IconArrowLeft, IconArrowRight } from "../components/Icons";
-import { useProjects } from "../context/ProjectContext.jsx";
+import { useProjects } from "../context/useProjects.js";
 import "../components/ui.css";
 import "./MyResearchPage.css";
 
