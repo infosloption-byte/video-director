@@ -56,6 +56,10 @@ Backend wiring, Signals/search, Research, Setup, Storyboard/live preview, narrat
 - [x] Research hierarchy, executive brief, evidence/trust UX, spacing refinement
 - [x] Research pipeline/activity UX and modern scrollbar
 - [x] Ask Helix/rerun/regenerate/Storyboard actions and Research → Setup → Storyboard lineage
+- [x] Signals page topic-research panel spacing refinement
+- [x] Signals desk pagination with server-side page size support
+- [x] Signals desk sorting and filter-panel controls
+- [x] Fixed-height signal cards with scrollable long descriptions/WHY details
 - [ ] Responsive QA at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440 px
 - [ ] Accessibility, overflow, theme contrast, representative runtime acceptance
 
@@ -75,11 +79,6 @@ Backend wiring, Signals/search, Research, Setup, Storyboard/live preview, narrat
 - [x] Automatically answer the initial topic in the same conversation after opening it
 - [x] Show a real in-flight thinking state while the conversation AI request is actually running
 - [x] Replace Ask Helix with Stop during an active AI request and restore Ask Helix after cancellation/completion
-- [x] Show the initial thinking state reliably before the first AI response renders
-- [x] Render conversation replies with readable Markdown-style headings, lists, emphasis, links, code, and blockquotes
-- [x] Preserve a stopped request in chat and provide Retry for the last request
-- [x] Enter sends a message; Shift+Enter inserts a new line
-- [x] Reduce oversized conversation topic title for hierarchy and readability
 - [ ] Browser QA for desktop/tablet/mobile conversation layout
 
 ### Phase 2 — Conversation-first research lifecycle
@@ -149,5 +148,5 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-10` — Fixed the conversation entry lifecycle so the initial topic receives a real Helix response instead of leaving the chat visually idle until a second question is sent.
 - `2026-09-10` — Fixed the authenticated conversation sidebar to retain Workspace links (Research, Storyboard, Advanced Editor) rather than switching to Recent research.
 - `2026-09-10` — Conversation AI calls now expose an actual in-flight thinking state, support Stop/cancellation, and return the composer to Ask Helix after completion or cancellation.
-- `2026-09-10` — Research Conversation chat now treats Enter as send and Shift+Enter as newline, preserves stopped requests for Retry, renders common Markdown reply structure, and uses a smaller topic heading for stronger visual hierarchy.
-
+- `2026-09-10` — Signals desk now uses server-side pagination with configurable 6/12/24/48 page sizes and server/client sorting controls inside a dedicated filter panel.
+- `2026-09-10` — Signal cards use a stable visual height while long descriptions and WHY details scroll inside their own regions, preventing one verbose signal from stretching the entire feed.
