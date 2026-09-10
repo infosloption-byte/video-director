@@ -71,6 +71,10 @@ Backend wiring, Signals/search, Research, Setup, Storyboard/live preview, narrat
 - [x] Responsive chat composer, message history, source/evidence indicators
 - [x] Container-only chat scrolling so live activity cannot move the whole browser page
 - [x] Intelligent auto-scroll that preserves the user's reading position
+- [x] Keep Workspace navigation visible on the conversation route instead of switching to Recent research
+- [x] Automatically answer the initial topic in the same conversation after opening it
+- [x] Show a real in-flight thinking state while the conversation AI request is actually running
+- [x] Replace Ask Helix with Stop during an active AI request and restore Ask Helix after cancellation/completion
 - [ ] Browser QA for desktop/tablet/mobile conversation layout
 
 ### Phase 2 — Conversation-first research lifecycle
@@ -83,6 +87,7 @@ Backend wiring, Signals/search, Research, Setup, Storyboard/live preview, narrat
 - [x] Reuse the existing `researchSignal` mechanism for the full evidence pass
 - [x] Keep live discovery/reading/verification/synthesis activity in the same chat
 - [x] Insert the completed evidence-backed research response into conversation history
+- [x] Make conversation generation server-cancellable through the existing research cancellation path
 
 ### Phase 3 — Brief handoff
 - [x] Build the brief from the conversation workspace
@@ -136,3 +141,6 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-10` — Pre-brief conversation guidance is exploratory/not verified; verified factual answers remain downstream of persisted research evidence.
 - `2026-09-10` — Completed deep-research results are inserted into the conversation history.
 - `2026-09-10` — Research activity scrolling is container-bound and must not force whole-page scrolling.
+- `2026-09-10` — Fixed the conversation entry lifecycle so the initial topic receives a real Helix response instead of leaving the chat visually idle until a second question is sent.
+- `2026-09-10` — Fixed the authenticated conversation sidebar to retain Workspace links (Research, Storyboard, Advanced Editor) rather than switching to Recent research.
+- `2026-09-10` — Conversation AI calls now expose an actual in-flight thinking state, support Stop/cancellation, and return the composer to Ask Helix after completion or cancellation.
