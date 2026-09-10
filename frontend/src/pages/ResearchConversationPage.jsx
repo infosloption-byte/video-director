@@ -4,12 +4,10 @@ import Header from "../components/Header";
 import "./ResearchConversationPage.css";
 
 const RESEARCH_STAGES = new Set(["queued", "planning", "discovering", "reading", "verifying", "synthesizing"]);
-const TERMINAL = new Set(["ready", "error", "stopped"]);
 
 function statusLabel(status) {
   return ({
     conversation: "Conversation",
-    queued: "Preparing research",
     planning: "Planning research",
     discovering: "Discovering sources",
     reading: "Reading sources",
@@ -33,13 +31,11 @@ function initialAssistantMessage(project) {
 
 function withInitialConversationMessage(project, storedMessages = []) {
   const messages = Array.isArray(storedMessages) ? [...storedMessages] : [];
-  if (!project?.id) return messages;
-  if (project.researchStatus === "ready") {
-    const pendingIndex = messages.findIndex((message) => message?.researchPending && message.role === "assistant");
-    const assistantIndex = messages.findIndex((message) => message?.role === "assistant" && !message.researchPending && message.grounded);
-    if (pendingIndex >= 0) messages.splice(pendingIndex, 1, initialAssistantMessage(project));
-    else if (assistantIndex < 0) messages.push(initialAssistantMessage(project));
-  }
+  if (!project?.id || project.researchStatus !== "ready") return messages;
+  const pendingIndex = messages.findIndex((message) => message?.researchPending && message.role === "assistant");
+  const assistantIndex = messages.findIndex((message) => message?.role === "assistant" && !message.researchPending && message.grounded);
+  if (pendingIndex >= 0) messages.splice(pendingIndex, 1, initialAssistantMessage(project));
+  else if (assistantIndex < 0 && project.research) messages.push(initialAssistantMessage(project));
   return messages;
 }
 
@@ -55,8 +51,13 @@ export default function ResearchConversationPage() {
   const [error, setError] = useState("");
   const [activity, setActivity] = useState(null);
   const [streamConnected, setStreamConnected] = useState(false);
+  const [thinkingElapsed, setThinkingElapsed] = useState(0);
   const messagesRef = useRef(null);
   const stickToBottomRef = useRef(true);
+  const activeRequestRef = useRef(null);
+  const pendingMessageIdRef = useRef(null);
+  const initialStartedRef = useRef(false);
+  const stoppingRef = useRef(false);
 
   const scrollMessagesToBottom = useCallback((behavior = "smooth") => {
     const node = messagesRef.current;
@@ -71,7 +72,6 @@ export default function ResearchConversationPage() {
   }, []);
 
   const load = useCallback(async () => {
-    await Promise.resolve();
     try {
       const res = await fetch(`/api/research-conversations/${id}`);
       const data = await res.json().catch(() => ({}));
@@ -90,7 +90,7 @@ export default function ResearchConversationPage() {
     }
   }, [id]);
 
-  useEffect(() => { void load(); return undefined; }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
     const stream = new EventSource(`/api/research-conversations/${id}/events`);
@@ -116,6 +116,11 @@ export default function ResearchConversationPage() {
       const data = parse(event);
       if (!data || !Array.isArray(data.messages)) return;
       setMessages(data.messages);
+      const completed = data.messages.find((message) => message?.id === pendingMessageIdRef.current && !message.researchPending);
+      if (completed || data.messages.some((message) => message?.role === "assistant" && message?.conversationOnly && !message.researchPending)) {
+        setSending(false);
+        pendingMessageIdRef.current = null;
+      }
     });
     stream.addEventListener("job", (event) => {
       const data = parse(event);
@@ -123,7 +128,14 @@ export default function ResearchConversationPage() {
       setActivity((current) => ({ ...(current || {}), ...data }));
       setProject((current) => current ? { ...current, researchStatus: data.status, researchProgress: data.progress, researchStageDetail: data.detail } : current);
       setBuildingBrief(RESEARCH_STAGES.has(data.status));
-      if (data.status === "ready" || data.status === "error") refresh();
+      if (data.conversationThinking) setSending(true);
+      if (!data.conversationThinking && data.status === "conversation") setSending(false);
+      if (data.status === "ready" || data.status === "error") {
+        setSending(false);
+        setBuildingBrief(false);
+        pendingMessageIdRef.current = null;
+        refresh();
+      }
     });
     stream.addEventListener("activity", (event) => {
       const item = parse(event);
@@ -151,31 +163,89 @@ export default function ResearchConversationPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [messages, activity?.activity?.length, scrollMessagesToBottom]);
 
-  async function sendQuestion(event) {
-    event?.preventDefault();
-    const text = question.trim();
-    const conversationMode = project?.researchStatus === "conversation";
-    const ready = project?.researchStatus === "ready";
-    if (!text || sending || buildingBrief || (!conversationMode && !ready)) return;
+  useEffect(() => {
+    if (!sending) {
+      setThinkingElapsed(0);
+      return undefined;
+    }
+    const started = Date.now();
+    const timer = window.setInterval(() => setThinkingElapsed(Math.floor((Date.now() - started) / 1000)), 250);
+    return () => window.clearInterval(timer);
+  }, [sending]);
+
+  const submitQuestion = useCallback(async (text, { initial = false } = {}) => {
+    const value = String(text || "").trim();
+    if (!value || !project || sending || buildingBrief) return;
+    const conversationMode = project.researchStatus === "conversation";
+    const ready = project.researchStatus === "ready" || project.researchStatus === "error";
+    if (!conversationMode && !ready) return;
+
     setSending(true);
     setError("");
+    stoppingRef.current = false;
     stickToBottomRef.current = true;
-    const optimisticId = `optimistic-${Date.now()}`;
-    setMessages((current) => [...current.filter((message) => !message.optimistic), { id: optimisticId, role: "user", content: text, optimistic: true }]);
-    setQuestion("");
+    const pendingId = `pending-${Date.now()}`;
+    pendingMessageIdRef.current = pendingId;
+    if (!initial) {
+      setMessages((current) => [...current.filter((message) => !message.optimistic), { id: `optimistic-${Date.now()}`, role: "user", content: value, optimistic: true }, { id: pendingId, role: "assistant", content: "Helix is thinking through your question…", researchPending: true, grounded: false }]);
+    } else {
+      setMessages((current) => [...current, { id: pendingId, role: "assistant", content: "Helix is thinking through the research direction…", researchPending: true, grounded: false }]);
+    }
+    setQuestion(initial ? question : "");
+
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
     try {
-      const res = await fetch(`/api/research-conversations/${id}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text }) });
+      const res = await fetch(`/api/research-conversations/${id}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: value, initial }), signal: controller.signal });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Helix could not answer that question.");
-      setMessages(data.messages || []);
+      if (!res.ok) {
+        if (data.stopped || stoppingRef.current || controller.signal.aborted) return;
+        throw new Error(data.error || "Helix could not answer that question.");
+      }
+      if (data.messages) setMessages(data.messages);
       if (data.project) setProject(data.project);
       if (data.activity) setActivity(data.activity);
+      if (!data.researchPending) {
+        setSending(false);
+        pendingMessageIdRef.current = null;
+      }
     } catch (err) {
-      setMessages((current) => current.filter((message) => !message.optimistic));
+      if (controller.signal.aborted || stoppingRef.current) return;
+      setMessages((current) => current.filter((message) => message.id !== pendingId && !message.optimistic));
       setError(err.message || "Helix could not answer that question.");
-    } finally {
       setSending(false);
+      pendingMessageIdRef.current = null;
+    } finally {
+      if (activeRequestRef.current === controller) activeRequestRef.current = null;
     }
+  }, [project, sending, buildingBrief, id, question]);
+
+  useEffect(() => {
+    if (loading || !project || project.researchStatus !== "conversation" || sending || buildingBrief || initialStartedRef.current) return;
+    const hasAssistant = messages.some((message) => message?.role === "assistant");
+    const onlyTopic = messages.length === 1 && messages[0]?.role === "user" && messages[0]?.content === project.title;
+    if (!hasAssistant && onlyTopic) {
+      initialStartedRef.current = true;
+      void submitQuestion(project.title, { initial: true });
+    }
+  }, [loading, project, messages, sending, buildingBrief, submitQuestion]);
+
+  async function stopGeneration() {
+    if ((!sending && !buildingBrief) || stoppingRef.current) return;
+    stoppingRef.current = true;
+    setError("");
+    try {
+      await fetch(`/api/projects/${id}/research/stop`, { method: "POST" });
+    } catch { /* the local request is still cancelled below */ }
+    activeRequestRef.current?.abort();
+    activeRequestRef.current = null;
+    pendingMessageIdRef.current = null;
+    setSending(false);
+    setBuildingBrief(false);
+    setMessages((current) => current.filter((message) => !message.researchPending && !message.optimistic));
+    const refreshed = await load().catch(() => null);
+    if (refreshed?.researchStatus === "error" && refreshed.research) setProject((current) => current ? { ...current, researchStatus: "ready", researchStageDetail: "Ready for another question." } : current);
+    stoppingRef.current = false;
   }
 
   async function buildBrief() {
@@ -184,16 +254,18 @@ export default function ResearchConversationPage() {
     setError("");
     stickToBottomRef.current = true;
     const systemMessage = { id: `brief-request-${Date.now()}`, role: "assistant", content: "I’m scanning our conversation now and turning your questions and priorities into the full evidence-backed research brief.", researchPending: true, grounded: false, sources: [], evidence: [] };
+    pendingMessageIdRef.current = systemMessage.id;
     setMessages((current) => [...current, systemMessage].slice(-60));
     try {
       const res = await fetch(`/api/research-conversations/${id}/brief`, { method: "POST", headers: { "Content-Type": "application/json" } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to build the research brief.");
       if (data.project) setProject(data.project);
-      if (Array.isArray(data.messages)) setMessages(data.messages.concat(systemMessage));
+      if (Array.isArray(data.messages)) setMessages(data.messages);
       if (data.activity) setActivity(data.activity);
     } catch (err) {
       setBuildingBrief(false);
+      pendingMessageIdRef.current = null;
       setMessages((current) => current.filter((message) => message.id !== systemMessage.id));
       setError(err.message || "Failed to build the research brief.");
     }
@@ -202,18 +274,19 @@ export default function ResearchConversationPage() {
   if (loading) return <div className="hx-page"><Header /><main className="container rc-loading">Loading research workspace…</main></div>;
   if (!project) return <div className="hx-page"><Header /><main className="container rc-loading">{error || "Research workspace not found."}</main></div>;
 
-  const ready = project.researchStatus === "ready";
+  const ready = project.researchStatus === "ready" || project.researchStatus === "error";
   const conversationMode = project.researchStatus === "conversation";
   const liveResearch = RESEARCH_STAGES.has(project.researchStatus);
   const sourceCount = Array.isArray(project.research?.sources) ? project.research.sources.length : 0;
   const evidenceCount = Number(project.research?.research_metrics?.evidence_passages ?? project.research?.evidence_passages ?? 0);
   const liveEvents = Array.isArray(activity?.activity) ? activity.activity.slice(-6).reverse() : [];
   const liveSources = Array.isArray(activity?.discoveredSources) ? activity.discoveredSources : [];
-  const activeMessageId = activity?.messageId;
+  const thinking = Boolean(sending || activity?.conversationThinking || buildingBrief);
+  const activeMessageId = pendingMessageIdRef.current;
 
   return (
     <div className="hx-page rc-page">
-      <Header right={<button type="button" className="btn btn-ghost" disabled={!ready} onClick={() => navigate(`/research/${id}`)}>Open research report</button>} />
+      <Header right={<button type="button" className="btn btn-ghost" disabled={!project.research} onClick={() => navigate(`/research/${id}`)}>Open research report</button>} />
       <main className="container rc-shell">
         <div className="rc-heading">
           <div>
@@ -230,10 +303,10 @@ export default function ResearchConversationPage() {
               {messages.length === 0 && <div className="rc-welcome"><span className="eyebrow">Start here</span><h2>What do you want to understand?</h2><p>Ask questions, test angles, and clarify what you want the final research brief to investigate.</p></div>}
               {messages.map((message, index) => <article className={`rc-message rc-message--${message.role}${message.researchPending ? " rc-message--pending" : ""}`} key={message.id || `${message.role}-${index}`}>
                 <span className="rc-message__role">{message.role === "user" ? "You" : "Helix"}</span>
-                <div className="rc-message__body">{message.researchPending ? "I’m scanning our conversation and building the evidence-backed research pass. The finished answer will appear here." : message.content}</div>
+                <div className="rc-message__body">{message.content}</div>
+                {message.researchPending && activeMessageId === message.id && <div className="rc-message__live"><span className="rc-spinner" aria-hidden="true" /><span>{buildingBrief ? "Research pipeline active" : "Thinking"}</span><span className="rc-message__live-status">{buildingBrief ? statusLabel(activity?.status || project.researchStatus) : `${thinkingElapsed}s`}</span></div>}
                 {message.conversationOnly && <span className="rc-message__meta">Exploration guidance · not verified research</span>}
                 {message.researchBrief && <span className="rc-message__meta">Deep research brief · source grounded</span>}
-                {message.researchPending && activeMessageId === message.id && <div className="rc-message__live"><span className="rc-spinner" aria-hidden="true" /><span>Research in progress</span><span className="rc-message__live-status">{statusLabel(activity?.status || project.researchStatus)}</span></div>}
                 {message.sources?.length > 0 && <div className="rc-message__sources"><strong>{message.sources.length} sources</strong>{message.sources.slice(0, 3).map((source, sourceIndex) => <a key={`${source.url}-${sourceIndex}`} href={source.url} target="_blank" rel="noreferrer">{source.title || source.url}</a>)}</div>}
                 {message.evidence?.length > 0 && <span className="rc-message__evidence">{message.evidence.length} evidence passages · corpus grounded</span>}
               </article>)}
@@ -248,17 +321,15 @@ export default function ResearchConversationPage() {
                 {liveSources.length > 0 && <div className="rc-live__sources"><div className="rc-live__subhead"><span>Sources surfaced</span><strong>{liveSources.length}</strong></div><div className="rc-live__source-list">{liveSources.slice(-6).reverse().map((source) => <a key={source.url} className="rc-live__source" href={source.url} target="_blank" rel="noreferrer"><span>{source.title}</span><small>{sourceLabel(source)}</small></a>)}</div></div>}
                 {liveEvents.length > 0 && <div className="rc-live__events"><div className="rc-live__subhead"><span>Activity</span><strong>{activity.activity?.length}</strong></div>{liveEvents.map((item) => <div className="rc-live__event" key={item.id}><span className="rc-live__event-dot" aria-hidden="true" /><div><strong>{item.message}</strong>{item.title && <span>{item.title}</span>}</div></div>)}</div>}
               </section>}
-
-              <div aria-hidden="true" />
             </div>
 
             {!ready && project.researchStatus === "error" && <div className="rc-researching rc-researching--error" role="alert"><span>{activity?.detail || project.researchStageDetail || "Research needs attention."}</span></div>}
             {error && <p className="rc-error" role="alert">{error}</p>}
-            <form className="rc-composer" onSubmit={sendQuestion}>
-              <textarea value={question} onChange={(event) => setQuestion(event.target.value)} disabled={!conversationMode && !ready || sending || buildingBrief} placeholder={conversationMode ? "Ask Helix about the direction you want to research…" : ready ? "Ask another research question…" : "Helix is building the research brief…"} maxLength={2000} rows={3} aria-label="Research question" />
+            <form className="rc-composer" onSubmit={(event) => { event.preventDefault(); if (thinking) void stopGeneration(); else void submitQuestion(question); }}>
+              <textarea value={question} onChange={(event) => setQuestion(event.target.value)} disabled={(!conversationMode && !ready) || thinking} placeholder={conversationMode ? "Ask Helix about the direction you want to research…" : ready ? "Ask another research question…" : "Helix is building the research brief…"} maxLength={2000} rows={3} aria-label="Research question" />
               <div className="rc-composer__footer">
                 <span>{conversationMode ? "Exploration helps shape the final research brief. Chat guidance is not verified evidence." : ready ? "Answers use the persisted research corpus. Knowledge gaps trigger focused research." : "Research activity stays inside this conversation. You do not need to follow the page scroll."}</span>
-                <button className="btn btn-cream" type="submit" disabled={(!conversationMode && !ready) || sending || buildingBrief || !question.trim()}>{sending ? "Thinking…" : conversationMode ? "Ask Helix" : "Ask Helix"}</button>
+                <button className="btn btn-cream" type="button" onClick={thinking ? stopGeneration : () => void submitQuestion(question)} disabled={!thinking && ((!conversationMode && !ready) || !question.trim())}>{thinking ? "Stop" : "Ask Helix"}</button>
               </div>
             </form>
           </section>
@@ -268,7 +339,7 @@ export default function ResearchConversationPage() {
             <p className="rc-brief__topic">{project.title}</p>
             <div className="rc-metrics"><div><strong>{sourceCount || "—"}</strong><span>sources</span></div><div><strong>{evidenceCount || "—"}</strong><span>evidence</span></div><div><strong>{conversationMode ? "Explore" : ready ? "Ready" : "…"}</strong><span>status</span></div></div>
             <div className="rc-brief__note"><strong>{conversationMode ? "Conversation first" : "How this works"}</strong><p>{conversationMode ? "Use this space to clarify the angle, scope, audience, and questions. Nothing from this exploratory chat is presented as verified evidence. The next step scans the conversation and runs the full research pipeline." : "Your conversation adds research direction. Helix does not treat chat text as verified fact; answers are grounded in the persisted source/evidence corpus."}</p></div>
-            {conversationMode && <button type="button" className="btn btn-cream rc-continue" disabled={buildingBrief} onClick={buildBrief}>{buildingBrief ? "Building research brief…" : "Build research brief →"}</button>}
+            {conversationMode && <button type="button" className="btn btn-cream rc-continue" disabled={buildingBrief || thinking} onClick={buildBrief}>{buildingBrief ? "Building research brief…" : "Build research brief →"}</button>}
             {ready && <button type="button" className="btn btn-cream rc-continue" onClick={() => navigate(`/storyboard/${id}?stage=setup`)}>Continue to setup →</button>}
             {!conversationMode && !ready && <button type="button" className="btn btn-cream rc-continue" disabled>{buildingBrief ? "Building research brief…" : "Research in progress…"}</button>}
             <button type="button" className="btn btn-ghost rc-secondary" onClick={() => navigate("/")}>Back to Signals</button>
