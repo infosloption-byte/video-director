@@ -22,6 +22,7 @@ export default function PlatformShell({ children }) {
   const [signingOut, setSigningOut] = useState(false);
   const [recentProjects, setRecentProjects] = useState([]);
   const accountMenuRef = useRef(null);
+  const deletedProjectIdsRef = useRef(new Set());
   const projectId = useMemo(() => location.pathname.match(/^(?:\/research|\/storyboard|\/media)\/([^/]+)/)?.[1] || location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "", [location.pathname]);
   const userLabel = user?.displayName || user?.email || "Account";
 
@@ -32,18 +33,33 @@ export default function PlatformShell({ children }) {
   useEffect(() => { setMobileOpen(false); setAccountMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
-    if (!user) { setRecentProjects([]); return undefined; }
+    if (!user) { setRecentProjects([]); deletedProjectIdsRef.current.clear(); return undefined; }
     let cancelled = false;
+    deletedProjectIdsRef.current.clear();
     async function loadRecentProjects() {
       try {
         const response = await fetch("/api/projects", { credentials: "include", cache: "no-store" });
         if (!response.ok) return;
         const data = await response.json().catch(() => ({}));
-        if (!cancelled) setRecentProjects(Array.isArray(data.projects) ? data.projects.slice(0, 5) : []);
+        if (!cancelled) {
+          const projects = Array.isArray(data.projects) ? data.projects : [];
+          setRecentProjects(projects.filter((project) => !deletedProjectIdsRef.current.has(project.id)).slice(0, 5));
+        }
       } catch { /* sidebar recents are optional */ }
     }
+    function handleProjectDeleted(event) {
+      const deletedProjectId = event.detail?.projectId;
+      if (!deletedProjectId) return;
+      deletedProjectIdsRef.current.add(deletedProjectId);
+      setRecentProjects((current) => current.filter((project) => project.id !== deletedProjectId));
+      void loadRecentProjects();
+    }
     void loadRecentProjects();
-    return () => { cancelled = true; };
+    window.addEventListener("helix:project-deleted", handleProjectDeleted);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("helix:project-deleted", handleProjectDeleted);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -117,7 +133,7 @@ export default function PlatformShell({ children }) {
     <aside className="platform-sidebar" aria-label="Platform navigation">
       <div className="platform-sidebar__top">
         <Link to="/" className="platform-brand" onClick={handleBrandClick} aria-label={collapsed ? "Expand sidebar" : "Helix workspace"} title={collapsed ? "Expand sidebar" : "Helix workspace"}><span className="platform-brand__mark">X</span><span className="platform-brand__name">Helix</span></Link>
-        <button type="button" className="platform-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}><span aria-hidden="true">{collapsed ? "›" : "‹"}</span></button>
+        <button type="button" className="platform-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"><span aria-hidden="true">{collapsed ? "›" : "‹"}</span></button>
       </div>
       <nav className="platform-nav">
         <div className="platform-nav__group">{visibleNav.map(renderNavItem)}</div>
