@@ -43,7 +43,7 @@ app.use("/api/projects", requireAuth, (req, _res, next) => {
   next();
 }, requireProjectOwner, expensiveOperationRateLimit);
 app.use("/api/templates", requireAuth, templatesRouter);
-app.use("/api/projects", projectDeleteRouter);
+app.use("/api/projects", requireAuth, requireProjectOwner, projectDeleteRouter);
 app.use("/api/projects", editorRouter);
 app.use("/api/projects", productivityRouter);
 app.use("/api/projects", mediaRouter);
