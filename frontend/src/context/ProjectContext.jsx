@@ -63,13 +63,8 @@ export function ProjectProvider({ children }) {
 
   // Keep the shared project list aligned with the authenticated account.
   useEffect(() => {
-    if (!user) {
-      void clearProjects();
-      return undefined;
-    }
     void refreshProjects();
-    return undefined;
-  }, [clearProjects, refreshProjects, user]);
+  }, [refreshProjects]);
 
   const value = useMemo(() => ({ projects, loading, error, refreshProjects, addProject, removeProject }), [projects, loading, error, refreshProjects, addProject, removeProject]);
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
