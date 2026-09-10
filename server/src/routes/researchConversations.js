@@ -250,7 +250,10 @@ router.post("/", async (req, res) => {
   try {
     const topic = String(req.body?.topic || "").trim().slice(0, 255);
     if (topic.length < 3) return res.status(400).json({ error: "Enter a research topic to begin." });
-    const signal = await prisma.signal.create({ data: { id: crypto.randomUUID(), origin: "search", sourceType: "brave", sourceReliability: "general_web", searchQuery: topic, category: "TECHNOLOGY", title: topic, description: `User-directed research topic: ${topic}`, whyReasoning: "Started directly by the user from Research with Helix.", status: "used" } });
+    let signal = await prisma.signal.findFirst({ where: { origin: "search", sourceUrl: null, title: topic } });
+    if (!signal) {
+      signal = await prisma.signal.create({ data: { id: crypto.randomUUID(), origin: "search", sourceType: "brave", sourceReliability: "general_web", searchQuery: topic, category: "TECHNOLOGY", title: topic, description: `User-directed research topic: ${topic}`, whyReasoning: "Started directly by the user from Research with Helix.", status: "used" } });
+    }
     const project = await prisma.project.create({ data: { id: crypto.randomUUID(), userId: req.user.id, signalId: signal.id, title: topic, status: "researching" } });
     jobs.set(project.id, { status: "conversation", progress: 0, detail: "Conversation is ready. Explore the topic before building the research brief.", messageId: null, question: topic, conversationThinking: false, activity: [], discoveredSources: [] });
     res.status(202).json({ project: projectView(project), messages: [{ id: `topic-${project.id}`, role: "user", content: topic }], activity: jobSnapshot(project.id) });
