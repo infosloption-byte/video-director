@@ -21,6 +21,26 @@ test("M18 conversation streams per-message research activity and discovered sour
   assert.match(page, /Sources surfaced/);
 });
 
+test("M18 initial conversation answers the topic without duplicating the topic message", async () => {
+  const route = await source("../src/routes/researchConversations.js");
+  assert.match(route, /req\.body\?\.initial === true/);
+  assert.match(route, /const history = initial \? currentMessages/);
+  assert.match(route, /conversationThinking: true/);
+  assert.match(route, /conversationThinking: false/);
+});
+
+test("M18 conversation generation is cancellable", async () => {
+  const service = await source("../src/services/researchConversationService.js");
+  const control = await source("../src/routes/researchControl.js");
+  const page = await source("../../frontend/src/pages/ResearchConversationPage.jsx");
+  assert.match(service, /registerResearchController/);
+  assert.match(service, /RESEARCH_CONVERSATION_STOPPED/);
+  assert.match(control, /conversation:\$\{project\.id\}/);
+  assert.match(control, /conversationStopped: true/);
+  assert.match(page, /\/api\/projects\/\$\{id\}\/research\/stop/);
+  assert.match(page, /\{thinking \? "Stop" : "Ask Helix"\}/);
+});
+
 test("M18 follow-up research completes the pending conversation message from the persisted corpus", async () => {
   const route = await source("../src/routes/researchConversations.js");
   assert.match(route, /answerResearchQuestion\(session, question\)/);
