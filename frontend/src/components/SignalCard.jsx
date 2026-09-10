@@ -4,7 +4,7 @@ import { IconArrowUpRight } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
 import AuthChoiceDialog from "./AuthChoiceDialog";
 import { useAuth } from "../context/AuthContext";
-import { useProjects } from "../context/ProjectContext.jsx";
+import { useProjects } from "../context/useProjects.js";
 import "./SignalCard.css";
 
 export default function SignalCard({ signal, featured = false }) {
