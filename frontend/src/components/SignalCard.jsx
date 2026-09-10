@@ -4,11 +4,13 @@ import { IconArrowUpRight } from "./Icons";
 import ConfirmDialog from "./ConfirmDialog";
 import AuthChoiceDialog from "./AuthChoiceDialog";
 import { useAuth } from "../context/AuthContext";
+import { useProjects } from "../context/ProjectContext.jsx";
 import "./SignalCard.css";
 
 export default function SignalCard({ signal, featured = false }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { addProject } = useProjects();
   const [pending, setPending] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [errorDialog, setErrorDialog] = useState({ open: false, title: "", message: "" });
@@ -29,6 +31,7 @@ export default function SignalCard({ signal, featured = false }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Couldn't start research.");
+      addProject(data.project);
       navigate(`/research/${data.project.id}`);
     } catch (error) {
       console.error("Failed to start research:", error);
