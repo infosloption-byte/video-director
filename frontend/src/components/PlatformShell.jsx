@@ -89,7 +89,7 @@ export default function PlatformShell({ children }) {
       "Advanced Editor": <><path d="m14.5 5.5 4 4L10 18H6v-4zM13 7l4 4" /></>,
       About: <><circle cx="12" cy="12" r="8" /><path d="M12 10v6M12 7.5h.01" /></>,
       Support: <><circle cx="12" cy="12" r="8" /><path d="M9.5 9.5a2.6 2.6 0 1 1 4.1 2.1c-1 .7-1.6 1.1-1.6 2.4M12 16.5h.01" /></>,
-      Settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19 13.2 1.1.8-1.5 2.6-1.3-.5a7 7 0 0 1-1.8 1.1l-.2 1.4h-3l-.2-1.4a7 7 0 0 1-1.8-1.1l-.2-1.4-1.3.5-1.5-2.6 1.1-.8a7 7 0 0 1 0-2.4l-1.1-.8 1.5-2.6 1.3.5a7 7 0 0 1 1.8-1.1l.2-1.4h3l.2 1.4a7 7 0 0 1 1.8 1.1l1.3-.5 1.5 2.6-1.1.8a7 7 0 0 1 0 2.4Z" /></>,
+      Settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19 13.2 1.1.8-1.5 2.6-1.3-.5a7 7 0 0 1-1.8 1.1l-.2 1.4h-3l-.2-1.4a7 7 0 0 1-1.8-1.1l-1.3.5-1.5-2.6 1.1-.8a7 7 0 0 1 0-2.4l-1.1-.8 1.5-2.6 1.3.5a7 7 0 0 1 1.8-1.1l.2-1.4h3l.2 1.4a7 7 0 0 1 1.8 1.1l1.3-.5 1.5 2.6-1.1.8a7 7 0 0 1 0 2.4Z" /></>,
     };
     return <svg className="platform-nav__icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[item.icon] || paths.Research}</svg>;
   };
