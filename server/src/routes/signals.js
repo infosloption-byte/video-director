@@ -40,7 +40,7 @@ router.get("/", async (req, res) => {
     const sort = sortValue(req.query.sort);
     const where = {
       origin: "suggested",
-      status: "new",
+      status: { not: "archived" },
       ...(category && category !== "All" ? { category } : {}),
     };
     const total = await prisma.signal.count({ where });
