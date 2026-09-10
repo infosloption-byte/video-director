@@ -141,6 +141,7 @@ M9 Facebook production → DEFERRED / separate product decision
 ```
 
 ## Decisions log
+- `2026-09-10` — Standardized dropdown UX across the platform with one accessible, Helix-styled SelectMenu component; native browser dropdowns were removed from the audited frontend surfaces.
 - `2026-09-10` — Ownership boundary audit: User owns Project and all project-scoped descendants transitively; Signal remains shared and is never user-owned or globally consumed. Project deletion now uses authenticated session identity rather than request-supplied user IDs.
 - `2026-09-10` — Signals are shared topic records, not single-user consumables: Projects bind a user to a Signal, and the same Signal can be reused by many users/projects. Public discovery excludes search-origin topic records and archives only stale suggested feed rows.
 - `2026-09-10` — Signal filter selectors use custom Helix-styled menus instead of browser-default dropdown controls.
@@ -155,3 +156,5 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-10` — Conversation AI calls now expose an actual in-flight thinking state, support Stop/cancellation, and return the composer to Ask Helix after completion or cancellation.
 - `2026-09-10` — Signals desk now uses server-side pagination with configurable 6/12/24/48 page sizes and server/client sorting controls inside a dedicated filter panel.
 - `2026-09-10` — Signal cards use a stable visual height while long descriptions and WHY details scroll inside their own regions, preventing one verbose signal from stretching the entire feed.
+
+- [x] Platform dropdowns now use the shared Helix SelectMenu instead of browser-native `<select>` controls (Signals, My Research, Editor, Advanced Editor)
