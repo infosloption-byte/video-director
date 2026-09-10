@@ -59,6 +59,8 @@ export function ProjectProvider({ children }) {
     setProjects((current) => current.filter((project) => project.id !== projectId));
   }, []);
 
+  // Keep the shared project list aligned with the authenticated account.
+  // oxlint-disable-next-line react(set-state-in-effect)
   useEffect(() => {
     if (!user) {
       clearProjects();
