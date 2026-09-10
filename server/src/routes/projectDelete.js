@@ -3,8 +3,11 @@ import { rm } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../db/client.js";
 import { getRenderQueue } from "../jobs/renderQueue.js";
+import { requireAuth } from "../middleware/auth.js";
+import { requireProjectOwner } from "../middleware/ownership.js";
 
 const router = Router();
+router.use(requireAuth, requireProjectOwner);
 const STORAGE_ROOT = path.resolve(process.cwd(), "storage");
 
 async function removeIfExists(target) {
@@ -13,9 +16,8 @@ async function removeIfExists(target) {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const userId = String(req.query.userId || req.body?.userId || "local-user");
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, userId },
+      where: { id: req.params.id },
       select: { id: true, status: true },
     });
 
