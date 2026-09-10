@@ -30,3 +30,15 @@ test("editor render cancellation is inside the protected project route scope", a
   const routes = await source("../src/routes/editorRender.js");
   assert.match(routes, /router\.use\("\/projects\/:id",\s*requireProjectOwner\)[\s\S]*router\.post\("\/projects\/:id\/editor\/render\/cancel"/);
 });
+
+
+test("project deletion route requires authenticated project ownership", async () => {
+  const routes = await source("../src/routes/projectDelete.js");
+  assert.match(routes, /router\.use\(requireAuth, requireProjectOwner\)/);
+  assert.doesNotMatch(routes, /req\.query\.userId|req\.body\?\.userId|local-user/);
+});
+
+test("signals remain shared and are not consumed by project creation", async () => {
+  const routes = await source("../src/routes/projects.js");
+  assert.doesNotMatch(routes, /signal\.origin === "suggested" && signal\.status === "new"[s\S]*signal\.update/);
+});
