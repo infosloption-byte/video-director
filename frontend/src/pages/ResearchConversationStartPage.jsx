@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
-import { useProjects } from "../context/ProjectContext.jsx";
+import { useProjects } from "../context/useProjects.js";
 import "./ResearchConversationPage.css";
 
 export default function ResearchConversationStartPage() {
