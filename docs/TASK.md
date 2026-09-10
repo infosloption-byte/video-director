@@ -141,6 +141,7 @@ M9 Facebook production → DEFERRED / separate product decision
 ```
 
 ## Decisions log
+- `2026-09-10` — Ownership boundary audit: User owns Project and all project-scoped descendants transitively; Signal remains shared and is never user-owned or globally consumed. Project deletion now uses authenticated session identity rather than request-supplied user IDs.
 - `2026-09-10` — Signals are shared topic records, not single-user consumables: Projects bind a user to a Signal, and the same Signal can be reused by many users/projects. Public discovery excludes search-origin topic records and archives only stale suggested feed rows.
 - `2026-09-10` — Signal filter selectors use custom Helix-styled menus instead of browser-default dropdown controls.
 - `2026-09-10` — Research Conversation is conversation-first: user explores with Helix, then explicitly starts the full deep-research pass from accumulated conversation context.
