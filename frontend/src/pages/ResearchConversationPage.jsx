@@ -26,15 +26,20 @@ function initialAssistantMessage(project) {
   };
 }
 
+function pendingInitialMessage(projectId) {
+  return { id: `initial-assistant-${projectId}`, role: "assistant", content: "I’m researching this topic across relevant sources. I’ll bring the evidence-backed findings back into this conversation when the first pass is complete.", researchPending: true, grounded: false, sources: [], evidence: [] };
+}
+
 function withInitialConversationMessage(project, storedMessages = []) {
   const messages = Array.isArray(storedMessages) ? [...storedMessages] : [];
-  if (messages.length && !messages.some((message) => message.role === "assistant" && message.id !== `topic-${project.id}`)) {
-    const pending = messages.find((message) => message.researchPending && message.role === "assistant");
-    if (!project?.researchStatus || !TERMINAL.has(project.researchStatus) || project.researchStatus === "error") {
-      if (!pending) messages.push({ id: `initial-assistant-${project.id}`, role: "assistant", content: "I’m researching this topic across relevant sources. I’ll bring the evidence-backed findings back into this conversation when the first pass is complete.", researchPending: true, grounded: false, sources: [], evidence: [] });
-    } else if (project.researchStatus === "ready") {
-      messages.push(initialAssistantMessage(project));
-    }
+  if (!project?.id) return messages;
+  const pendingIndex = messages.findIndex((message) => message?.researchPending && message.role === "assistant");
+  const assistantIndex = messages.findIndex((message) => message?.role === "assistant" && !message.researchPending);
+  if (project.researchStatus === "ready") {
+    if (pendingIndex >= 0) messages.splice(pendingIndex, 1, initialAssistantMessage(project));
+    else if (assistantIndex < 0) messages.push(initialAssistantMessage(project));
+  } else if (!TERMINAL.has(project.researchStatus) && pendingIndex < 0) {
+    messages.push(pendingInitialMessage(project.id));
   }
   return messages;
 }
@@ -100,10 +105,8 @@ export default function ResearchConversationPage() {
     stream.addEventListener("snapshot", (event) => {
       const data = parse(event);
       if (!data) return;
-      if (data.project) {
-        setProject(data.project);
-        setMessages((current) => withInitialConversationMessage(data.project, current));
-      }
+      if (data.project) setProject(data.project);
+      if (data.project) setMessages((current) => withInitialConversationMessage(data.project, current));
       if (data.activity) setActivity(data.activity);
     });
     stream.addEventListener("job", (event) => {
@@ -111,13 +114,7 @@ export default function ResearchConversationPage() {
       if (!data) return;
       setActivity((current) => ({ ...(current || {}), ...data }));
       setProject((current) => current ? { ...current, researchStatus: data.status, researchProgress: data.progress, researchStageDetail: data.detail } : current);
-      if (data.status === "ready") {
-        setMessages((current) => {
-          if (current.some((message) => message.id === `initial-assistant-${id}`)) return current;
-          return [...current.filter((message) => !message.researchPending), initialAssistantMessage({ id, research: null })];
-        });
-        refresh();
-      }
+      if (data.status === "ready") refresh();
     });
     stream.addEventListener("activity", (event) => {
       const item = parse(event);
@@ -151,15 +148,14 @@ export default function ResearchConversationPage() {
   async function sendQuestion(event) {
     event?.preventDefault(); const text = question.trim();
     if (!text || sending || project?.researchStatus !== "ready") return;
-    setSending(true); setError("");
-    stickToBottomRef.current = true;
+    setSending(true); setError(""); stickToBottomRef.current = true;
     setMessages((current) => [...current.filter((message) => !message.optimistic), { id: `optimistic-${Date.now()}`, role: "user", content: text, optimistic: true }]);
     setQuestion("");
     try {
       const res = await fetch(`/api/research-conversations/${id}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: text }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Helix could not answer that question.");
-      setMessages(withInitialConversationMessage(data.project || project, data.messages || []));
+      setMessages(data.messages || []);
       if (data.project) setProject(data.project);
       if (data.activity) setActivity(data.activity);
     } catch (err) {
@@ -196,7 +192,7 @@ export default function ResearchConversationPage() {
               {messages.map((message, index) => <article className={`rc-message rc-message--${message.role}${message.researchPending ? " rc-message--pending" : ""}`} key={message.id || `${message.role}-${index}`}>
                 <span className="rc-message__role">{message.role === "user" ? "You" : "Helix"}</span>
                 <div className="rc-message__body">{message.researchPending ? "I’m researching this topic across the evidence pipeline rather than guessing. The completed answer will appear here." : message.content}</div>
-                {message.researchPending && activeMessageId === message.id && <div className="rc-message__live"><span className="rc-spinner" aria-hidden="true" /><span>Focused research in progress</span><span className="rc-message__live-status">{statusLabel(activity?.status || project.researchStatus)}</span></div>}
+                {message.researchPending && activeMessageId === message.id && <div className="rc-message__live"><span className="rc-spinner" aria-hidden="true" /><span>Research in progress</span><span className="rc-message__live-status">{statusLabel(activity?.status || project.researchStatus)}</span></div>}
                 {message.sources?.length > 0 && <div className="rc-message__sources"><strong>{message.sources.length} sources</strong>{message.sources.slice(0, 3).map((source, sourceIndex) => <a key={`${source.url}-${sourceIndex}`} href={source.url} target="_blank" rel="noreferrer">{source.title || source.url}</a>)}</div>}
                 {message.evidence?.length > 0 && <span className="rc-message__evidence">{message.evidence.length} evidence passages · corpus grounded</span>}
               </article>)}
