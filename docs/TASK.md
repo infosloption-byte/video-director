@@ -145,6 +145,8 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-10` — Pre-brief conversation guidance is exploratory/not verified; verified factual answers remain downstream of persisted research evidence.
 - `2026-09-10` — Completed deep-research results are inserted into the conversation history.
 - `2026-09-10` — Research activity scrolling is container-bound and must not force whole-page scrolling.
+- `2026-09-10` — Signals desk only exposes fresh suggested rows; user-directed/search-origin research signals remain out of public discovery.
+- `2026-09-10` — Refined Signals sort and page-size selectors to match the Helix surface instead of browser-default controls.
 - `2026-09-10` — Fixed the conversation entry lifecycle so the initial topic receives a real Helix response instead of leaving the chat visually idle until a second question is sent.
 - `2026-09-10` — Fixed the authenticated conversation sidebar to retain Workspace links (Research, Storyboard, Advanced Editor) rather than switching to Recent research.
 - `2026-09-10` — Conversation AI calls now expose an actual in-flight thinking state, support Stop/cancellation, and return the composer to Ask Helix after completion or cancellation.
