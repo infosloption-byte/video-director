@@ -58,7 +58,7 @@ Backend wiring, Signals/search, Research, Setup, Storyboard/live preview, narrat
 - [x] Ask Helix/rerun/regenerate/Storyboard actions and Research → Setup → Storyboard lineage
 - [x] Signals page topic-research panel spacing refinement
 - [x] Signals desk pagination with server-side page size support
-- [x] Signals desk sorting and filter-panel controls
+- [x] Signals desk sorting and filter-panel controls with application-styled selectors
 - [x] Fixed-height signal cards with scrollable long descriptions/WHY details
 - [ ] Responsive QA at 375 / 390 / 425 / 480 / 640 / 768 / 1024 / 1440 px
 - [ ] Accessibility, overflow, theme contrast, representative runtime acceptance
@@ -141,6 +141,8 @@ M9 Facebook production → DEFERRED / separate product decision
 ```
 
 ## Decisions log
+- `2026-09-10` — Public Signals excludes user-directed/search-origin project rows; only fresh suggested signals with `new` status are eligible for the discovery desk.
+- `2026-09-10` — Signal filter selectors use custom Helix-styled menus instead of browser-default dropdown controls.
 - `2026-09-10` — Research Conversation is conversation-first: user explores with Helix, then explicitly starts the full deep-research pass from accumulated conversation context.
 - `2026-09-10` — Pre-brief conversation guidance is exploratory/not verified; verified factual answers remain downstream of persisted research evidence.
 - `2026-09-10` — Completed deep-research results are inserted into the conversation history.
