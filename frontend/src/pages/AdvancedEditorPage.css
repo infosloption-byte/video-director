@@ -10,3 +10,8 @@
 .editor-state--error { border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: 18px; background: var(--surface-soft); }
 
 .editor-media-actions{display:grid;gap:8px;margin-top:14px}.editor-media-actions .btn{width:100%;justify-content:center}.editor-media-actions .editor-add-music{margin-top:0}
+
+
+.editor-timeline-toolbar__controls .editor-timeline-snap{min-width:148px}
+.editor-timeline-toolbar__controls .editor-timeline-snap .select-menu__trigger{min-height:34px;padding:0 9px;border-radius:9px;font:500 11px/1 var(--font-sans)}
+@media (max-width:640px){.editor-timeline-toolbar__controls .editor-timeline-snap{flex:1;min-width:130px}}
