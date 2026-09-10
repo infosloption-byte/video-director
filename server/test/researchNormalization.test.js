@@ -21,3 +21,13 @@ test("research normalization converts structured model text into render-safe str
   assert.equal(brief.reliability_assessment.rationale, "Strong evidence.");
   assert.deepEqual(brief.reliability_assessment.limitations, ["Limited sample."]);
 });
+
+test("research normalization removes undefined values from JSON arrays and objects", () => {
+  const brief = normalizeResearchBrief({
+    key_facts: [undefined, "Useful fact", { claim: "Another fact", extra: undefined }],
+    nested: { value: undefined, safe: "ok", values: ["one", undefined, "two"] },
+  });
+
+  assert.deepEqual(brief.key_facts, ["Useful fact", "Another fact"]);
+  assert.deepEqual(brief.nested, { safe: "ok", values: ["one", "two"] });
+});
