@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext.jsx";
+import { useProjects } from "../context/ProjectContext.jsx";
 import "./PlatformShell.css";
 
 const NAV = [
@@ -14,53 +15,23 @@ export default function PlatformShell({ children }) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { projects } = useProjects();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("helix.platform.sidebar") === "collapsed"; } catch { return false; }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [recentProjects, setRecentProjects] = useState([]);
   const accountMenuRef = useRef(null);
-  const deletedProjectIdsRef = useRef(new Set());
   const projectId = useMemo(() => location.pathname.match(/^(?:\/research|\/storyboard|\/media)\/([^/]+)/)?.[1] || location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "", [location.pathname]);
   const userLabel = user?.displayName || user?.email || "Account";
+  const recentProjects = useMemo(() => projects.slice(0, 5), [projects]);
 
   useEffect(() => {
     try { localStorage.setItem("helix.platform.sidebar", collapsed ? "collapsed" : "expanded"); } catch { /* storage is optional */ }
   }, [collapsed]);
 
   useEffect(() => { setMobileOpen(false); setAccountMenuOpen(false); }, [location.pathname]);
-
-  useEffect(() => {
-    if (!user) { setRecentProjects([]); deletedProjectIdsRef.current.clear(); return undefined; }
-    let cancelled = false;
-    deletedProjectIdsRef.current.clear();
-    async function loadRecentProjects() {
-      try {
-        const response = await fetch("/api/projects", { credentials: "include", cache: "no-store" });
-        if (!response.ok) return;
-        const data = await response.json().catch(() => ({}));
-        if (!cancelled) {
-          const projects = Array.isArray(data.projects) ? data.projects : [];
-          setRecentProjects(projects.filter((project) => !deletedProjectIdsRef.current.has(project.id)).slice(0, 5));
-        }
-      } catch { /* sidebar recents are optional */ }
-    }
-    function handleProjectDeleted(event) {
-      const deletedProjectId = event.detail?.projectId;
-      if (!deletedProjectId) return;
-      deletedProjectIdsRef.current.add(deletedProjectId);
-      setRecentProjects((current) => current.filter((project) => project.id !== deletedProjectId));
-      void loadRecentProjects();
-    }
-    void loadRecentProjects();
-    window.addEventListener("helix:project-deleted", handleProjectDeleted);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("helix:project-deleted", handleProjectDeleted);
-    };
-  }, [user]);
 
   useEffect(() => {
     if (!mobileOpen) return undefined;
@@ -118,7 +89,7 @@ export default function PlatformShell({ children }) {
       "Advanced Editor": <><path d="m14.5 5.5 4 4L10 18H6v-4zM13 7l4 4" /></>,
       About: <><circle cx="12" cy="12" r="8" /><path d="M12 10v6M12 7.5h.01" /></>,
       Support: <><circle cx="12" cy="12" r="8" /><path d="M9.5 9.5a2.6 2.6 0 1 1 4.1 2.1c-1 .7-1.6 1.1-1.6 2.4M12 16.5h.01" /></>,
-      Settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19 13.2 1.1.8-1.5 2.6-1.3-.5a7 7 0 0 1-1.8 1.1l-.2 1.4h-3l-.2-1.4a7 7 0 0 1-1.8-1.1l-1.3.5-1.5-2.6 1.1-.8a7 7 0 0 1 0-2.4l-1.1-.8 1.5-2.6 1.3.5a7 7 0 0 1 1.8-1.1l.2-1.4h3l.2 1.4a7 7 0 0 1 1.8 1.1l1.3-.5 1.5 2.6-1.1.8a7 7 0 0 1 0 2.4Z" /></>,
+      Settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19 13.2 1.1.8-1.5 2.6-1.3-.5a7 7 0 0 1-1.8 1.1l-.2 1.4h-3l-.2-1.4a7 7 0 0 1-1.8-1.1l-1.3.5-1.5-2.6 1.1-.8a7 7 0 0 1 0-2.4l-1.1-.8 1.5-2.6 1.3.5a7 7 0 0 1 1.8-1.1l.2-1.4h3l.2 1.4a7 7 0 0 1 1.8 1.1l1.3-.5 1.3-.5 1.5 2.6-1.1.8a7 7 0 0 1 0 2.4Z" /></>,
     };
     return <svg className="platform-nav__icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[item.icon] || paths.Research}</svg>;
   };
@@ -133,7 +104,7 @@ export default function PlatformShell({ children }) {
     <aside className="platform-sidebar" aria-label="Platform navigation">
       <div className="platform-sidebar__top">
         <Link to="/" className="platform-brand" onClick={handleBrandClick} aria-label={collapsed ? "Expand sidebar" : "Helix workspace"} title={collapsed ? "Expand sidebar" : "Helix workspace"}><span className="platform-brand__mark">X</span><span className="platform-brand__name">Helix</span></Link>
-        <button type="button" className="platform-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"><span aria-hidden="true">{collapsed ? "›" : "‹"}</span></button>
+        <button type="button" className="platform-collapse" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}><span aria-hidden="true">{collapsed ? "›" : "‹"}</span></button>
       </div>
       <nav className="platform-nav">
         <div className="platform-nav__group">{visibleNav.map(renderNavItem)}</div>
