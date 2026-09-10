@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "../components/Header";
 import SignalCard from "../components/SignalCard";
 import { IconScan, IconClapper } from "../components/Icons";
@@ -37,6 +37,68 @@ function toCardSignal(row, index) {
     sourceNote: RELIABILITY_LABEL[row.sourceReliability] ?? "",
     thumb: swatchSets[SWATCH_KEYS[index % SWATCH_KEYS.length]][0],
   };
+}
+
+function SignalSelect({ label, value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnOutside = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  const selected = options.find((option) => String(option.value) === String(value));
+
+  return (
+    <div className="hx-select" ref={rootRef}>
+      <span>{label}</span>
+      <button
+        type="button"
+        className={`hx-select__trigger ${open ? "is-open" : ""}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="hx-select__value">{selected?.label ?? String(value)}</span>
+        <span className="hx-select__chevron" aria-hidden="true">⌄</span>
+      </button>
+      {open && (
+        <div className="hx-select__menu" role="listbox" aria-label={label}>
+          {options.map((option) => {
+            const selectedOption = String(option.value) === String(value);
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={selectedOption}
+                className={`hx-select__option ${selectedOption ? "is-selected" : ""}`}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+              >
+                <span>{option.label}</span>
+                {selectedOption && <span className="hx-select__check" aria-hidden="true">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function pageNumbers(currentPage, totalPages) {
@@ -194,18 +256,13 @@ export default function SignalsPage() {
               {categories.map((category) => <button key={category} type="button" role="tab" aria-selected={active === category} className={`pill ${active === category ? "is-active" : ""}`} onClick={() => handleCategory(category)}>{category}</button>)}
             </div>
             <div className="hx-filter-panel__controls">
-              <label className="hx-select">
-                <span>Sort</span>
-                <select value={sort} onChange={handleSort} aria-label="Sort signals">
-                  {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </label>
-              <label className="hx-select">
-                <span>Signals per page</span>
-                <select value={pageSize} onChange={handlePageSize} aria-label="Signals per page">
-                  {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
-                </select>
-              </label>
+              <SignalSelect label="Sort" value={sort} options={SORT_OPTIONS} onChange={(value) => handleSort({ target: { value } })} />
+              <SignalSelect
+                label="Signals per page"
+                value={pageSize}
+                options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))}
+                onChange={(value) => handlePageSize({ target: { value } })}
+              />
             </div>
           </div>
         </div>
