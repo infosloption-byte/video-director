@@ -75,6 +75,11 @@ Backend wiring, Signals/search, Research, Setup, Storyboard/live preview, narrat
 - [x] Automatically answer the initial topic in the same conversation after opening it
 - [x] Show a real in-flight thinking state while the conversation AI request is actually running
 - [x] Replace Ask Helix with Stop during an active AI request and restore Ask Helix after cancellation/completion
+- [x] Show the initial thinking state reliably before the first AI response renders
+- [x] Render conversation replies with readable Markdown-style headings, lists, emphasis, links, code, and blockquotes
+- [x] Preserve a stopped request in chat and provide Retry for the last request
+- [x] Enter sends a message; Shift+Enter inserts a new line
+- [x] Reduce oversized conversation topic title for hierarchy and readability
 - [ ] Browser QA for desktop/tablet/mobile conversation layout
 
 ### Phase 2 — Conversation-first research lifecycle
@@ -144,3 +149,5 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-10` — Fixed the conversation entry lifecycle so the initial topic receives a real Helix response instead of leaving the chat visually idle until a second question is sent.
 - `2026-09-10` — Fixed the authenticated conversation sidebar to retain Workspace links (Research, Storyboard, Advanced Editor) rather than switching to Recent research.
 - `2026-09-10` — Conversation AI calls now expose an actual in-flight thinking state, support Stop/cancellation, and return the composer to Ask Helix after completion or cancellation.
+- `2026-09-10` — Research Conversation chat now treats Enter as send and Shift+Enter as newline, preserves stopped requests for Retry, renders common Markdown reply structure, and uses a smaller topic heading for stronger visual hierarchy.
+
