@@ -1,7 +1,7 @@
 import { deepResearchSignal } from "./deepResearchService.js";
 import { verifyResearchBrief } from "./researchVerificationService.js";
 import { adjudicateResearchConflicts, attachEvidenceIndexes } from "./researchAdjudicationService.js";
-import { normalizeResearchBrief } from "./researchNormalization.js";
+import { normalizeResearchBrief, sanitizeResearchJson } from "./researchNormalization.js";
 
 export async function researchSignal(signal, { onProgress, onActivity } = {}) {
   const rawBrief = normalizeResearchBrief(await deepResearchSignal(signal, { onProgress, onActivity }));
@@ -30,7 +30,7 @@ export async function researchSignal(signal, { onProgress, onActivity } = {}) {
     traceability_score: verification.summary.traceability_score,
   };
   onProgress?.("synthesizing", 96);
-  return {
+  const finalBrief = {
     ...evidenceLinkedBrief,
     verification: mergedVerification,
     adjudication,
@@ -47,4 +47,5 @@ export async function researchSignal(signal, { onProgress, onActivity } = {}) {
       traceability_score: verification.summary.traceability_score,
     },
   };
+  return sanitizeResearchJson(finalBrief);
 }
