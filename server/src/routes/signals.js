@@ -38,7 +38,11 @@ router.get("/", async (req, res) => {
     const page = pageValue(req.query.page);
     const pageSize = pageSizeValue(req.query.pageSize);
     const sort = sortValue(req.query.sort);
-    const where = category && category !== "All" ? { category } : undefined;
+    const where = {
+      origin: "suggested",
+      status: "new",
+      ...(category && category !== "All" ? { category } : {}),
+    };
     const total = await prisma.signal.count({ where });
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const currentPage = Math.min(page, totalPages);
