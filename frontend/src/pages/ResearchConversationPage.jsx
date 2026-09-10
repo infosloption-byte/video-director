@@ -28,6 +28,8 @@ export default function ResearchConversationPage() {
   const reloadRef = useRef(null);
 
   const load = useCallback(async () => {
+    // Yield before state updates so this loader remains asynchronous when invoked by an effect.
+    await Promise.resolve();
     try {
       const res = await fetch(`/api/research-conversations/${id}`);
       const data = await res.json().catch(() => ({}));
