@@ -85,12 +85,13 @@
 
 .signal-card__footer {
   min-width: 0;
-  min-height: 76px;
+  min-height: 116px;
   padding-top: 14px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: stretch;
+  gap: 10px;
   border-top: 1px solid var(--border-soft);
 }
 
@@ -112,18 +113,20 @@
 
 .signal-card__actions {
   min-width: 0;
+  width: 100%;
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 
 .signal-card__source {
-  max-width: 190px;
+  min-width: 0;
+  max-width: 60%;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
-  text-align: right;
+  text-align: left;
   overflow-wrap: anywhere;
 }
 
@@ -136,14 +139,15 @@
   .signal-card__title,
   .signal-card--featured .signal-card__title { font-size: 22px; }
   .signal-card__footer {
-    min-height: 72px;
+    min-height: 112px;
     padding-top: 12px;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 14px;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    gap: 9px;
   }
-  .signal-card__why { height: 50px; font-size: 12px; }
-  .signal-card__actions { flex-direction: column; align-items: flex-end; gap: 8px; }
-  .signal-card__source { max-width: 180px; }
+  .signal-card__why { height: 48px; font-size: 12px; }
+  .signal-card__actions { width: 100%; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+  .signal-card__source { max-width: 60%; }
 }
 
 @media (max-width: 640px) {
@@ -153,8 +157,8 @@
   .signal-card__title,
   .signal-card--featured .signal-card__title { margin-top: 6px; font-size: 21px; line-height: 1.18; }
   .signal-card__desc { margin-top: 4px; font-size: 13.5px; line-height: 1.55; }
-  .signal-card__footer { min-height: 86px; padding-top: 10px; grid-template-columns: 1fr; gap: 9px; }
-  .signal-card__why { height: 48px; font-size: 11.5px; }
+  .signal-card__footer { min-height: 100px; padding-top: 10px; grid-template-columns: 1fr; grid-template-rows: auto auto; gap: 8px; }
+  .signal-card__why { height: 44px; font-size: 11.5px; }
   .signal-card__actions {
     width: 100%;
     display: grid;
@@ -171,6 +175,7 @@
   .signal-card__body { grid-template-rows: auto 50px minmax(62px, 1fr) auto; }
   .signal-card__title,
   .signal-card--featured .signal-card__title { font-size: 20px; }
+  .signal-card__footer { min-height: 96px; }
   .signal-card__actions { grid-template-columns: 1fr; }
   .signal-card__actions .btn { width: 100%; }
 }
