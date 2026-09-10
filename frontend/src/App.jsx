@@ -15,6 +15,7 @@ import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlatformShell from "./components/PlatformShell";
 import EditorWorkspace from "./components/EditorWorkspace";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
+import { ProjectProvider } from "./context/ProjectContext.jsx";
 
 function SignalsRoute() {
   const { status } = useAuth();
@@ -37,7 +38,7 @@ function LegacyEditorToolRedirect({ tool }) {
 }
 
 export default function App() {
-  return <AuthProvider><Routes>
+  return <AuthProvider><ProjectProvider><Routes>
     <Route path="/" element={<SignalsRoute />} />
     <Route path="/signin" element={<SignInPage />} /><Route path="/signup" element={<SignUpPage />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -55,5 +56,5 @@ export default function App() {
     <Route path="/editor/:id/productivity" element={<LegacyEditorToolRedirect tool="productivity" />} />
     <Route path="/media/:id" element={<LegacyEditorToolRedirect tool="media" />} />
     <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes></AuthProvider>;
+  </Routes></ProjectProvider></AuthProvider>;
 }
