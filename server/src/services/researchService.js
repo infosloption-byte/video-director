@@ -2,10 +2,17 @@ import { deepResearchSignal } from "./deepResearchService.js";
 import { verifyResearchBrief } from "./researchVerificationService.js";
 import { adjudicateResearchConflicts, attachEvidenceIndexes } from "./researchAdjudicationService.js";
 import { normalizeResearchBrief, sanitizeResearchJson } from "./researchNormalization.js";
+import { ensureStructuredResearchReport } from "./researchReportBuilder.js";
 
 export async function researchSignal(signal, { onProgress, onActivity } = {}) {
   const rawBrief = normalizeResearchBrief(await deepResearchSignal(signal, { onProgress, onActivity }));
-  const evidenceLinkedBrief = attachEvidenceIndexes(rawBrief);
+  const structuredBrief = await ensureStructuredResearchReport(
+    String(signal?.title || "Research topic").trim(),
+    rawBrief,
+    Array.isArray(rawBrief.sources) ? rawBrief.sources : [],
+    { onActivity },
+  );
+  const evidenceLinkedBrief = attachEvidenceIndexes(structuredBrief);
   onProgress?.("verifying", 88);
   onActivity?.({ type: "verification.completed", message: "Source traceability and claim verification completed." });
   const verification = verifyResearchBrief(evidenceLinkedBrief);
@@ -45,6 +52,9 @@ export async function researchSignal(signal, { onProgress, onActivity } = {}) {
       conflicts_unresolved: adjudication.summary.conflictsUnresolved,
       adjudication_model_assisted: adjudication.summary.modelAssisted,
       traceability_score: verification.summary.traceability_score,
+      structured_findings: Array.isArray(evidenceLinkedBrief.key_findings) ? evidenceLinkedBrief.key_findings.length : 0,
+      evidence_backed_takeaways: Array.isArray(evidenceLinkedBrief.evidence_backed_takeaways) ? evidenceLinkedBrief.evidence_backed_takeaways.length : 0,
+      structured_report_target_met: Boolean(evidenceLinkedBrief.report_quality?.target_met),
     },
   };
   return sanitizeResearchJson(finalBrief);
