@@ -141,7 +141,7 @@ router.post("/:id/research/regenerate", async (req, res) => {
 
 router.post("/:id/research/chat", async (req, res) => {
   try {
-    const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } });
+    const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: req.params.id } });
     if (!project) return res.status(404).json({ error: "Project not found." });
     const question = String(req.body?.question || "").trim().slice(0, 2000);
     if (!question) return res.status(400).json({ error: "A research question is required." });
