@@ -318,3 +318,50 @@
     flex: 1 1 130px;
   }
 }
+
+/* Ask Helix drawer close control: reserve a clean header zone so it never overlaps the panel content. */
+.research-assistant-drawer__close {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  z-index: 5;
+  display: grid !important;
+  place-items: center;
+  box-sizing: border-box;
+  width: 38px !important;
+  height: 38px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink-dim);
+  font-size: 0 !important;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.research-assistant-drawer__close::before {
+  content: "×";
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 25px;
+  font-weight: 300;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.research-assistant-drawer__close:hover {
+  background: var(--bg-raised);
+  color: var(--ink);
+}
+
+.research-assistant-drawer__close:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.research-assistant-drawer > .research-assistant {
+  box-sizing: border-box;
+  padding-top: 58px !important;
+}
