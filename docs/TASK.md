@@ -164,3 +164,5 @@ M9 Facebook production → DEFERRED / separate product decision
 - [x] Signals grid uses 1 column on mobile, 2 on tablet, 3 on desktop, and 4 on wide desktop (>1024px)
 
 - [x] Mobile/tablet sidebar menu toggle now opens and closes reliably, and long account names wrap within the sidebar footer
+
+- [x] Mobile/tablet sidebar header collapse control now closes the open drawer instead of mutating desktop collapsed state or account-footer layout
