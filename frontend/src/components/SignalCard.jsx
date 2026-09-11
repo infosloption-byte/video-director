@@ -56,7 +56,6 @@ export default function SignalCard({ signal, featured = false }) {
           </div>
 
           <h3 className="signal-card__title">{signal.title}</h3>
-
           <p className="signal-card__desc">{signal.description}</p>
 
           <div className="signal-card__source-meta">
@@ -75,7 +74,6 @@ export default function SignalCard({ signal, featured = false }) {
               <span className="signal-card__why-text">{signal.why}</span>
             </div>
             <div className="signal-card__actions">
-              <span className="signal-card__source">{signal.source} <span className="signal-card__dot">·</span> {signal.sourceNote}</span>
               <button className="btn btn-cream" disabled={pending} onClick={directSignal}>
                 {pending ? "Starting…" : "Direct Reel"}
                 <IconArrowUpRight className="btn-icon" />
