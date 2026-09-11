@@ -49,8 +49,8 @@
   color: var(--ink);
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: 23px;
-  line-height: 1.18;
+  font-size: 17px;
+  line-height: 1.28;
   overflow: hidden;
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -59,7 +59,7 @@
 }
 
 .signal-card--featured .signal-card__title {
-  font-size: 23px;
+  font-size: 17px;
 }
 
 .signal-card__desc {
@@ -96,9 +96,8 @@
   margin-top: auto;
   padding-top: 14px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
   border-top: 1px solid var(--border-soft);
 }
 
@@ -130,7 +129,17 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.signal-card__source {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .signal-card .btn-cream:disabled {
@@ -146,12 +155,12 @@
 
   .signal-card__title,
   .signal-card--featured .signal-card__title {
-    font-size: 22px;
+    font-size: 17px;
   }
 
   .signal-card__footer {
     padding-top: 12px;
-    gap: 12px;
+    gap: 10px;
   }
 }
 
@@ -169,8 +178,8 @@
   .signal-card__title,
   .signal-card--featured .signal-card__title {
     margin-top: 7px;
-    font-size: 21px;
-    line-height: 1.18;
+    font-size: 17px;
+    line-height: 1.28;
   }
 
   .signal-card__desc {
@@ -186,13 +195,21 @@
   }
 
   .signal-card__footer {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: 1fr;
+    gap: 9px;
     padding-top: 10px;
   }
 
   .signal-card__why {
     font-size: 11.5px;
+  }
+
+  .signal-card__actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
   }
 
   .signal-card__actions .btn {
@@ -210,12 +227,15 @@
 
   .signal-card__title,
   .signal-card--featured .signal-card__title {
-    font-size: 20px;
+    font-size: 17px;
   }
 
   .signal-card__footer {
     grid-template-columns: 1fr;
-    align-items: stretch;
+  }
+
+  .signal-card__actions {
+    grid-template-columns: 1fr;
   }
 
   .signal-card__actions .btn {
