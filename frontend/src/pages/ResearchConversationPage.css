@@ -21,11 +21,11 @@
 .rc-message--assistant { margin-right: auto; background: var(--card); }
 .rc-message--pending { border-style: dashed; }
 .rc-message__role { display: block; margin-bottom: 7px; color: var(--muted); font: 10px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
-.rc-message__body { color: var(--body); font-size: 14px; line-height: 1.7; padding-inline: 2px; text-indent: 0; font-style: normal; transform: none; overflow-wrap: anywhere; min-width: 0; }
+.rc-message__body { color: var(--body); font-size: 14px; line-height: 1.7; padding-inline: 4px; text-indent: 0; font-style: normal; transform: none; overflow-wrap: anywhere; min-width: 0; overflow: visible; clip-path: none; mask: none; }
 .rc-message--user .rc-message__body { color: var(--ink); font-style: normal; }
-.rc-markdown { display: grid; gap: 11px; min-width: 0; overflow: visible; }
+.rc-markdown { display: grid; gap: 11px; min-width: 0; overflow: visible; clip-path: none; mask: none; }
 .rc-markdown > * { margin: 0; }
-.rc-markdown p { white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; margin: 0; padding: 0; text-indent: 0; }
+.rc-markdown p { display: block; width: auto; max-width: 100%; white-space: pre-wrap; overflow: visible; overflow-wrap: anywhere; word-break: normal; margin: 0; padding: 0 .18em; text-indent: 0; clip-path: none; mask: none; }
 .rc-markdown h3, .rc-markdown h4, .rc-markdown h5 { color: var(--ink); font-family: var(--font-serif); font-weight: 500; line-height: 1.25; }
 .rc-markdown h3 { font-size: 21px; }
 .rc-markdown h4 { font-size: 18px; }
@@ -112,3 +112,5 @@
 .rc-start__footer span { max-width: 500px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 @media (max-width: 980px) { .rc-workspace { grid-template-columns: 1fr; } .rc-brief { position: static; order: -1; } .rc-chat { height: min(700px, calc(100svh - 260px)); } }
 @media (max-width: 640px) { .rc-shell { padding-top: 28px; } .rc-heading { flex-direction: column; gap: 14px; } .rc-heading h1 { font-size: 28px; } .rc-chat { height: calc(100svh - 240px); min-height: 520px; max-height: 760px; } .rc-chat__messages { padding: 16px; } .rc-message { max-width: 92%; } .rc-live { padding: 12px; } .rc-live__source { grid-template-columns: minmax(0, 1fr); gap: 4px; } .rc-live__events { max-height: 130px; } .rc-composer { padding: 12px; } .rc-composer__footer, .rc-start__footer { align-items: stretch; flex-direction: column; } .rc-composer__footer .btn, .rc-start__footer .btn { width: 100%; justify-content: center; } .rc-start { padding-top: 42px; } .rc-start__intro h1 { font-size: 40px; } .rc-start__form { padding: 15px; } }
+
+.rc-plain-text { display: block; width: auto; max-width: 100%; padding: 0 .18em; white-space: pre-wrap; overflow: visible; overflow-wrap: anywhere; word-break: normal; text-indent: 0; clip-path: none; mask: none; }
