@@ -21,19 +21,24 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
   const navigate = useNavigate();
   const [stopping, setStopping] = useState(false);
   const [stoppedLocally, setStoppedLocally] = useState(false);
+  const [inactiveLocally, setInactiveLocally] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
   const [focusedRerunOpen, setFocusedRerunOpen] = useState(false);
   const [focus, setFocus] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const resolvedProjectId = projectId || (typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean).pop() : "");
   const safeProgress = Math.min(100, Math.max(0, Number(progress) || 0));
-  const effectiveStatus = stoppedLocally ? "error" : status;
-  const effectiveError = stoppedLocally ? "Research was stopped by the user." : error;
+  const effectiveStatus = stoppedLocally || inactiveLocally ? "error" : status;
+  const effectiveError = stoppedLocally
+    ? "Research was stopped by the user."
+    : inactiveLocally
+      ? "The previous research run is no longer active. Retry research to start a new run."
+      : error;
   const currentIndex = effectiveStatus === "error" ? Math.min(STEPS.length - 1, Math.max(0, Math.floor(safeProgress / (100 / STEPS.length)))) : (STATUS_INDEX[effectiveStatus] ?? 0);
   const running = !["ready", "error"].includes(effectiveStatus);
   const stopped = effectiveStatus === "error" && /stopped by the user/i.test(effectiveError || "");
-  const currentLabel = stageLabel || (effectiveStatus === "error" ? "Research stopped" : effectiveStatus === "ready" ? "Research brief ready" : "Preparing deep research");
-  const currentDetail = stageDetail || (effectiveStatus === "error" ? (stopped ? "The research run was stopped before the evidence brief was completed." : "Helix could not complete the evidence pipeline.") : effectiveStatus === "ready" ? "The evidence-backed brief is ready for guided setup." : "Helix is preparing the evidence pipeline.");
+  const currentLabel = stageLabel || (effectiveStatus === "error" ? (stopped ? "Research stopped" : "Research needs attention") : effectiveStatus === "ready" ? "Research brief ready" : "Preparing deep research");
+  const currentDetail = stageDetail || (effectiveStatus === "error" ? (stopped ? "The research run was stopped before the evidence brief was completed." : "The previous research run is no longer active. Retry research to start a new run.") : effectiveStatus === "ready" ? "The evidence-backed brief is ready for guided setup." : "Helix is preparing the evidence pipeline.");
 
   async function stopResearch() {
     if (!resolvedProjectId || stopping || !running) return;
@@ -41,8 +46,13 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
     try {
       const response = await fetch(`/api/projects/${resolvedProjectId}/research/stop`, { method: "POST", headers: { "Content-Type": "application/json" } });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to stop research.");
-      setStoppedLocally(true);
+      if (response.ok) {
+        setStoppedLocally(true);
+      } else if (response.status === 409 && /not currently running|no longer active|server may have restarted/i.test(String(data.error || ""))) {
+        setInactiveLocally(true);
+      } else {
+        throw new Error(data.error || "Failed to stop research.");
+      }
     } catch (stopError) {
       window.alert(stopError.message || "Failed to stop research.");
     } finally {
@@ -94,7 +104,7 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
         </div>
         <div className="research-progress__percent" aria-label={`${safeProgress}% complete`}>
           <strong>{safeProgress}%</strong>
-          <span>{effectiveStatus === "error" ? "stopped" : effectiveStatus === "ready" ? "complete" : "in progress"}</span>
+          <span>{effectiveStatus === "error" ? "needs attention" : effectiveStatus === "ready" ? "complete" : "in progress"}</span>
         </div>
       </div>
 
@@ -113,7 +123,7 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
           return (
             <div className={`research-progress__step ${complete ? "is-complete" : ""} ${current ? "is-current" : ""} ${failed ? "is-error" : ""}`} key={key}>
               <span className="research-progress__marker">{complete ? <IconCheck /> : failed ? "!" : String(stepIndex + 1).padStart(2, "0")}</span>
-              <div className="research-progress__step-copy"><span>{label}</span>{current && effectiveStatus !== "error" && <small>{detail}</small>}{failed && <small>{stopped ? "Stopped by you." : "Stopped here."}</small>}</div>
+              <div className="research-progress__step-copy"><span>{label}</span>{current && effectiveStatus !== "error" && <small>{detail}</small>}{failed && <small>{stopped ? "Stopped by you." : "Run is no longer active."}</small>}</div>
               {current && running && <span className="research-progress__pulse" aria-hidden="true" />}
             </div>
           );
