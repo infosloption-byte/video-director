@@ -155,15 +155,6 @@ export default function SignalsPage() {
         <div className="hx-hero__rail" aria-hidden="true"><span>DISCOVER</span><span>RESEARCH</span><span>DIRECT</span></div>
       </main>
 
-      <section className="container hx-topic-research" aria-labelledby="topic-research-title">
-        <div className="hx-topic-research__copy">
-          <p className="eyebrow">Research with Helix</p>
-          <h2 id="topic-research-title">Have your own story in mind?</h2>
-          <p>Start with a question instead of a platform signal. Helix will search, read, compare, and verify evidence, then turn the conversation into the same research brief used by Setup and Storyboard.</p>
-        </div>
-        <a className="btn btn-cream hx-topic-research__cta" href="/research/new">Start a research conversation →</a>
-      </section>
-
       <section id="signals" className="container hx-signals">
         <div className="hx-signals__head">
           <div>
