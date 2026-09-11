@@ -11,6 +11,20 @@ test("M17 research synthesis requires 8–15 evidence-backed findings", async ()
   assert.match(deepResearch, /Aim for 8–15 major findings/);
 });
 
+test("M17 structured report builder is wired into the verification pipeline", async () => {
+  const researchService = await source("../src/services/researchService.js");
+  const reportBuilder = await source("../src/services/researchReportBuilder.js");
+  assert.match(researchService, /ensureStructuredResearchReport/);
+  assert.match(researchService, /structured_findings/);
+  assert.match(researchService, /evidence_backed_takeaways/);
+  assert.match(reportBuilder, /MIN_FINDINGS = 8/);
+  assert.match(reportBuilder, /structured_repair_applied/);
+  assert.match(reportBuilder, /deterministicFindings/);
+  assert.match(reportBuilder, /evidence_backed_takeaways/);
+  assert.match(reportBuilder, /synthesis_sections/);
+  assert.match(reportBuilder, /bottom_line/);
+});
+
 test("M17 research reading records explicit failures instead of silently treating them as evidence", async () => {
   const deepResearch = await source("../src/services/deepResearchService.js");
   assert.match(deepResearch, /readStatus: `http_\$\{response\.status\}`/);
