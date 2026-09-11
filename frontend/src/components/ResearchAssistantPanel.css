@@ -294,6 +294,164 @@
   padding-inline: 0;
 }
 
+/* Completed report: present prose like an editorial research brief. */
+.research-report__section--summary {
+  padding-top: 42px;
+  padding-bottom: 42px;
+}
+
+.research-report__summary-copy {
+  max-width: 860px;
+}
+
+.research-report__summary-copy > .research-report__lead {
+  position: relative;
+  margin: 0;
+  padding: 20px 0 20px 22px;
+  border-left: 2px solid var(--ink);
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.82;
+  letter-spacing: -.005em;
+  text-wrap: pretty;
+}
+
+.research-report__summary-copy > .research-report__lead::before {
+  content: "Executive synthesis";
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.research-report__summary-copy > div {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.research-report__summary-copy h4 {
+  margin: 0 0 9px;
+  color: var(--ink);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.research-report__summary-copy > div p {
+  max-width: 820px;
+  color: var(--body);
+  font-size: 14px;
+  line-height: 1.78;
+  text-wrap: pretty;
+}
+
+/* Make an otherwise long one-field synthesis easier to scan without inventing text. */
+.research-report__summary-copy > .research-report__lead:only-child {
+  max-width: 840px;
+  padding-top: 8px;
+}
+
+.research-report__summary-copy > .research-report__lead:only-child::before {
+  margin-bottom: 14px;
+}
+
+/* Bottom line becomes a conclusion panel, not another wall of prose. */
+.research-report__assessment--bottom-line {
+  padding: 22px 24px !important;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.research-report__assessment--bottom-line h4 {
+  margin-bottom: 10px;
+}
+
+.research-report__assessment--bottom-line p {
+  margin: 0;
+  max-width: 900px;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.78;
+  text-wrap: pretty;
+}
+
+.research-report__assessment--bottom-line p::before {
+  content: "Conclusion  ·  ";
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+
+.research-report__assessment--bottom-line span {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* Source trail: make expanded research material read like a document excerpt. */
+.research-report__source-detail {
+  gap: 14px;
+  padding: 0 16px 16px;
+  background: var(--bg-raised);
+}
+
+.research-report__source-detail-meta {
+  gap: 6px;
+  padding-top: 12px;
+}
+
+.research-report__source-detail-meta span {
+  padding: 4px 7px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.research-report__source-detail blockquote {
+  position: relative;
+  max-height: 300px;
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--body);
+  font-size: 12px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  scrollbar-width: thin;
+}
+
+.research-report__source-detail blockquote::before {
+  content: "Reviewed excerpt";
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.research-report__source-detail a {
+  justify-self: start;
+  font-size: 10px;
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .research-report__hero-actions {
     justify-content: flex-start;
@@ -301,6 +459,11 @@
 
   .research-report__handoff {
     margin-top: 14px;
+  }
+
+  .research-report__section--summary {
+    padding-top: 32px;
+    padding-bottom: 32px;
   }
 }
 
@@ -317,51 +480,28 @@
   .research-report__hero-actions > .btn {
     flex: 1 1 130px;
   }
-}
 
-/* Ask Helix drawer close control: reserve a clean header zone so it never overlaps the panel content. */
-.research-assistant-drawer__close {
-  position: absolute !important;
-  top: 14px !important;
-  right: 14px !important;
-  z-index: 5;
-  display: grid !important;
-  place-items: center;
-  box-sizing: border-box;
-  width: 38px !important;
-  height: 38px !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink-dim);
-  font-size: 0 !important;
-  line-height: 1;
-  box-shadow: none;
-}
+  .research-report__summary-copy > .research-report__lead {
+    padding-left: 16px;
+    font-size: 15px;
+    line-height: 1.75;
+  }
 
-.research-assistant-drawer__close::before {
-  content: "×";
-  display: block;
-  font-family: var(--font-sans);
-  font-size: 25px;
-  font-weight: 300;
-  line-height: 1;
-  transform: translateY(-1px);
-}
+  .research-report__assessment--bottom-line {
+    padding: 18px !important;
+  }
 
-.research-assistant-drawer__close:hover {
-  background: var(--bg-raised);
-  color: var(--ink);
-}
+  .research-report__assessment--bottom-line p {
+    font-size: 14px;
+  }
 
-.research-assistant-drawer__close:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
+  .research-report__source-detail {
+    padding-inline: 12px;
+  }
 
-.research-assistant-drawer > .research-assistant {
-  box-sizing: border-box;
-  padding-top: 58px !important;
+  .research-report__source-detail blockquote {
+    max-height: 240px;
+    padding: 12px 13px;
+    font-size: 11px;
+  }
 }
