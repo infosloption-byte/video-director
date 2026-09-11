@@ -168,3 +168,5 @@ M9 Facebook production → DEFERRED / separate product decision
 - [x] Mobile/tablet sidebar header collapse control now closes the open drawer instead of mutating desktop collapsed state or account-footer layout
 
 - [x] Research conversation messages preserve the first character and use explicit normal text rendering/overflow rules to prevent visual clipping
+
+- [x] Research chat renders user messages as plain text and adds edge-safe text rendering to prevent first/last glyph clipping
