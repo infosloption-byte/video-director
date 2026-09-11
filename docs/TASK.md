@@ -166,3 +166,5 @@ M9 Facebook production → DEFERRED / separate product decision
 - [x] Mobile/tablet sidebar menu toggle now opens and closes reliably, and long account names wrap within the sidebar footer
 
 - [x] Mobile/tablet sidebar header collapse control now closes the open drawer instead of mutating desktop collapsed state or account-footer layout
+
+- [x] Research conversation messages preserve the first character and use explicit normal text rendering/overflow rules to prevent visual clipping
