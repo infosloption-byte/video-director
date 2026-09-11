@@ -160,3 +160,7 @@ M9 Facebook production → DEFERRED / separate product decision
 - [x] Platform dropdowns now use the shared Helix SelectMenu instead of browser-native `<select>` controls (Signals, My Research, Editor, Advanced Editor)
 
 - [x] Reworked Signals filter panel hierarchy so Topic filters and Display controls have distinct, balanced sections with responsive stacking
+
+- [x] Signals grid uses 1 column on mobile, 2 on tablet, 3 on desktop, and 4 on wide desktop (>1024px)
+
+- [x] Mobile/tablet sidebar menu toggle now opens and closes reliably, and long account names wrap within the sidebar footer
