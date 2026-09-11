@@ -450,7 +450,7 @@ export default function ResearchConversationPage() {
                 const isPending = Boolean(message.researchPending);
                 return <article className={`rc-message rc-message--${message.role}${isPending ? " rc-message--pending" : ""}${message.stopped ? " rc-message--stopped" : ""}`} key={message.id || `${message.role}-${index}`}>
                   <span className="rc-message__role">{message.role === "user" ? "You" : "Helix"}</span>
-                  <div className="rc-message__body"><MarkdownContent content={message.content} /></div>
+                  <div className="rc-message__body">{message.role === "user" ? <div className="rc-plain-text">{String(message.content || "")}</div> : <MarkdownContent content={message.content} />}</div>
                   {isPending && activeMessageId === message.id && thinking && <div className="rc-message__live"><span className="rc-spinner" aria-hidden="true" /><span>{buildingBrief ? "Research pipeline active" : "Thinking"}</span><span className="rc-message__live-status">{buildingBrief ? statusLabel(activity?.status || project.researchStatus) : `${thinkingElapsed}s`}</span></div>}
                   {message.stopped && stoppedRequest?.messageId === message.id && <div className="rc-message__retry"><span>Helix did not finish this request.</span><button type="button" className="btn btn-ghost" onClick={retryStoppedRequest}>Retry</button></div>}
                   {message.conversationOnly && <span className="rc-message__meta">Exploration guidance · not verified research</span>}
