@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
 import SignalCard from "../components/SignalCard";
 import SelectMenu from "../components/SelectMenu";
@@ -58,10 +58,6 @@ export default function SignalsPage() {
   const [pagination, setPagination] = useState({ page: 1, pageSize: 12, total: 0, totalPages: 1 });
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    setPage(1);
-  }, [active, submittedQuery, sort, pageSize]);
 
   useEffect(() => {
     let cancelled = false;
