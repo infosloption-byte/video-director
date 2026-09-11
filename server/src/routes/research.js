@@ -109,7 +109,7 @@ router.post("/:id/research/conflicts/:conflictId/resolve", async (req, res) => {
     if (!conflict) return res.status(404).json({ error: "Conflict not found in the current research session." });
     const updated = await resolveResearchConflict(prisma, { conflictId: conflict.id, status: req.body?.status, resolution: req.body?.resolution });
     res.json({ projectId: req.params.id, conflict: updated });
-  } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/conflicts/${req.params.id}/resolve failed:`, error); res.status(500).json({ error: error.message || "Failed to update research conflict." }); }
+  } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/conflicts/${req.params.conflictId}/resolve failed:`, error); res.status(500).json({ error: error.message || "Failed to update research conflict." }); }
 });
 
 router.post("/:id/research/rerun", async (req, res) => {
@@ -141,7 +141,7 @@ router.post("/:id/research/regenerate", async (req, res) => {
 
 router.post("/:id/research/chat", async (req, res) => {
   try {
-    const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: req.params.id } });
+    const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } });
     if (!project) return res.status(404).json({ error: "Project not found." });
     const question = String(req.body?.question || "").trim().slice(0, 2000);
     if (!question) return res.status(400).json({ error: "A research question is required." });
