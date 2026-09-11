@@ -183,12 +183,18 @@ export default function SignalsPage() {
             {submittedQuery && <button className="pill hx-search__reset" onClick={clearSearch} type="button">Clear search</button>}
           </div>
           <div className="hx-filter-panel__body">
-            <div className="hx-filter-panel__categories" role="tablist" aria-label="Filter signals by category">
-              {categories.map((category) => <button key={category} type="button" role="tab" aria-selected={active === category} className={`pill ${active === category ? "is-active" : ""}`} onClick={() => handleCategory(category)}>{category}</button>)}
+            <div className="hx-filter-panel__category-block">
+              <div className="hx-filter-panel__section-label">Topic</div>
+              <div className="hx-filter-panel__categories" role="tablist" aria-label="Filter signals by category">
+                {categories.map((category) => <button key={category} type="button" role="tab" aria-selected={active === category} className={`pill ${active === category ? "is-active" : ""}`} onClick={() => handleCategory(category)}>{category}</button>)}
+              </div>
             </div>
-            <div className="hx-filter-panel__controls">
-              <SelectMenu label="Sort" value={sort} options={SORT_OPTIONS} onChange={(value) => handleSort({ target: { value } })} />
-              <SelectMenu label="Signals per page" value={pageSize} options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))} onChange={(value) => handlePageSize({ target: { value } })} />
+            <div className="hx-filter-panel__display">
+              <div className="hx-filter-panel__section-label">Display</div>
+              <div className="hx-filter-panel__controls">
+                <SelectMenu label="Sort" value={sort} options={SORT_OPTIONS} onChange={(value) => handleSort({ target: { value } })} />
+                <SelectMenu label="Signals per page" value={pageSize} options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))} onChange={(value) => handlePageSize({ target: { value } })} />
+              </div>
             </div>
           </div>
         </div>
