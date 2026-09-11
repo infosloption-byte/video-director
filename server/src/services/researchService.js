@@ -6,12 +6,12 @@ import { ensureStructuredResearchReport } from "./researchReportBuilder.js";
 
 export async function researchSignal(signal, { onProgress, onActivity } = {}) {
   const rawBrief = normalizeResearchBrief(await deepResearchSignal(signal, { onProgress, onActivity }));
-  const structuredBrief = await ensureStructuredResearchReport(
+  const structuredBrief = normalizeResearchBrief(await ensureStructuredResearchReport(
     String(signal?.title || "Research topic").trim(),
     rawBrief,
     Array.isArray(rawBrief.sources) ? rawBrief.sources : [],
     { onActivity },
-  );
+  ));
   const evidenceLinkedBrief = attachEvidenceIndexes(structuredBrief);
   onProgress?.("verifying", 88);
   onActivity?.({ type: "verification.completed", message: "Source traceability and claim verification completed." });
