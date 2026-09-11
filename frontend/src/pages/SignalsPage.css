@@ -95,7 +95,6 @@
 .hx-signals__list { display: grid; grid-template-columns: 1fr; gap: 20px; }
 @media (min-width: 641px) { .hx-signals__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 901px) { .hx-signals__list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (min-width: 1025px) { .hx-signals__list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .hx-pagination { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-soft); }
 .hx-pagination__pages { display: flex; align-items: center; gap: 6px; }
 .hx-pagination__pages .pill { min-width: 38px; justify-content: center; }
