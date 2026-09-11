@@ -158,3 +158,5 @@ M9 Facebook production → DEFERRED / separate product decision
 - `2026-09-10` — Signal cards use a stable visual height while long descriptions and WHY details scroll inside their own regions, preventing one verbose signal from stretching the entire feed.
 
 - [x] Platform dropdowns now use the shared Helix SelectMenu instead of browser-native `<select>` controls (Signals, My Research, Editor, Advanced Editor)
+
+- [x] Reworked Signals filter panel hierarchy so Topic filters and Display controls have distinct, balanced sections with responsive stacking
