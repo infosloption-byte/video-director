@@ -87,3 +87,41 @@ a:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 2px s
 @media (max-width: 380px) { .container { padding-left: 18px; padding-right: 18px; } }
 .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .mono-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; color: var(--muted); }
+
+/* Research conversation: keep every assistant character inside a predictable text box. */
+.rc-message--assistant .rc-message__body,
+.rc-message--assistant .rc-markdown,
+.rc-message--assistant .rc-markdown > *,
+.rc-message--assistant .rc-markdown p {
+  font-style: normal !important;
+  text-indent: 0 !important;
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+  clip-path: none !important;
+  mask: none !important;
+  transform: none !important;
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+}
+
+.rc-message--assistant .rc-message__body {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  padding-right: 2px !important;
+  line-height: 1.7;
+}
+
+.rc-message--assistant .rc-markdown {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+}
+
+.rc-message--assistant .rc-markdown p,
+.rc-message--assistant .rc-markdown li,
+.rc-message--assistant .rc-markdown blockquote {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
