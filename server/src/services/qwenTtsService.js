@@ -29,6 +29,17 @@ function normalizeError(status, payload) {
   return error;
 }
 
+function normalizeWordTimestamps(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && Number.isFinite(Number(item.start)) && Number.isFinite(Number(item.end)))
+    .map((item) => ({
+      word: String(item.word ?? ""),
+      start: Number(Number(item.start).toFixed(3)),
+      end: Number(Number(item.end).toFixed(3)),
+    }));
+}
+
 export function isQwen3TtsEnabled() {
   return getConfig().enabled;
 }
@@ -45,7 +56,7 @@ export async function synthesizeWithQwen({ text, language, voice, instruct }) {
     signal: timeoutSignal(config.timeoutMs),
     headers: {
       "Content-Type": "application/json",
-      Accept: "audio/wav, application/json",
+      Accept: "application/json, audio/wav",
     },
     body: JSON.stringify({
       model: config.model,
@@ -53,7 +64,7 @@ export async function synthesizeWithQwen({ text, language, voice, instruct }) {
       voice: voice || config.voice,
       language: language || config.language,
       instruct: instruct || config.instruct,
-      response_format: "wav",
+      response_format: "json",
     }),
   });
 
@@ -63,9 +74,28 @@ export async function synthesizeWithQwen({ text, language, voice, instruct }) {
   }
 
   const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const payload = await response.json().catch(() => null);
+    if (!payload?.audio_base64) throw new Error("Qwen3-TTS returned no audio_base64 payload.");
+    const audio = Buffer.from(String(payload.audio_base64), "base64");
+    if (!audio.length) throw new Error("Qwen3-TTS returned an empty audio payload.");
+    return {
+      audio,
+      format: payload.format || "wav",
+      voice: voice || config.voice,
+      language: language || config.language,
+      model: payload.model || config.model,
+      durationSeconds: Number.isFinite(Number(payload.duration_seconds)) ? Number(payload.duration_seconds) : null,
+      wordTimestamps: normalizeWordTimestamps(payload.word_timestamps),
+      timingMethod: payload.timing_method || "unknown",
+    };
+  }
+
   if (!contentType.includes("audio/")) {
-    const payload = await response.json().catch(() => ({}));
-    throw normalizeError(response.status, payload);
+    const payload = await response.text().catch(() => "");
+    const error = new Error(payload || `Qwen3-TTS returned an unsupported content type: ${contentType || "unknown"}.`);
+    error.providerStatus = response.status;
+    throw error;
   }
 
   const arrayBuffer = await response.arrayBuffer();
@@ -78,20 +108,31 @@ export async function synthesizeWithQwen({ text, language, voice, instruct }) {
     voice: voice || config.voice,
     language: language || config.language,
     model: config.model,
+    durationSeconds: null,
+    wordTimestamps: [],
+    timingMethod: "none",
   };
 }
 
 export async function checkQwen3TtsHealth() {
   const config = getConfig();
-  if (!config.enabled) return { enabled: false, reachable: false };
+  if (!config.enabled) return { enabled: false, reachable: false, url: config.url };
 
   try {
-    const response = await fetch(`${config.url}/health`, {
+    const response = await fetch(`${config.url}/diagnostics`, {
       signal: timeoutSignal(Math.min(config.timeoutMs, 10_000)),
       headers: { Accept: "application/json" },
     });
-    return { enabled: true, reachable: response.ok, status: response.status };
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) return { enabled: true, reachable: false, status: response.status, url: config.url };
+    return {
+      enabled: true,
+      reachable: true,
+      status: response.status,
+      url: config.url,
+      diagnostics: payload,
+    };
   } catch (error) {
-    return { enabled: true, reachable: false, error: error.message };
+    return { enabled: true, reachable: false, url: config.url, error: error.message };
   }
 }
