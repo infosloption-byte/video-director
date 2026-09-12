@@ -2,7 +2,7 @@
 
 Helix keeps ElevenLabs as the primary narration provider and uses this local service only when ElevenLabs fails or is unavailable.
 
-The service uses the Qwen3-TTS 1.7B CustomVoice checkpoint with a stable preset speaker. Qwen documents the 1.7B CustomVoice model and its `generate_custom_voice` API; supported speakers include Ryan and Aiden for English. citeturn387864search0
+The service uses the Qwen3-TTS 1.7B CustomVoice checkpoint with a stable preset speaker. Qwen documents the 1.7B CustomVoice model and its `generate_custom_voice` API; supported speakers include Ryan and Aiden for English.
 
 ## Setup
 
@@ -14,7 +14,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-For NVIDIA GPU inference, install a PyTorch build compatible with your CUDA environment before running the service. Qwen recommends GPU inference for the 1.7B model. citeturn141574search1turn387864search0
+For NVIDIA GPU inference, install a PyTorch build compatible with your CUDA environment before running the service. GPU inference is recommended for the 1.7B model.
 
 Start the service from the repository root:
 
@@ -23,7 +23,7 @@ cd server/qwen-tts
 .venv\\Scripts\\python -m uvicorn service:app --host 127.0.0.1 --port 8000
 ```
 
-The first synthesis loads the model and may download model weights. Qwen documents automatic model-weight download through the Python package and also provides manual download options. citeturn141574search1
+The first synthesis loads the model and may download model weights. The Qwen package supports loading model weights automatically from the model name, or from a local model directory.
 
 Check the service:
 
@@ -45,7 +45,7 @@ QWEN3_TTS_VOICE_INSTRUCT="Warm, clear documentary narrator. Natural pacing, conf
 QWEN3_TTS_TIMEOUT_MS="120000"
 ```
 
-`Ryan` is an English CustomVoice speaker documented by Qwen. `Aiden` is another English option. citeturn387864search0
+`Ryan` and `Aiden` are English CustomVoice speakers. Change `QWEN3_TTS_VOICE` to another supported speaker when needed.
 
 ## Request contract
 
