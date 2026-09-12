@@ -41,6 +41,16 @@ test("M18 conversation generation is cancellable", async () => {
   assert.match(page, /\{thinking \? "Stop" : "Ask Helix"\}/);
 });
 
+test("M18 conversation answers allow complete multi-paragraph responses and repair truncation", async () => {
+  const service = await source("../src/services/researchConversationService.js");
+  assert.match(service, /MAX_OUTPUT_TOKENS = 2200/);
+  assert.match(service, /looksTruncated/);
+  assert.match(service, /maxOutputTokens\);/);
+  assert.match(service, /4–8 short paragraphs/);
+  assert.match(service, /Never stop mid-sentence, mid-word, or mid-list/);
+  assert.match(service, /Return one complete response to the latest user question/);
+});
+
 test("M18 follow-up research completes the pending conversation message from the persisted corpus", async () => {
   const route = await source("../src/routes/researchConversations.js");
   assert.match(route, /answerResearchQuestion\(session, question\)/);
