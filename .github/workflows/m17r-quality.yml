@@ -3,6 +3,7 @@ name: M17R quality
 on:
   push:
     branches:
+      - main
       - m17r-research-report-ux
       - m17r-refinement-and-qa
       - m18-research-conversation
@@ -29,6 +30,18 @@ jobs:
         run: npm ci
       - name: Run server acceptance suite
         run: npm test
+
+  qwen-service-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate Qwen service syntax
+        run: python -m py_compile server/qwen-tts/service.py
 
   frontend-quality:
     runs-on: ubuntu-latest
