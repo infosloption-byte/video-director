@@ -3,7 +3,7 @@ import { prisma } from "../db/client.js";
 import { generateStoryboard } from "../services/storyboardService.js";
 import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
-import { synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
+import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
 import { requireProjectOwner } from "../middleware/ownership.js";
 
 const router = Router();
@@ -22,6 +22,15 @@ function publicScene(scene) {
 async function loadProjectScenes(id) {
   return prisma.project.findUnique({ where: { id }, include: { scenes: { include: { assets: { orderBy: { sortOrder: "asc" } } }, orderBy: { sceneOrder: "asc" } } } });
 }
+
+router.get("/tts/diagnostics", async (_req, res) => {
+  try {
+    res.json(await getTtsDiagnostics());
+  } catch (error) {
+    console.error("GET /api/tts/diagnostics failed:", error);
+    res.status(500).json({ error: "Failed to inspect TTS providers.", detail: error.message });
+  }
+});
 
 router.get("/projects/:id/scenes", async (req, res) => {
   try { const project = await loadProjectScenes(req.params.id); if (!project) return res.status(404).json({ error: "Project not found." }); res.json({ projectId: project.id, status: project.status, scenes: project.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })) }); }
