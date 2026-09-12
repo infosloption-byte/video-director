@@ -14,7 +14,7 @@ MODEL_ID = os.getenv(
     "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
 )
 DEVICE = os.getenv("QWEN3_TTS_DEVICE", "cuda:0")
-DTYPE_NAME = os.getenv("QWEN3_TTS_DTYPE", "bfloat16")
+DTYPE_NAME = os.getenv("QWEN3_TTS_DTYPE", "")
 DEFAULT_VOICE = os.getenv("QWEN3_TTS_VOICE", "Ryan")
 DEFAULT_LANGUAGE = os.getenv("QWEN3_TTS_LANGUAGE", "Auto")
 DEFAULT_INSTRUCT = os.getenv(
@@ -36,11 +36,14 @@ class SpeechRequest(BaseModel):
 
 
 def resolve_dtype():
-    if DTYPE_NAME.lower() == "float16":
+    name = DTYPE_NAME.lower()
+    if name == "float16":
         return torch.float16
-    if DTYPE_NAME.lower() == "float32":
+    if name == "float32":
         return torch.float32
-    return torch.bfloat16
+    if name == "bfloat16":
+        return torch.bfloat16
+    return torch.float32 if DEVICE == "cpu" else torch.bfloat16
 
 
 @lru_cache(maxsize=1)
@@ -50,7 +53,7 @@ def get_model():
         "dtype": resolve_dtype(),
     }
     if DEVICE.startswith("cuda"):
-        kwargs["attn_implementation"] = os.getenv("QWEN3_TTS_ATTN", "flash_attention_2")
+        kwargs["attn_implementation"] = os.getenv("QWEN3_TTS_ATTN", "sdpa")
     return Qwen3TTSModel.from_pretrained(MODEL_ID, **kwargs)
 
 
@@ -80,28 +83,22 @@ def speech(request: SpeechRequest):
         voice = request.voice or DEFAULT_VOICE
         instruct = request.instruct or DEFAULT_INSTRUCT
 
-        if hasattr(model, "generate_custom_voice"):
-            try:
-                wavs, sample_rate = model.generate_custom_voice(
-                    text=request.input,
-                    language=language,
-                    speaker=voice,
-                    instruct=instruct,
-                    max_new_tokens=MAX_NEW_TOKENS,
-                )
-            except Exception as exc:
-                supported = []
-                try:
-                    supported = list(model.get_supported_speakers())
-                except Exception:
-                    pass
-                suffix = f" Supported speakers: {', '.join(supported)}." if supported else ""
-                raise RuntimeError(f"Qwen3-TTS custom voice generation failed: {exc}.{suffix}") from exc
-        else:
-            raise RuntimeError(
-                "Configured Qwen3-TTS model does not support generate_custom_voice. "
-                "Use a 1.7B CustomVoice model for the fallback service."
+        try:
+            wavs, sample_rate = model.generate_custom_voice(
+                text=request.input,
+                language=language,
+                speaker=voice,
+                instruct=instruct,
+                max_new_tokens=MAX_NEW_TOKENS,
             )
+        except Exception as exc:
+            supported = []
+            try:
+                supported = list(model.get_supported_speakers())
+            except Exception:
+                pass
+            suffix = f" Supported speakers: {', '.join(supported)}." if supported else ""
+            raise RuntimeError(f"Qwen3-TTS custom voice generation failed: {exc}.{suffix}") from exc
 
         buffer = io.BytesIO()
         sf.write(buffer, wavs[0], sample_rate, format="WAV", subtype="PCM_16")
