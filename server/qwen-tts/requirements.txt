@@ -1,4 +1,5 @@
 fastapi
+faster-whisper
 qwen-tts
 soundfile
 torch
