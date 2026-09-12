@@ -168,7 +168,7 @@ def align_word_timestamps(text: str, transcript_words: list[dict], duration_seco
     return result
 
 
-def transcribe_word_timestamps(audio_bytes: bytes, language: str | None, duration_seconds: float):
+def transcribe_word_timestamps(audio_bytes: bytes, text: str, language: str | None, duration_seconds: float):
     if not ALIGNER_ENABLED:
         return [], "disabled"
 
@@ -193,11 +193,7 @@ def transcribe_word_timestamps(audio_bytes: bytes, language: str | None, duratio
                     "end": float(word.end),
                 })
 
-    timestamps = align_word_timestamps(_CURRENT_TEXT.get(), transcript_words, duration_seconds)
-    return timestamps, "faster-whisper"
-
-
-_CURRENT_TEXT = {"value": ""}
+    return align_word_timestamps(text, transcript_words, duration_seconds), "faster-whisper"
 
 
 @app.get("/health")
@@ -277,9 +273,8 @@ def speech(request: SpeechRequest):
         audio_bytes = buffer.getvalue()
         duration_seconds = len(wavs[0]) / float(sample_rate)
 
-        _CURRENT_TEXT["value"] = request.input
         try:
-            word_timestamps, timing_method = transcribe_word_timestamps(audio_bytes, language, duration_seconds)
+            word_timestamps, timing_method = transcribe_word_timestamps(audio_bytes, request.input, language, duration_seconds)
         except Exception as exc:
             word_timestamps = proportional_timestamps(request.input.split(), 0.0, duration_seconds)
             timing_method = f"proportional-fallback:{type(exc).__name__}"
