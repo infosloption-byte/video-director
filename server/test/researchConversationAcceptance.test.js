@@ -51,6 +51,14 @@ test("M18 conversation answers allow complete multi-paragraph responses and repa
   assert.match(service, /Return one complete response to the latest user question/);
 });
 
+test("M18 conversation answers normalize malformed Markdown before persistence", async () => {
+  const service = await source("../src/services/researchConversationService.js");
+  assert.match(service, /normalizeConversationMarkdown/);
+  assert.match(service, /Keep Markdown structure on its own lines/);
+  assert.match(service, /Remove unmatched emphasis delimiters/);
+  assert.match(service, /return normalizeConversationMarkdown\(text\)/);
+});
+
 test("M18 follow-up research completes the pending conversation message from the persisted corpus", async () => {
   const route = await source("../src/routes/researchConversations.js");
   assert.match(route, /answerResearchQuestion\(session, question\)/);
