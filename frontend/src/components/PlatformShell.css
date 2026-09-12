@@ -75,7 +75,7 @@
 .platform-topbar__actions button, .platform-mobile-menu { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-soft); color: var(--muted); }
 .platform-topbar__actions button:hover { color: var(--ink); }
 .platform-mobile-menu { display: none; }
-.platform-content { width: 100%; min-height: calc(100vh - 64px); padding: 32px clamp(24px, 4vw, 64px) 64px; }
+.platform-content { width: 100%; min-height: calc(100vh - 64px); padding: 0px clamp(24px, 4vw, 64px) 0px; }
 .platform-content .hx-page { min-height: auto; background: transparent; }
 .platform-content .hx-header { display: none !important; }
 .platform-content .hx-page > .container { max-width: none; padding-left: 0; padding-right: 0; }

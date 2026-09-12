@@ -1,5 +1,5 @@
 .rc-page { background: radial-gradient(circle at 70% -10%, var(--hero-glow), transparent 38%); }
-.rc-shell { padding-top: 42px; padding-bottom: 72px; }
+.rc-shell { padding-top: 20px; padding-bottom: 20px; }
 .rc-heading { display: flex; justify-content: space-between; gap: 28px; align-items: flex-start; margin-bottom: 28px; }
 .rc-heading > div { max-width: 820px; }
 .rc-heading .eyebrow { margin: 0 0 10px; }
