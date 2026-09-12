@@ -41,7 +41,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Validate Qwen service syntax
-        run: python -m py_compile server/qwen-tts/service.py
+        run: python -m py_compile server/qwen-tts/service.py server/qwen-tts/alignment.py
+      - name: Run Qwen subtitle alignment regression tests
+        working-directory: server/qwen-tts
+        run: python test_alignment.py
 
   frontend-quality:
     runs-on: ubuntu-latest
