@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { synthesizeWithQwen, isQwen3TtsEnabled } from "./qwenTtsService.js";
+import { checkQwen3TtsHealth, synthesizeWithQwen, isQwen3TtsEnabled } from "./qwenTtsService.js";
 
 const execFileAsync = promisify(execFile);
 const AUDIO_ROOT = path.resolve(process.cwd(), "storage", "audio");
@@ -25,7 +25,11 @@ async function findAvailableVoice(apiKey) {
     headers: { "xi-api-key": apiKey, Accept: "application/json" },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`Unable to list ElevenLabs voices (HTTP ${response.status}).`);
+  if (!response.ok) {
+    const error = new Error(`Unable to list ElevenLabs voices (HTTP ${response.status}).`);
+    error.providerStatus = response.status;
+    throw error;
+  }
 
   const voices = Array.isArray(payload.voices) ? payload.voices : [];
   const eligible = voices.find((voice) => {
@@ -193,86 +197,152 @@ async function persistElevenLabsAudio({ projectId, sceneId, payload }) {
   };
 }
 
-async function persistQwenAudio({ projectId, sceneId, text, audio, voice }) {
+async function persistQwenAudio({ projectId, sceneId, text, audio, voice, wordTimestamps, durationSeconds, timingMethod }) {
   const filePath = getNarrationFilePath(projectId, sceneId);
   await mkdir(path.dirname(filePath), { recursive: true });
 
   const tempWavPath = path.join(path.dirname(filePath), `.${sceneId}.${randomUUID()}.qwen.wav`);
   const tempMp3Path = path.join(path.dirname(filePath), `.${sceneId}.${randomUUID()}.qwen.mp3`);
+  const backupPath = path.join(path.dirname(filePath), `.${sceneId}.${randomUUID()}.previous.mp3`);
+  let backedUpExisting = false;
   try {
     await writeFile(tempWavPath, audio);
-    const durationSeconds = readWavDurationSeconds(audio);
+    const measuredDuration = readWavDurationSeconds(audio);
+    const finalDuration = durationSeconds ?? measuredDuration;
     const { ffmpegPath } = requireConfig();
     await convertWavToMp3({ wavPath: tempWavPath, mp3Path: tempMp3Path, ffmpegPath });
-    await rm(filePath, { force: true });
+
+    try {
+      await rename(filePath, backupPath);
+      backedUpExisting = true;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
     await rename(tempMp3Path, filePath);
+    if (backedUpExisting) await rm(backupPath, { force: true });
 
     if (!(await narrationFileExists(projectId, sceneId))) {
       throw new Error("Qwen3-TTS generated audio but the narration file could not be verified on disk.");
     }
+
+    const timestamps = Array.isArray(wordTimestamps) && wordTimestamps.length
+      ? wordTimestamps
+      : buildApproximateWordTimestamps(text, finalDuration);
 
     return {
       provider: "qwen3-tts",
       fallback: true,
       voiceId: voice,
       audioUrl: `/api/audio/${encodeURIComponent(projectId)}/scenes/${encodeURIComponent(sceneId)}.mp3`,
-      wordTimestamps: buildApproximateWordTimestamps(text, durationSeconds),
-      durationSeconds,
+      wordTimestamps: timestamps,
+      durationSeconds: finalDuration,
+      timingMethod: timingMethod || (wordTimestamps?.length ? "qwen-audio-alignment" : "proportional"),
     };
+  } catch (error) {
+    if (backedUpExisting) {
+      await rename(backupPath, filePath).catch(() => {});
+    }
+    throw error;
   } finally {
     await rm(tempWavPath, { force: true }).catch(() => {});
     await rm(tempMp3Path, { force: true }).catch(() => {});
+    await rm(backupPath, { force: true }).catch(() => {});
   }
 }
 
-export async function synthesizeSpeech({ projectId, sceneId, text, language, voice, instruct }) {
+async function generateElevenLabsNarration({ projectId, sceneId, text }) {
+  const { apiKey, voiceId: configuredVoiceId, modelId } = requireConfig();
+  if (!apiKey) throw new Error("ElevenLabs is not configured.");
+
+  let selectedVoiceId = configuredVoiceId || await findAvailableVoice(apiKey);
+  let payload;
+  try {
+    payload = await requestSpeech({ apiKey, voiceId: selectedVoiceId, modelId, text });
+  } catch (error) {
+    if (!isRestrictedLibraryVoiceError(error.message)) throw error;
+    selectedVoiceId = await findAvailableVoice(apiKey);
+    payload = await requestSpeech({ apiKey, voiceId: selectedVoiceId, modelId, text });
+  }
+
+  const result = await persistElevenLabsAudio({ projectId, sceneId, payload });
+  return { ...result, voiceId: selectedVoiceId };
+}
+
+async function generateQwenNarration({ projectId, sceneId, text, language, voice, instruct }) {
+  const qwen = await synthesizeWithQwen({ text, language, voice, instruct });
+  return persistQwenAudio({
+    projectId,
+    sceneId,
+    text,
+    audio: qwen.audio,
+    voice: qwen.voice,
+    wordTimestamps: qwen.wordTimestamps,
+    durationSeconds: qwen.durationSeconds,
+    timingMethod: qwen.timingMethod,
+  });
+}
+
+export async function synthesizeSpeech(
+  { projectId, sceneId, text, language, voice, instruct },
+  adapters = {},
+) {
   const cleanText = String(text || "").trim();
   if (!cleanText) throw new Error("Cannot synthesize an empty scene.");
 
-  const { apiKey, voiceId: configuredVoiceId, modelId } = requireConfig();
+  const elevenLabs = adapters.elevenLabs || generateElevenLabsNarration;
+  const qwen = adapters.qwen || generateQwenNarration;
   let elevenLabsError = null;
 
-  if (apiKey) {
-    try {
-      let selectedVoiceId = configuredVoiceId || await findAvailableVoice(apiKey);
-      let payload;
-
-      try {
-        payload = await requestSpeech({ apiKey, voiceId: selectedVoiceId, modelId, text: cleanText });
-      } catch (error) {
-        if (!isRestrictedLibraryVoiceError(error.message)) throw error;
-        selectedVoiceId = await findAvailableVoice(apiKey);
-        payload = await requestSpeech({ apiKey, voiceId: selectedVoiceId, modelId, text: cleanText });
-      }
-
-      const result = await persistElevenLabsAudio({ projectId, sceneId, payload });
-      return { ...result, voiceId: selectedVoiceId };
-    } catch (error) {
-      elevenLabsError = error;
-    }
-  } else {
-    elevenLabsError = new Error("ElevenLabs is not configured.");
+  try {
+    return await elevenLabs({ projectId, sceneId, text: cleanText, language, voice, instruct });
+  } catch (error) {
+    elevenLabsError = error;
+    console.warn("TTS provider failed", {
+      provider: "elevenlabs",
+      status: error?.providerStatus ?? null,
+      message: error?.message || String(error),
+      qwenFallbackEnabled: isQwen3TtsEnabled(),
+      projectId,
+      sceneId,
+    });
   }
 
   if (isQwen3TtsEnabled()) {
     try {
-      const qwen = await synthesizeWithQwen({
-        text: cleanText,
-        language,
-        voice,
-        instruct,
-      });
-      return await persistQwenAudio({
+      const result = await qwen({ projectId, sceneId, text: cleanText, language, voice, instruct });
+      console.info("TTS fallback succeeded", {
+        primaryProvider: "elevenlabs",
+        fallbackProvider: result?.provider || "qwen3-tts",
+        timingMethod: result?.timingMethod || "unknown",
         projectId,
         sceneId,
-        text: cleanText,
-        audio: qwen.audio,
-        voice: qwen.voice,
       });
+      return result;
     } catch (error) {
+      console.error("TTS fallback failed", {
+        provider: "qwen3-tts",
+        status: error?.providerStatus ?? null,
+        message: error?.message || String(error),
+        projectId,
+        sceneId,
+      });
       throw new Error(`TTS generation failed. ElevenLabs: ${elevenLabsError?.message || "not attempted"}. Qwen3-TTS: ${error.message}`);
     }
   }
 
   throw new Error(`TTS generation failed: ${elevenLabsError?.message || "ElevenLabs is not configured and Qwen3-TTS fallback is disabled."}`);
+}
+
+export async function getTtsDiagnostics() {
+  const { apiKey, voiceId, modelId } = requireConfig();
+  const qwen = await checkQwen3TtsHealth();
+  return {
+    providerOrder: ["elevenlabs", "qwen3-tts"],
+    elevenLabs: {
+      configured: Boolean(apiKey),
+      voiceConfigured: Boolean(voiceId),
+      model: modelId,
+    },
+    qwen3Tts: qwen,
+  };
 }
