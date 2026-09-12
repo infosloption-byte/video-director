@@ -48,51 +48,33 @@ function normalizeConversationMarkdown(value = "") {
     .replace(/[ \t]+\n/g, "\n")
     .trim();
 
+  // Repair common model formatting mistakes before the React Markdown renderer sees them.
   answer = answer
     .replace(/\s*-{3,}\s*(?=#{1,3}\s+)/g, "\n\n")
     .replace(/([.!?])\s+(?=#{1,3}\s+)/g, "$1\n\n")
-    .replace(/\s+(#{1,3})\s+(?=[A-Z][^\n]{2,80}$)/g, "\n\n$1 ")
+    .replace(/\s+(?=#{1,3}\s+)/g, "\n\n")
+    .replace(/(?:^|\n)\s*[-+]\s*\*{1,2}\s*([^*\n]{3,120})\*{1,2}\s*/g, "\n\n### $1\n\n")
+    .replace(/([.!?])\s+[-+]\s*\*{1,2}\s*([^*\n]{3,120})\*{1,2}\s+/g, "$1\n\n### $2\n\n")
     .replace(/\s+(?=\d+[.)]\s+)/g, "\n")
-    .replace(/\s+(?=[-*+]\s+[^\n])/g, "\n")
-    .replace(/\*{4,}|_{4,}/g, "")
+    .replace(/\s+(?=[-+]\s+[^\n])/g, "\n")
+    .replace(/\s+(?=\*\s+[^\n])/g, "\n")
+    .replace(/^\s*\*\s+/gm, "- ")
+    .replace(/\*{3,}|_{3,}/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/(?<!\w)\*([^*\n]+)\*(?!\w)/g, "$1")
+    .replace(/(?<!\w)_([^_\n]+)_(?!\w)/g, "$1")
     .replace(/\\([*_#])/g, "$1");
 
-  for (const delimiter of ["**", "__", "*", "_"]) {
-    const escaped = delimiter.replace(/[*]/g, "\\*").replace(/_/g, "\\_");
-    const occurrences = (answer.match(new RegExp(escaped, "g")) || []).length;
-    if (occurrences % 2 === 1) answer = answer.split(delimiter).join("");
-  }
+  // A heading-like sentence can still arrive inline after a bold marker was stripped.
+  answer = answer
+    .replace(/([.!?])\s+(#{1,3})\s+/g, "$1\n\n$2 ")
+    .replace(/\s+(#{1,3})\s+(?=[A-Z][^\n]{2,120})/g, "\n\n$1 ");
 
-  return answer.replace(/\n{3,}/g, "\n\n").trim();
+  return answer.replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ").trim();
 }
 
 function conversationPrompt(topic, history, repair = false) {
-  return `You are Helix Research Conversation Guide.
-
-Research topic:
-${topic}
-
-Conversation so far:
-${history || "No prior conversation."}
-
-The user is still in the PRE-RESEARCH exploration stage. Answer the user's latest question directly and completely while helping shape the eventual deep-research brief.
-
-Important behavior:
-- Treat the conversation as a normal, useful AI discussion. Do not repeatedly ask the user to clarify when the question is answerable from broad background knowledge.
-- For straightforward factual questions, give a useful explanatory answer first, then state what should be verified during the later research pass when appropriate.
-- Connect the answer to earlier questions in the conversation so follow-ups feel contextual rather than reset.
-- Prefer 4–8 short paragraphs, or a short heading plus a concise numbered/bulleted list when that is clearer.
-- Put every heading, numbered item, or bullet on its own line with a blank line before a heading.
-- Use standard Markdown syntax only: bold text using double asterisks, italic text using single asterisks, headings using #, bullets using -, and numbered items using 1. Do not put formatting delimiters inside words and do not use repeated asterisks as decoration.
-- Explain terms, relationships, examples, and boundaries when they help answer the question.
-- Never stop mid-sentence, mid-word, or mid-list. End on a complete thought.
-- Do not wrap the whole answer in a code block.
-- Do not invent sources, quotations, statistics, or pretend a web search has already happened.
-- Mark specific facts as general/background context when they have not been verified against the research corpus.
-- Keep the answer self-contained enough that the user does not need to ask “what do you mean?” immediately afterward.
-- If the question asks for a comparison or a list, provide the actual comparison/list rather than only describing how it could be researched.
-
-${repair ? "A previous generation appears incomplete or poorly formatted. Rewrite the answer from scratch as one complete, cleanly formatted response. Do not mention formatting or this instruction." : "Return one complete, cleanly formatted response to the latest user question."}`;
+  return `You are Helix Research Conversation Guide.\n\nResearch topic:\n${topic}\n\nConversation so far:\n${history || "No prior conversation."}\n\nThe user is still in the PRE-RESEARCH exploration stage. Answer the user's latest question directly and completely while helping shape the eventual deep-research brief.\n\nImportant behavior:\n- Treat the conversation as a normal, useful AI discussion. Do not repeatedly ask the user to clarify when the question is answerable from broad background knowledge.\n- For straightforward factual questions, give a useful explanatory answer first, then state what should be verified during the later research pass when appropriate.\n- Connect the answer to earlier questions in the conversation so follow-ups feel contextual rather than reset.\n- Prefer 4–8 short paragraphs, or a short heading plus a concise numbered/bulleted list when that is clearer.\n- Put every heading, numbered item, or bullet on its own line with a blank line before a heading.\n- Use standard Markdown syntax only: bold text using double asterisks, italic text using single asterisks, headings using #, bullets using -, and numbered items using 1. Do not put formatting delimiters inside words and do not use repeated asterisks as decoration.\n- Do not begin headings with a bullet. Use a normal Markdown heading line instead.\n- Explain terms, relationships, examples, and boundaries when they help answer the question.\n- Never stop mid-sentence, mid-word, or mid-list. End on a complete thought.\n- Do not wrap the whole answer in a code block.\n- Do not invent sources, quotations, statistics, or pretend a web search has already happened.\n- Mark specific facts as general/background context when they have not been verified against the research corpus.\n- Keep the answer self-contained enough that the user does not need to ask “what do you mean?” immediately afterward.\n- If the question asks for a comparison or a list, provide the actual comparison/list rather than only describing how it could be researched.\n\n${repair ? "A previous generation appears incomplete or poorly formatted. Rewrite the answer from scratch as one complete, cleanly formatted response. Do not mention formatting or this instruction." : "Return one complete, cleanly formatted response to the latest user question."}`;
 }
 
 async function requestModel(model, apiKey, prompt, signal, maxOutputTokens = MAX_OUTPUT_TOKENS) {
