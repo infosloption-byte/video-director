@@ -1,4 +1,4 @@
-import { access, mkdir, writeFile, rm } from "node:fs/promises";
+import { access, mkdir, writeFile, rm, rename } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -205,19 +205,7 @@ async function persistQwenAudio({ projectId, sceneId, text, audio, voice }) {
     const { ffmpegPath } = requireConfig();
     await convertWavToMp3({ wavPath: tempWavPath, mp3Path: tempMp3Path, ffmpegPath });
     await rm(filePath, { force: true });
-    await rm(tempWavPath, { force: true });
-    await execFileAsync(ffmpegPath, [
-      "-y",
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-i",
-      tempMp3Path,
-      "-codec",
-      "copy",
-      filePath,
-    ]);
-    await rm(tempMp3Path, { force: true });
+    await rename(tempMp3Path, filePath);
 
     if (!(await narrationFileExists(projectId, sceneId))) {
       throw new Error("Qwen3-TTS generated audio but the narration file could not be verified on disk.");
