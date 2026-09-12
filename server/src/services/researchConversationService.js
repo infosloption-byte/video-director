@@ -44,13 +44,10 @@ function looksTruncated(value = "") {
 
 function normalizeConversationMarkdown(value = "") {
   let answer = String(value || "")
-    .replace(/\\r\\n?/g, "\n")
+    .replace(/\r\n?/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
     .trim();
 
-  // Keep Markdown structure on its own lines. Models occasionally emit
-  // separators/headings inline, which makes the custom renderer treat them
-  // as one large paragraph.
   answer = answer
     .replace(/\s*-{3,}\s*(?=#{1,3}\s+)/g, "\n\n")
     .replace(/([.!?])\s+(?=#{1,3}\s+)/g, "$1\n\n")
@@ -60,8 +57,6 @@ function normalizeConversationMarkdown(value = "") {
     .replace(/\*{4,}|_{4,}/g, "")
     .replace(/\\([*_#])/g, "$1");
 
-  // Remove unmatched emphasis delimiters so one stray token cannot italicize
-  // the remainder of the response in the custom inline Markdown renderer.
   for (const delimiter of ["**", "__", "*", "_"]) {
     const escaped = delimiter.replace(/[*]/g, "\\*").replace(/_/g, "\\_");
     const occurrences = (answer.match(new RegExp(escaped, "g")) || []).length;
@@ -88,7 +83,7 @@ Important behavior:
 - Connect the answer to earlier questions in the conversation so follow-ups feel contextual rather than reset.
 - Prefer 4–8 short paragraphs, or a short heading plus a concise numbered/bulleted list when that is clearer.
 - Put every heading, numbered item, or bullet on its own line with a blank line before a heading.
-- Use standard Markdown syntax only: `**bold**`, `*italic*`, `# headings`, `- bullets`, and `1. numbered items`. Do not put formatting delimiters inside words and do not use repeated asterisks as decoration.
+- Use standard Markdown syntax only: bold text using double asterisks, italic text using single asterisks, headings using #, bullets using -, and numbered items using 1. Do not put formatting delimiters inside words and do not use repeated asterisks as decoration.
 - Explain terms, relationships, examples, and boundaries when they help answer the question.
 - Never stop mid-sentence, mid-word, or mid-list. End on a complete thought.
 - Do not wrap the whole answer in a code block.
