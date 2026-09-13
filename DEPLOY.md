@@ -153,9 +153,9 @@ use exactly the same implementation.
 On the GPU EC2:
 
 ```bash
+cd /var/www
 git clone https://github.com/infosloption-byte/video-director.git helix
-after_cd=helix/server/qwen-tts
-cd "$after_cd"
+cd helix/server/qwen-tts
 docker compose up -d --build
 docker compose ps
 docker compose logs -f qwen-tts
@@ -177,7 +177,8 @@ ports:
   - "0.0.0.0:8000:8000"
 ```
 
-Also set the same `QWEN3_TTS_AUTH_TOKEN` value on the Qwen EC2 environment.
+Set the same `QWEN3_TTS_AUTH_TOKEN` value in the Qwen EC2 environment before
+starting the container.
 
 Do **not** open port 8000 to `0.0.0.0/0` in the EC2 security group. Allow TCP
 8000 only from the Helix backend EC2 security group.
@@ -195,7 +196,7 @@ Then, from the Helix backend host/container, verify the private URL:
 curl http://10.0.2.25:8000/health
 ```
 
-When authentication is enabled, use the configured bearer token.
+When authentication is enabled, include the configured bearer token.
 
 ## 6. Local development still works
 
