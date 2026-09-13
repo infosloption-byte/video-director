@@ -7,18 +7,18 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
-      QWEN3_TTS_MODEL: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
-      QWEN3_TTS_DEVICE: cuda:0
-      QWEN3_TTS_DTYPE: bfloat16
-      QWEN3_TTS_ATTN: sdpa
-      QWEN3_TTS_VOICE: Ryan
-      QWEN3_TTS_LANGUAGE: English
-      QWEN3_TTS_VOICE_INSTRUCT: Warm, clear documentary narrator. Natural pacing, confident, calm, and easy to understand.
-      QWEN3_TTS_MAX_NEW_TOKENS: "4096"
-      QWEN3_TTS_ALIGNER_ENABLED: "true"
-      QWEN3_TTS_ALIGNER_MODEL: small
-      QWEN3_TTS_ALIGNER_DEVICE: cpu
-      QWEN3_TTS_ALIGNER_COMPUTE_TYPE: int8
+      - QWEN3_TTS_MODEL=Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+      - QWEN3_TTS_DEVICE=cuda:0
+      - QWEN3_TTS_DTYPE=bfloat16
+      - QWEN3_TTS_ATTN=sdpa
+      - QWEN3_TTS_VOICE=Ryan
+      - QWEN3_TTS_LANGUAGE=English
+      - QWEN3_TTS_VOICE_INSTRUCT=Warm, clear documentary narrator. Natural pacing, confident, calm, and easy to understand.
+      - QWEN3_TTS_MAX_NEW_TOKENS=4096
+      - QWEN3_TTS_ALIGNER_ENABLED=true
+      - QWEN3_TTS_ALIGNER_MODEL=small
+      - QWEN3_TTS_ALIGNER_DEVICE=cpu
+      - QWEN3_TTS_ALIGNER_COMPUTE_TYPE=int8
       - QWEN3_TTS_AUTH_TOKEN
     volumes:
       - qwen_hf_cache:/cache/huggingface
