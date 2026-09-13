@@ -5,7 +5,7 @@ from functools import lru_cache
 
 import soundfile as sf
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from qwen_tts import Qwen3TTSModel
@@ -29,8 +29,9 @@ ALIGNER_ENABLED = str(os.getenv("QWEN3_TTS_ALIGNER_ENABLED", "true")).lower() ==
 ALIGNER_MODEL_ID = os.getenv("QWEN3_TTS_ALIGNER_MODEL", "small")
 ALIGNER_DEVICE = os.getenv("QWEN3_TTS_ALIGNER_DEVICE", "cpu")
 ALIGNER_COMPUTE_TYPE = os.getenv("QWEN3_TTS_ALIGNER_COMPUTE_TYPE", "int8")
+AUTH_TOKEN = str(os.getenv("QWEN3_TTS_AUTH_TOKEN", "")).strip()
 
-app = FastAPI(title="Helix Qwen3-TTS Fallback", version="1.1.0")
+app = FastAPI(title="Helix Qwen3-TTS Fallback", version="1.2.0")
 
 
 class SpeechRequest(BaseModel):
@@ -40,6 +41,14 @@ class SpeechRequest(BaseModel):
     language: str | None = None
     instruct: str | None = None
     response_format: str = "wav"
+
+
+def require_auth(authorization: str | None):
+    if not AUTH_TOKEN:
+        return
+    expected = f"Bearer {AUTH_TOKEN}"
+    if authorization != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized Qwen3-TTS request.")
 
 
 def resolve_dtype():
@@ -125,7 +134,8 @@ def transcribe_word_timestamps(audio_bytes: bytes, text: str, language: str | No
 
 
 @app.get("/health")
-def health():
+def health(authorization: str | None = Header(default=None)):
+    require_auth(authorization)
     return {
         "status": "ok",
         "model": MODEL_ID,
@@ -142,7 +152,8 @@ def health():
 
 
 @app.get("/diagnostics")
-def diagnostics():
+def diagnostics(authorization: str | None = Header(default=None)):
+    require_auth(authorization)
     return {
         "service": "qwen3-tts",
         "status": "ok",
@@ -163,12 +174,14 @@ def diagnostics():
 
 
 @app.get("/v1/models")
-def models():
+def models(authorization: str | None = Header(default=None)):
+    require_auth(authorization)
     return {"data": [{"id": MODEL_ID, "object": "model", "owned_by": "Qwen"}], "object": "list"}
 
 
 @app.post("/v1/audio/speech")
-def speech(request: SpeechRequest):
+def speech(request: SpeechRequest, authorization: str | None = Header(default=None)):
+    require_auth(authorization)
     response_format = request.response_format.lower()
     if response_format not in {"wav", "json"}:
         raise HTTPException(status_code=400, detail="The Helix fallback supports response_format 'wav' or 'json'.")
