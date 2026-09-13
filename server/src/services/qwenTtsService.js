@@ -14,6 +14,7 @@ function getConfig() {
       process.env.QWEN3_TTS_VOICE_INSTRUCT ||
       "Warm, clear documentary narrator. Natural pacing, confident, calm, and easy to understand.",
     timeoutMs: Math.max(5_000, Number(process.env.QWEN3_TTS_TIMEOUT_MS || 120_000)),
+    authToken: String(process.env.QWEN3_TTS_AUTH_TOKEN || "").trim(),
   };
 }
 
@@ -40,6 +41,10 @@ function normalizeWordTimestamps(value) {
     }));
 }
 
+function authHeaders(config) {
+  return config.authToken ? { Authorization: `Bearer ${config.authToken}` } : {};
+}
+
 export function isQwen3TtsEnabled() {
   return getConfig().enabled;
 }
@@ -55,6 +60,7 @@ export async function synthesizeWithQwen({ text, language, voice, instruct }) {
     method: "POST",
     signal: timeoutSignal(config.timeoutMs),
     headers: {
+      ...authHeaders(config),
       "Content-Type": "application/json",
       Accept: "application/json, audio/wav",
     },
@@ -121,7 +127,7 @@ export async function checkQwen3TtsHealth() {
   try {
     const response = await fetch(`${config.url}/diagnostics`, {
       signal: timeoutSignal(Math.min(config.timeoutMs, 10_000)),
-      headers: { Accept: "application/json" },
+      headers: { ...authHeaders(config), Accept: "application/json" },
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) return { enabled: true, reachable: false, status: response.status, url: config.url };
