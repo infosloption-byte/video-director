@@ -19,6 +19,7 @@ services:
       QWEN3_TTS_ALIGNER_MODEL: small
       QWEN3_TTS_ALIGNER_DEVICE: cpu
       QWEN3_TTS_ALIGNER_COMPUTE_TYPE: int8
+      - QWEN3_TTS_AUTH_TOKEN
     volumes:
       - qwen_hf_cache:/cache/huggingface
     gpus: all
