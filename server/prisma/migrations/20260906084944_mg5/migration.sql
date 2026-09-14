@@ -7,26 +7,50 @@
   - Added the required column `passageText` to the `research_evidence` table without a default value. This is not possible if the table is not empty.
 
 */
+-- DropForeignKey
+ALTER TABLE `project_activities` DROP FOREIGN KEY `project_activities_user_id_fkey`;
+
 -- DropIndex
 DROP INDEX `project_activities_user_id_fkey` ON `project_activities`;
+
+-- DropForeignKey
+ALTER TABLE `project_exports` DROP FOREIGN KEY `project_exports_project_id_fkey`;
 
 -- DropIndex
 DROP INDEX `project_exports_project_id_fkey` ON `project_exports`;
 
+-- DropForeignKey
+ALTER TABLE `project_scenes` DROP FOREIGN KEY `project_scenes_project_id_fkey`;
+
 -- DropIndex
 DROP INDEX `project_scenes_project_id_fkey` ON `project_scenes`;
+
+-- DropForeignKey
+ALTER TABLE `project_versions` DROP FOREIGN KEY `project_versions_created_by_id_fkey`;
 
 -- DropIndex
 DROP INDEX `project_versions_created_by_id_fkey` ON `project_versions`;
 
+-- DropForeignKey
+ALTER TABLE `projects` DROP FOREIGN KEY `projects_signal_id_fkey`;
+
 -- DropIndex
 DROP INDEX `projects_signal_id_fkey` ON `projects`;
+
+-- DropForeignKey
+ALTER TABLE `research_conflicts` DROP FOREIGN KEY `research_conflicts_left_claim_id_fkey`;
 
 -- DropIndex
 DROP INDEX `research_conflicts_left_claim_id_fkey` ON `research_conflicts`;
 
+-- DropForeignKey
+ALTER TABLE `research_conflicts` DROP FOREIGN KEY `research_conflicts_right_claim_id_fkey`;
+
 -- DropIndex
 DROP INDEX `research_conflicts_right_claim_id_fkey` ON `research_conflicts`;
+
+-- DropForeignKey
+ALTER TABLE `scene_assets` DROP FOREIGN KEY `scene_assets_scene_id_fkey`;
 
 -- DropIndex
 DROP INDEX `scene_assets_scene_id_fkey` ON `scene_assets`;
