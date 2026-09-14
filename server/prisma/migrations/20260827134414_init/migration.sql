@@ -1,11 +1,23 @@
+-- DropForeignKey
+ALTER TABLE `project_exports` DROP FOREIGN KEY `project_exports_project_id_fkey`;
+
 -- DropIndex
 DROP INDEX `project_exports_project_id_fkey` ON `project_exports`;
+
+-- DropForeignKey
+ALTER TABLE `project_scenes` DROP FOREIGN KEY `project_scenes_project_id_fkey`;
 
 -- DropIndex
 DROP INDEX `project_scenes_project_id_fkey` ON `project_scenes`;
 
+-- DropForeignKey
+ALTER TABLE `projects` DROP FOREIGN KEY `projects_signal_id_fkey`;
+
 -- DropIndex
 DROP INDEX `projects_signal_id_fkey` ON `projects`;
+
+-- DropForeignKey
+ALTER TABLE `scene_assets` DROP FOREIGN KEY `scene_assets_scene_id_fkey`;
 
 -- DropIndex
 DROP INDEX `scene_assets_scene_id_fkey` ON `scene_assets`;
