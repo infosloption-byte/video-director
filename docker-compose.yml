@@ -1,20 +1,4 @@
 services:
-  mysql:
-    image: mysql:8.4
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: helix
-      MYSQL_USER: helix
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -33,6 +17,16 @@ services:
     env_file:
       - ./server/.env
     environment:
+      # Shared MySQL (same instance voxora and friends use) instead of a
+      # per-project mysql container. docker-entrypoint.sh assembles Prisma's
+      # DATABASE_URL from these at boot.
+      DB_CONNECTION: ${DB_CONNECTION:-mysql}
+      DB_HOST: ${DB_HOST:-mysql_shared}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_DATABASE: ${DB_DATABASE:-helix}
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_URL: redis://redis:6379
       # Keep the render worker + editor render worker inside the API
       # process so a single container/host handles everything. Split these
       # into their own services later if rendering load needs to scale
@@ -40,14 +34,15 @@ services:
       RENDER_WORKER_IN_API: "true"
       EDITOR_RENDER_WORKER_IN_API: "true"
     depends_on:
-      mysql:
-        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
       - helix_storage:/app/storage
     expose:
       - "4000"
+    networks:
+      - default
+      - shared_mysql
 
   frontend:
     build:
@@ -60,7 +55,14 @@ services:
     ports:
       - "127.0.0.1:8090:80"
 
+networks:
+  default:
+  shared_mysql:
+    external: true
+    # Must match the network the mysql_shared container actually runs on.
+    # Check with: docker inspect mysql_shared --format '{{json .NetworkSettings.Networks}}'
+    name: ${SHARED_MYSQL_NETWORK:-mysql_shared_net}
+
 volumes:
-  mysql_data:
   redis_data:
   helix_storage:
