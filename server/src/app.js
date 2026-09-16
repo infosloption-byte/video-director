@@ -31,6 +31,32 @@ app.use(express.json());
 app.use(authOptional);
 app.use(sameOriginProtection);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Reports which external integrations are configured, without exposing key
+// material. Every step of the Signals→Video and Chat Research→Video
+// pipelines depends on one or more of these; a missing key doesn't crash
+// anything (most fail gracefully), it just silently produces a degraded
+// result (e.g. zero research sources, no narration, no B-roll). Surfacing
+// this here lets the frontend warn a user or admin upfront instead of
+// discovering it mid-flow.
+app.get("/api/health/integrations", (_req, res) => {
+  const configured = (name) => Boolean(String(process.env[name] || "").trim());
+  const integrations = {
+    gemini: { configured: configured("GEMINI_API_KEY"), usedFor: "Research synthesis, scene/script writing, AI editing" },
+    tavily: { configured: configured("TAVILY_API_KEY"), usedFor: "Research source discovery" },
+    brave: { configured: configured("BRAVE_API_KEY"), usedFor: "Research source discovery" },
+    elevenlabs: { configured: configured("ELEVENLABS_API_KEY"), usedFor: "Narration (text-to-speech)" },
+    pexels: { configured: configured("PEXELS_API_KEY"), usedFor: "B-roll visuals" },
+    facebook: { configured: configured("FACEBOOK_PAGE_ACCESS_TOKEN") && configured("FACEBOOK_PAGE_ID"), usedFor: "Publish to Facebook" },
+  };
+  const searchConfigured = integrations.tavily.configured || integrations.brave.configured;
+  const warnings = [];
+  if (!searchConfigured) warnings.push("Neither TAVILY_API_KEY nor BRAVE_API_KEY is set — research will find zero sources.");
+  if (!integrations.gemini.configured) warnings.push("GEMINI_API_KEY is not set — research synthesis and scene generation will fail.");
+  if (!integrations.elevenlabs.configured) warnings.push("ELEVENLABS_API_KEY is not set — narration generation will fail.");
+  if (!integrations.pexels.configured) warnings.push("PEXELS_API_KEY is not set — B-roll selection will fail.");
+  res.json({ integrations, searchConfigured, warnings });
+});
 app.use("/api/auth", authRouter);
 app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
 app.use("/api", reviewRouter);

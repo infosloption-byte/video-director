@@ -171,6 +171,7 @@ async function runInitialResearch(projectId, signal, conversationMessages) {
   const researchTopic = buildResearchContext(signal.title, conversationMessages);
   const researchSignalInput = { ...signal, title: researchTopic };
   const setJob = (status, progress, detail) => updateJob(projectId, { status, progress, detail, messageId: "initial", question: signal.title, conversationThinking: false });
+  await prisma.project.update({ where: { id: projectId }, data: { researchJobRunning: true } }).catch(() => {});
   try {
     setJob("planning", 5, "Scanning the conversation to turn your questions and priorities into a focused research plan.");
     const brief = await researchSignal(researchSignalInput, {
@@ -195,7 +196,7 @@ async function runInitialResearch(projectId, signal, conversationMessages) {
       researchSummary: completedMessage.content,
       researchSources: { ...brief, sources: brief.sources || [], research_conversation: { messages: [...storedMessages, completedMessage].slice(-MAX_MESSAGES) }, research_conversation_context: researchTopic.slice(signal.title.length).trim() },
       monetizationFlags: brief.monetization_flags || [], suggestedFramework: brief.recommended_framework || null,
-      suggestedLengthSeconds: brief.recommended_length_seconds || null, suggestedTone: brief.recommended_tone || null, status: "setup"
+      suggestedLengthSeconds: brief.recommended_length_seconds || null, suggestedTone: brief.recommended_tone || null, status: "setup", researchJobRunning: false
     } });
     await persistResearchGraph(projectId, brief, { status: "completed" });
     emit(projectId, "conversation", { messages: [...storedMessages, completedMessage].slice(-MAX_MESSAGES) });
@@ -203,7 +204,7 @@ async function runInitialResearch(projectId, signal, conversationMessages) {
   } catch (error) {
     console.error(`[research-conversation] Project ${projectId} failed:`, error);
     setJob("error", jobs.get(projectId)?.progress || 0, error.message || "Research failed.");
-    await prisma.project.update({ where: { id: projectId }, data: { status: "researching" } }).catch(() => {});
+    await prisma.project.update({ where: { id: projectId }, data: { status: "researching", researchJobRunning: false } }).catch(() => {});
   }
 }
 

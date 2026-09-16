@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
 import SignalCard from "../components/SignalCard";
 import SelectMenu from "../components/SelectMenu";
+import IntegrationsWarningBanner from "../components/IntegrationsWarningBanner";
 import { IconScan, IconClapper } from "../components/Icons";
 import { swatchSets, categories } from "../data/signals";
 import "../components/ui.css";
@@ -138,6 +139,7 @@ export default function SignalsPage() {
       <Header right={headerActions} />
 
       <main className="container hx-hero">
+        <IntegrationsWarningBanner />
         <div className="hx-hero__content">
           <p className="eyebrow">Science &amp; Tech Auto-Director</p>
           <h1 className="hx-hero__title">Pick a signal. Helix directs the Reel.</h1>

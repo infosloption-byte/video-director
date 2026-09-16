@@ -87,6 +87,7 @@ model Project {
   durationSeconds       Decimal?            @map("duration_seconds") @db.Decimal(5, 1)
   cuts                  Int?
   status                ProjectStatus       @default(researching)
+  researchJobRunning    Boolean             @default(false) @map("research_job_running")
   renderUrl             String?             @map("render_url") @db.Text
   createdAt             DateTime            @default(now()) @map("created_at")
   signal                Signal              @relation(fields: [signalId], references: [id])

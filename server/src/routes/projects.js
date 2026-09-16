@@ -28,19 +28,56 @@ async function runResearch(projectId, signal) {
   const setJob = (status, progress, label, detail) => researchJobs.set(projectId, { ...(researchJobs.get(projectId) || {}), status, progress, label, detail });
   setJob("planning", 5, "Planning the research", "Breaking the topic into evidence, mechanism, data, recent developments, and counter-evidence questions.");
   appendActivity(projectId, { type: "research.started", message: "Deep research job started." });
+  // Mark the job as actively running on the Project row itself (not just in
+  // the in-memory `researchJobs` map) so that if this process is killed or
+  // restarted mid-research, the next boot can tell this project was left in
+  // an orphaned state and automatically resume it. See resumeOrphanedResearch().
+  await prisma.project.update({ where: { id: projectId }, data: { researchJobRunning: true } }).catch(() => {});
   try {
     const brief = await researchSignal(signal, { onProgress: (stage, progress) => { const labels = { planning: ["Planning the research", "Defining the questions Helix needs to answer before synthesis."], discovering: ["Discovering sources", "Searching academic, institutional, news, and independent evidence."], reading: ["Reading sources", "Opening selected sources and extracting their available evidence."], verifying: ["Verifying evidence", "Comparing claims, source quality, and conflicting findings."], synthesizing: ["Synthesizing findings", "Building an evidence-backed research intelligence brief."], ready: ["Research brief ready", "The evidence-backed brief is ready for guided setup."] }; const [label, detail] = labels[stage] || [stage, "Helix is working through the evidence pipeline."]; setJob(stage, progress, label, detail); }, onActivity: (activity) => appendActivity(projectId, activity) });
     const keyFacts = normalizeResearchFacts(brief);
     const executiveSummary = String(brief.executive_summary || brief.mechanism_summary || "").trim();
     const fallbackSummary = [executiveSummary, ...keyFacts.map((fact) => `• ${fact}`)].filter(Boolean).join("\n\n");
-    await prisma.project.update({ where: { id: projectId }, data: { researchSummary: fallbackSummary, researchSources: { ...(brief), key_facts: keyFacts, sources: brief.sources || [] }, monetizationFlags: brief.monetization_flags || [], suggestedFramework: brief.recommended_framework || null, suggestedLengthSeconds: brief.recommended_length_seconds || null, suggestedTone: brief.recommended_tone || null, status: "setup" } });
+    await prisma.project.update({ where: { id: projectId }, data: { researchSummary: fallbackSummary, researchSources: { ...(brief), key_facts: keyFacts, sources: brief.sources || [] }, monetizationFlags: brief.monetization_flags || [], suggestedFramework: brief.recommended_framework || null, suggestedLengthSeconds: brief.recommended_length_seconds || null, suggestedTone: brief.recommended_tone || null, status: "setup", researchJobRunning: false } });
     await persistResearchGraph(projectId, brief, { status: "completed" });
     appendActivity(projectId, { type: "research.corpus_persisted", message: "Research corpus persisted for downstream Storyboard and AI workflows." });
     setJob("ready", 100, "Research brief ready", "The evidence-backed brief is ready for guided setup.");
   } catch (error) {
     console.error(`[research] Project ${projectId} failed:`, error);
     appendActivity(projectId, { type: "research.failed", status: "error", message: error.message || "Research failed." });
-    const existing = researchJobs.get(projectId) || {}; setJob("error", existing.progress || 0, "Research failed", "Helix could not complete the evidence check."); researchJobs.set(projectId, { ...researchJobs.get(projectId), error: error.message || "Research failed." }); await prisma.project.update({ where: { id: projectId }, data: { status: "researching" } }).catch(() => {});
+    const existing = researchJobs.get(projectId) || {}; setJob("error", existing.progress || 0, "Research failed", "Helix could not complete the evidence check."); researchJobs.set(projectId, { ...researchJobs.get(projectId), error: error.message || "Research failed." }); await prisma.project.update({ where: { id: projectId }, data: { status: "researching", researchJobRunning: false } }).catch(() => {});
+  }
+}
+
+// Called once at process startup (see server.js). Any project still flagged
+// `researchJobRunning` at boot was, by definition, orphaned by the previous
+// process being killed or restarted mid-research — no code can still be
+// running for it in a freshly-started process. Re-running the same research
+// pass is safe and idempotent: it simply overwrites researchSummary/
+// researchSources with a fresh result once it completes.
+export async function resumeOrphanedResearch() {
+  let orphaned = [];
+  try {
+    orphaned = await prisma.project.findMany({ where: { researchJobRunning: true }, select: { id: true, signalId: true, title: true } });
+  } catch (error) {
+    console.error("[research] Failed to check for orphaned research jobs:", error);
+    return;
+  }
+  if (!orphaned.length) return;
+  console.log(`[research] Found ${orphaned.length} research job(s) orphaned by a previous restart; resuming.`);
+  for (const project of orphaned) {
+    try {
+      const signal = await prisma.signal.findUnique({ where: { id: project.signalId } });
+      if (!signal) {
+        console.warn(`[research] Orphaned project ${project.id} has no signal; marking as failed instead of resuming.`);
+        await prisma.project.update({ where: { id: project.id }, data: { researchJobRunning: false } }).catch(() => {});
+        continue;
+      }
+      researchJobs.set(project.id, { status: "queued", progress: 0, label: "Resuming after restart", detail: "The server restarted while this research was running. Restarting the evidence pipeline from the beginning.", activities: [{ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, at: new Date().toISOString(), type: "research.retry_started", message: "Automatically resumed after a server restart." }] });
+      void runResearch(project.id, signal);
+    } catch (error) {
+      console.error(`[research] Failed to resume orphaned project ${project.id}:`, error);
+    }
   }
 }
 

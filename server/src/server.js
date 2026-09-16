@@ -4,6 +4,7 @@ import { startSignalScraper } from "./jobs/scrapeSignals.js";
 import { startRenderWorker } from "./jobs/renderQueue.js";
 import { startEditorRenderWorker } from "./jobs/editorRenderQueue.js";
 import { startMediaProcessor } from "./services/mediaProcessing.js";
+import { resumeOrphanedResearch } from "./routes/projects.js";
 import { prisma } from "./db/client.js";
 
 const PORT = process.env.PORT || 4000;
@@ -13,6 +14,12 @@ const server = app.listen(PORT, () => {
   // Signal scraping is deliberately opt-in at startup. A third-party feed
   // outage must never make the API unavailable while the UI is running.
   startSignalScraper();
+
+  // Research jobs that were mid-flight when this process last stopped are
+  // orphaned (nothing can still be running for them in a fresh process).
+  // Resume them so a deploy/restart never silently strands a user's project
+  // in "researching" forever.
+  void resumeOrphanedResearch();
 
   // Large uploaded videos are processed outside the request path. The processor
   // resumes pending proxy work after an API restart.

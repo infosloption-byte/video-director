@@ -74,6 +74,7 @@ export default function SignalCard({ signal, featured = false }) {
               <span className="signal-card__why-text">{signal.why}</span>
             </div>
             <div className="signal-card__actions">
+              <span className="signal-card__estimate">~3–5 min research pass · uses AI credits</span>
               <button className="btn btn-cream" disabled={pending} onClick={directSignal}>
                 {pending ? "Starting…" : "Direct Reel"}
                 <IconArrowUpRight className="btn-icon" />

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import IntegrationsWarningBanner from "../components/IntegrationsWarningBanner";
 import { useProjects } from "../context/useProjects.js";
 import "./ResearchConversationPage.css";
 
@@ -29,6 +30,7 @@ export default function ResearchConversationStartPage() {
     <div className="hx-page rc-page">
       <Header />
       <main className="container rc-start">
+        <IntegrationsWarningBanner />
         <div className="rc-start__intro">
           <p className="eyebrow">Research with Helix</p>
           <h1>Start with a conversation.</h1>
@@ -37,7 +39,7 @@ export default function ResearchConversationStartPage() {
         <form className="rc-start__form" onSubmit={start}>
           <label htmlFor="research-topic">What do you want to investigate?</label>
           <textarea id="research-topic" value={topic} onChange={(event) => setTopic(event.target.value)} maxLength={255} rows={4} placeholder="e.g. How is AI changing drug discovery?" autoFocus />
-          <div className="rc-start__footer"><span>Start broad. Ask questions, refine the angle, then choose when you are ready to build the evidence-backed brief.</span><button type="submit" className="btn btn-cream" disabled={starting || topic.trim().length < 3}>{starting ? "Opening conversation…" : "Start conversation →"}</button></div>
+          <div className="rc-start__footer"><span>Start broad. Ask questions, refine the angle, then choose when you are ready to build the evidence-backed brief. Building the brief typically takes a few minutes and uses AI research credits.</span><button type="submit" className="btn btn-cream" disabled={starting || topic.trim().length < 3}>{starting ? "Opening conversation…" : "Start conversation →"}</button></div>
           {error && <p className="rc-error" role="alert">{error}</p>}
         </form>
       </main>

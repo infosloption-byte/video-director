@@ -6,8 +6,7 @@ import StepCard from "../components/StepCard";
 import SetupPanel from "../components/SetupPanel";
 import FinalizePanel from "../components/FinalizePanel";
 import ResearchReport from "../components/ResearchReport";
-import { IconArrowLeft, IconInfo, IconArrowRight, IconCheck } from "../components/Icons";
-import { storyboards } from "../data/signals";
+import { IconArrowLeft, IconInfo } from "../components/Icons";
 import "../components/ui.css";
 import "../components/SetupPanel.css";
 import "../pages/ResearchStageUX.css";
@@ -55,13 +54,11 @@ export default function StoryboardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const legacyBoard = storyboards[id];
   const [project, setProject] = useState(null);
   const [scenes, setScenes] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
   const [selectedAssetByScene, setSelectedAssetByScene] = useState({});
   const [playing, setPlaying] = useState(false);
-  const [published, setPublished] = useState(false);
   const [sceneLoading, setSceneLoading] = useState(false);
   const [sceneError, setSceneError] = useState("");
   const [sceneRetry, setSceneRetry] = useState(0);
@@ -81,16 +78,15 @@ export default function StoryboardPage() {
         const data = await response.json();
         if (!cancelled) setProject(data.project);
       } catch {
-        // Legacy mock storyboards do not have a project API record.
+        // Leaves `project` null; the not-found guard below handles this.
       }
     }
     loadProject();
     return () => { cancelled = true; };
   }, [id]);
 
-  const board = legacyBoard;
   const realProject = Boolean(project);
-  const tab = normalizeStage(searchParams.get("stage")) || (legacyBoard ? "Storyboard" : "Setup");
+  const tab = normalizeStage(searchParams.get("stage")) || "Setup";
 
   useEffect(() => {
     if (!realProject || !["Storyboard", "Preview"].includes(tab)) return undefined;
@@ -233,7 +229,7 @@ export default function StoryboardPage() {
     return sceneToStep(scene, selectedAssetByScene[scene.id] ?? 0);
   }, [activeStep, scenes, selectedAssetByScene]);
 
-  if (!board && !realProject) {
+  if (!realProject) {
     return (
       <div className="hx-page">
         <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
@@ -325,30 +321,4 @@ export default function StoryboardPage() {
       </div>
     );
   }
-
-  return (
-    <div className="hx-page">
-      <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
-      <main className="container hx-board">
-        <div className="hx-board__head">
-          <div><p className="eyebrow">{board.framework} · {board.frameworkName}</p><h1 className="hx-board__title">{board.title}</h1></div>
-          <div className="hx-tabs" role="tablist" aria-label="Storyboard stage">
-            <button className={`hx-tab ${tab === "Storyboard" ? "is-active" : ""}`} onClick={() => changeTab("Storyboard")}><span className="mono-label hx-tab__n">02</span> Storyboard</button>
-            <button className={`hx-tab ${tab === "Preview" ? "is-active" : ""}`} onClick={() => changeTab("Preview")}><span className="mono-label hx-tab__n">03</span> Preview</button>
-          </div>
-        </div>
-        <div className="hx-board__layout">
-          <PhonePreview step={board.steps[activeStep]} duration={board.duration} cuts={board.cuts} playing={playing} onTogglePlay={() => setPlaying((p) => !p)} />
-          <div className="hx-board__content">
-            {tab === "Storyboard" && <>
-              <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {board.hook}</p></div>
-              <div className="hx-steps">{board.steps.map((step, i) => <StepCard key={step.n} step={step} active={activeStep === i} onFocus={() => { setActiveStep(i); setPlaying(false); }} />)}</div>
-              <div className="hx-board__actions"><button className="btn btn-ghost" onClick={() => navigate("/")}><IconArrowLeft className="btn-icon" /> Back</button><button className="btn btn-cream" onClick={() => changeTab("Preview")}>Preview &amp; publish pack <IconArrowRight className="btn-icon" /></button></div>
-            </>}
-            {tab === "Preview" && (published ? <div className="hx-published"><span className="hx-published__icon"><IconCheck /></span><h3>Reel pack published</h3><p>"{board.title}" is queued for export at {board.duration}, {board.cuts} cuts.</p><div className="hx-board__actions" style={{ justifyContent: "center", gap: 12 }}><button className="btn btn-ghost" onClick={() => setPublished(false)}><IconArrowLeft className="btn-icon" /> Back to preview</button><button className="btn btn-cream" onClick={() => navigate("/")}>Done</button></div></div> : <div className="hx-published"><h3>Preview &amp; publish pack</h3><p>Legacy demo storyboard preview.</p><button className="btn btn-cream" onClick={() => setPublished(true)}>Publish pack</button></div>)}
-          </div>
-        </div>
-      </main>
-    </div>
-  );
 }
