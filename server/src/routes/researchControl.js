@@ -74,8 +74,9 @@ router.get("/:id/research", async (req, res, next) => {
     }
 
     const controllerActive = hasActiveResearchController(project.signalId) || hasActiveResearchController(`conversation:${project.id}`);
+    const persistedJobActive = Boolean(project.researchJobRunning);
     const justCreated = project.createdAt && (Date.now() - new Date(project.createdAt).getTime()) < STALE_RUN_GRACE_MS;
-    if (!project.researchSummary && project.status === "researching" && !controllerActive && !justCreated) {
+    if (!project.researchSummary && project.status === "researching" && !controllerActive && !persistedJobActive && !justCreated) {
       return res.json({ project: buildStoppedProject(project) });
     }
 
