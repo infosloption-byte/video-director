@@ -14,12 +14,13 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlatformShell from "./components/PlatformShell";
 import EditorWorkspace from "./components/EditorWorkspace";
+import SessionGate from "./components/SessionGate";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
 function SignalsRoute() {
   const { status } = useAuth();
-  if (authRequired() && status === "loading") return <div className="hx-page"><main className="container" style={{ padding: "80px 0" }}>Checking your session…</main></div>;
+  if (authRequired() && status === "loading") return <SessionGate />;
   return <PlatformShell><SignalsPage /></PlatformShell>;
 }
 
@@ -27,7 +28,7 @@ function ProtectedRoute({ children }) {
   const location = useLocation();
   const { user, status } = useAuth();
   if (!authRequired()) return <PlatformShell>{children}</PlatformShell>;
-  if (status === "loading") return <div className="hx-page"><main className="container" style={{ padding: "80px 0" }}>Checking your session…</main></div>;
+  if (status === "loading") return <SessionGate />;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`} replace />;
   return <PlatformShell>{children}</PlatformShell>;
 }

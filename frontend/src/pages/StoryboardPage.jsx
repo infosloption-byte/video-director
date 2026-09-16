@@ -55,6 +55,7 @@ export default function StoryboardPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [project, setProject] = useState(null);
+  const [projectLoading, setProjectLoading] = useState(true);
   const [scenes, setScenes] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
   const [selectedAssetByScene, setSelectedAssetByScene] = useState({});
@@ -79,6 +80,8 @@ export default function StoryboardPage() {
         if (!cancelled) setProject(data.project);
       } catch {
         // Leaves `project` null; the not-found guard below handles this.
+      } finally {
+        if (!cancelled) setProjectLoading(false);
       }
     }
     loadProject();
@@ -228,6 +231,17 @@ export default function StoryboardPage() {
     const scene = scenes[activeStep] || scenes[0];
     return sceneToStep(scene, selectedAssetByScene[scene.id] ?? 0);
   }, [activeStep, scenes, selectedAssetByScene]);
+
+  if (projectLoading) {
+    return (
+      <div className="hx-page">
+        <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
+        <div className="container hx-notfound">
+          <p>Loading your reel project…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!realProject) {
     return (
