@@ -4,7 +4,6 @@ import { cancelResearch, hasActiveResearchController } from "../services/researc
 
 const router = Router();
 const stoppedResearch = new Map();
-const STALE_RUN_GRACE_MS = 15000;
 
 function buildStoppedProject(project, state, overrides = {}) {
   return {
@@ -60,6 +59,11 @@ router.post("/:id/research/stop", async (req, res) => {
   }
 });
 
+// This middleware owns explicit stop state only. A normal researching project
+// must pass through to projects.js, which is the canonical source of the
+// persisted/in-memory research job state. Generating a synthetic "previous
+// run is no longer active" response here creates a race during startup and
+// across process restarts.
 router.get("/:id/research", async (req, res, next) => {
   try {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id } });
@@ -71,13 +75,6 @@ router.get("/:id/research", async (req, res, next) => {
         return next();
       }
       return res.json({ project: buildStoppedProject(project, stoppedResearch.get(project.id), { stageLabel: "Research stopped", stageDetail: "The research run was stopped before the evidence brief was completed.", error: "Research was stopped by the user." }) });
-    }
-
-    const controllerActive = hasActiveResearchController(project.signalId) || hasActiveResearchController(`conversation:${project.id}`);
-    const persistedJobActive = Boolean(project.researchJobRunning);
-    const justCreated = project.createdAt && (Date.now() - new Date(project.createdAt).getTime()) < STALE_RUN_GRACE_MS;
-    if (!project.researchSummary && project.status === "researching" && !controllerActive && !persistedJobActive && !justCreated) {
-      return res.json({ project: buildStoppedProject(project) });
     }
 
     return next();
