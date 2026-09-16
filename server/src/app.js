@@ -24,6 +24,7 @@ import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.j
 import { requireRenderAssetAccess, requireStoredProjectOwner } from "./middleware/storageOwnership.js";
 import { sameOriginProtection } from "./middleware/csrf.js";
 import { expensiveOperationRateLimit } from "./middleware/rateLimit.js";
+import { waitForResearchGraph } from "./services/researchGraphAvailability.js";
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -75,6 +76,22 @@ app.use("/api/projects", productivityRouter);
 app.use("/api/projects", mediaRouter);
 app.use("/api/projects", mediaProxyRouter);
 app.use("/api/projects", researchControlRouter);
+
+// Research graph reads can briefly race the final graph persistence writes.
+// Wait here for the session to exist so a freshly completed research run does
+// not return a transient 404 that only disappears after a page refresh.
+app.get("/api/projects/:id/research/graph", requireAuth, async (req, res) => {
+  try {
+    const result = await waitForResearchGraph(req.params.id, req.user.id);
+    if (result.status === "missing") return res.status(404).json({ error: "Project not found." });
+    if (result.status === "pending") return res.status(409).json({ error: "Research graph is still being saved. Please retry shortly." });
+    return res.json({ projectId: req.params.id, session: result.session });
+  } catch (error) {
+    console.error(`GET /api/projects/${req.params.id}/research/graph readiness failed:`, error);
+    return res.status(500).json({ error: "Failed to load research graph." });
+  }
+});
+
 app.use("/api/projects", researchRouter);
 app.use("/api/projects", projectsRouter);
 
