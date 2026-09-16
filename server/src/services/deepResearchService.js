@@ -83,6 +83,14 @@ export async function deepResearchSignal(signal, { onProgress, onActivity } = {}
     const batches = await Promise.allSettled(queries.map((query) => searchSourceCascade(query))); if (abortSignal?.aborted) throw abortSignal.reason || new Error("Research was stopped by the user.");
     const discovered = dedupeSources(batches.flatMap((batch) => batch.status === "fulfilled" ? batch.value : [])).sort((a, b) => sourceQuality(b) - sourceQuality(a) || (b.searchScore || 0) - (a.searchScore || 0)).slice(0, MAX_DISCOVERY_RESULTS).map((item) => ({ ...item, sourceClass: sourceClass(item) }));
     onActivity?.({ type: "search.completed", count: discovered.length, message: `${discovered.length} distinct candidate sources found.` }); onProgress?.("reading", 30);
+    if (discovered.length === 0) {
+      const searchConfigured = Boolean(process.env.TAVILY_API_KEY || process.env.BRAVE_API_KEY);
+      const warning = searchConfigured
+        ? "Search providers returned zero results for every query. This is unusual — the research brief may be based only on the originally selected source, if any."
+        : "No search provider is configured (TAVILY_API_KEY and BRAVE_API_KEY are both unset), so discovery found zero sources. The research brief will be based only on the originally selected source, if any. Set at least one search API key on the server to enable real source discovery.";
+      console.warn(`[research] ${warning}`);
+      onActivity?.({ type: "search.no_results", searchConfigured, message: warning });
+    }
     const primary = signal.sourceUrl ? [{ title: signal.title, description: signal.description || "", sourceName: signal.sourceName || "Selected source", sourceUrl: signal.sourceUrl, sourceReliability: signal.sourceReliability || "general_web", sourceType: "selected", publishedAt: signal.publishedAt ? new Date(signal.publishedAt) : null }] : [];
     const readingQueue = dedupeSources([...primary, ...discovered]).sort((a, b) => sourceQuality(b) - sourceQuality(a) || (b.searchScore || 0) - (a.searchScore || 0)).slice(0, MAX_READABLE_SOURCES).map((item) => ({ ...item, sourceClass: sourceClass(item) })); onActivity?.({ type: "source.queue_ready", count: readingQueue.length, message: `Selected ${readingQueue.length} high-priority sources for direct reading.` });
     const readResults = [];

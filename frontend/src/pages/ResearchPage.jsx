@@ -22,6 +22,7 @@ function activityLabel(item) {
     "research.plan_created": "Research plan created",
     "search.started": "Targeted source discovery started",
     "search.completed": "Source discovery completed",
+    "search.no_results": "⚠ No sources found",
     "source.queue_ready": "Priority sources selected",
     "source.read_started": "Reading source",
     "source.read_complete": "Source read successfully",
