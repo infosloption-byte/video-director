@@ -160,6 +160,7 @@
   min-width: 0;
 }
 .hx-tts-panel__clone span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.hx-tts-panel__required { color: var(--muted); font-size: 11px; line-height: 1.4; }
 .hx-tts-clone-form {
   margin-top: 14px;
   padding-top: 14px;
