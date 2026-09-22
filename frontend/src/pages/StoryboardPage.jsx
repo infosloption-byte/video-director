@@ -471,7 +471,7 @@ export default function StoryboardPage() {
                     <div className="hx-board__actions">
                       <button className="btn btn-ghost" onClick={() => changeTab("Setup")}><IconArrowLeft className="btn-icon" /> Back to setup</button>
                       <div className="hx-board__actions-group">
-                        <button className="btn btn-ghost" onClick={generateVoice} disabled={voiceLoading}>
+                        <button className="btn btn-ghost" onClick={generateVoice} disabled={voiceLoading || ((ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b") && !ttsVoiceId)}>
                           {voiceLoading ? "Generating narration…" : "Generate narration"}
                         </button>
                         <button className="btn btn-cream" onClick={goToPreview} disabled={persisting || voiceLoading}>{persisting ? "Saving visuals…" : "Finalize preview →"}</button>
