@@ -1,0 +1,33 @@
+FROM pytorch/pytorch:2.11.0-cuda13.0-cudnn9-runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV HF_HOME=/root/.cache/huggingface
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       ffmpeg \
+       git \
+       libsndfile1 \
+       espeak-ng \
+       sox \
+       libsox-fmt-all \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements/common.txt /tmp/common.txt
+RUN pip install --break-system-packages --no-cache-dir -r /tmp/common.txt
+
+COPY requirements/qwen3-tts-0.6b.txt /tmp/qwen.txt
+RUN pip install --break-system-packages --no-cache-dir -r /tmp/qwen.txt
+
+COPY worker /app/worker
+
+ENV ENGINE=qwen3-tts-0.6b
+ENV TTS_DATA_ROOT=/data
+
+EXPOSE 8104
+
+CMD ["sh", "-c", "uvicorn worker.app:app --host 0.0.0.0 --port ${PORT:-8104} --workers 1"]

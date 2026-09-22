@@ -1,5 +1,5 @@
 ARG PYTHON_VERSION=3.11
-FROM python:\${PYTHON_VERSION}-slim-bookworm
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 ARG ENGINE
 ARG REQUIREMENTS
@@ -25,15 +25,15 @@ RUN pip install --no-cache-dir -r /tmp/common.txt
 RUN pip install --no-cache-dir torch==2.6.0 torchaudio==2.6.0 \
     --index-url https://download.pytorch.org/whl/cpu
 
-COPY requirements/\${REQUIREMENTS} /tmp/model.txt
+COPY requirements/${REQUIREMENTS} /tmp/model.txt
 RUN pip install --no-cache-dir -r /tmp/model.txt
 
 COPY worker /app/worker
 
-ENV ENGINE=\${ENGINE}
+ENV ENGINE=${ENGINE}
 ENV TTS_DATA_ROOT=/data
 ENV HF_HOME=/root/.cache/huggingface
 
 EXPOSE 8100
 
-CMD ["sh", "-c", "uvicorn worker.app:app --host 0.0.0.0 --port \${PORT:-8100} --workers 1"]
+CMD ["sh", "-c", "uvicorn worker.app:app --host 0.0.0.0 --port ${PORT:-8100} --workers 1"]

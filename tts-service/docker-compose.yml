@@ -27,8 +27,8 @@ services:
     environment:
       ENGINE: "kokoro"
       PORT: "8101"
-      KOKORO_DEFAULT_VOICE: "\${KOKORO_DEFAULT_VOICE:-af_heart}"
-      KOKORO_LANG_CODE: "\${KOKORO_LANG_CODE:-a}"
+      KOKORO_DEFAULT_VOICE: "${KOKORO_DEFAULT_VOICE:-af_heart}"
+      KOKORO_LANG_CODE: "${KOKORO_LANG_CODE:-a}"
       TORCH_NUM_THREADS: "8"
     volumes:
       - ./data:/data:ro
@@ -46,8 +46,8 @@ services:
     environment:
       ENGINE: "melotts-v3"
       PORT: "8102"
-      MELO_LANGUAGE: "\${MELO_LANGUAGE:-EN_NEWEST}"
-      MELO_DEFAULT_VOICE: "\${MELO_DEFAULT_VOICE:-EN-Newest}"
+      MELO_LANGUAGE: "${MELO_LANGUAGE:-EN_NEWEST}"
+      MELO_DEFAULT_VOICE: "${MELO_DEFAULT_VOICE:-EN-Newest}"
       TORCH_NUM_THREADS: "8"
     volumes:
       - ./data:/data:ro
@@ -74,16 +74,16 @@ services:
   qwen3-tts-0.6b:
     build:
       context: .
-      dockerfile: worker/Dockerfile
-      args:
-        PYTHON_VERSION: "3.12"
-        ENGINE: "qwen3-tts-0.6b"
-        REQUIREMENTS: "qwen3-tts-0.6b.txt"
+      dockerfile: worker/Dockerfile.qwen-gpu
     environment:
       ENGINE: "qwen3-tts-0.6b"
       PORT: "8104"
-      QWEN_MODEL_ID: "\${QWEN_MODEL_ID:-Qwen/Qwen3-TTS-12Hz-0.6B-Base}"
-      TORCH_NUM_THREADS: "8"
+      QWEN_MODEL_ID: "${QWEN_MODEL_ID:-Qwen/Qwen3-TTS-12Hz-0.6B-Base}"
+      QWEN_DEVICE: "cuda:0"
+      QWEN_DTYPE: "float32"
+      QWEN_ATTENTION: "sdpa"
+      TORCH_NUM_THREADS: "4"
+    gpus: all
     volumes:
       - ./data:/data:ro
       - hf-cache:/root/.cache/huggingface
