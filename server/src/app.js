@@ -60,7 +60,12 @@ app.use("/api/auth", authRouter);
 app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
 app.use("/api", reviewRouter);
 app.use("/api/research-conversations", requireAuth, expensiveOperationRateLimit, researchConversationsRouter);
-app.use("/api", requireAuth, ttsRouter);
+app.use("/api", (req, res, next) => {
+  if (req.path === "/tts" || req.path.startsWith("/tts/")) {
+    return requireAuth(req, res, next);
+  }
+  return next();
+}, ttsRouter);
 
 app.use("/api/projects", requireAuth, (req, _res, next) => {
   const userId = getRequestUserId(req);
