@@ -29,7 +29,7 @@ import { waitForResearchGraph } from "./services/researchGraphAvailability.js";
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "40mb" }));
 app.use(authOptional);
 app.use(sameOriginProtection);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
