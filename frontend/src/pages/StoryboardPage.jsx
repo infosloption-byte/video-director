@@ -248,6 +248,7 @@ export default function StoryboardPage() {
 
   async function generateVoice() {
     if (!scenes.length || voiceLoading) return;
+    const cloneEngineSelected = ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b";
     setVoiceLoading(true);
     setVoiceError("");
     try {
@@ -256,7 +257,7 @@ export default function StoryboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           engine: ttsEngine,
-          voiceId: ttsVoiceId || undefined,
+          voiceId: cloneEngineSelected ? (ttsVoiceId || undefined) : undefined,
           language: project?.language || "English",
           allowFallback: true,
         }),
@@ -409,25 +410,33 @@ export default function StoryboardPage() {
                       <div className="hx-tts-panel__controls">
                         <label>
                           Engine
-                          <select value={ttsEngine} onChange={(event) => setTtsEngine(event.target.value)} disabled={voiceLoading}>
+                          <select value={ttsEngine} onChange={(event) => {
+                            const nextEngine = event.target.value;
+                            setTtsEngine(nextEngine);
+                            if (nextEngine !== "chatterbox-nano" && nextEngine !== "qwen3-tts-0.6b") setTtsVoiceId("");
+                            else if (!ttsVoiceId && ttsVoices[0]?.voice_id) setTtsVoiceId(ttsVoices[0].voice_id);
+                          }} disabled={voiceLoading}>
                             <option value="kokoro">Kokoro-82M</option>
                             <option value="melotts-v3">MeloTTS v3</option>
                             <option value="chatterbox-nano">Chatterbox-Nano</option>
                             <option value="qwen3-tts-0.6b">Qwen3-TTS 0.6B</option>
                           </select>
                         </label>
-                        <label>
-                          Voice
-                          <select value={ttsVoiceId} onChange={(event) => setTtsVoiceId(event.target.value)} disabled={voiceLoading}>
-                            <option value="">Default voice</option>
-                            {ttsVoices.map((voice) => (
-                              <option key={voice.voice_id} value={voice.voice_id}>{voice.name}</option>
-                            ))}
-                          </select>
-                        </label>
+{(ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b") ? (
+                          <label>
+                            Voice profile
+                            <select value={ttsVoiceId} onChange={(event) => setTtsVoiceId(event.target.value)} disabled={voiceLoading}>
+                              <option value="">Select cloned voice</option>
+                              {ttsVoices.map((voice) => (
+                                <option key={voice.voice_id} value={voice.voice_id}>{voice.name}</option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : null}
                       </div>
                       {ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b" ? (
                         <div className="hx-tts-panel__clone">
+                          {!ttsVoiceId ? <span className="hx-tts-panel__required">Select or create a cloned voice before generating.</span> : null}
                           <div>
                             <strong>Voice cloning</strong>
                             <span>Use an authorized reference recording for a consistent narrator voice.</span>
