@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import base64
+import asyncio
 import json
 import os
 import subprocess
@@ -53,6 +53,7 @@ class SpeechRequest(BaseModel):
 
 app = FastAPI(title=APP_NAME, version="1.0.0")
 resident_engine: str | None = None
+synthesis_lock = asyncio.Lock()
 
 def require_auth(authorization: str | None = Header(default=None)) -> None:
     if not AUTH_TOKEN:
@@ -149,7 +150,11 @@ def fallback_order(primary: str, voice_id: str | None) -> list[str]:
             if engine in CLONE_ENGINES and engine not in values
         )
     else:
-        values.extend(engine for engine in FALLBACK_ENGINES if engine not in values)
+        values.extend(
+            engine
+            for engine in FALLBACK_ENGINES
+            if engine in {"kokoro", "melotts-v3", "chatterbox-nano"} and engine not in values
+        )
     return values
 
 @app.get("/health")
@@ -213,33 +218,34 @@ async def synthesize(request: SpeechRequest) -> dict[str, Any]:
         else [primary]
     )
 
-    for engine_name in engines:
-        payload: dict[str, Any] = {
-            "text": text,
-            "voice_id": request.voice_id,
-            "language": request.language,
-            "instruct": request.instruct,
-            "speed": request.speed,
-            "temperature": request.temperature,
-        }
-        if voice:
-            payload["reference_path"] = voice["reference_path"]
-            payload["reference_text"] = voice.get("reference_text") or None
+    async with synthesis_lock:
+        for engine_name in engines:
+            payload: dict[str, Any] = {
+                "text": text,
+                "voice_id": request.voice_id,
+                "language": request.language,
+                "instruct": request.instruct,
+                "speed": request.speed,
+                "temperature": request.temperature,
+            }
+            if voice:
+                payload["reference_path"] = voice["reference_path"]
+                payload["reference_text"] = voice.get("reference_text") or None
 
-        try:
-            await ensure_resident(engine_name)
-            result = await worker_request(
-                engine_name,
-                "POST",
-                "/synthesize",
-                payload,
-            )
-            result["engine"] = engine_name
-            result["fallback"] = engine_name != primary
-            result["requested_engine"] = primary
-            return result
-        except Exception as exc:
-            attempts.append({"engine": engine_name, "error": str(exc)})
+            try:
+                await ensure_resident(engine_name)
+                result = await worker_request(
+                    engine_name,
+                    "POST",
+                    "/synthesize",
+                    payload,
+                )
+                result["engine"] = engine_name
+                result["fallback"] = engine_name != primary
+                result["requested_engine"] = primary
+                return result
+            except Exception as exc:
+                attempts.append({"engine": engine_name, "error": str(exc)})
 
     raise HTTPException(
         status_code=503,
