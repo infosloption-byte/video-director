@@ -1,0 +1,93 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - kokoro
+      - melotts-v3
+      - chatterbox-nano
+      - qwen3-tts-0.6b
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  kokoro:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+      args:
+        PYTHON_VERSION: "3.11"
+        ENGINE: "kokoro"
+        REQUIREMENTS: "kokoro.txt"
+    environment:
+      ENGINE: "kokoro"
+      PORT: "8101"
+      KOKORO_DEFAULT_VOICE: "\${KOKORO_DEFAULT_VOICE:-af_heart}"
+      KOKORO_LANG_CODE: "\${KOKORO_LANG_CODE:-a}"
+      TORCH_NUM_THREADS: "8"
+    volumes:
+      - ./data:/data:ro
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+  melotts-v3:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+      args:
+        PYTHON_VERSION: "3.10"
+        ENGINE: "melotts-v3"
+        REQUIREMENTS: "melotts-v3.txt"
+    environment:
+      ENGINE: "melotts-v3"
+      PORT: "8102"
+      MELO_LANGUAGE: "\${MELO_LANGUAGE:-EN_NEWEST}"
+      MELO_DEFAULT_VOICE: "\${MELO_DEFAULT_VOICE:-EN-Newest}"
+      TORCH_NUM_THREADS: "8"
+    volumes:
+      - ./data:/data:ro
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+  chatterbox-nano:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+      args:
+        PYTHON_VERSION: "3.11"
+        ENGINE: "chatterbox-nano"
+        REQUIREMENTS: "chatterbox-nano.txt"
+    environment:
+      ENGINE: "chatterbox-nano"
+      PORT: "8103"
+      TORCH_NUM_THREADS: "8"
+    volumes:
+      - ./data:/data:ro
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+  qwen3-tts-0.6b:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+      args:
+        PYTHON_VERSION: "3.12"
+        ENGINE: "qwen3-tts-0.6b"
+        REQUIREMENTS: "qwen3-tts-0.6b.txt"
+    environment:
+      ENGINE: "qwen3-tts-0.6b"
+      PORT: "8104"
+      QWEN_MODEL_ID: "\${QWEN_MODEL_ID:-Qwen/Qwen3-TTS-12Hz-0.6B-Base}"
+      TORCH_NUM_THREADS: "8"
+    volumes:
+      - ./data:/data:ro
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+volumes:
+  hf-cache:

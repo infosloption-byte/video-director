@@ -1,0 +1,3 @@
+# Helix self-hosted TTS runtime secrets and generated voice data
+tts-service/.env
+tts-service/data/
