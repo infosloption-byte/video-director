@@ -83,7 +83,7 @@ app.get("/api/projects/:id/research/graph", requireAuth, async (req, res) => {
     if (result.status === "pending") return res.status(409).json({ error: "Research graph is still being saved. Please retry shortly." });
     return res.json({ projectId: req.params.id, session: result.session });
   } catch (error) {
-    console.error(\`GET /api/projects/\${req.params.id}/research/graph readiness failed:\`, error);
+    console.error(`GET /api/projects/${req.params.id}/research/graph readiness failed:`, error);
     return res.status(500).json({ error: "Failed to load research graph." });
   }
 });
