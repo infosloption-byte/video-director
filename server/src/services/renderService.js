@@ -11,6 +11,10 @@ const ENTRY_POINT = path.resolve(process.cwd(), "src", "remotion", "index.jsx");
 const COMPOSITION_ID = "HelixReel";
 let bundlePromise = null;
 
+function roundProgress(value) {
+  return Math.max(0, Math.min(100, Math.round(Number(value || 0) * 10) / 10));
+}
+
 function getBaseUrl() {
   return String(process.env.REMOTION_BASE_URL || `http://127.0.0.1:${process.env.PORT || 4000}`).replace(/\/$/, "");
 }
@@ -93,9 +97,9 @@ export async function renderProject(projectId, { onProgress } = {}) {
   const report = (stage, stageProgress, message, overallProgress, detail = {}) => {
     if (typeof onProgress === "function") {
       void onProgress({
-        progress: Math.max(0, Math.min(100, Math.round(overallProgress))),
+        progress: roundProgress(overallProgress),
         stage,
-        stageProgress: Math.max(0, Math.min(100, Math.round(stageProgress))),
+        stageProgress: roundProgress(stageProgress),
         message,
         ...detail,
       });
@@ -208,14 +212,19 @@ export async function renderProject(projectId, { onProgress } = {}) {
   await mkdir(projectDir, { recursive: true });
   const outputPath = path.join(projectDir, "reel.mp4");
 
-  report("rendering", 0, `Encoding ${effectiveDuration.toFixed(1)}s of video`, 28, {
+  report("rendering", 0, `Rendering ${effectiveDuration.toFixed(1)}s of video`, 28, {
     substeps: [
-      { id: "frames", label: "Render video frames", progress: 0 },
-      { id: "audio", label: "Mix narration audio", progress: 0 },
-      { id: "captions", label: "Render synchronized captions", progress: 0 },
-      { id: "encode", label: "Encode H.264 / AAC", progress: 0 },
+      { id: "frames", label: "Render video frames", progress: 0, state: "rendering", detail: "Starting frame rendering…" },
+      { id: "encode", label: "Encode H.264 video", progress: 0, state: "encoding", detail: "Waiting for rendered frames…" },
+      { id: "audio", label: "Mix narration audio", progress: 0, state: "waiting", detail: "Waiting for final audio/video muxing" },
+      { id: "captions", label: "Render synchronized captions", progress: 0, state: "tracking", detail: "Progress follows frame rendering; captions are rendered inside each frame" },
     ],
   });
+
+  const totalFrames = Number(composition.durationInFrames || 0);
+  let lastRenderReportAt = 0;
+  let lastStitchStage = null;
+
   await renderMedia({
     composition,
     serveUrl,
@@ -224,14 +233,94 @@ export async function renderProject(projectId, { onProgress } = {}) {
     outputLocation: outputPath,
     inputProps,
     chromiumOptions: { disableWebSecurity: true },
-    onProgress: ({ overallProgress = 0 }) => {
-      const stageProgress = Number(overallProgress) * 100;
-      report("rendering", stageProgress, `Encoding video · ${Math.round(stageProgress)}%`, 28 + Number(overallProgress) * 70, {
+    onProgress: ({
+      progress = 0,
+      renderedFrames = 0,
+      encodedFrames = 0,
+      renderedDoneIn = null,
+      encodedDoneIn = null,
+      renderEstimatedTime = 0,
+      stitchStage = "encoding",
+    }) => {
+      const overallProgress = roundProgress(Number(progress) * 100);
+      const frameProgress = renderedDoneIn !== null
+        ? 100
+        : totalFrames > 0
+          ? roundProgress((Number(renderedFrames) / totalFrames) * 100)
+          : 0;
+      const encodeProgress = encodedDoneIn !== null
+        ? 100
+        : totalFrames > 0
+          ? roundProgress((Number(encodedFrames) / totalFrames) * 100)
+          : 0;
+      const audioState = overallProgress >= 100
+        ? "complete"
+        : stitchStage === "muxing"
+          ? "muxing"
+          : "waiting";
+
+      const now = Date.now();
+      const stitchStageChanged = stitchStage !== lastStitchStage;
+      if (
+        overallProgress < 100 &&
+        !stitchStageChanged &&
+        now - lastRenderReportAt < 250
+      ) {
+        return;
+      }
+
+      lastRenderReportAt = now;
+      lastStitchStage = stitchStage;
+
+      const stageMessage = stitchStage === "muxing"
+        ? "Mixing narration audio · muxing final MP4"
+        : `Rendering frames · ${frameProgress}% · encoding video · ${encodeProgress}%`;
+
+      report("rendering", overallProgress, stageMessage, 28 + (Number(progress) * 70), {
+        totalFrames,
+        renderedFrames: Number(renderedFrames),
+        encodedFrames: Number(encodedFrames),
+        renderedDoneIn: renderedDoneIn === null ? null : Number(renderedDoneIn),
+        encodedDoneIn: encodedDoneIn === null ? null : Number(encodedDoneIn),
+        renderEstimatedTimeMs: Number(renderEstimatedTime || 0),
+        stitchStage,
         substeps: [
-          { id: "frames", label: "Render video frames", progress: stageProgress },
-          { id: "audio", label: "Mix narration audio", progress: stageProgress },
-          { id: "captions", label: "Render synchronized captions", progress: stageProgress },
-          { id: "encode", label: "Encode H.264 / AAC", progress: stageProgress },
+          {
+            id: "frames",
+            label: "Render video frames",
+            progress: frameProgress,
+            state: renderedDoneIn !== null ? "complete" : "rendering",
+            detail: totalFrames > 0
+              ? `${Math.min(Number(renderedFrames), totalFrames).toLocaleString()} / ${totalFrames.toLocaleString()} frames rendered`
+              : "Rendering frames",
+          },
+          {
+            id: "encode",
+            label: "Encode H.264 video",
+            progress: encodeProgress,
+            state: encodedDoneIn !== null ? "complete" : "encoding",
+            detail: totalFrames > 0
+              ? `${Math.min(Number(encodedFrames), totalFrames).toLocaleString()} / ${totalFrames.toLocaleString()} frames encoded`
+              : "Encoding video",
+          },
+          {
+            id: "audio",
+            label: "Mix narration audio",
+            progress: audioState === "complete" ? 100 : 0,
+            state: audioState,
+            detail: audioState === "muxing"
+              ? "Muxing narration audio into the final MP4"
+              : audioState === "complete"
+                ? "Narration mix complete"
+                : "Waiting for final audio/video muxing",
+          },
+          {
+            id: "captions",
+            label: "Render synchronized captions",
+            progress: frameProgress,
+            state: renderedDoneIn !== null ? "complete" : "tracking",
+            detail: "Progress follows frame rendering; captions are rendered inside each frame",
+          },
         ],
       });
     },
