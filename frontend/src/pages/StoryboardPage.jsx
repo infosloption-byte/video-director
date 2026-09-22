@@ -251,7 +251,7 @@ export default function StoryboardPage() {
     setVoiceLoading(true);
     setVoiceError("");
     try {
-      const response = await fetch(`/api/projects/\${id}/generate-voice`, {
+      const response = await fetch(`/api/projects/${id}/generate-voice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -402,7 +402,7 @@ export default function StoryboardPage() {
                           <span className="eyebrow">Narration engine</span>
                           <strong>Self-hosted TTS</strong>
                         </div>
-                        <span className={`hx-tts-status \${ttsDiagnostics?.reachable ? "is-ready" : "is-offline"}`}>
+                        <span className={`hx-tts-status ${ttsDiagnostics?.reachable ? "is-ready" : "is-offline"}`}>
                           {ttsDiagnostics?.reachable ? "Service ready" : "Service unavailable"}
                         </span>
                       </div>
