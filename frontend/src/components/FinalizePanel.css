@@ -48,6 +48,8 @@
 .finalize-panel__substep-head span { color: var(--muted); }
 .finalize-panel__substep-head strong { font-family: var(--font-mono); font-size: 10px; letter-spacing: .03em; }
 .finalize-panel__substep-head em { color: var(--body); font-style: normal; font-family: var(--font-mono); font-size: 10px; }
+.finalize-panel__substep.is-active .finalize-panel__substep-head span { color: var(--ink); }
+.finalize-panel__substep-detail { display: block; margin: 4px 0 0 21px; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .finalize-panel__substep-track { height: 4px; margin-left: 21px; border: 1px solid var(--border-soft); border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.02); }
 .finalize-panel__substep-track span { display: block; height: 100%; background: var(--ink); transition: width .25s ease; }
 @keyframes hx-render-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
