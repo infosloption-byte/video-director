@@ -29,21 +29,32 @@ function stageIndex(stage) {
   return index >= 0 ? index : 0;
 }
 
+function formatSubstepStatus(substep, progress) {
+  const state = String(substep.state || "").toLowerCase();
+  if (state === "waiting") return "Waiting";
+  if (state === "muxing") return "Muxing…";
+  if (state === "complete" || progress >= 100) return "100%";
+  return progress % 1 === 0 ? `${progress}%` : `${progress.toFixed(1)}%`;
+}
+
 function StageSubsteps({ substeps = [], failed = false }) {
   if (!substeps.length) return null;
   return (
     <div className="finalize-panel__substeps">
       {substeps.map((substep) => {
         const progress = Math.max(0, Math.min(100, Number(substep.progress || 0)));
-        const done = progress >= 100;
+        const state = String(substep.state || "").toLowerCase();
+        const done = state === "complete" || progress >= 100;
+        const active = !done && ["rendering", "encoding", "muxing", "tracking"].includes(state);
         return (
-          <div key={substep.id} className={`finalize-panel__substep ${done ? "is-done" : ""} ${failed ? "is-failed" : ""}`}>
+          <div key={substep.id} className={`finalize-panel__substep ${done ? "is-done" : ""} ${active ? "is-active" : ""} ${failed ? "is-failed" : ""}`}>
             <div className="finalize-panel__substep-head">
-              <span>{done ? "✓" : "•"}</span>
+              <span>{done ? "✓" : active ? "›" : "•"}</span>
               <strong>{substep.label}</strong>
-              <em>{progress}%</em>
+              <em>{formatSubstepStatus(substep, progress)}</em>
             </div>
             <div className="finalize-panel__substep-track"><span style={{ width: `${progress}%` }} /></div>
+            {substep.detail && <small className="finalize-panel__substep-detail">{substep.detail}</small>}
           </div>
         );
       })}
