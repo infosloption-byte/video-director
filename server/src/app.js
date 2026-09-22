@@ -19,6 +19,7 @@ import renderRouter from "./routes/render.js";
 import editorRenderRouter from "./routes/editorRender.js";
 import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
+import ttsRouter from "./routes/tts.js";
 import { authOptional, getRequestUserId, requireAuth } from "./middleware/auth.js";
 import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.js";
 import { requireRenderAssetAccess, requireStoredProjectOwner } from "./middleware/storageOwnership.js";
@@ -28,25 +29,21 @@ import { waitForResearchGraph } from "./services/researchGraphAvailability.js";
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
 app.use(authOptional);
 app.use(sameOriginProtection);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-// Reports which external integrations are configured, without exposing key
-// material. Every step of the Signals→Video and Chat Research→Video
-// pipelines depends on one or more of these; a missing key doesn't crash
-// anything (most fail gracefully), it just silently produces a degraded
-// result (e.g. zero research sources, no narration, no B-roll). Surfacing
-// this here lets the frontend warn a user or admin upfront instead of
-// discovering it mid-flow.
 app.get("/api/health/integrations", (_req, res) => {
   const configured = (name) => Boolean(String(process.env[name] || "").trim());
   const integrations = {
     gemini: { configured: configured("GEMINI_API_KEY"), usedFor: "Research synthesis, scene/script writing, AI editing" },
     tavily: { configured: configured("TAVILY_API_KEY"), usedFor: "Research source discovery" },
     brave: { configured: configured("BRAVE_API_KEY"), usedFor: "Research source discovery" },
-    elevenlabs: { configured: configured("ELEVENLABS_API_KEY"), usedFor: "Narration (text-to-speech)" },
+    tts: {
+      configured: configured("TTS_SERVICE_URL"),
+      usedFor: "Self-hosted narration (Kokoro, MeloTTS v3, Chatterbox-Nano, Qwen3-TTS 0.6B)",
+    },
     pexels: { configured: configured("PEXELS_API_KEY"), usedFor: "B-roll visuals" },
     facebook: { configured: configured("FACEBOOK_PAGE_ACCESS_TOKEN") && configured("FACEBOOK_PAGE_ID"), usedFor: "Publish to Facebook" },
   };
@@ -54,14 +51,16 @@ app.get("/api/health/integrations", (_req, res) => {
   const warnings = [];
   if (!searchConfigured) warnings.push("Neither TAVILY_API_KEY nor BRAVE_API_KEY is set — research will find zero sources.");
   if (!integrations.gemini.configured) warnings.push("GEMINI_API_KEY is not set — research synthesis and scene generation will fail.");
-  if (!integrations.elevenlabs.configured) warnings.push("ELEVENLABS_API_KEY is not set — narration generation will fail.");
+  if (!integrations.tts.configured) warnings.push("TTS_SERVICE_URL is not set — narration generation will be unavailable.");
   if (!integrations.pexels.configured) warnings.push("PEXELS_API_KEY is not set — B-roll selection will fail.");
   res.json({ integrations, searchConfigured, warnings });
 });
+
 app.use("/api/auth", authRouter);
 app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
 app.use("/api", reviewRouter);
 app.use("/api/research-conversations", requireAuth, expensiveOperationRateLimit, researchConversationsRouter);
+app.use("/api", requireAuth, ttsRouter);
 
 app.use("/api/projects", requireAuth, (req, _res, next) => {
   const userId = getRequestUserId(req);
@@ -77,9 +76,6 @@ app.use("/api/projects", mediaRouter);
 app.use("/api/projects", mediaProxyRouter);
 app.use("/api/projects", researchControlRouter);
 
-// Research graph reads can briefly race the final graph persistence writes.
-// Wait here for the session to exist so a freshly completed research run does
-// not return a transient 404 that only disappears after a page refresh.
 app.get("/api/projects/:id/research/graph", requireAuth, async (req, res) => {
   try {
     const result = await waitForResearchGraph(req.params.id, req.user.id);
@@ -87,7 +83,7 @@ app.get("/api/projects/:id/research/graph", requireAuth, async (req, res) => {
     if (result.status === "pending") return res.status(409).json({ error: "Research graph is still being saved. Please retry shortly." });
     return res.json({ projectId: req.params.id, session: result.session });
   } catch (error) {
-    console.error(`GET /api/projects/${req.params.id}/research/graph readiness failed:`, error);
+    console.error(\`GET /api/projects/\${req.params.id}/research/graph readiness failed:\`, error);
     return res.status(500).json({ error: "Failed to load research graph." });
   }
 });
@@ -102,7 +98,7 @@ for (const [route, directory] of [["/api/render-files", "renders"], ["/api/expor
 app.use("/api/scenes/:sceneId", requireAuth, requireSceneOwner);
 app.use("/api", requireAuth, expensiveOperationRateLimit, editorRenderRouter);
 app.use("/api", requireAuth, expensiveOperationRateLimit, renderRouter);
-app.use("/api", requireAuth, storyboardRouter);
+app.use("/api", requireAuth, expensiveOperationRateLimit, storyboardRouter);
 app.use("/api", requireAuth, exportRouter);
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found." }));
 export default app;
