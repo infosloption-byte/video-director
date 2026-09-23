@@ -54,6 +54,12 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
     if (!project) return res.status(404).json({ error: "Project not found." });
     if (!project.researchSummary) return res.status(409).json({ error: "Complete research before generating scenes." });
     if (!project.scriptLengthSeconds || !project.selectedFramework || !project.tone || !project.audienceLevel) return res.status(409).json({ error: "Complete guided setup before generating scenes." });
+    if (!project.voiceProfileId) return res.status(409).json({ error: "Select a saved voice profile in Setup before generating the storyboard." });
+    const voiceProfile = await prisma.voiceProfile.findFirst({
+      where: { id: project.voiceProfileId, userId: req.user.id, status: "ready" },
+      select: { id: true, preferredEngine: true, ttsVoiceId: true, language: true },
+    });
+    if (!voiceProfile?.ttsVoiceId) return res.status(409).json({ error: "The selected voice profile is not ready for narration." });
     const researchCorpus = await loadResearchCorpus(project.id);
     if (!researchCorpus) return res.status(409).json({ error: "The persisted research corpus is not available. Complete research before generating scenes." });
     const scenes = await generateStoryboard({ project, signal: project.signal, researchCorpus });
@@ -71,7 +77,38 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
       await tx.project.update({ where: { id: project.id }, data: { status: "storyboard", durationSeconds: withAssets.reduce((sum, item) => sum + Number(item.scene.duration_seconds || 0), 0), cuts: withAssets.length } });
     });
     const result = await loadProjectScenes(project.id);
-    res.status(201).json({ projectId: project.id, scenes: result.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })) });
+    for (const scene of result.scenes) {
+      const narration = await synthesizeSpeech({
+        projectId: project.id,
+        sceneId: scene.id,
+        text: scene.spokenText,
+        engine: voiceProfile.preferredEngine,
+        voiceId: voiceProfile.ttsVoiceId,
+        language: voiceProfile.language || project.language || "English",
+        allowFallback: false,
+      });
+      await prisma.projectScene.update({
+        where: { id: scene.id },
+        data: {
+          audioUrl: narration.audioUrl,
+          wordTimestamps: narration.wordTimestamps,
+          ...(narration.durationSeconds != null ? { durationSeconds: narration.durationSeconds } : {}),
+        },
+      });
+    }
+    const narrated = await loadProjectScenes(project.id);
+    const totalDuration = narrated.scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
+    await prisma.project.update({
+      where: { id: project.id },
+      data: { durationSeconds: totalDuration, cuts: narrated.scenes.length, voiceProfileId: voiceProfile.id },
+    });
+    const finalProject = await loadProjectScenes(project.id);
+    res.status(201).json({
+      projectId: project.id,
+      scenes: finalProject.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })),
+      narrationGenerated: true,
+      voiceProfileId: voiceProfile.id,
+    });
   } catch (error) { console.error(`POST /api/projects/${req.params.id}/generate-scenes failed:`, error); res.status(error?.status === 429 ? 429 : 500).json({ error: error.message || "Failed to generate storyboard." }); }
 });
 
