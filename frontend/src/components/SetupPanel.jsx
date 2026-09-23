@@ -54,21 +54,33 @@ function PreviewButton({ previewKey, previewingVoice, previewLoading, onPreview 
   );
 }
 
+function voiceSearchText(voice) {
+  return [
+    voice.name,
+    voice.accent,
+    voice.gender,
+    voice.tone,
+    voice.description,
+    voice.language,
+    voice.engine,
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
 export default function SetupPanel({ projectId, onComplete }) {
   const [suggestions, setSuggestions] = useState(null);
   const [voiceProfiles, setVoiceProfiles] = useState([]);
   const [predefinedVoices, setPredefinedVoices] = useState([]);
-  const [voiceFilters, setVoiceFilters] = useState({ accents: [], genders: [], tones: [] });
-  const [voiceAccent, setVoiceAccent] = useState("All");
-  const [voiceGender, setVoiceGender] = useState("All");
-  const [voiceTone, setVoiceTone] = useState("All");
   const [choices, setChoices] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [previewingVoice, setPreviewingVoice] = useState("");
   const [previewLoading, setPreviewLoading] = useState("");
+  const [voicePickerOpen, setVoicePickerOpen] = useState(false);
+  const [voiceSearch, setVoiceSearch] = useState("");
   const previewAudioRef = useRef(null);
   const previewRequestRef = useRef(null);
+  const voicePickerRef = useRef(null);
+  const voiceSearchRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,21 +108,18 @@ export default function SetupPanel({ projectId, onComplete }) {
         setSuggestions(data.suggestions);
         setVoiceProfiles(readyProfiles);
         setPredefinedVoices(presets);
-        setVoiceFilters({
-          accents: Array.isArray(presetsData.filters?.accents) ? presetsData.filters.accents : [],
-          genders: Array.isArray(presetsData.filters?.genders) ? presetsData.filters.genders : [],
-          tones: Array.isArray(presetsData.filters?.tones) ? presetsData.filters.tones : [],
-        });
 
         const savedProfileId = data.voiceProfileId || "";
         const savedPresetId = data.voicePresetId || "";
+        const defaultProfileId = readyProfiles[0]?.id || "";
+        const defaultPresetId = presets[0]?.id || "";
         setChoices({
           length: data.suggestions.length.value,
           framework: data.suggestions.framework.value,
           tone: data.suggestions.tone.value,
           audienceLevel: data.suggestions.audience.value,
-          voiceProfileId: savedProfileId || (!savedPresetId && readyProfiles[0]?.id ? readyProfiles[0].id : ""),
-          voicePresetId: savedPresetId || (!savedProfileId && !readyProfiles[0]?.id ? presets[0]?.id || "" : ""),
+          voiceProfileId: savedProfileId || (!savedPresetId && defaultProfileId ? defaultProfileId : ""),
+          voicePresetId: savedPresetId || (!savedProfileId && !defaultProfileId ? defaultPresetId : ""),
         });
       } catch (err) {
         if (!cancelled) setError(err.message || "Failed to load setup suggestions.");
@@ -120,17 +129,72 @@ export default function SetupPanel({ projectId, onComplete }) {
     return () => { cancelled = true; };
   }, [projectId]);
 
+  useEffect(() => {
+    function handleOutside(event) {
+      if (!voicePickerRef.current?.contains(event.target)) {
+        setVoicePickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!voicePickerOpen) return;
+    const timer = window.setTimeout(() => voiceSearchRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [voicePickerOpen]);
+
   useEffect(() => () => {
     previewRequestRef.current?.abort();
     previewAudioRef.current?.pause();
     previewAudioRef.current = null;
   }, []);
 
-  const filteredPredefinedVoices = useMemo(() => predefinedVoices.filter((voice) => (
-    (voiceAccent === "All" || voice.accent === voiceAccent) &&
-    (voiceGender === "All" || voice.gender === voiceGender) &&
-    (voiceTone === "All" || voice.tone === voiceTone)
-  )), [predefinedVoices, voiceAccent, voiceGender, voiceTone]);
+  const allVoiceOptions = useMemo(() => [
+    ...voiceProfiles.map((profile) => ({
+      source: "clone",
+      id: profile.id,
+      name: profile.name,
+      language: profile.language || "English",
+      engine: profile.preferredEngine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano",
+      description: "Your cloned voice profile",
+      accent: "",
+      gender: "",
+      tone: "",
+      profile,
+    })),
+    ...predefinedVoices.map((voice) => ({
+      source: "preset",
+      id: voice.id,
+      name: voice.name,
+      language: voice.language || "English",
+      engine: voice.engine,
+      description: voice.description,
+      accent: voice.accent,
+      gender: voice.gender,
+      tone: voice.tone,
+      preset: voice,
+    })),
+  ], [voiceProfiles, predefinedVoices]);
+
+  const selectedVoice = useMemo(() => {
+    if (!choices) return null;
+    return allVoiceOptions.find((voice) => (
+      voice.source === "clone"
+        ? voice.id === choices.voiceProfileId
+        : voice.id === choices.voicePresetId
+    )) || null;
+  }, [allVoiceOptions, choices]);
+
+  const filteredVoiceOptions = useMemo(() => {
+    const query = voiceSearch.trim().toLowerCase();
+    if (!query) return allVoiceOptions;
+    return allVoiceOptions.filter((voice) => voiceSearchText(voice).includes(query));
+  }, [allVoiceOptions, voiceSearch]);
+
+  const filteredClones = filteredVoiceOptions.filter((voice) => voice.source === "clone");
+  const filteredPresets = filteredVoiceOptions.filter((voice) => voice.source === "preset");
 
   function stopPreview() {
     previewRequestRef.current?.abort();
@@ -141,21 +205,24 @@ export default function SetupPanel({ projectId, onComplete }) {
     setPreviewLoading("");
   }
 
-  async function previewVoice(previewKey) {
+  async function previewVoice(voiceOption) {
+    const previewKey = voiceOption.source + ":" + voiceOption.id;
     if (previewingVoice === previewKey || previewLoading === previewKey) {
       stopPreview();
       return;
     }
-    const [source, id] = previewKey.split(":");
+
     stopPreview();
     setPreviewLoading(previewKey);
     setError("");
     const controller = new AbortController();
     previewRequestRef.current = controller;
+
     try {
-      const endpoint = source === "clone"
-        ? `/api/voice-profiles/${encodeURIComponent(id)}/preview`
-        : `/api/voice-presets/${encodeURIComponent(id)}/preview`;
+      const endpoint = voiceOption.source === "clone"
+        ? `/api/voice-profiles/${encodeURIComponent(voiceOption.id)}/preview`
+        : `/api/voice-presets/${encodeURIComponent(voiceOption.id)}/preview`;
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -164,6 +231,7 @@ export default function SetupPanel({ projectId, onComplete }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to preview this voice.");
+
       const audio = new Audio(`data:${data.mimeType || "audio/wav"};base64,${data.audioBase64}`);
       previewAudioRef.current = audio;
       audio.onended = () => {
@@ -179,11 +247,13 @@ export default function SetupPanel({ projectId, onComplete }) {
           setError("This voice preview could not be played.");
         }
       };
+
       await audio.play();
       if (previewRequestRef.current !== controller) {
         audio.pause();
         return;
       }
+
       previewRequestRef.current = null;
       setPreviewLoading("");
       setPreviewingVoice(previewKey);
@@ -196,12 +266,15 @@ export default function SetupPanel({ projectId, onComplete }) {
     }
   }
 
-  function selectClone(id) {
-    setChoices((current) => ({ ...current, voiceProfileId: id, voicePresetId: "" }));
-  }
-
-  function selectPreset(id) {
-    setChoices((current) => ({ ...current, voiceProfileId: "", voicePresetId: id }));
+  function selectVoice(voice) {
+    stopPreview();
+    setChoices((current) => ({
+      ...current,
+      voiceProfileId: voice.source === "clone" ? voice.id : "",
+      voicePresetId: voice.source === "preset" ? voice.id : "",
+    }));
+    setVoicePickerOpen(false);
+    setVoiceSearch("");
   }
 
   async function save() {
@@ -209,6 +282,7 @@ export default function SetupPanel({ projectId, onComplete }) {
     setSaving(true);
     setError("");
     stopPreview();
+
     try {
       if (!choices.voiceProfileId && !choices.voicePresetId) {
         throw new Error("Select a narration voice before continuing to the storyboard.");
@@ -216,6 +290,7 @@ export default function SetupPanel({ projectId, onComplete }) {
       if (choices.voiceProfileId && choices.voicePresetId) {
         throw new Error("Choose either a cloned voice or a predefined voice, not both.");
       }
+
       const response = await fetch(`/api/projects/${projectId}/setup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -258,173 +333,136 @@ export default function SetupPanel({ projectId, onComplete }) {
         </div>
       </section>
 
-      <ChoiceRow
-        title="Script length"
-        reasoning={suggestions.length.reasoning}
-        options={suggestions.length.options}
-        value={choices.length}
-        onChange={(value) => setChoices((current) => ({ ...current, length: value }))}
-        renderOption={(value) => `${value}s`}
-      />
-      <ChoiceRow
-        title="Script template"
-        reasoning={suggestions.framework.reasoning}
-        options={suggestions.framework.options}
-        value={choices.framework}
-        onChange={(value) => setChoices((current) => ({ ...current, framework: value }))}
-        renderOption={(option) => LABELS[option.key] || option.label}
-      />
-      <ChoiceRow
-        title="Tone"
-        reasoning={suggestions.tone.reasoning}
-        options={suggestions.tone.options}
-        value={choices.tone}
-        onChange={(value) => setChoices((current) => ({ ...current, tone: value }))}
-      />
-      <ChoiceRow
-        title="Audience"
-        reasoning={suggestions.audience.reasoning}
-        options={suggestions.audience.options}
-        value={choices.audienceLevel}
-        onChange={(value) => setChoices((current) => ({ ...current, audienceLevel: value }))}
-      />
+      <ChoiceRow title="Script length" reasoning={suggestions.length.reasoning} options={suggestions.length.options} value={choices.length} onChange={(value) => setChoices((current) => ({ ...current, length: value }))} renderOption={(value) => `${value}s`} />
+      <ChoiceRow title="Script template" reasoning={suggestions.framework.reasoning} options={suggestions.framework.options} value={choices.framework} onChange={(value) => setChoices((current) => ({ ...current, framework: value }))} renderOption={(option) => LABELS[option.key] || option.label} />
+      <ChoiceRow title="Tone" reasoning={suggestions.tone.reasoning} options={suggestions.tone.options} value={choices.tone} onChange={(value) => setChoices((current) => ({ ...current, tone: value }))} />
+      <ChoiceRow title="Audience" reasoning={suggestions.audience.reasoning} options={suggestions.audience.options} value={choices.audienceLevel} onChange={(value) => setChoices((current) => ({ ...current, audienceLevel: value }))} />
 
       <section className="setup-choice setup-choice--voice">
         <div className="setup-choice__copy">
           <h3>Narration voice</h3>
-          <p>Choose your own cloned voice or a built-in narrator. Preview any voice before continuing; narration is generated automatically with the selected voice.</p>
+          <p>Choose your own cloned voice or a predefined narrator. Search by name, accent, gender, tone, or style, then preview before continuing.</p>
         </div>
 
-        <div className="setup-voice-content">
-          <div className="setup-voice-section">
-            <div className="setup-voice-section__head">
-              <div>
-                <p className="mono-label">YOUR VOICE LIBRARY</p>
-                <h4>Cloned voices</h4>
-              </div>
-              <a className="setup-voice-link" href="/voice-profiles">Manage voices</a>
-            </div>
-
-            {voiceProfiles.length ? (
-              <div className="setup-voice-grid" role="radiogroup" aria-label="Your cloned voices">
-                {voiceProfiles.map((profile) => {
-                  const selected = choices.voiceProfileId === profile.id;
-                  const previewKey = "clone:" + profile.id;
-                  return (
-                    <div
-                      role="radio"
-                      aria-checked={selected}
-                      tabIndex={0}
-                      className={"setup-voice-card " + (selected ? "is-selected" : "")}
-                      key={profile.id}
-                      onClick={() => selectClone(profile.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          selectClone(profile.id);
-                        }
-                      }}
-                    >
-                      <span className="setup-voice-card__topline">
-                        <span className="setup-voice-card__status">YOUR CLONE</span>
-                        <PreviewButton previewKey={previewKey} previewingVoice={previewingVoice} previewLoading={previewLoading} onPreview={previewVoice} />
-                      </span>
-                      <strong>{profile.name}</strong>
-                      <span className="setup-voice-card__description">Your cloned voice profile</span>
-                      <span className="setup-voice-card__meta">{profile.preferredEngine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"} · {profile.language || "English"}</span>
-                    </div>
-                  );
-                })}
-              </div>
+        <div className="setup-voice-picker" ref={voicePickerRef}>
+          <button
+            type="button"
+            className={"setup-voice-trigger " + (voicePickerOpen ? "is-open" : "")}
+            aria-haspopup="listbox"
+            aria-expanded={voicePickerOpen}
+            onClick={() => setVoicePickerOpen((open) => !open)}
+          >
+            {selectedVoice ? (
+              <span className="setup-voice-trigger__selected">
+                <span className="setup-voice-trigger__source">{selectedVoice.source === "clone" ? "YOUR CLONE" : "PREDEFINED"}</span>
+                <strong>{selectedVoice.name}</strong>
+                <span>{[selectedVoice.accent, selectedVoice.gender, selectedVoice.tone, selectedVoice.language].filter(Boolean).join(" · ")}</span>
+              </span>
             ) : (
-              <div className="setup-voice-empty">
-                <div>
-                  <strong>No ready cloned voices yet.</strong>
-                  <span>Create a voice profile and come back here when cloning is complete.</span>
-                </div>
-                <a className="btn btn-ghost" href="/voice-profiles">Create a voice</a>
-              </div>
+              <span className="setup-voice-trigger__placeholder">Select a narration voice…</span>
             )}
-          </div>
+            <span className="setup-voice-trigger__chevron" aria-hidden="true">⌄</span>
+          </button>
 
-          <div className="setup-voice-divider" aria-hidden="true" />
+          {voicePickerOpen && (
+            <div className="setup-voice-menu" role="dialog" aria-label="Select narration voice">
+              <div className="setup-voice-search">
+                <span aria-hidden="true">⌕</span>
+                <input
+                  ref={voiceSearchRef}
+                  type="search"
+                  value={voiceSearch}
+                  onChange={(event) => setVoiceSearch(event.target.value)}
+                  placeholder="Search voices, accents, styles…"
+                  aria-label="Search narration voices"
+                />
+                {voiceSearch && <button type="button" onClick={() => setVoiceSearch("")} aria-label="Clear voice search">×</button>}
+              </div>
 
-          <div className="setup-voice-section">
-            <div className="setup-voice-section__head setup-voice-section__head--stacked">
-              <div>
-                <p className="mono-label">BUILT-IN VOICE LIBRARY</p>
-                <h4>Predefined voices</h4>
-                <span>English narrators with different accents, genders, and delivery styles.</span>
-              </div>
-            </div>
-
-            <div className="setup-voice-filters" aria-label="Filter predefined voices">
-              <div>
-                <label htmlFor="voice-accent-filter">Accent</label>
-                <select id="voice-accent-filter" value={voiceAccent} onChange={(event) => setVoiceAccent(event.target.value)}>
-                  <option value="All">All accents</option>
-                  {voiceFilters.accents.map((value) => <option key={value} value={value}>{value}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="voice-gender-filter">Gender</label>
-                <select id="voice-gender-filter" value={voiceGender} onChange={(event) => setVoiceGender(event.target.value)}>
-                  <option value="All">All genders</option>
-                  {voiceFilters.genders.map((value) => <option key={value} value={value}>{value}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="voice-tone-filter">Tone / style</label>
-                <select id="voice-tone-filter" value={voiceTone} onChange={(event) => setVoiceTone(event.target.value)}>
-                  <option value="All">All styles</option>
-                  {voiceFilters.tones.map((value) => <option key={value} value={value}>{value}</option>)}
-                </select>
-              </div>
-              <span className="setup-voice-count">{filteredPredefinedVoices.length} voices</span>
-            </div>
-
-            <div className="setup-voice-grid" role="radiogroup" aria-label="Predefined voices">
-              {filteredPredefinedVoices.map((voice) => {
-                const selected = choices.voicePresetId === voice.id;
-                const previewKey = "preset:" + voice.id;
-                return (
-                  <div
-                    role="radio"
-                    aria-checked={selected}
-                    tabIndex={0}
-                    className={"setup-voice-card " + (selected ? "is-selected" : "")}
-                    key={voice.id}
-                    onClick={() => selectPreset(voice.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        selectPreset(voice.id);
-                      }
-                    }}
-                  >
-                    <span className="setup-voice-card__topline">
-                      <span className="setup-voice-card__tags">
-                        <span>{voice.accent}</span>
-                        <span>{voice.gender}</span>
-                      </span>
-                      <PreviewButton previewKey={previewKey} previewingVoice={previewingVoice} previewLoading={previewLoading} onPreview={previewVoice} />
-                    </span>
-                    <strong>{voice.name}</strong>
-                    <span className="setup-voice-card__description">{voice.description}</span>
-                    <span className="setup-voice-card__meta">{voice.tone} · {voice.engine}</span>
+              <div className="setup-voice-menu__body">
+                {filteredClones.length > 0 && (
+                  <div className="setup-voice-group">
+                    <div className="setup-voice-group__label">YOUR VOICE LIBRARY</div>
+                    {filteredClones.map((voice) => {
+                      const selected = selectedVoice?.source === "clone" && selectedVoice.id === voice.id;
+                      const previewKey = "clone:" + voice.id;
+                      return (
+                        <div
+                          key={previewKey}
+                          role="option"
+                          aria-selected={selected}
+                          className={"setup-voice-option " + (selected ? "is-selected" : "")}
+                          onClick={() => selectVoice(voice)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              selectVoice(voice);
+                            }
+                          }}
+                          tabIndex={0}
+                        >
+                          <span className="setup-voice-option__copy">
+                            <strong>{voice.name}</strong>
+                            <span>{voice.description} · {voice.engine} · {voice.language}</span>
+                          </span>
+                          <PreviewButton previewKey={previewKey} previewingVoice={previewingVoice} previewLoading={previewLoading} onPreview={() => previewVoice(voice)} />
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                )}
+
+                {filteredPresets.length > 0 && (
+                  <div className="setup-voice-group">
+                    <div className="setup-voice-group__label">PREDEFINED VOICES</div>
+                    {filteredPresets.map((voice) => {
+                      const selected = selectedVoice?.source === "preset" && selectedVoice.id === voice.id;
+                      const previewKey = "preset:" + voice.id;
+                      return (
+                        <div
+                          key={previewKey}
+                          role="option"
+                          aria-selected={selected}
+                          className={"setup-voice-option " + (selected ? "is-selected" : "")}
+                          onClick={() => selectVoice(voice)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              selectVoice(voice);
+                            }
+                          }}
+                          tabIndex={0}
+                        >
+                          <span className="setup-voice-option__copy">
+                            <strong>{voice.name}</strong>
+                            <span>{[voice.accent, voice.gender, voice.tone, voice.language].filter(Boolean).join(" · ")}</span>
+                            <small>{voice.description}</small>
+                          </span>
+                          <PreviewButton previewKey={previewKey} previewingVoice={previewingVoice} previewLoading={previewLoading} onPreview={() => previewVoice(voice)} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!filteredClones.length && !filteredPresets.length && (
+                  <div className="setup-voice-search-empty">No voices match “{voiceSearch}”.</div>
+                )}
+              </div>
+
+              <div className="setup-voice-menu__footer">
+                <span>{allVoiceOptions.length} narration voices available</span>
+                {!voiceProfiles.length && <a href="/voice-profiles">Create your own cloned voice</a>}
+              </div>
             </div>
-            {!filteredPredefinedVoices.length && <div className="setup-voice-filter-empty">No predefined voices match the selected filters.</div>}
-          </div>
+          )}
         </div>
       </section>
 
       {suggestions.framework.guardrailApplied && <div className="setup-guardrail"><strong>Monetization guardrail applied.</strong> Helix selected a safer narrative because the research flagged a high-risk issue.</div>}
       {error && <div className="setup-error"><span>{error}</span></div>}
       <div className="setup-actions">
-        <button className="btn btn-cream" type="button" disabled={saving} onClick={save}>{saving ? "Saving…": "Continue to storyboard →"}</button>
+        <button className="btn btn-cream" type="button" disabled={saving} onClick={save}>{saving ? "Saving…" : "Continue to storyboard →"}</button>
       </div>
     </div>
   );
