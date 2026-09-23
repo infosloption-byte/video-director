@@ -715,7 +715,7 @@ export default function VoiceProfilesPage() {
         profile={detailProfile}
         open={Boolean(detailProfile)}
         onClose={closeDetail}
-        onContinue={detailProfile && detailProfile.status !== "ready" ? () => continueProfile(detailProfile) : undefined}
+        onContinue={detailProfile && ["draft", "failed"].includes(detailProfile.status) ? () => continueProfile(detailProfile) : undefined}
         onPlaySample={playSample}
         playingSample={playingSample}
         previewLoading={previewLoading}
