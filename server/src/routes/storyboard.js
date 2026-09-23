@@ -80,15 +80,28 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { scenes: { orderBy: { sceneOrder: "asc" } } } });
     if (!project) return res.status(404).json({ error: "Project not found." });
     if (!project.scenes.length) return res.status(409).json({ error: "Generate the storyboard before generating narration." });
-    const { engine, voiceId, language, instruct, speed, allowFallback } = req.body || {};
+    const { engine, voiceId, voiceProfileId, language, instruct, speed, allowFallback } = req.body || {};
+    let selectedEngine = engine;
+    let selectedVoiceId = voiceId;
+    let selectedVoiceProfileId = null;
+    if (voiceProfileId) {
+      const profile = await prisma.voiceProfile.findFirst({
+        where: { id: String(voiceProfileId), userId: req.user.id, status: "ready" },
+        select: { id: true, preferredEngine: true, ttsVoiceId: true },
+      });
+      if (!profile || !profile.ttsVoiceId) return res.status(404).json({ error: "Voice profile not found or not ready." });
+      selectedEngine = profile.preferredEngine;
+      selectedVoiceId = profile.ttsVoiceId;
+      selectedVoiceProfileId = profile.id;
+    }
     const generated = [];
     for (const scene of project.scenes) {
       const narration = await synthesizeSpeech({
         projectId: project.id,
         sceneId: scene.id,
         text: scene.spokenText,
-        engine,
-        voiceId,
+        engine: selectedEngine,
+        voiceId: selectedVoiceId,
         language,
         instruct,
         speed,
@@ -99,7 +112,10 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
     }
     const updatedProject = await loadProjectScenes(project.id);
     const totalDuration = updatedProject.scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
-    await prisma.project.update({ where: { id: project.id }, data: { durationSeconds: totalDuration, cuts: updatedProject.scenes.length } });
+    await prisma.project.update({
+      where: { id: project.id },
+      data: { durationSeconds: totalDuration, cuts: updatedProject.scenes.length, voiceProfileId: selectedVoiceProfileId },
+    });
     const finalProject = await loadProjectScenes(project.id);
     res.status(201).json({
       projectId: project.id,
@@ -108,7 +124,8 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
       generatedCount: generated.length,
       engine: generated[0]?.engine || null,
       fallback: Boolean(generated.some((item) => item.fallback)),
-      voiceId: generated[0]?.voiceId || voiceId || null,
+      voiceId: generated[0]?.voiceId || selectedVoiceId || null,
+      voiceProfileId: selectedVoiceProfileId,
     });
   } catch (error) { console.error(`POST /api/projects/${req.params.id}/generate-voice failed:`, error); res.status(500).json({ error: error.message || "Failed to generate narration." }); }
 });
