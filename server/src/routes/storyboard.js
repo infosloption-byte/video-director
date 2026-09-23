@@ -71,9 +71,9 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
       narrationVoice = {
         source: "clone",
         id: voiceProfile.id,
-        engine: narrationVoice.engine,
-        voiceId: narrationVoice.voiceId,
-        language: narrationVoice.language,
+        engine: voiceProfile.preferredEngine,
+        voiceId: voiceProfile.ttsVoiceId,
+        language: voiceProfile.language || project.language || "English",
       };
     } else {
       const preset = getPredefinedVoice(voicePresetId);
