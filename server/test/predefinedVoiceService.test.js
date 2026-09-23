@@ -6,7 +6,7 @@ test("predefined narration catalog has stable selectable voices", () => {
   const voices = getPredefinedVoices();
   assert.equal(voices.length, 17);
   assert.equal(new Set(voices.map((voice) => voice.id)).size, voices.length);
-  assert.equal(new Set(voices.map((voice) => voice.voiceId)).size, voices.length);
+  assert.equal(new Set(voices.map((voice) => voice.voice)).size, voices.length);
   assert.ok(voices.some((voice) => voice.accent === "American" && voice.gender === "Female"));
   assert.ok(voices.some((voice) => voice.accent === "American" && voice.gender === "Male"));
   assert.ok(voices.some((voice) => voice.accent === "British" && voice.gender === "Female"));
@@ -15,7 +15,7 @@ test("predefined narration catalog has stable selectable voices", () => {
 });
 
 test("predefined narration catalog resolves ids and filters", () => {
-  assert.equal(getPredefinedVoice("kokoro-af-heart")?.voiceId, "af_heart");
+  assert.equal(getPredefinedVoice("kokoro-af-heart")?.voice, "af_heart");
   assert.equal(getPredefinedVoice("missing-voice"), null);
 
   const filters = getPredefinedVoiceFilters();
