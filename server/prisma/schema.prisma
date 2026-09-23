@@ -99,6 +99,8 @@ model Project {
   reviewLinks           ProjectReviewLink[]
   activities            ProjectActivity[]
   researchSessions      ResearchSession[]
+  voiceProfile           VoiceProfile?      @relation(fields: [voiceProfileId], references: [id], onDelete: SetNull)
+  voiceProfileId         String?             @map("voice_profile_id")
 
   @@map("projects")
 }
@@ -383,8 +385,59 @@ model User {
   templates       ProjectTemplate[]
   versions        ProjectVersion[]
   activities      ProjectActivity[]
+  voiceProfiles  VoiceProfile[]
 
   @@map("users")
+}
+
+enum VoiceProfileStatus {
+  draft
+  processing
+  ready
+  failed
+  archived
+}
+
+model VoiceProfile {
+  id               String             @id @default(uuid())
+  userId           String             @map("user_id")
+  name             String             @db.VarChar(120)
+  language         String             @default("English") @db.VarChar(40)
+  preferredEngine  String             @map("preferred_engine") @db.VarChar(60)
+  status           VoiceProfileStatus @default(draft)
+  ttsVoiceId       String?            @unique @map("tts_voice_id") @db.VarChar(120)
+  sampleCount      Int                @default(0) @map("sample_count")
+  consentAcceptedAt DateTime?        @map("consent_accepted_at")
+  referenceText    String?            @db.Text @map("reference_text")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  samples          VoiceProfileSample[]
+  projects         Project[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, status])
+  @@map("voice_profiles")
+}
+
+model VoiceProfileSample {
+  id               String       @id @default(uuid())
+  profileId        String       @map("profile_id")
+  sampleIndex      Int          @map("sample_index")
+  promptText       String       @db.Text @map("prompt_text")
+  storageKey       String       @db.Text @map("storage_key")
+  filename         String?      @db.VarChar(255)
+  mimeType         String?      @map("mime_type") @db.VarChar(120)
+  sizeBytes        BigInt?      @map("size_bytes")
+  durationSeconds  Decimal?     @map("duration_seconds") @db.Decimal(8, 3)
+  status           String       @default("ready") @db.VarChar(30)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  profile           VoiceProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, sampleIndex])
+  @@index([profileId, createdAt])
+  @@map("voice_profile_samples")
 }
 
 model AuthSession {
