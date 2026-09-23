@@ -54,6 +54,7 @@ export default function VoiceProfilesPage() {
   const [recordings, setRecordings] = useState({});
   const [playingSample, setPlayingSample] = useState(null);
   const [recording, setRecording] = useState(false);
+  const [recordingIndex, setRecordingIndex] = useState(null);
   const [savingSample, setSavingSample] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -162,16 +163,17 @@ export default function VoiceProfilesPage() {
       recorder.onerror = () => setError("Microphone recording failed.");
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
-        stopStream(); setRecording(false);
+        stopStream(); setRecording(false); setRecordingIndex(null);
         setRecordings((current) => ({ ...current, [index]: { blob, url: URL.createObjectURL(blob), mimeType } }));
         void saveRecording(index, blob, mimeType);
       };
-      recorder.start(250); setRecording(true);
+      recorder.start(250); setRecording(true); setRecordingIndex(index);
     } catch (err) { stopStream(); setRecording(false); setError(err.message || "Microphone access failed."); }
   }
 
   function stopRecording() {
     if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+    else setRecordingIndex(null);
   }
 
   async function playSample(sample) {
@@ -272,7 +274,7 @@ export default function VoiceProfilesPage() {
             <div className="voice-profiles-page__studio-summary">
               <div className="voice-profiles-page__live-status">
                 <span className={"voice-profiles-page__live-dot " + (recording ? "is-live" : "")} aria-hidden="true" />
-                <span>{recording ? "Recording microphone input" : savedCount < minSamples ? "Ready for your next recording" : "Minimum sample count reached"}</span>
+                <span>{recording ? "Recording sample " + (Number(recordingIndex) + 1) : savedCount < minSamples ? "Ready for your next recording" : "Minimum sample count reached"}</span>
               </div>
               <span className="voice-profiles-page__studio-engine">{engine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"}</span>
             </div>
@@ -287,7 +289,7 @@ export default function VoiceProfilesPage() {
                     <div className="voice-profiles-page__sample-head"><span className="voice-profiles-page__sample-index">{String(index + 1).padStart(2, "0")}</span><div><span className="mono-label">READ ALOUD</span><strong>{prompt}</strong></div></div>
                     <div className="voice-profiles-page__sample-actions">
                       <button type="button" className={"btn " + (recording ? "btn-cream" : "btn-ghost")} onClick={() => startRecording(index)} disabled={recording || savingSample !== null || busy}>
-                        {recording ? "Recording…" : saved ? "Re-record sample" : "Record sample"} <span aria-hidden="true">◉</span>
+                        {recording && recordingIndex === index ? "Recording…" : saved ? "Re-record sample" : "Record sample"} <span aria-hidden="true">◉</span>
                       </button>
                       {recording && <button type="button" className="btn btn-danger-soft" onClick={stopRecording}>Stop & save</button>}
                       {saved && <button className="btn btn-ghost" onClick={() => playSample(saved)} disabled={savingSample !== null}>{playingSample === saved.id ? "Playing…" : "Play recording"}</button>}
