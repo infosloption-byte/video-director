@@ -37,7 +37,7 @@ async function requestJson(url, options = {}, timeoutMs) {
   }
 }
 
-async function requestSpeech({ text, engine, voiceId, language, instruct, speed, allowFallback }) {
+async function requestSpeech({ text, engine, voiceId, voice, language, instruct, speed, allowFallback }) {
   const {
     baseUrl,
     authToken,
@@ -57,7 +57,7 @@ async function requestSpeech({ text, engine, voiceId, language, instruct, speed,
       body: JSON.stringify({
         text,
         engine: engine || defaultEngine,
-        voice_id: voiceId || defaultVoiceId,
+        ...(voice ? { voice, voice_type: "preset" } : { voice_id: voiceId || defaultVoiceId, voice_type: "clone" }),
         language: language || defaultLanguage,
         instruct: instruct || null,
         speed: speed ?? 1,
@@ -238,7 +238,7 @@ async function generateRemoteNarration(params) {
   });
 }
 
-export async function synthesizeVoicePreview({ text, engine, voiceId, language = "English" }) {
+export async function synthesizeVoicePreview({ text, engine, voiceId, voice, language = "English" }) {
   const cleanText = String(text || "").trim();
   if (!cleanText) throw new Error("Preview text is required.");
   if (!voiceId) throw new Error("A voice ID is required for preview.");
@@ -247,6 +247,7 @@ export async function synthesizeVoicePreview({ text, engine, voiceId, language =
     text: cleanText,
     engine,
     voiceId,
+    voice,
     language,
     speed: 1,
     allowFallback: false,
