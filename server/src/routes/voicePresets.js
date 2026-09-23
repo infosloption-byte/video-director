@@ -20,7 +20,7 @@ router.post("/:id/preview", async (req, res) => {
     const preview = await synthesizeVoicePreview({
       text,
       engine: voice.engine,
-      voiceId: voice.voiceId,
+      voice: voice.voice,
       language: voice.language,
     });
 
