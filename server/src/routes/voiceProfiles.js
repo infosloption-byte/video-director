@@ -2,11 +2,12 @@ import { Router } from "express";
 import { readFile, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/client.js";
-import { createTtsVoiceFromFile, deleteTtsVoice } from "../services/ttsService.js";
+import { createTtsVoiceFromFile, deleteTtsVoice, synthesizeVoicePreview } from "../services/ttsService.js";
 import { buildCombinedReference, deleteVoiceProfileFiles, getVoiceProfileSamplePath, saveVoiceProfileSample, MAX_SAMPLES, MIN_SAMPLES, MAX_SAMPLE_BYTES } from "../services/voiceProfileService.js";
 
 const router = Router();
 const SUPPORTED_ENGINES = new Set(["qwen3-tts-0.6b", "chatterbox-nano"]);
+const PREVIEW_TEXT = "Hello, this is a sample preview of my Helix narrator voice. The same saved voice profile can now read narration naturally and consistently.";
 const DEFAULT_PROMPTS = [
   "Thanks for taking a moment to record your voice. In this first passage, speak in your normal everyday style, at a comfortable pace, as though you are explaining something useful to a friend. Keep your voice relaxed and steady. There is no need to perform, whisper, or project more than you normally would. Just read naturally, and leave a brief pause when you reach a full stop.",
   "Let us add a little more variety to the recording. Imagine you are telling a short story about a busy morning: at 8:15, the first message arrives, the kettle is already warm, and you have three small tasks to finish before nine. Some details are simple, some are specific, and the sentence lengths change. Read the whole passage clearly, keeping your usual tone and pronunciation.",
@@ -158,6 +159,34 @@ router.get("/:id/samples/:sampleId", async (req, res) => {
     return res.sendFile(filePath);
   } catch {
     return res.status(404).json({ error: "Recording file not found." });
+  }
+});
+
+router.post("/:id/preview", async (req, res) => {
+  try {
+    const profile = await ownedProfile(req.user.id, req.params.id);
+    if (!profile) return res.status(404).json({ error: "Voice profile not found." });
+    if (profile.status !== "ready" || !profile.ttsVoiceId) {
+      return res.status(409).json({ error: "This voice profile is not ready for preview yet." });
+    }
+
+    const text = String(req.body?.text || PREVIEW_TEXT).trim().slice(0, 500);
+    const preview = await synthesizeVoicePreview({
+      text,
+      engine: profile.preferredEngine,
+      voiceId: profile.ttsVoiceId,
+      language: profile.language || "English",
+    });
+
+    return res.json({
+      text,
+      ...preview,
+    });
+  } catch (error) {
+    console.error("POST /api/voice-profiles/" + req.params.id + "/preview failed:", error);
+    return res.status(error?.providerStatus === 429 ? 429 : 500).json({
+      error: error.message || "Failed to generate voice preview.",
+    });
   }
 });
 
