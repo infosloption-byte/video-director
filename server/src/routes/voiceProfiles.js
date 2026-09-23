@@ -8,12 +8,12 @@ import { buildCombinedReference, deleteVoiceProfileFiles, getVoiceProfileSampleP
 const router = Router();
 const SUPPORTED_ENGINES = new Set(["qwen3-tts-0.6b", "chatterbox-nano"]);
 const DEFAULT_PROMPTS = [
-  "Today we are going to break down a simple idea and show why it matters.",
-  "The most useful way to understand this change is to look at what happens step by step.",
-  "There is a practical reason this works, and the evidence becomes clearer when we slow down and look closely.",
-  "A good explanation does not rush the important part; it gives each sentence enough room to land naturally.",
-  "The goal is not to sound perfect. The goal is to sound like yourself, clearly and consistently.",
-  "Now let us connect the pieces and turn the explanation into something practical and easy to remember."
+  "Thanks for taking a moment to record your voice. In this first passage, speak in your normal everyday style, at a comfortable pace, as though you are explaining something useful to a friend. Keep your voice relaxed and steady. There is no need to perform, whisper, or project more than you normally would. Just read naturally, and leave a brief pause when you reach a full stop.",
+  "Let us add a little more variety to the recording. Imagine you are telling a short story about a busy morning: at 8:15, the first message arrives, the kettle is already warm, and you have three small tasks to finish before nine. Some details are simple, some are specific, and the sentence lengths change. Read the whole passage clearly, keeping your usual tone and pronunciation.",
+  "Now read this passage as if you are presenting a clear idea to another person. Maya noticed that the room sounded different after the window was closed, while Daniel preferred the softer background noise outside. They compared notes, waited for a quiet moment, and then started again. The point is simple: small changes in pace, emphasis, and phrasing should still sound like the same natural speaker.",
+  "For the next take, keep your delivery conversational and let the punctuation guide your rhythm. What happens when a sentence asks a question? What changes when an important phrase needs a little emphasis? Try this naturally: "That sounds useful, but is it really necessary?" Then continue without forcing the emotion. A calm explanation, a quick question, and a longer sentence should all remain recognizably in your voice.",
+  "This passage introduces technical words and numbers without asking you to change your speaking style. A reliable system may process 24-hour schedules, 3 separate files, and more than 120 short notes before the final result is ready. Read names, numbers, and ordinary words exactly as written. Focus on clarity, consistent volume, and clean pronunciation, especially at the beginning and end of each sentence.",
+  "This final passage is deliberately varied, so finish with the same relaxed voice you used at the start. Some ideas deserve a little more space; others can move quickly. When the plan is ready, pause, take a breath, and continue: the goal is not perfect acting, but a voice that feels clear, familiar, and consistent from one sentence to the next. Thank you for recording these samples."
 ];
 
 function publicProfile(profile) {
