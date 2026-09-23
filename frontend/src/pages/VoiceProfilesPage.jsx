@@ -329,6 +329,7 @@ export default function VoiceProfilesPage() {
 
   function openProfile(profile) {
     setActive(profile);
+    setEngine(profile.preferredEngine || "qwen3-tts-0.6b");
     const pending = firstPendingIndex(profile, prompts);
     if (profile.status === "ready" || pending < 0) {
       setStage("review");
