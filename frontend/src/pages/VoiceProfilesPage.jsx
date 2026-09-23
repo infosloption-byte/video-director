@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
+import ConfirmDialog from "../components/ConfirmDialog";
 import SelectMenu from "../components/SelectMenu";
+import VoiceProfileDialog from "../components/VoiceProfileDialog";
 import "../components/ui.css";
 import "./VoiceProfilesPage.css";
 
@@ -23,6 +25,8 @@ const ENGINE_DESCRIPTIONS = {
   "qwen3-tts-0.6b": "GPU-powered cloning on the Helix TTS worker.",
   "chatterbox-nano": "A lightweight alternative for voice-profile generation."
 };
+
+const VOICE_PREVIEW_TEXT = "Hello, this is a sample preview of my Helix narrator voice. The same saved voice profile can now read narration naturally and consistently.";
 
 function chooseMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
@@ -51,6 +55,22 @@ function formatTime(value) {
   return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
 }
 
+function base64ToBlob(value, mimeType = "audio/wav") {
+  const raw = String(value || "");
+  const encoded = raw.includes(",") ? raw.slice(raw.indexOf(",") + 1) : raw;
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type: mimeType });
+}
+
+function profileStatusLabel(status) {
+  if (status === "ready") return "Ready";
+  if (status === "processing") return "Creating…";
+  if (status === "failed") return "Needs attention";
+  return "In progress";
+}
+
 function firstPendingIndex(profile, prompts) {
   const saved = new Set((profile?.samples || []).map((sample) => Number(sample.sampleIndex)));
   return prompts.findIndex((_, index) => !saved.has(index));
@@ -75,6 +95,10 @@ export default function VoiceProfilesPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [detailProfile, setDetailProfile] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(null);
+  const [previewPlaying, setPreviewPlaying] = useState(null);
   const recorderRef = useRef(null);
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
@@ -82,6 +106,7 @@ export default function VoiceProfilesPage() {
   const recordingStartedAtRef = useRef(0);
   const recordingTimerRef = useRef(null);
   const playbackRef = useRef(null);
+  const previewUrlsRef = useRef(new Map());
   const studioRef = useRef(null);
 
   async function loadProfiles() {
@@ -105,6 +130,8 @@ export default function VoiceProfilesPage() {
       window.clearInterval(recordingTimerRef.current);
       if (draftRecording?.url) URL.revokeObjectURL(draftRecording.url);
       playbackRef.current?.pause();
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      previewUrlsRef.current.clear();
     };
   }, []);
 
@@ -328,6 +355,14 @@ export default function VoiceProfilesPage() {
   }
 
   function openProfile(profile) {
+    playbackRef.current?.pause();
+    setPreviewPlaying(null);
+    setDetailProfile(profile);
+    setError("");
+  }
+
+  function continueProfile(profile) {
+    setDetailProfile(null);
     setActive(profile);
     setEngine(profile.preferredEngine || "qwen3-tts-0.6b");
     const pending = firstPendingIndex(profile, prompts);
@@ -342,6 +377,13 @@ export default function VoiceProfilesPage() {
     setError("");
   }
 
+  function closeDetail() {
+    playbackRef.current?.pause();
+    setPlayingSample(null);
+    setPreviewPlaying(null);
+    setDetailProfile(null);
+  }
+
   function reviewAgain(index) {
     releaseDraftRecording();
     setCurrentIndex(index);
@@ -353,6 +395,7 @@ export default function VoiceProfilesPage() {
   async function playSample(sample) {
     try {
       playbackRef.current?.pause();
+      setPreviewPlaying(null);
       let blobUrl = null;
       let shouldRevoke = false;
       if (sample.audioUrl) {
@@ -378,6 +421,46 @@ export default function VoiceProfilesPage() {
     }
   }
 
+  async function playVoicePreview(profile) {
+    if (!profile?.id || profile.status !== "ready" || !profile.ttsVoiceId) return;
+    try {
+      playbackRef.current?.pause();
+      setPlayingSample(null);
+      setPreviewLoading(profile.id);
+      setError("");
+
+      let blobUrl = previewUrlsRef.current.get(profile.id);
+      if (!blobUrl) {
+        const response = await fetch("/api/voice-profiles/" + profile.id + "/preview", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: VOICE_PREVIEW_TEXT })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Failed to generate cloned voice preview.");
+        blobUrl = URL.createObjectURL(base64ToBlob(data.audioBase64, data.mimeType || "audio/wav"));
+        previewUrlsRef.current.set(profile.id, blobUrl);
+      }
+
+      const audio = new Audio(blobUrl);
+      audio.preload = "auto";
+      playbackRef.current = audio;
+      setPreviewPlaying(profile.id);
+      audio.onended = () => setPreviewPlaying(null);
+      audio.onerror = () => {
+        setPreviewPlaying(null);
+        setError("Cloned voice preview could not be played.");
+      };
+      await audio.play();
+    } catch (err) {
+      setPreviewPlaying(null);
+      setError(err.message || "Failed to generate cloned voice preview.");
+    } finally {
+      setPreviewLoading(null);
+    }
+  }
+
   async function cloneProfile() {
     if (!active || Number(active.sampleCount || 0) < minSamples || busy) return;
     setBusy(true);
@@ -390,10 +473,17 @@ export default function VoiceProfilesPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to create voice clone.");
-      setActive(data.profile);
       setProfiles((current) => current.map((profile) => profile.id === data.profile.id ? data.profile : profile));
-      setStage("review");
-      setMessage("Voice profile is ready and can now be used for narration.");
+      releaseDraftRecording();
+      stopStream();
+      setActive(null);
+      setStage("setup");
+      setCurrentIndex(0);
+      setName("");
+      setConsent(false);
+      setEngine("qwen3-tts-0.6b");
+      setMessage("Voice profile is ready for narration. It has been saved to Your Library.");
+      setError("");
     } catch (err) {
       setError(err.message || "Failed to create voice clone.");
       await loadProfiles();
@@ -402,8 +492,14 @@ export default function VoiceProfilesPage() {
     }
   }
 
-  async function deleteProfile(profile, requireConfirm = true) {
-    if (requireConfirm && !window.confirm("Delete " + profile.name + " and its stored recordings?")) return;
+  function requestDelete(profile) {
+    if (!busy) setDeleteTarget(profile);
+  }
+
+  async function deleteProfile() {
+    const profile = deleteTarget;
+    if (!profile || busy) return;
+    setDeleteTarget(null);
     setBusy(true);
     setError("");
     setMessage("");
@@ -417,6 +513,12 @@ export default function VoiceProfilesPage() {
         setActive(null);
         setStage("setup");
         releaseDraftRecording();
+      }
+      if (detailProfile?.id === profile.id) setDetailProfile(null);
+      const previewUrl = previewUrlsRef.current.get(profile.id);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        previewUrlsRef.current.delete(profile.id);
       }
       setProfiles((current) => current.filter((item) => item.id !== profile.id));
       setMessage("Voice profile deleted.");
@@ -590,16 +692,47 @@ export default function VoiceProfilesPage() {
             <div className="voice-profiles-page__grid">
               {profiles.map((profile) => (
                 <article key={profile.id} className="voice-profiles-page__profile">
-                  <div className="voice-profiles-page__profile-top"><span className={"voice-profiles-page__status is-" + profile.status}>{profile.status}</span><span>{profile.sampleCount} samples</span></div>
+                  <div className="voice-profiles-page__profile-top"><span className={"voice-profiles-page__status is-" + profile.status}>{profileStatusLabel(profile.status)}</span><span>{profile.sampleCount} samples</span></div>
                   <h3>{profile.name}</h3>
                   <p>{profile.preferredEngine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"} · {profile.language}</p>
-                  <div className="voice-profiles-page__profile-actions"><button type="button" className="btn btn-ghost" onClick={() => openProfile(profile)}>Open</button><button type="button" className="btn btn-ghost" onClick={() => deleteProfile(profile)} disabled={busy}>Delete</button></div>
+                  <div className="voice-profiles-page__profile-actions">
+                    {profile.status === "ready" && profile.ttsVoiceId && (
+                      <button type="button" className="btn btn-ghost voice-profiles-page__profile-play" onClick={() => void playVoicePreview(profile)} disabled={busy || previewLoading === profile.id} title="Play cloned voice preview">
+                        {previewLoading === profile.id ? "Generating…" : previewPlaying === profile.id ? "Playing…" : "▶ Play"}
+                      </button>
+                    )}
+                    <button type="button" className="btn btn-ghost" onClick={() => openProfile(profile)}>Open</button>
+                    <button type="button" className="btn btn-ghost" onClick={() => requestDelete(profile)} disabled={busy}>Delete</button>
+                  </div>
                 </article>
               ))}
             </div>
           )}
         </section>
       </main>
+
+      <VoiceProfileDialog
+        profile={detailProfile}
+        open={Boolean(detailProfile)}
+        onClose={closeDetail}
+        onContinue={detailProfile && detailProfile.status !== "ready" ? () => continueProfile(detailProfile) : undefined}
+        onPlaySample={playSample}
+        playingSample={playingSample}
+        previewLoading={previewLoading}
+        previewPlaying={previewPlaying}
+        onPlayPreview={playVoicePreview}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={deleteTarget ? "Delete this voice profile?" : ""}
+        message={deleteTarget ? "“" + deleteTarget.name + "” and all of its saved recording tracks will be permanently removed." : ""}
+        confirmLabel="Delete voice profile"
+        cancelLabel="Keep profile"
+        tone="danger"
+        onConfirm={deleteProfile}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
