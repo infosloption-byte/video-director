@@ -32,11 +32,31 @@ function publicProfile(profile) {
   };
 }
 
-function decodeAudio(value) {
-  const raw = String(value || "");
-  const match = raw.match(/^data:([^;,]+);base64,/i);
-  const mimeType = match?.[1] || "audio/webm";
-  const encoded = raw.replace(/^data:[^;]+;base64,/i, "");
+function decodeAudio(value, fallbackMimeType = "audio/webm") {
+  const raw = String(value || "").trim();
+  if (!raw) return { mimeType: fallbackMimeType, audio: Buffer.alloc(0) };
+
+  const dataUrl = raw.match(/^data:([^,]+),/i);
+  if (!dataUrl) {
+    const encoded = raw.replace(/\s+/g, "");
+    return {
+      mimeType: fallbackMimeType,
+      audio: Buffer.from(encoded, "base64")
+    };
+  }
+
+  const metadata = dataUrl[1];
+  if (!/(^|;)base64(?:;|$)/i.test(metadata)) {
+    throw new Error("Recording payload must use base64 encoding.");
+  }
+
+  const mimeType = metadata.split(";")[0] || fallbackMimeType;
+  const encoded = raw.slice(dataUrl[0].length).replace(/\s+/g, "");
+  if (!encoded) return { mimeType, audio: Buffer.alloc(0) };
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 === 1) {
+    throw new Error("Recording payload contains invalid base64 data.");
+  }
+
   return { mimeType, audio: Buffer.from(encoded, "base64") };
 }
 
@@ -91,7 +111,13 @@ router.post("/:id/samples", async (req, res) => {
     if (!Number.isInteger(sampleIndex) || sampleIndex < 0 || sampleIndex >= MAX_SAMPLES) return res.status(400).json({ error: "sampleIndex must be between 0 and " + (MAX_SAMPLES - 1) + "." });
     const promptText = String(req.body?.promptText || "").trim();
     if (!promptText) return res.status(400).json({ error: "promptText is required." });
-    const { mimeType, audio } = decodeAudio(req.body?.audioBase64);
+    let decoded;
+    try {
+      decoded = decodeAudio(req.body?.audioBase64, String(req.body?.mimeType || "audio/webm"));
+    } catch (error) {
+      return res.status(400).json({ error: error.message || "Invalid recording payload." });
+    }
+    const { mimeType, audio } = decoded;
     if (!audio.length) return res.status(400).json({ error: "Recording is empty." });
     if (audio.length > MAX_SAMPLE_BYTES) return res.status(413).json({ error: "Each recording must be 8 MB or smaller." });
 
