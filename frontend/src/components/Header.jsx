@@ -82,6 +82,7 @@ export default function Header({ right }) {
                       <div className="hx-header__dropdown-user"><strong>Hi, {userLabel}</strong><span>{user?.email}</span></div>
                       <Link role="menuitem" to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>
                       {editorMediaLink && <Link role="menuitem" to={editorMediaLink} onClick={() => setMenuOpen(false)}><span aria-hidden="true">▤</span> Media Library</Link>}
+                      <Link role="menuitem" to="/voice-profiles" onClick={() => setMenuOpen(false)}>Voice Profiles</Link>
                       <Link role="menuitem" to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
                       <button role="menuitem" type="button" onClick={handleSignOut}>Sign out</button>
                     </div>
@@ -113,6 +114,7 @@ export default function Header({ right }) {
               <button type="button" className="hx-header__mobile-theme" onClick={toggleTheme}><span aria-hidden="true">{theme === "dark" ? "☼" : "☾"}</span>{theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}</button>
               {editorMediaLink && <Link to={editorMediaLink} onClick={() => setMenuOpen(false)}><span aria-hidden="true">▤</span> Media Library</Link>}
               {showResearchLink && <Link to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>}
+              <Link to="/voice-profiles" onClick={() => setMenuOpen(false)}>Voice Profiles</Link>
               <Link to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
               <div className="hx-header__mobile-actions">{right}</div>
               <button type="button" onClick={handleSignOut}>Sign out</button>
