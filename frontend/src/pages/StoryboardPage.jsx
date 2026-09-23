@@ -79,6 +79,8 @@ export default function StoryboardPage() {
   const [renderError, setRenderError] = useState("");
   const [renderStatus, setRenderStatus] = useState(null);
   const [ttsVoices, setTtsVoices] = useState([]);
+  const [voiceProfiles, setVoiceProfiles] = useState([]);
+  const [ttsVoiceProfileId, setTtsVoiceProfileId] = useState("");
   const [ttsDiagnostics, setTtsDiagnostics] = useState(null);
   const [ttsEngine, setTtsEngine] = useState("kokoro");
   const [ttsVoiceId, setTtsVoiceId] = useState("");
@@ -158,10 +160,12 @@ export default function StoryboardPage() {
       const [voicesResponse, diagnosticsResponse] = await Promise.all([
         fetch("/api/tts/voices"),
         fetch("/api/tts/diagnostics"),
+        fetch("/api/voice-profiles"),
       ]);
 
       const voices = await voicesResponse.json().catch(() => ({}));
       const diagnostics = await diagnosticsResponse.json().catch(() => ({}));
+      const profiles = await profilesResponse.json().catch(() => ({}));
       if (cancelled) return;
 
       if (voicesResponse.ok) {
@@ -172,6 +176,9 @@ export default function StoryboardPage() {
       if (diagnosticsResponse.ok) {
         setTtsDiagnostics(diagnostics);
         if (diagnostics?.defaultEngine) setTtsEngine((current) => current || diagnostics.defaultEngine);
+      }
+      if (profilesResponse.ok) {
+        setVoiceProfiles(Array.isArray(profiles.profiles) ? profiles.profiles.filter((profile) => profile.status === "ready") : []);
       }
     }
 
@@ -249,6 +256,7 @@ export default function StoryboardPage() {
   async function generateVoice() {
     if (!scenes.length || voiceLoading) return;
     const cloneEngineSelected = ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b";
+    const selectedProfile = voiceProfiles.find((profile) => profile.id === ttsVoiceProfileId) || null;
     setVoiceLoading(true);
     setVoiceError("");
     try {
@@ -256,8 +264,9 @@ export default function StoryboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          engine: ttsEngine,
-          voiceId: cloneEngineSelected ? (ttsVoiceId || undefined) : undefined,
+          engine: selectedProfile?.preferredEngine || ttsEngine,
+          voiceId: selectedProfile?.ttsVoiceId || (cloneEngineSelected ? (ttsVoiceId || undefined) : undefined),
+          voiceProfileId: selectedProfile?.id || undefined,
           language: project?.language || "English",
           allowFallback: true,
         }),
@@ -413,6 +422,7 @@ export default function StoryboardPage() {
                           <select value={ttsEngine} onChange={(event) => {
                             const nextEngine = event.target.value;
                             setTtsEngine(nextEngine);
+                            setTtsVoiceProfileId("");
                             if (nextEngine !== "chatterbox-nano" && nextEngine !== "qwen3-tts-0.6b") setTtsVoiceId("");
                             else if (!ttsVoiceId && ttsVoices[0]?.voice_id) setTtsVoiceId(ttsVoices[0].voice_id);
                           }} disabled={voiceLoading}>
@@ -424,14 +434,29 @@ export default function StoryboardPage() {
                         </label>
 {(ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b") ? (
                           <label>
-                            Voice profile
-                            <select value={ttsVoiceId} onChange={(event) => setTtsVoiceId(event.target.value)} disabled={voiceLoading}>
-                              <option value="">Select cloned voice</option>
-                              {ttsVoices.map((voice) => (
-                                <option key={voice.voice_id} value={voice.voice_id}>{voice.name}</option>
-                              ))}
+                            Saved voice profile
+                            <select value={ttsVoiceProfileId} onChange={(event) => {
+                              const nextId = event.target.value;
+                              setTtsVoiceProfileId(nextId);
+                              const profile = voiceProfiles.find((item) => item.id === nextId);
+                              if (profile) {
+                                setTtsEngine(profile.preferredEngine);
+                                setTtsVoiceId(profile.ttsVoiceId || "");
+                              }
+                            }} disabled={voiceLoading}>
+                              <option value="">No saved profile</option>
+                              {voiceProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
                             </select>
                           </label>
+                          {!ttsVoiceProfileId && (
+                            <label>
+                              Existing cloned voice
+                              <select value={ttsVoiceId} onChange={(event) => setTtsVoiceId(event.target.value)} disabled={voiceLoading}>
+                                <option value="">Select cloned voice</option>
+                                {ttsVoices.map((voice) => <option key={voice.voice_id} value={voice.voice_id}>{voice.name}</option>)}
+                              </select>
+                            </label>
+                          )}
                         ) : null}
                       </div>
                       {ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b" ? (
@@ -441,6 +466,7 @@ export default function StoryboardPage() {
                             <strong>Voice cloning</strong>
                             <span>Use an authorized reference recording for a consistent narrator voice.</span>
                           </div>
+                          <Link className="btn btn-ghost" to="/voice-profiles">Manage voice profiles</Link>
                           <button className="btn btn-ghost" type="button" onClick={() => setVoicePanelOpen((open) => !open)}>
                             {voicePanelOpen ? "Close" : "Add cloned voice"}
                           </button>
