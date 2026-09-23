@@ -5,8 +5,8 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(process.cwd(), "storage", "voice-profiles");
-const MAX_SAMPLES = 8;
-const MIN_SAMPLES = 3;
+const MAX_SAMPLES = 6;
+const MIN_SAMPLES = 2;
 const MAX_SAMPLE_BYTES = 8 * 1024 * 1024;
 
 function extensionFor(mimeType = "", filename = "") {
@@ -45,7 +45,9 @@ export async function deleteVoiceProfileFiles(profileId) {
 async function normalizeSample(inputPath, outputPath) {
   await execFileAsync("ffmpeg", [
     "-y", "-hide_banner", "-loglevel", "error",
-    "-i", inputPath, "-ac", "1", "-ar", "24000", "-c:a", "pcm_s16le", outputPath,
+    "-i", inputPath,
+    "-af", "highpass=f=70,lowpass=f=12000,afftdn=nr=6:nf=-28,loudnorm=I=-18:TP=-1.5:LRA=11",
+    "-ac", "1", "-ar", "24000", "-c:a", "pcm_s16le", outputPath,
   ]);
 }
 
