@@ -82,7 +82,7 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
         source: "preset",
         id: preset.id,
         engine: preset.engine,
-        voiceId: preset.voiceId,
+        voice: preset.voice,
         language: preset.language || project.language || "English",
       };
     }
