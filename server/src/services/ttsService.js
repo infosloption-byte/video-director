@@ -238,6 +238,31 @@ async function generateRemoteNarration(params) {
   });
 }
 
+export async function synthesizeVoicePreview({ text, engine, voiceId, language = "English" }) {
+  const cleanText = String(text || "").trim();
+  if (!cleanText) throw new Error("Preview text is required.");
+  if (!voiceId) throw new Error("A saved cloned voice is required for preview.");
+
+  const payload = await requestSpeech({
+    text: cleanText,
+    engine,
+    voiceId,
+    language,
+    speed: 1,
+    allowFallback: false,
+  });
+
+  if (!payload?.audio_base64) throw new Error("TTS service returned no preview audio.");
+
+  return {
+    audioBase64: payload.audio_base64,
+    mimeType: "audio/wav",
+    durationSeconds: payload.duration_seconds ?? null,
+    engine: payload.engine || engine || null,
+    voiceId: payload.voice_id || voiceId,
+  };
+}
+
 export async function createTtsVoiceFromFile({ name, referenceAudioPath, referenceText = "", preferredEngine = "qwen3-tts-0.6b" }) {
   const { baseUrl, authToken, timeoutMs } = requireConfig();
   if (!baseUrl) throw new Error("TTS_SERVICE_URL is not configured.");
