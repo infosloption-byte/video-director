@@ -238,6 +238,48 @@ async function generateRemoteNarration(params) {
   });
 }
 
+export async function createTtsVoiceFromFile({ name, referenceAudioPath, referenceText = "", preferredEngine = "qwen3-tts-0.6b" }) {
+  const { baseUrl, authToken, timeoutMs } = requireConfig();
+  if (!baseUrl) throw new Error("TTS_SERVICE_URL is not configured.");
+  const audio = await (await import("node:fs/promises")).readFile(referenceAudioPath);
+  if (!audio.length) throw new Error("Reference audio is empty.");
+  const form = new FormData();
+  form.append("name", String(name || "Helix Voice"));
+  form.append("reference_text", String(referenceText || ""));
+  form.append("preferred_engine", String(preferredEngine || "qwen3-tts-0.6b"));
+  form.append("reference_audio", new Blob([audio]), "reference.wav");
+  const response = await requestJson(baseUrl + "/v1/voices", {
+    method: "POST",
+    headers: { Accept: "application/json", ...(authToken ? { Authorization: "Bearer " + authToken } : {}) },
+    body: form,
+  }, timeoutMs);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = payload?.detail;
+    const message = typeof detail === "string" ? detail : detail?.message || JSON.stringify(detail || payload || ("TTS service returned HTTP " + response.status + "."));
+    const error = new Error(String(message)); error.providerStatus = response.status; throw error;
+  }
+  if (!payload?.voice_id) throw new Error("TTS service created no voice_id.");
+  return payload;
+}
+
+export async function deleteTtsVoice(voiceId) {
+  const { baseUrl, authToken, timeoutMs } = requireConfig();
+  if (!baseUrl) throw new Error("TTS_SERVICE_URL is not configured.");
+  const response = await requestJson(baseUrl + "/v1/voices/" + encodeURIComponent(String(voiceId)), {
+    method: "DELETE",
+    headers: { Accept: "application/json", ...(authToken ? { Authorization: "Bearer " + authToken } : {}) },
+  }, timeoutMs);
+  if (response.status === 404) return false;
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = payload?.detail;
+    const message = typeof detail === "string" ? detail : detail?.message || JSON.stringify(detail || payload || ("TTS service returned HTTP " + response.status + "."));
+    const error = new Error(String(message)); error.providerStatus = response.status; throw error;
+  }
+  return true;
+}
+
 export async function synthesizeSpeech(
   { projectId, sceneId, text, engine, voiceId, language, instruct, speed, allowFallback },
   adapters = {},
