@@ -354,9 +354,19 @@ export default function VoiceProfilesPage() {
     setMessage("Review your recordings before creating the clone.");
   }
 
-  function openProfile(profile) {
-    playbackRef.current?.pause();
+  function stopPlayback() {
+    const audio = playbackRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      playbackRef.current = null;
+    }
+    setPlayingSample(null);
     setPreviewPlaying(null);
+  }
+
+  function openProfile(profile) {
+    stopPlayback();
     setDetailProfile(profile);
     setError("");
   }
@@ -378,9 +388,7 @@ export default function VoiceProfilesPage() {
   }
 
   function closeDetail() {
-    playbackRef.current?.pause();
-    setPlayingSample(null);
-    setPreviewPlaying(null);
+    stopPlayback();
     setDetailProfile(null);
   }
 
@@ -393,9 +401,14 @@ export default function VoiceProfilesPage() {
   }
 
   async function playSample(sample) {
+    const sampleId = sample.id || ("local-" + sample.sampleIndex);
+    if (playingSample === sampleId) {
+      stopPlayback();
+      return;
+    }
+
+    stopPlayback();
     try {
-      playbackRef.current?.pause();
-      setPreviewPlaying(null);
       let blobUrl = null;
       let shouldRevoke = false;
       if (sample.audioUrl) {
@@ -407,25 +420,40 @@ export default function VoiceProfilesPage() {
         blobUrl = draftRecording.url;
       }
       if (!blobUrl) return;
+
       const audio = new Audio(blobUrl);
       playbackRef.current = audio;
-      setPlayingSample(sample.id || ("local-" + sample.sampleIndex));
+      setPlayingSample(sampleId);
       audio.onended = () => {
-        setPlayingSample(null);
+        if (playbackRef.current === audio) {
+          playbackRef.current = null;
+          setPlayingSample(null);
+        }
+        if (shouldRevoke) URL.revokeObjectURL(blobUrl);
+      };
+      audio.onerror = () => {
+        if (playbackRef.current === audio) {
+          playbackRef.current = null;
+          setPlayingSample(null);
+        }
         if (shouldRevoke) URL.revokeObjectURL(blobUrl);
       };
       await audio.play();
     } catch (err) {
-      setPlayingSample(null);
+      if (playbackRef.current) stopPlayback();
       setError(err.message || "Recording playback failed.");
     }
   }
 
   async function playVoicePreview(profile) {
     if (!profile?.id || profile.status !== "ready" || !profile.ttsVoiceId) return;
+    if (previewPlaying === profile.id) {
+      stopPlayback();
+      return;
+    }
+
+    stopPlayback();
     try {
-      playbackRef.current?.pause();
-      setPlayingSample(null);
       setPreviewLoading(profile.id);
       setError("");
 
@@ -447,14 +475,22 @@ export default function VoiceProfilesPage() {
       audio.preload = "auto";
       playbackRef.current = audio;
       setPreviewPlaying(profile.id);
-      audio.onended = () => setPreviewPlaying(null);
+      audio.onended = () => {
+        if (playbackRef.current === audio) {
+          playbackRef.current = null;
+          setPreviewPlaying(null);
+        }
+      };
       audio.onerror = () => {
-        setPreviewPlaying(null);
+        if (playbackRef.current === audio) {
+          playbackRef.current = null;
+          setPreviewPlaying(null);
+        }
         setError("Cloned voice preview could not be played.");
       };
       await audio.play();
     } catch (err) {
-      setPreviewPlaying(null);
+      if (playbackRef.current) stopPlayback();
       setError(err.message || "Failed to generate cloned voice preview.");
     } finally {
       setPreviewLoading(null);
@@ -698,7 +734,7 @@ export default function VoiceProfilesPage() {
                   <div className="voice-profiles-page__profile-actions">
                     {profile.status === "ready" && profile.ttsVoiceId && (
                       <button type="button" className="btn btn-ghost voice-profiles-page__profile-play" onClick={() => void playVoicePreview(profile)} disabled={busy || previewLoading === profile.id} title="Play cloned voice preview">
-                        {previewLoading === profile.id ? "Generating…" : previewPlaying === profile.id ? "Playing…" : "▶ Play"}
+                        {previewLoading === profile.id ? "Generating…" : previewPlaying === profile.id ? "■ Stop" : "▶ Play"}
                       </button>
                     )}
                     <button type="button" className="btn btn-ghost" onClick={() => openProfile(profile)}>Open</button>
