@@ -111,15 +111,23 @@ export default function SetupPanel({ projectId, onComplete }) {
 
         const savedProfileId = data.voiceProfileId || "";
         const savedPresetId = data.voicePresetId || "";
+        const savedProfileReady = readyProfiles.some((profile) => profile.id === savedProfileId);
+        const savedPresetAvailable = presets.some((voice) => voice.id === savedPresetId);
         const defaultProfileId = readyProfiles[0]?.id || "";
         const defaultPresetId = presets[0]?.id || "";
+        const selectedProfileId = savedProfileReady
+          ? savedProfileId
+          : (!savedPresetAvailable && defaultProfileId ? defaultProfileId : "");
+        const selectedPresetId = savedPresetAvailable
+          ? savedPresetId
+          : (!selectedProfileId ? defaultPresetId : "");
         setChoices({
           length: data.suggestions.length.value,
           framework: data.suggestions.framework.value,
           tone: data.suggestions.tone.value,
           audienceLevel: data.suggestions.audience.value,
-          voiceProfileId: savedProfileId || (!savedPresetId && defaultProfileId ? defaultProfileId : ""),
-          voicePresetId: savedPresetId || (!savedProfileId && !defaultProfileId ? defaultPresetId : ""),
+          voiceProfileId: selectedProfileId,
+          voicePresetId: selectedPresetId,
         });
       } catch (err) {
         if (!cancelled) setError(err.message || "Failed to load setup suggestions.");
