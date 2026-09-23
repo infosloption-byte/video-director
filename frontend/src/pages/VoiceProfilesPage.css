@@ -1,0 +1,41 @@
+.voice-profiles-page__main { padding: 40px 0 90px; }
+.voice-profiles-page__hero { margin-bottom: 24px; }
+.voice-profiles-page__hero h1 { margin: 8px 0 10px; }
+.voice-profiles-page__hero p:not(.eyebrow) { max-width: 780px; color: var(--body); line-height: 1.7; }
+.voice-profiles-page__card, .voice-profiles-page__library { border: 1px solid var(--border-soft); border-radius: var(--radius-lg); background: rgba(255,255,255,.012); padding: 24px; margin-bottom: 20px; }
+.voice-profiles-page__card-head, .voice-profiles-page__library-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
+.voice-profiles-page__card-head h2, .voice-profiles-page__library-head h2 { margin: 6px 0; }
+.voice-profiles-page__card-head p { max-width: 680px; color: var(--body); line-height: 1.6; margin: 0; }
+.voice-profiles-page__badge, .voice-profiles-page__library-head > span { font: 11px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.voice-profiles-page__form { display: grid; grid-template-columns: 1fr 300px; gap: 14px; margin: 22px 0 14px; }
+.voice-profiles-page__form label { display: flex; flex-direction: column; gap: 6px; }
+.voice-profiles-page__form label > span, .voice-profiles-page__consent span { font-size: 12px; color: var(--body); }
+.voice-profiles-page__consent { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 20px; color: var(--body); line-height: 1.5; }
+.voice-profiles-page__consent input { margin-top: 3px; }
+.voice-profiles-page__alert, .voice-profiles-page__success { border: 1px solid var(--border-soft); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 16px; line-height: 1.5; }
+.voice-profiles-page__success { border-color: var(--ink-dim); }
+.voice-profiles-page__progress-head { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; color: var(--body); font: 12px var(--font-mono); }
+.voice-profiles-page__progress { height: 8px; border: 1px solid var(--border-soft); border-radius: 999px; overflow: hidden; margin: 8px 0 20px; background: rgba(255,255,255,.025); }
+.voice-profiles-page__progress span { display: block; height: 100%; background: var(--ink); transition: width .25s ease; }
+.voice-profiles-page__samples { display: grid; gap: 10px; }
+.voice-profiles-page__sample { border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 16px; }
+.voice-profiles-page__sample.is-saved { border-color: var(--ink-dim); }
+.voice-profiles-page__sample-head { display: grid; grid-template-columns: 38px minmax(0,1fr); gap: 12px; }
+.voice-profiles-page__sample-index { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--border-soft); border-radius: 50%; font: 11px var(--font-mono); }
+.voice-profiles-page__sample-head strong { display: block; margin-top: 4px; color: var(--ink); line-height: 1.5; }
+.voice-profiles-page__sample-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.voice-profiles-page__sample-meta, .voice-profiles-page__sample-optional { display: block; margin-top: 10px; color: var(--muted); font-size: 11px; }
+.voice-profiles-page__clone-actions, .voice-profiles-page__ready { display: grid; gap: 8px; margin-top: 20px; padding-top: 18px; border-top: 1px dashed var(--border-soft); }
+.voice-profiles-page__clone-actions span, .voice-profiles-page__ready span { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.voice-profiles-page__grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 16px; }
+.voice-profiles-page__profile { border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 16px; }
+.voice-profiles-page__profile-top { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font: 10px var(--font-mono); text-transform: uppercase; }
+.voice-profiles-page__status { letter-spacing: .08em; }
+.voice-profiles-page__status.is-ready { color: var(--ink); }
+.voice-profiles-page__status.is-processing { animation: voice-profile-pulse 1.2s ease-in-out infinite; }
+.voice-profiles-page__profile h3 { margin: 12px 0 4px; }
+.voice-profiles-page__profile p { color: var(--body); margin: 0 0 16px; }
+.voice-profiles-page__profile-actions { display: flex; gap: 8px; }
+.voice-profiles-page__empty { color: var(--muted); }
+@keyframes voice-profile-pulse { 0%,100% { opacity:.45; } 50% { opacity:1; } }
+@media (max-width: 760px) { .voice-profiles-page__main { padding: 24px 0 60px; } .voice-profiles-page__form, .voice-profiles-page__grid { grid-template-columns: 1fr; } .voice-profiles-page__card, .voice-profiles-page__library { padding: 18px; } }
