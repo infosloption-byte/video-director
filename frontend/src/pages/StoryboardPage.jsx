@@ -157,7 +157,7 @@ export default function StoryboardPage() {
     let cancelled = false;
 
     async function loadTtsConfig() {
-      const [voicesResponse, diagnosticsResponse] = await Promise.all([
+      const [voicesResponse, diagnosticsResponse, profilesResponse] = await Promise.all([
         fetch("/api/tts/voices"),
         fetch("/api/tts/diagnostics"),
         fetch("/api/voice-profiles"),
