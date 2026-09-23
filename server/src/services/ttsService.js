@@ -241,7 +241,7 @@ async function generateRemoteNarration(params) {
 export async function synthesizeVoicePreview({ text, engine, voiceId, language = "English" }) {
   const cleanText = String(text || "").trim();
   if (!cleanText) throw new Error("Preview text is required.");
-  if (!voiceId) throw new Error("A saved cloned voice is required for preview.");
+  if (!voiceId) throw new Error("A voice ID is required for preview.");
 
   const payload = await requestSpeech({
     text: cleanText,
