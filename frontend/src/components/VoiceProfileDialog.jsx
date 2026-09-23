@@ -78,7 +78,7 @@ export default function VoiceProfileDialog({
               onClick={() => onPlayPreview?.(profile)}
               disabled={!ready || previewLoading === profile.id}
             >
-              {previewLoading === profile.id ? "Generating preview…" : previewPlaying === profile.id ? "Playing preview…" : "Play cloned voice"}
+              {previewLoading === profile.id ? "Generating preview…" : previewPlaying === profile.id ? "■ Stop preview" : "Play cloned voice"}
             </button>
             {!ready && <span>Finish the guided recordings and create the voice profile to enable this preview.</span>}
           </div>
@@ -101,8 +101,8 @@ export default function VoiceProfileDialog({
                     <strong>Passage {Number(sample.sampleIndex) + 1}</strong>
                     <span>{sample.sizeBytes ? (Math.max(1, Math.round(Number(sample.sizeBytes) / 1024)) + " KB") : "Saved recording"} · Original track</span>
                   </div>
-                  <button type="button" className="btn btn-ghost" onClick={() => onPlaySample?.(sample)} disabled={playingSample === sample.id}>
-                    {playingSample === sample.id ? "Playing…" : "Play"}
+                  <button type="button" className="btn btn-ghost" onClick={() => onPlaySample?.(sample)} aria-pressed={playingSample === sample.id}>
+                    {playingSample === sample.id ? "■ Stop" : "Play"}
                   </button>
                 </div>
               ))}
