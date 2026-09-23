@@ -21,6 +21,7 @@ import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
 import ttsRouter from "./routes/tts.js";
 import voiceProfilesRouter from "./routes/voiceProfiles.js";
+import voicePresetsRouter from "./routes/voicePresets.js";
 import { authOptional, getRequestUserId, requireAuth } from "./middleware/auth.js";
 import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.js";
 import { requireRenderAssetAccess, requireStoredProjectOwner } from "./middleware/storageOwnership.js";
@@ -68,6 +69,7 @@ app.use("/api", (req, res, next) => {
   return next();
 }, ttsRouter);
 app.use("/api/voice-profiles", requireAuth, voiceProfilesRouter);
+app.use("/api/voice-presets", requireAuth, voicePresetsRouter);
 
 app.use("/api/projects", requireAuth, (req, _res, next) => {
   const userId = getRequestUserId(req);
