@@ -66,7 +66,7 @@ export default function SetupPanel({ projectId, onComplete }) {
           framework: data.suggestions.framework.value,
           tone: data.suggestions.tone.value,
           audienceLevel: data.suggestions.audience.value,
-          voiceProfileId: data.project?.voiceProfileId || readyProfiles[0]?.id || "",
+          voiceProfileId: data.voiceProfileId || readyProfiles[0]?.id || "",
         });
       } catch (err) {
         if (!cancelled) setError(err.message || "Failed to load setup suggestions.");
