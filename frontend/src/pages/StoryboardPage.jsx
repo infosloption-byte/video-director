@@ -433,6 +433,7 @@ export default function StoryboardPage() {
                           </select>
                         </label>
 {(ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b") ? (
+                          <>
                           <label>
                             Saved voice profile
                             <select value={ttsVoiceProfileId} onChange={(event) => {
@@ -457,6 +458,7 @@ export default function StoryboardPage() {
                               </select>
                             </label>
                           )}
+                          </>
                         ) : null}
                       </div>
                       {ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b" ? (
