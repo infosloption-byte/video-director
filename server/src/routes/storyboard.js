@@ -108,9 +108,9 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
         projectId: project.id,
         sceneId: scene.id,
         text: scene.spokenText,
-        engine: voiceProfile.preferredEngine,
-        voiceId: voiceProfile.ttsVoiceId,
-        language: voiceProfile.language || project.language || "English",
+        engine: narrationVoice.engine,
+        voiceId: narrationVoice.voiceId,
+        language: narrationVoice.language,
         allowFallback: false,
       });
       await prisma.projectScene.update({
