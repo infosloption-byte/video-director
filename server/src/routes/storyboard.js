@@ -110,6 +110,7 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
         text: scene.spokenText,
         engine: narrationVoice.engine,
         voiceId: narrationVoice.voiceId,
+        voice: narrationVoice.voice,
         language: narrationVoice.language,
         allowFallback: false,
       });
@@ -160,6 +161,7 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
     const { engine, voiceId, voiceProfileId, voicePresetId, language, instruct, speed, allowFallback } = req.body || {};
     let selectedEngine = engine;
     let selectedVoiceId = voiceId;
+    let selectedVoice = null;
     let selectedVoiceProfileId = null;
     let selectedVoicePresetId = null;
 
@@ -176,8 +178,9 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
       const preset = getPredefinedVoice(voicePresetId);
       if (!preset) return res.status(404).json({ error: "Predefined voice not found." });
       selectedEngine = preset.engine;
-      selectedVoiceId = preset.voiceId;
+      selectedVoiceId = null;
       selectedVoicePresetId = preset.id;
+      selectedVoice = preset.voice;
     } else if (!selectedEngine || !selectedVoiceId) {
       if (project.voiceProfileId) {
         const profile = await prisma.voiceProfile.findFirst({
@@ -192,7 +195,8 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
         const preset = getPredefinedVoice(project.voicePresetId);
         if (!preset) return res.status(409).json({ error: "The project's predefined voice is not available." });
         selectedEngine = preset.engine;
-        selectedVoiceId = preset.voiceId;
+        selectedVoiceId = null;
+        selectedVoice = preset.voice;
         selectedVoicePresetId = preset.id;
       } else {
         return res.status(409).json({ error: "Select a narration voice in Setup first." });
@@ -207,6 +211,7 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
         text: scene.spokenText,
         engine: selectedEngine,
         voiceId: selectedVoiceId,
+        voice: selectedVoice,
         language: language || "English",
         instruct,
         speed,
