@@ -23,14 +23,16 @@
 .voice-profiles-page__form { display: grid; grid-template-columns: minmax(0,1fr) minmax(280px,360px); gap: 16px; margin: 24px 0 16px; }
 .voice-profiles-page__field { display: flex; flex-direction: column; gap: 7px; }
 .voice-profiles-page__field > span,
-.voice-profiles-page__consent span > strong { color: var(--muted); font: 9px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
-.voice-profiles-page__field input { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--border-soft); border-radius: 12px; background: linear-gradient(180deg,color-mix(in srgb,var(--card) 96%,var(--bg-raised)),var(--pill-bg)); color: var(--ink); font: 500 13px var(--font-sans); outline: none; transition: border-color .16s ease,box-shadow .16s ease,background .16s ease; box-sizing: border-box; }
+.voice-profiles-page__consent span > strong { color: var(--muted); font: 10px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
+.voice-profiles-page__field input { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--surface-input); color: var(--ink); font: 500 13px var(--font-sans); outline: none; transition: border-color .16s ease,box-shadow .16s ease,background .16s ease; box-sizing: border-box; }
+.voice-profiles-page__field input::placeholder { color: var(--muted); opacity: .78; }
 .voice-profiles-page__field input:hover,
-.voice-profiles-page__field input:focus { border-color: var(--border); background: var(--card-hover); }
-.voice-profiles-page__field input:focus { box-shadow: 0 0 0 3px color-mix(in srgb,var(--accent-green-text) 12%,transparent); }
+.voice-profiles-page__field input:focus { border-color: var(--border); background: var(--surface-input); }
+.voice-profiles-page__field input:focus { box-shadow: 0 0 0 2px color-mix(in srgb,var(--ink) 7%,transparent); }
 .voice-profiles-page__engine-field { min-width: 0; }
-.voice-profiles-page__engine-field .select-menu__trigger { min-height: 48px; border-radius: 12px; }
-.voice-profiles-page__engine-field p { margin: 8px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.voice-profiles-page__engine-field .select-menu__trigger { min-height: 42px; border-radius: var(--radius-md); }
+.voice-profiles-page__engine-field p { margin: 8px 2px 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.voice-profiles-page__engine-field .select-menu__menu { border-radius: var(--radius-md); box-shadow: var(--shadow-soft); }
 
 .voice-profiles-page__consent { display: flex; gap: 12px; align-items: flex-start; margin: 12px 0 20px; padding: 13px 14px; border: 1px solid var(--border-soft); border-radius: 13px; background: color-mix(in srgb,var(--bg) 52%,transparent); color: var(--body); line-height: 1.5; cursor: pointer; transition: border-color .16s ease,background .16s ease; }
 .voice-profiles-page__consent:hover,
@@ -111,7 +113,13 @@
 .voice-profiles-page__status.is-processing { animation: voice-profile-pulse 1.2s ease-in-out infinite; }
 .voice-profiles-page__profile h3 { margin: 13px 0 5px; color: var(--ink); letter-spacing: -0.015em; }
 .voice-profiles-page__profile p { color: var(--body); margin: 0 0 16px; font-size: 12px; }
-.voice-profiles-page__profile-actions { display: flex; gap: 8px; }
+.voice-profiles-page__profile-actions { display: flex; gap: 7px; flex-wrap: wrap; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.voice-profiles-page__profile-actions .btn { min-height: 36px; padding: 8px 11px; font-size: 12px; }
+.voice-profiles-page__profile-play { border-color: var(--ink-dim); color: var(--ink); }
+.voice-profiles-page__profile-play:disabled { opacity: .48; cursor: wait; }
+.voice-profiles-page__status.is-draft { color: var(--muted); }
+.voice-profiles-page__status.is-processing { color: var(--ink-dim); }
+.voice-profiles-page__status.is-failed { color: var(--danger); }
 .voice-profiles-page__empty { color: var(--muted); margin: 18px 0 0; }
 
 @keyframes voice-profile-pulse { 0%,100% { opacity:.45; } 50% { opacity:1; } }
