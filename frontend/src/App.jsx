@@ -7,6 +7,7 @@ import StoryboardPage from "./pages/StoryboardPage";
 import ReviewPage from "./pages/ReviewPage";
 import MyResearchPage from "./pages/MyResearchPage";
 import AccountPage from "./pages/AccountPage";
+import VoiceProfilesPage from "./pages/VoiceProfilesPage";
 import SignInPage from "./pages/SignInPage";
 import SignUpPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -46,6 +47,7 @@ export default function App() {
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
     <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+    <Route path="/voice-profiles" element={<ProtectedRoute><VoiceProfilesPage /></ProtectedRoute>}/>
     <Route path="/research/new" element={<ProtectedRoute><ResearchConversationStartPage /></ProtectedRoute>} />
     <Route path="/research-conversation/:id" element={<ProtectedRoute><ResearchConversationPage /></ProtectedRoute>} />
     <Route path="/research/:id" element={<ProtectedRoute><ResearchPage /></ProtectedRoute>} />
