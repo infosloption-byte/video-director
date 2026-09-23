@@ -38,6 +38,7 @@ function ChoiceRow({ title, reasoning, options, value, onChange, renderOption = 
 
 export default function SetupPanel({ projectId, onComplete }) {
   const [suggestions, setSuggestions] = useState(null);
+  const [voiceProfiles, setVoiceProfiles] = useState([]);
   const [choices, setChoices] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -46,16 +47,26 @@ export default function SetupPanel({ projectId, onComplete }) {
     let cancelled = false;
     async function load() {
       try {
-        const response = await fetch(`/api/projects/${projectId}/setup/suggestions`);
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Failed to load setup suggestions.");
+        const [suggestionsResponse, profilesResponse] = await Promise.all([
+          fetch(`/api/projects/${projectId}/setup/suggestions`),
+          fetch("/api/voice-profiles"),
+        ]);
+        const data = await suggestionsResponse.json().catch(() => ({}));
+        const profilesData = await profilesResponse.json().catch(() => ({}));
+        if (!suggestionsResponse.ok) throw new Error(data.error || "Failed to load setup suggestions.");
+        if (!profilesResponse.ok) throw new Error(profilesData.error || "Failed to load voice profiles.");
         if (cancelled) return;
+        const readyProfiles = Array.isArray(profilesData.profiles)
+          ? profilesData.profiles.filter((profile) => profile.status === "ready" && profile.ttsVoiceId)
+          : [];
         setSuggestions(data.suggestions);
+        setVoiceProfiles(readyProfiles);
         setChoices({
           length: data.suggestions.length.value,
           framework: data.suggestions.framework.value,
           tone: data.suggestions.tone.value,
           audienceLevel: data.suggestions.audience.value,
+          voiceProfileId: data.project?.voiceProfileId || readyProfiles[0]?.id || "",
         });
       } catch (err) {
         if (!cancelled) setError(err.message || "Failed to load setup suggestions.");
@@ -70,6 +81,9 @@ export default function SetupPanel({ projectId, onComplete }) {
     setSaving(true);
     setError("");
     try {
+      if (!choices.voiceProfileId) {
+        throw new Error("Select a saved voice profile before continuing to the storyboard.");
+      }
       const response = await fetch(`/api/projects/${projectId}/setup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -116,6 +130,34 @@ export default function SetupPanel({ projectId, onComplete }) {
       <ChoiceRow title="Script template" reasoning={suggestions.framework.reasoning} options={suggestions.framework.options} value={choices.framework} onChange={(value) => setChoices((current) => ({ ...current, framework: value }))} renderOption={(option) => LABELS[option.key] || option.label} />
       <ChoiceRow title="Tone" reasoning={suggestions.tone.reasoning} options={suggestions.tone.options} value={choices.tone} onChange={(value) => setChoices((current) => ({ ...current, tone: value }))} />
       <ChoiceRow title="Audience" reasoning={suggestions.audience.reasoning} options={suggestions.audience.options} value={choices.audienceLevel} onChange={(value) => setChoices((current) => ({ ...current, audienceLevel: value }))} />
+      <section className="setup-choice setup-choice--voice">
+        <div className="setup-choice__copy">
+          <h3>Narration voice</h3>
+          <p>Select the saved voice profile that will narrate this storyboard. Narration is generated automatically when the storyboard is created.</p>
+        </div>
+        {voiceProfiles.length ? (
+          <div className="setup-voice-grid" role="radiogroup" aria-label="Narration voice">
+            {voiceProfiles.map((profile) => {
+              const selected = choices.voiceProfileId === profile.id;
+              return (
+                <button type="button" role="radio" aria-checked={selected}
+                  className={"setup-voice-card " + (selected ? "is-selected" : "")}
+                  key={profile.id}
+                  onClick={() => setChoices((current) => ({ ...current, voiceProfileId: profile.id }))}>
+                  <span className="setup-voice-card__status">READY</span>
+                  <strong>{profile.name}</strong>
+                  <span>{profile.preferredEngine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"} · {profile.language || "English"}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="setup-voice-empty">
+            <span>No ready voice profiles yet.</span>
+            <a className="btn btn-ghost" href="/voice-profiles">Create a voice profile</a>
+          </div>
+        )}
+      </section>
 
       {suggestions.framework.guardrailApplied && <div className="setup-guardrail"><strong>Monetization guardrail applied.</strong> Helix selected a safer narrative because the research flagged a high-risk issue.</div>}
       {error && <div className="setup-error"><span>{error}</span></div>}
