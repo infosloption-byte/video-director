@@ -6,22 +6,22 @@ import "../components/ui.css";
 import "./VoiceProfilesPage.css";
 
 const FALLBACK_PROMPTS = [
-  "Today we are going to break down a simple idea and show why it matters.",
-  "The most useful way to understand this change is to look at what happens step by step.",
-  "There is a practical reason this works, and the evidence becomes clearer when we slow down and look closely.",
-  "A good explanation does not rush the important part; it gives each sentence enough room to land naturally.",
-  "The goal is not to sound perfect. The goal is to sound like yourself, clearly and consistently.",
-  "Now let us connect the pieces and turn the explanation into something practical and easy to remember."
+  "Thanks for taking a moment to record your voice. In this first passage, speak in your normal everyday style, at a comfortable pace, as though you are explaining something useful to a friend. Keep your voice relaxed and steady. There is no need to perform, whisper, or project more than you normally would. Just read naturally, and leave a brief pause when you reach a full stop.",
+  "Let us add a little more variety to the recording. Imagine you are telling a short story about a busy morning: at 8:15, the first message arrives, the kettle is already warm, and you have three small tasks to finish before nine. Some details are simple, some are specific, and the sentence lengths change. Read the whole passage clearly, keeping your usual tone and pronunciation.",
+  "Now read this passage as if you are presenting a clear idea to another person. Maya noticed that the room sounded different after the window was closed, while Daniel preferred the softer background noise outside. They compared notes, waited for a quiet moment, and then started again. The point is simple: small changes in pace, emphasis, and phrasing should still sound like the same natural speaker.",
+  "For the next take, keep your delivery conversational and let the punctuation guide your rhythm. What happens when a sentence asks a question? What changes when an important phrase needs a little emphasis? Try this naturally: \"That sounds useful, but is it really necessary?\" Then continue without forcing the emotion. A calm explanation, a quick question, and a longer sentence should all remain recognizably in your voice.",
+  "This passage introduces technical words and numbers without asking you to change your speaking style. A reliable system may process 24-hour schedules, 3 separate files, and more than 120 short notes before the final result is ready. Read names, numbers, and ordinary words exactly as written. Focus on clarity, consistent volume, and clean pronunciation, especially at the beginning and end of each sentence.",
+  "This final passage is deliberately varied, so finish with the same relaxed voice you used at the start. Some ideas deserve a little more space; others can move quickly. When the plan is ready, pause, take a breath, and continue: the goal is not perfect acting, but a voice that feels clear, familiar, and consistent from one sentence to the next. Thank you for recording these samples."
 ];
 
 const ENGINE_OPTIONS = [
   { value: "qwen3-tts-0.6b", label: "Qwen3-TTS 0.6B" },
-  { value: "chatterbox-nano", label: "Chatterbox-Nano" },
+  { value: "chatterbox-nano", label: "Chatterbox-Nano" }
 ];
 
 const ENGINE_DESCRIPTIONS = {
-  "qwen3-tts-0.6b": "GPU-powered cloning through the Helix TTS worker.",
-  "chatterbox-nano": "A lightweight alternative for voice profile creation.",
+  "qwen3-tts-0.6b": "GPU-powered cloning on the Helix TTS worker.",
+  "chatterbox-nano": "A lightweight alternative for voice-profile generation."
 };
 
 function chooseMimeType() {
@@ -44,37 +44,44 @@ function formatBytes(value) {
   return bytes < 1024 * 1024 ? Math.round(bytes / 1024) + " KB" : (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-function formatTime(totalSeconds) {
-  const seconds = Math.max(0, Number(totalSeconds || 0));
-  return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
+function formatTime(value) {
+  const total = Math.max(0, Math.floor(Number(value || 0)));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+}
+
+function firstPendingIndex(profile, prompts) {
+  const saved = new Set((profile?.samples || []).map((sample) => Number(sample.sampleIndex)));
+  return prompts.findIndex((_, index) => !saved.has(index));
 }
 
 export default function VoiceProfilesPage() {
   const [profiles, setProfiles] = useState([]);
   const [prompts, setPrompts] = useState(FALLBACK_PROMPTS);
   const [minSamples, setMinSamples] = useState(2);
-  const [maxSamples, setMaxSamples] = useState(8);
+  const [maxSamples, setMaxSamples] = useState(6);
   const [name, setName] = useState("");
   const [engine, setEngine] = useState("qwen3-tts-0.6b");
   const [consent, setConsent] = useState(false);
   const [active, setActive] = useState(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [recordings, setRecordings] = useState({});
-  const [reviewTake, setReviewTake] = useState(null);
+  const [stage, setStage] = useState("setup");
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [draftRecording, setDraftRecording] = useState(null);
   const [playingSample, setPlayingSample] = useState(null);
   const [recording, setRecording] = useState(false);
-  const [recordingIndex, setRecordingIndex] = useState(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [savingSample, setSavingSample] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [sessionFinished, setSessionFinished] = useState(false);
   const recorderRef = useRef(null);
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
-  const discardRecordingRef = useRef(false);
-  const timerRef = useRef(null);
+  const cancelNextStopRef = useRef(false);
+  const recordingStartedAtRef = useRef(0);
+  const recordingTimerRef = useRef(null);
+  const playbackRef = useRef(null);
   const studioRef = useRef(null);
 
   async function loadProfiles() {
@@ -84,8 +91,8 @@ export default function VoiceProfilesPage() {
       if (!response.ok) throw new Error(data.error || "Failed to load voice profiles.");
       setProfiles(data.profiles || []);
       setPrompts(data.prompts?.length ? data.prompts : FALLBACK_PROMPTS);
-      setMinSamples(Math.max(2, Number(data.minSamples || 2)));
-      setMaxSamples(Math.min(8, Number(data.maxSamples || 8)));
+      setMinSamples(Number(data.minSamples || 2));
+      setMaxSamples(Number(data.maxSamples || 6));
     } catch (err) {
       setError(err.message || "Failed to load voice profiles.");
     }
@@ -94,8 +101,10 @@ export default function VoiceProfilesPage() {
   useEffect(() => {
     void loadProfiles();
     return () => {
-      stopStream();
-      if (timerRef.current) window.clearInterval(timerRef.current);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      window.clearInterval(recordingTimerRef.current);
+      if (draftRecording?.url) URL.revokeObjectURL(draftRecording.url);
+      playbackRef.current?.pause();
     };
   }, []);
 
@@ -105,45 +114,21 @@ export default function VoiceProfilesPage() {
       studioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
     return () => window.clearTimeout(timer);
-  }, [active?.id]);
-
-  useEffect(() => {
-    if (!recording) {
-      if (timerRef.current) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return undefined;
-    }
-    const started = Date.now();
-    timerRef.current = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - started) / 1000));
-    }, 250);
-    return () => {
-      if (timerRef.current) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [recording]);
+  }, [active?.id, stage]);
 
   function stopStream() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
   }
 
-  function firstAvailableStep(profile = active) {
-    const used = new Set((profile?.samples || []).map((sample) => sample.sampleIndex));
-    return Array.from({ length: Math.min(prompts.length, maxSamples) }, (_, index) => index).find((index) => !used.has(index)) ?? 0;
+  function clearRecordingTimer() {
+    window.clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = null;
   }
 
-  function enterProfile(profile) {
-    setActive(profile);
-    setCurrentStep(firstAvailableStep(profile));
-    setReviewTake(null);
-    setSessionFinished(false);
-    setError("");
-    setMessage("");
+  function releaseDraftRecording() {
+    if (draftRecording?.url) URL.revokeObjectURL(draftRecording.url);
+    setDraftRecording(null);
   }
 
   async function createProfile() {
@@ -151,14 +136,13 @@ export default function VoiceProfilesPage() {
     setError("");
     setMessage("");
     if (!trimmedName) {
-      setError("Enter a name for this voice profile.");
+      setError("Give your voice profile a name before creating the recording session.");
       return;
     }
     if (!consent) {
       setError("Confirm that these recordings are your voice or that you have permission to use them.");
       return;
     }
-
     setBusy(true);
     try {
       const response = await fetch("/api/voice-profiles", {
@@ -169,14 +153,13 @@ export default function VoiceProfilesPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to create voice profile.");
+      setActive(data);
       setProfiles((current) => [data, ...current]);
       setName("");
       setConsent(false);
-      setActive(data);
-      setCurrentStep(0);
-      setReviewTake(null);
-      setSessionFinished(false);
-      setMessage("Session ready. Read the sentence below in your natural voice.");
+      setCurrentIndex(0);
+      setStage("recording");
+      setMessage("Session ready. Read the passage below in your normal voice.");
     } catch (err) {
       setError(err.message || "Failed to create voice profile.");
     } finally {
@@ -185,7 +168,7 @@ export default function VoiceProfilesPage() {
   }
 
   async function saveRecording(sampleIndex, blob, mimeType) {
-    if (!active) return;
+    if (!active) return null;
     setSavingSample(sampleIndex);
     setError("");
     setMessage("");
@@ -207,20 +190,19 @@ export default function VoiceProfilesPage() {
       if (!response.ok) throw new Error(data.error || "Failed to save recording.");
       setActive(data.profile);
       setProfiles((current) => current.map((profile) => profile.id === data.profile.id ? data.profile : profile));
-      setReviewTake({ sampleIndex, blob, url: URL.createObjectURL(blob), mimeType });
-      setMessage("Take saved. Listen back, retake it, or continue to the next sentence.");
+      return data.profile;
     } catch (err) {
       setError(err.message || "Failed to save recording.");
+      return null;
     } finally {
       setSavingSample(null);
     }
   }
 
-  async function startRecording(index = currentStep) {
-    if (recording || savingSample !== null || busy || sessionFinished) return;
+  async function startRecording() {
+    if (recording || savingSample !== null || !active || stage !== "recording") return;
     setError("");
     setMessage("");
-    setReviewTake(null);
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("This browser does not support microphone recording. Use a current Chrome or Edge browser.");
       return;
@@ -228,174 +210,214 @@ export default function VoiceProfilesPage() {
     try {
       const mimeType = chooseMimeType();
       if (!mimeType) throw new Error("No supported audio recording format was found.");
+      releaseDraftRecording();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
       streamRef.current = stream;
       chunksRef.current = [];
-      discardRecordingRef.current = false;
+      cancelNextStopRef.current = false;
+      recordingStartedAtRef.current = Date.now();
+      setRecordingSeconds(0);
       const recorder = new MediaRecorder(stream, { mimeType });
       recorderRef.current = recorder;
-      recorder.onerror = () => {
-        setRecording(false);
-        setRecordingIndex(null);
-        setError("Microphone recording failed.");
-      };
       recorder.ondataavailable = (event) => {
         if (event.data.size) chunksRef.current.push(event.data);
       };
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        const discard = discardRecordingRef.current;
+      recorder.onerror = () => {
+        clearRecordingTimer();
         stopStream();
         setRecording(false);
-        setRecordingIndex(null);
-        setElapsedSeconds(0);
-        chunksRef.current = [];
-        if (!discard && blob.size > 0) {
-          setRecordings((current) => ({ ...current, [index]: { blob, url: URL.createObjectURL(blob), mimeType } }));
-          void saveRecording(index, blob, mimeType);
-        } else if (discard) {
-          setMessage("Take cancelled. Nothing was saved.");
-        }
+        setError("Microphone recording failed.");
       };
-      setElapsedSeconds(0);
-      recorder.start(200);
+      recorder.onstop = () => {
+        clearRecordingTimer();
+        stopStream();
+        setRecording(false);
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        chunksRef.current = [];
+        if (cancelNextStopRef.current) {
+          cancelNextStopRef.current = false;
+          return;
+        }
+        if (!blob.size) {
+          setError("No audio was captured. Please try recording again.");
+          return;
+        }
+        setDraftRecording({
+          blob,
+          url: URL.createObjectURL(blob),
+          mimeType,
+          durationSeconds: Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+        });
+        setMessage("Take recorded. Listen once, then keep it or retake it.");
+      };
+      recorder.start(250);
       setRecording(true);
-      setRecordingIndex(index);
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingSeconds(Math.max(0, Math.floor((Date.now() - recordingStartedAtRef.current) / 1000)));
+      }, 250);
     } catch (err) {
+      clearRecordingTimer();
       stopStream();
       setRecording(false);
-      setRecordingIndex(null);
       setError(err.message || "Microphone access failed.");
     }
   }
 
-  function stopAndSave() {
-    discardRecordingRef.current = false;
-    if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+  function stopRecording() {
+    if (!recorderRef.current || recorderRef.current.state === "inactive") return;
+    recorderRef.current.stop();
   }
 
-  function cancelTake() {
-    discardRecordingRef.current = true;
-    if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
-    else {
-      stopStream();
-      setRecording(false);
-      setRecordingIndex(null);
+  function cancelCurrentTake() {
+    if (!recorderRef.current || recorderRef.current.state === "inactive") return;
+    cancelNextStopRef.current = true;
+    recorderRef.current.stop();
+    setMessage("Take cancelled. Nothing was saved.");
+  }
+
+  async function keepDraftAndContinue() {
+    if (!draftRecording || savingSample !== null || !active) return;
+    const savedProfile = await saveRecording(currentIndex, draftRecording.blob, draftRecording.mimeType);
+    if (!savedProfile) return;
+    releaseDraftRecording();
+    const nextIndex = currentIndex + 1;
+    if (nextIndex >= prompts.length || nextIndex >= maxSamples) {
+      setStage("review");
+      setMessage("All guided passages are complete. Review your tracks before cloning.");
+      return;
     }
+    setCurrentIndex(nextIndex);
+    setStage("recording");
+    setMessage("Good. Next passage is ready.");
   }
 
-  async function playRecording(item, id) {
-    if (!item?.url && !item?.audioUrl) return;
+  function retakeCurrent() {
+    releaseDraftRecording();
+    setMessage("Retake the current passage when you're ready.");
+    setError("");
+  }
+
+  function skipCurrent() {
+    const savedCount = Number(active?.sampleCount || 0);
+    if (savedCount < minSamples) {
+      setError("Complete at least " + minSamples + " recordings before skipping a passage.");
+      return;
+    }
+    releaseDraftRecording();
+    const nextIndex = currentIndex + 1;
+    if (nextIndex >= prompts.length || nextIndex >= maxSamples) {
+      setStage("review");
+      setMessage("Recording session finished. Review your tracks before cloning.");
+      return;
+    }
+    setCurrentIndex(nextIndex);
+    setMessage("Passage skipped. The next one is ready.");
+  }
+
+  function finishRecording() {
+    if (recording || savingSample !== null || !active) return;
+    if (Number(active.sampleCount || 0) < minSamples) {
+      setError("Complete at least " + minSamples + " recordings before finishing.");
+      return;
+    }
+    if (draftRecording) return;
+    setStage("review");
+    setMessage("Review your recordings before creating the clone.");
+  }
+
+  function openProfile(profile) {
+    setActive(profile);
+    const pending = firstPendingIndex(profile, prompts);
+    if (profile.status === "ready" || pending < 0) {
+      setStage("review");
+      setCurrentIndex(Math.max(0, prompts.length - 1));
+    } else {
+      setCurrentIndex(pending);
+      setStage("recording");
+    }
+    setMessage("");
+    setError("");
+  }
+
+  function reviewAgain(index) {
+    releaseDraftRecording();
+    setCurrentIndex(index);
+    setStage("recording");
+    setMessage("Retake passage " + (index + 1) + " to replace the saved track.");
+    setError("");
+  }
+
+  async function playSample(sample) {
     try {
-      let blobUrl = item.url;
+      playbackRef.current?.pause();
+      let blobUrl = null;
       let shouldRevoke = false;
-      if (!blobUrl && item.audioUrl) {
-        const response = await fetch(item.audioUrl, { credentials: "include" });
+      if (sample.audioUrl) {
+        const response = await fetch(sample.audioUrl, { credentials: "include" });
         if (!response.ok) throw new Error("Recording could not be loaded.");
         blobUrl = URL.createObjectURL(await response.blob());
         shouldRevoke = true;
+      } else if (draftRecording) {
+        blobUrl = draftRecording.url;
       }
-      setPlayingSample(id);
+      if (!blobUrl) return;
       const audio = new Audio(blobUrl);
+      playbackRef.current = audio;
+      setPlayingSample(sample.id || ("local-" + sample.sampleIndex));
       audio.onended = () => {
         setPlayingSample(null);
         if (shouldRevoke) URL.revokeObjectURL(blobUrl);
       };
       await audio.play();
     } catch (err) {
-      setError(err.message || "Recording playback failed.");
       setPlayingSample(null);
+      setError(err.message || "Recording playback failed.");
     }
-  }
-
-  function retake() {
-    setReviewTake(null);
-    void startRecording(currentStep);
-  }
-
-  function nextStep() {
-    const step = currentStep + 1;
-    if (step >= Math.min(prompts.length, maxSamples)) {
-      setSessionFinished(true);
-      return;
-    }
-    setCurrentStep(step);
-    setReviewTake(null);
-    setMessage("");
-    setError("");
-  }
-
-  function skipStep() {
-    if (currentStep < minSamples && Number(active?.sampleCount || 0) < minSamples) {
-      setError("Record at least " + minSamples + " clean takes before skipping ahead.");
-      return;
-    }
-    nextStep();
-  }
-
-  function finishSession() {
-    if (Number(active?.sampleCount || 0) < minSamples) {
-      setError("Save at least " + minSamples + " recordings before finishing the session.");
-      return;
-    }
-    setSessionFinished(true);
-    setReviewTake(null);
-    setError("");
-    setMessage("");
-  }
-
-  function exitSession() {
-    stopStream();
-    setRecording(false);
-    setRecordingIndex(null);
-    setReviewTake(null);
-    setSessionFinished(false);
-    setActive(null);
-    setMessage("Recording session saved. You can reopen the draft profile from your library.");
   }
 
   async function cloneProfile() {
     if (!active || Number(active.sampleCount || 0) < minSamples || busy) return;
     setBusy(true);
     setError("");
-    setMessage("Cleaning the saved takes, combining them, and creating your voice…");
+    setMessage("Cleaning and combining your recordings, then creating the cloned voice…");
     try {
       const response = await fetch("/api/voice-profiles/" + active.id + "/clone", {
         method: "POST",
         credentials: "include"
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to create voice profile.");
+      if (!response.ok) throw new Error(data.error || "Failed to create voice clone.");
       setActive(data.profile);
       setProfiles((current) => current.map((profile) => profile.id === data.profile.id ? data.profile : profile));
-      setSessionFinished(false);
-      setMessage("Voice profile complete. It is now ready to use in Storyboard narration.");
+      setStage("review");
+      setMessage("Voice profile is ready and can now be used for narration.");
     } catch (err) {
-      setError(err.message || "Failed to create voice profile.");
+      setError(err.message || "Failed to create voice clone.");
       await loadProfiles();
     } finally {
       setBusy(false);
     }
   }
 
-  async function deleteProfile(profile) {
-    if (!window.confirm("Delete " + profile.name + " and all stored recordings?")) return;
+  async function deleteProfile(profile, requireConfirm = true) {
+    if (requireConfirm && !window.confirm("Delete " + profile.name + " and its stored recordings?")) return;
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      const response = await fetch("/api/voice-profiles/" + profile.id, {
-        method: "DELETE",
-        credentials: "include"
-      });
+      const response = await fetch("/api/voice-profiles/" + profile.id, { method: "DELETE", credentials: "include" });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Failed to delete voice profile.");
       }
+      if (active?.id === profile.id) {
+        setActive(null);
+        setStage("setup");
+        releaseDraftRecording();
+      }
       setProfiles((current) => current.filter((item) => item.id !== profile.id));
-      if (active?.id === profile.id) setActive(null);
       setMessage("Voice profile deleted.");
     } catch (err) {
       setError(err.message || "Failed to delete voice profile.");
@@ -404,14 +426,24 @@ export default function VoiceProfilesPage() {
     }
   }
 
+  function leaveSession() {
+    if (recording) {
+      cancelCurrentTake();
+      return;
+    }
+    releaseDraftRecording();
+    setActive(null);
+    setStage("setup");
+    setMessage("");
+    setError("");
+  }
+
   const savedCount = Number(active?.sampleCount || 0);
-  const stepCount = Math.min(prompts.length, maxSamples);
   const ready = active?.status === "ready";
-  const currentPrompt = prompts[currentStep] || "";
-  const currentSaved = active?.samples?.find((sample) => sample.sampleIndex === currentStep);
-  const canSkip = currentStep >= minSamples || savedCount >= minSamples;
-  const canFinish = savedCount >= minSamples;
-  const stepsCompleted = active ? Math.min(stepCount, currentStep + (currentSaved ? 1 : 0)) : 0;
+  const currentPrompt = prompts[currentIndex] || FALLBACK_PROMPTS[0];
+  const studioProgress = stage === "review" ? 100 : Math.min(100, Math.round(((currentIndex + 1) / Math.max(maxSamples, 1)) * 100));
+  const hasCurrentSaved = Boolean(active?.samples?.some((sample) => Number(sample.sampleIndex) === currentIndex));
+  const canSkip = savedCount >= minSamples;
 
   return (
     <div className="hx-page voice-profiles-page">
@@ -421,12 +453,11 @@ export default function VoiceProfilesPage() {
           <div className="voice-profiles-page__hero-copy">
             <p className="eyebrow">Voice Profiles</p>
             <h1>Create your narrator voice.</h1>
-            <p>Record a few short sentences in your natural voice. Helix keeps the individual takes, cleans them during cloning, and turns them into one reusable narrator profile.</p>
+            <p>Record a few guided passages one at a time. Helix keeps the original tracks, prepares a clean reference, and saves the finished clone as a reusable voice profile.</p>
           </div>
-          <div className="voice-profiles-page__hero-steps" aria-label="Voice profile workflow">
-            <span><b>01</b> Record</span>
-            <span><b>02</b> Review</span>
-            <span><b>03</b> Create voice</span>
+          <div className="voice-profiles-page__hero-note">
+            <strong>{minSamples} recordings minimum</strong>
+            <span>More passages are optional.</span>
           </div>
         </section>
 
@@ -436,12 +467,8 @@ export default function VoiceProfilesPage() {
         {!active ? (
           <section className="voice-profiles-page__card voice-profiles-page__setup">
             <div className="voice-profiles-page__card-head">
-              <div>
-                <span className="eyebrow">Start a session</span>
-                <h2>One sentence at a time.</h2>
-                <p>We will guide you through the prompts one by one. The first {minSamples} good takes are required; the remaining prompts are optional.</p>
-              </div>
-              <span className="voice-profiles-page__badge">{minSamples} minimum · {stepCount} prompts</span>
+              <div><span className="eyebrow">New voice</span><h2>Start a guided recording.</h2><p>You will see one passage at a time. Record it, listen back, then keep it or retake it.</p></div>
+              <span className="voice-profiles-page__badge">2–6 passages</span>
             </div>
 
             <div className="voice-profiles-page__form">
@@ -464,150 +491,108 @@ export default function VoiceProfilesPage() {
               <button type="button" className="btn btn-cream voice-profiles-page__create-button" onClick={createProfile} disabled={busy}>
                 {busy ? "Creating session…" : "Start recording"} <span aria-hidden="true">→</span>
               </button>
-              <span>2 required takes · optional extra takes for a stronger reference</span>
-            </div>
-          </section>
-        ) : ready ? (
-          <section ref={studioRef} className="voice-profiles-page__card voice-profiles-page__complete">
-            <div className="voice-profiles-page__complete-icon" aria-hidden="true">✓</div>
-            <p className="eyebrow">Voice profile ready</p>
-            <h2>{active.name}</h2>
-            <p>Your cloned voice is ready for narration. You can select this profile from Storyboard → Narration.</p>
-            <div className="voice-profiles-page__complete-meta">
-              <span>{savedCount} recordings kept</span>
-              <span>{engine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"}</span>
-            </div>
-            <div className="voice-profiles-page__complete-actions">
-              <button type="button" className="btn btn-ghost" onClick={exitSession}>Back to voice profiles</button>
+              <span>One passage at a time · you can stop or retake any take.</span>
             </div>
           </section>
         ) : (
           <section ref={studioRef} className="voice-profiles-page__card voice-profiles-page__studio">
-            <div className="voice-profiles-page__studio-top">
+            <div className="voice-profiles-page__studio-header">
               <div>
-                <span className="eyebrow">Recording session</span>
+                <span className="eyebrow">{ready ? "Voice profile ready" : stage === "review" ? "Review recordings" : "Recording studio"}</span>
                 <h2>{active.name}</h2>
-                <p>{savedCount} of {stepCount} takes saved · {minSamples} required</p>
+                <p>{ready ? "This cloned voice is ready for Storyboard narration." : "Speak naturally. Keep the microphone in the same position for every passage."}</p>
               </div>
-              <button type="button" className="btn btn-ghost" onClick={exitSession} disabled={recording || savingSample !== null || busy}>Exit session</button>
+              <button type="button" className="btn btn-ghost" onClick={leaveSession} disabled={busy}>{recording ? "Cancel take" : "Leave session"}</button>
             </div>
 
-            <div className="voice-profiles-page__stepbar">
-              <div className="voice-profiles-page__stepbar-copy">
-                <span>Step {Math.min(currentStep + 1, stepCount)} of {stepCount}</span>
-                <strong>{savedCount} saved</strong>
+            <div className="voice-profiles-page__studio-summary">
+              <div className="voice-profiles-page__studio-progress">
+                <div className="voice-profiles-page__progress-label"><span>{stage === "review" ? "Recording complete" : "Passage " + Math.min(currentIndex + 1, maxSamples) + " of " + maxSamples}</span><strong>{savedCount} saved</strong></div>
+                <div className="voice-profiles-page__progress"><span style={{ width: studioProgress + "%" }} /></div>
               </div>
-              <div className="voice-profiles-page__stepbar-track">
-                <span style={{ width: ((Math.min(currentStep + 1, stepCount) / Math.max(stepCount, 1)) * 100) + "%" }} />
-              </div>
+              <span className="voice-profiles-page__studio-engine">{engine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"}</span>
             </div>
 
-            {!sessionFinished ? (
-              <>
-                <div className={"voice-profiles-page__prompt-card " + (recording ? "is-recording" : "")}>
-                  <div className="voice-profiles-page__prompt-top">
-                    <span className="voice-profiles-page__prompt-number">{String(currentStep + 1).padStart(2, "0")}</span>
-                    <span className="voice-profiles-page__prompt-tag">{currentStep < minSamples ? "Required" : "Optional"}</span>
-                  </div>
-                  <p className="mono-label">Read this naturally</p>
-                  <blockquote>“{currentPrompt}”</blockquote>
-                  <p className="voice-profiles-page__prompt-tip">Speak at your normal pace. Keep the microphone close and avoid changing your voice between takes.</p>
-
-                  <div className="voice-profiles-page__record-state">
-                    <span className={"voice-profiles-page__record-dot " + (recording ? "is-live" : "")} aria-hidden="true" />
-                    <strong>{recording ? formatTime(elapsedSeconds) : savingSample !== null ? "Saving take…" : currentSaved ? "Take saved" : "Ready to record"}</strong>
-                    {recording && <span>Speak the sentence above, then stop.</span>}
-                  </div>
-
-                  {!recording && !savingSample && !reviewTake && (
-                    <div className="voice-profiles-page__prompt-actions">
-                      <button type="button" className="btn btn-cream voice-profiles-page__record-button" onClick={() => startRecording(currentStep)} disabled={busy}>● Record this sentence</button>
-                      {currentSaved && <button type="button" className="btn btn-ghost" onClick={() => playRecording(currentSaved, currentSaved.id)} disabled={playingSample !== null}>{playingSample === currentSaved.id ? "Playing…" : "Play saved take"}</button>}
-                    </div>
-                  )}
-
-                  {recording && (
-                    <div className="voice-profiles-page__recording-actions">
-                      <button type="button" className="btn btn-cream voice-profiles-page__record-button" onClick={stopAndSave}>Stop &amp; keep take</button>
-                      <button type="button" className="btn btn-danger-soft" onClick={cancelTake}>Cancel take</button>
-                    </div>
-                  )}
-
-                  {savingSample !== null && <div className="voice-profiles-page__saving-note">Uploading this take securely…</div>}
-
-                  {reviewTake && savingSample === null && (
-                    <div className="voice-profiles-page__review">
-                      <div className="voice-profiles-page__review-copy">
-                        <span className="mono-label">Take {currentStep + 1} saved</span>
-                        <strong>How does it sound?</strong>
-                        <span>{formatBytes(reviewTake.blob.size)} · ready for the next step</span>
-                      </div>
-                      <div className="voice-profiles-page__review-actions">
-                        <button type="button" className="btn btn-ghost" onClick={() => playRecording(reviewTake, "review-" + reviewTake.sampleIndex)} disabled={playingSample !== null}>
-                          {playingSample === "review-" + reviewTake.sampleIndex ? "Playing…" : "Play take"}
-                        </button>
-                        <button type="button" className="btn btn-ghost" onClick={retake} disabled={busy}>Retake</button>
-                        <button type="button" className="btn btn-cream" onClick={nextStep}>Continue →</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="voice-profiles-page__studio-footer">
-                  <button type="button" className="voice-profiles-page__text-button" onClick={skipStep} disabled={!canSkip || recording || savingSample !== null || busy}>Skip this sentence</button>
-                  <button type="button" className="btn btn-ghost" onClick={finishSession} disabled={!canFinish || recording || savingSample !== null || busy}>Finish &amp; review takes</button>
-                </div>
-              </>
-            ) : (
-              <div className="voice-profiles-page__final-review">
-                <div className="voice-profiles-page__final-review-head">
+            {!ready && stage === "recording" && (
+              <div className="voice-profiles-page__take">
+                <div className="voice-profiles-page__take-top">
                   <div>
-                    <span className="eyebrow">Ready to create</span>
-                    <h3>{savedCount} recording{savedCount === 1 ? "" : "s"} saved</h3>
-                    <p>These takes will be cleaned, combined, and used to create your reusable voice profile.</p>
+                    <span className="mono-label">READ THIS ALOUD</span>
+                    <p>{currentPrompt}</p>
                   </div>
-                  <span className="voice-profiles-page__ready-badge">{savedCount} takes</span>
+                  <span className="voice-profiles-page__take-number">{String(currentIndex + 1).padStart(2, "0")}</span>
                 </div>
-                <div className="voice-profiles-page__take-list">
-                  {active.samples?.map((sample) => (
-                    <div key={sample.id} className="voice-profiles-page__take-item">
-                      <span className="voice-profiles-page__take-index">{String(sample.sampleIndex + 1).padStart(2, "0")}</span>
-                      <div><strong>{sample.promptText}</strong><span>{formatBytes(sample.sizeBytes)} · saved</span></div>
-                      <button type="button" className="btn btn-ghost" onClick={() => playRecording(sample, sample.id)} disabled={playingSample !== null}>{playingSample === sample.id ? "Playing…" : "Play"}</button>
+
+                <div className={"voice-profiles-page__recorder " + (recording ? "is-recording" : draftRecording ? "has-take" : "")}>
+                  <div className="voice-profiles-page__recorder-status">
+                    <span className="voice-profiles-page__recorder-dot" aria-hidden="true" />
+                    <strong>{recording ? "Recording" : draftRecording ? "Take ready" : hasCurrentSaved ? "Saved take" : "Ready to record"}</strong>
+                    <span>{recording ? formatTime(recordingSeconds) : draftRecording ? formatTime(draftRecording.durationSeconds) : "Speak at your normal pace"}</span>
+                  </div>
+
+                  {draftRecording && <audio className="voice-profiles-page__native-audio" controls src={draftRecording.url} aria-label={"Preview of passage " + (currentIndex + 1)} />}
+
+                  <div className="voice-profiles-page__recorder-actions">
+                    {!recording && !draftRecording && <button type="button" className="btn btn-cream voice-profiles-page__primary-record" onClick={startRecording} disabled={savingSample !== null || busy}><span className="voice-profiles-page__mic-dot" aria-hidden="true">●</span> Record passage</button>}
+                    {recording && <><button type="button" className="btn btn-cream voice-profiles-page__primary-record" onClick={stopRecording}>Stop recording</button><button type="button" className="btn btn-ghost" onClick={cancelCurrentTake}>Cancel take</button></>}
+                    {draftRecording && <><button type="button" className="btn btn-cream" onClick={keepDraftAndContinue} disabled={savingSample !== null}>{savingSample !== null ? "Saving…" : currentIndex + 1 >= maxSamples ? "Keep & review" : "Keep & next passage →"}</button><button type="button" className="btn btn-ghost" onClick={retakeCurrent} disabled={savingSample !== null}>Retake</button></>}
+                  </div>
+                </div>
+
+                <div className="voice-profiles-page__take-footer">
+                  <span>{hasCurrentSaved ? "A saved track already exists for this passage. Recording again replaces it." : "Clean, consistent audio matters more than acting or perfect delivery."}</span>
+                  <div>
+                    {canSkip && <button type="button" className="btn btn-link" onClick={skipCurrent} disabled={recording || draftRecording || savingSample !== null || busy}>Skip passage</button>}
+                    {canSkip && !draftRecording && <button type="button" className="btn btn-link" onClick={finishRecording} disabled={recording || savingSample !== null || busy}>Finish &amp; review</button>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!ready && stage === "review" && (
+              <div className="voice-profiles-page__review">
+                <div className="voice-profiles-page__review-head">
+                  <div><span className="mono-label">YOUR RECORDING TRACKS</span><h3>Review before cloning.</h3><p>{savedCount} tracks will be cleaned, combined, and sent to the selected cloning engine.</p></div>
+                  {canSkip && <span className="voice-profiles-page__review-count">{savedCount} saved</span>}
+                </div>
+                <div className="voice-profiles-page__track-list">
+                  {(active.samples || []).map((sample) => (
+                    <div className="voice-profiles-page__track" key={sample.id}>
+                      <span className="voice-profiles-page__track-index">{String(Number(sample.sampleIndex) + 1).padStart(2, "0")}</span>
+                      <div className="voice-profiles-page__track-copy"><strong>Passage {Number(sample.sampleIndex) + 1}</strong><span>{formatBytes(sample.sizeBytes)} · Saved track</span></div>
+                      <button type="button" className="btn btn-ghost" onClick={() => playSample(sample)} disabled={busy}>{playingSample === sample.id ? "Playing…" : "Play"}</button>
+                      <button type="button" className="btn btn-ghost" onClick={() => reviewAgain(Number(sample.sampleIndex))} disabled={busy}>Retake</button>
                     </div>
                   ))}
                 </div>
-                <div className="voice-profiles-page__final-actions">
-                  <button type="button" className="btn btn-ghost" onClick={() => { setSessionFinished(false); setCurrentStep(firstAvailableStep()); setReviewTake(null); }}>Add another take</button>
-                  <button type="button" className="btn btn-cream" onClick={cloneProfile} disabled={busy || !canFinish}>{busy ? "Creating voice…" : "Create voice profile"} <span aria-hidden="true">→</span></button>
+                <div className="voice-profiles-page__review-actions">
+                  <button type="button" className="btn btn-cream" onClick={cloneProfile} disabled={busy || savedCount < minSamples}>
+                    {busy ? "Creating voice profile…" : "Clean tracks & create voice profile"} <span aria-hidden="true">→</span>
+                  </button>
+                  <span>Original recordings stay saved with this profile. Only the prepared reference is temporary during cloning.</span>
                 </div>
-                <p className="voice-profiles-page__final-note">Helix keeps the individual recordings in this profile for future re-processing. The clone is generated from the saved takes above.</p>
+              </div>
+            )}
+
+            {ready && (
+              <div className="voice-profiles-page__ready-panel">
+                <div className="voice-profiles-page__ready-icon">✓</div>
+                <div><strong>Ready for narration.</strong><span>Open a project storyboard and select <b>{active.name}</b> under Narration → Saved voice profile.</span></div>
               </div>
             )}
           </section>
         )}
 
         <section className="voice-profiles-page__library">
-          <div className="voice-profiles-page__library-head">
-            <div><p className="eyebrow">Your library</p><h2>Saved voice profiles</h2></div>
-            <span>{profiles.length} profile{profiles.length === 1 ? "" : "s"}</span>
-          </div>
-          {!profiles.length ? (
-            <p className="voice-profiles-page__empty">No voice profiles yet.</p>
-          ) : (
+          <div className="voice-profiles-page__library-head"><div><p className="eyebrow">Your library</p><h2>Saved voice profiles</h2></div><span>{profiles.length} profile{profiles.length === 1 ? "" : "s"}</span></div>
+          {!profiles.length ? <p className="voice-profiles-page__empty">No voice profiles yet. Start one above.</p> : (
             <div className="voice-profiles-page__grid">
               {profiles.map((profile) => (
                 <article key={profile.id} className="voice-profiles-page__profile">
-                  <div className="voice-profiles-page__profile-top">
-                    <span className={"voice-profiles-page__status is-" + profile.status}>{profile.status}</span>
-                    <span>{profile.sampleCount} takes</span>
-                  </div>
+                  <div className="voice-profiles-page__profile-top"><span className={"voice-profiles-page__status is-" + profile.status}>{profile.status}</span><span>{profile.sampleCount} samples</span></div>
                   <h3>{profile.name}</h3>
                   <p>{profile.preferredEngine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"} · {profile.language}</p>
-                  <div className="voice-profiles-page__profile-actions">
-                    <button type="button" className="btn btn-ghost" onClick={() => enterProfile(profile)} disabled={busy}>Open</button>
-                    <button type="button" className="btn btn-ghost" onClick={() => deleteProfile(profile)} disabled={busy}>Delete</button>
-                  </div>
+                  <div className="voice-profiles-page__profile-actions"><button type="button" className="btn btn-ghost" onClick={() => openProfile(profile)}>Open</button><button type="button" className="btn btn-ghost" onClick={() => deleteProfile(profile)} disabled={busy}>Delete</button></div>
                 </article>
               ))}
             </div>
