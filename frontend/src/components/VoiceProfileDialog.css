@@ -1,0 +1,29 @@
+.voice-profile-dialog { width: min(760px, calc(100vw - 32px)); max-width: 760px; padding: 0; border: 1px solid var(--border); border-radius: 20px; background: transparent; color: var(--ink); box-shadow: var(--shadow-soft); }
+.voice-profile-dialog::backdrop { background: rgba(0, 0, 0, .68); backdrop-filter: blur(7px); }
+.voice-profile-dialog__surface { max-height: min(82vh, 760px); overflow: auto; padding: 26px; background: var(--bg-raised); border-radius: 20px; }
+.voice-profile-dialog__header, .voice-profile-dialog__section-head, .voice-profile-dialog__footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.voice-profile-dialog__header { padding-bottom: 20px; border-bottom: 1px solid var(--border-soft); }
+.voice-profile-dialog__header h2 { margin: 6px 0 5px; color: var(--ink); font: 500 clamp(27px, 4vw, 38px)/1.05 var(--font-serif); letter-spacing: -.025em; }
+.voice-profile-dialog__header p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.voice-profile-dialog__close { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; border: 1px solid var(--border-soft); border-radius: 50%; background: var(--pill-bg); color: var(--ink); font: 400 23px/1 var(--font-sans); cursor: pointer; }
+.voice-profile-dialog__close:hover { border-color: var(--border); background: var(--card-hover); }
+.voice-profile-dialog__preview, .voice-profile-dialog__tracks { margin-top: 18px; padding: 18px; border: 1px solid var(--border-soft); border-radius: 15px; background: var(--surface-soft); }
+.voice-profile-dialog__section-head { align-items: center; }
+.voice-profile-dialog__section-head h3 { margin: 6px 0 0; color: var(--ink); font: 500 20px/1.15 var(--font-serif); }
+.voice-profile-dialog__state, .voice-profile-dialog__count { flex: 0 0 auto; padding: 7px 9px; border: 1px solid var(--border-soft); border-radius: 999px; color: var(--muted); font: 9px var(--font-mono); text-transform: uppercase; letter-spacing: .07em; }
+.voice-profile-dialog__state.is-ready { border-color: var(--ink-dim); color: var(--ink-dim); }
+.voice-profile-dialog__sample-text { margin: 17px 0 0; padding: 15px 16px; border-left: 2px solid var(--ink-dim); color: var(--body); background: color-mix(in srgb,var(--bg) 45%,transparent); font: 500 14px/1.65 var(--font-serif); }
+.voice-profile-dialog__preview-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 15px; }
+.voice-profile-dialog__preview-actions > span { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.voice-profile-dialog__track-list { display: grid; gap: 7px; margin-top: 15px; }
+.voice-profile-dialog__track { display: grid; grid-template-columns: 34px minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px 11px; border: 1px solid var(--border-soft); border-radius: 11px; background: color-mix(in srgb,var(--card) 68%,transparent); }
+.voice-profile-dialog__track-index { display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid var(--border-soft); border-radius: 8px; color: var(--muted); font: 9px var(--font-mono); }
+.voice-profile-dialog__track-copy { display: grid; gap: 3px; min-width: 0; }
+.voice-profile-dialog__track-copy strong { color: var(--ink); font-size: 12px; }
+.voice-profile-dialog__track-copy span { color: var(--muted); font-size: 10px; }
+.voice-profile-dialog__empty { margin-top: 14px; padding: 18px; border: 1px dashed var(--border-soft); border-radius: 11px; color: var(--muted); font-size: 11px; }
+.voice-profile-dialog__footer { align-items: center; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border-soft); }
+.voice-profile-dialog__footer > span { max-width: 430px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.voice-profile-dialog__actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 620px) { .voice-profile-dialog { width: calc(100vw - 20px); } .voice-profile-dialog__surface { max-height: 88vh; padding: 18px; } .voice-profile-dialog__header, .voice-profile-dialog__footer { align-items: flex-start; flex-direction: column; } .voice-profile-dialog__track { grid-template-columns: 30px minmax(0,1fr); } .voice-profile-dialog__track .btn { grid-column: 2; justify-self: start; } .voice-profile-dialog__actions { width: 100%; } .voice-profile-dialog__actions .btn { flex: 1; justify-content: center; } }
+@media (prefers-reduced-motion: reduce) { .voice-profile-dialog::backdrop { backdrop-filter: none; } }
