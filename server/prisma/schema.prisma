@@ -101,6 +101,7 @@ model Project {
   researchSessions      ResearchSession[]
   voiceProfile           VoiceProfile?      @relation(fields: [voiceProfileId], references: [id], onDelete: SetNull)
   voiceProfileId         String?             @map("voice_profile_id")
+  voicePresetId          String?             @map("voice_preset_id") @db.VarChar(80)
 
   @@map("projects")
 }
