@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
+import SelectMenu from "../components/SelectMenu";
 import "../components/ui.css";
 import "./VoiceProfilesPage.css";
 
@@ -12,6 +13,16 @@ const FALLBACK_PROMPTS = [
   "The goal is not to sound perfect. The goal is to sound like yourself, clearly and consistently.",
   "Now let us connect the pieces and turn the explanation into something practical and easy to remember."
 ];
+
+const ENGINE_OPTIONS = [
+  { value: "qwen3-tts-0.6b", label: "Qwen3-TTS 0.6B" },
+  { value: "chatterbox-nano", label: "Chatterbox-Nano" },
+];
+
+const ENGINE_DESCRIPTIONS = {
+  "qwen3-tts-0.6b": "GPU-powered cloning on the Helix TTS worker. Best suited to a natural, consistent narrator profile.",
+  "chatterbox-nano": "A lightweight alternative for quick voice-profile generation.",
+};
 
 function chooseMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
@@ -50,6 +61,7 @@ export default function VoiceProfilesPage() {
   const recorderRef = useRef(null);
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
+  const studioRef = useRef(null);
 
   async function loadProfiles() {
     try {
@@ -68,24 +80,51 @@ export default function VoiceProfilesPage() {
     return () => { streamRef.current?.getTracks().forEach((track) => track.stop()); };
   }, []);
 
+  useEffect(() => {
+    if (!active?.id) return undefined;
+    const timer = window.setTimeout(() => {
+      studioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [active?.id]);
+
   function stopStream() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
   }
 
   async function createProfile() {
-    setBusy(true); setError(""); setMessage("");
+    const trimmedName = name.trim();
+    setError("");
+    setMessage("");
+
+    if (!trimmedName) {
+      setError("Give your voice profile a name before creating the recording session.");
+      return;
+    }
+    if (!consent) {
+      setError("Confirm that these recordings are your voice or that you have permission to use them.");
+      return;
+    }
+
+    setBusy(true);
     try {
       const response = await fetch("/api/voice-profiles", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), preferredEngine: engine, language: "English", consentAccepted: consent })
+        body: JSON.stringify({ name: trimmedName, preferredEngine: engine, language: "English", consentAccepted: true })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to create voice profile.");
-      setActive(data); setProfiles((current) => [data, ...current]); setName(""); setConsent(false);
-      setMessage("Profile created. Start recording the guided samples below.");
-    } catch (err) { setError(err.message || "Failed to create voice profile."); }
-    finally { setBusy(false); }
+      setActive(data);
+      setProfiles((current) => [data, ...current]);
+      setName("");
+      setConsent(false);
+      setMessage("Recording session created. Your first guided sample is ready below.");
+    } catch (err) {
+      setError(err.message || "Failed to create voice profile.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveRecording(sampleIndex, blob, mimeType) {
@@ -189,28 +228,53 @@ export default function VoiceProfilesPage() {
       <Header right={<Link to="/my-research" className="btn btn-ghost">My Research</Link>} />
       <main className="container voice-profiles-page__main">
         <section className="voice-profiles-page__hero">
-          <p className="eyebrow">Voice Profiles</p>
-          <h1>Create your narrator voice.</h1>
-          <p>Record guided samples in your own voice. Helix keeps those recordings with your account and builds a reusable voice profile for narration.</p>
+          <div className="voice-profiles-page__hero-copy">
+            <p className="eyebrow">Voice Profiles</p>
+            <h1>Create your narrator voice.</h1>
+            <p>Build a reusable voice profile from a few short guided recordings. Helix stores the samples with your account and uses the finished profile for narration.</p>
+          </div>
+          <div className="voice-profiles-page__hero-steps" aria-label="Voice profile workflow">
+            <span><b>01</b> Set up</span>
+            <span><b>02</b> Record</span>
+            <span><b>03</b> Clone</span>
+          </div>
         </section>
         {error && <div className="voice-profiles-page__alert" role="alert">{error}</div>}
         {message && <div className="voice-profiles-page__success" role="status">{message}</div>}
 
         {!active ? (
-          <section className="voice-profiles-page__card">
+          <section ref={studioRef} className="voice-profiles-page__card voice-profiles-page__studio">
             <div className="voice-profiles-page__card-head"><div><span className="eyebrow">New profile</span><h2>Set up your recording session.</h2></div><span className="voice-profiles-page__badge">3–8 samples</span></div>
             <div className="voice-profiles-page__form">
-              <label><span>Profile name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="My narrator voice" maxLength={120} /></label>
-              <label><span>Clone engine</span><select value={engine} onChange={(event) => setEngine(event.target.value)}><option value="qwen3-tts-0.6b">Qwen3-TTS 0.6B</option><option value="chatterbox-nano">Chatterbox-Nano</option></select></label>
+              <label className="voice-profiles-page__field"><span>Profile name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. My narrator voice" maxLength={120} autoComplete="off" /></label>
+              <div className="voice-profiles-page__engine-field">
+                <SelectMenu label="Clone engine" value={engine} options={ENGINE_OPTIONS} onChange={setEngine} ariaLabel="Voice cloning engine" />
+                <p>{ENGINE_DESCRIPTIONS[engine]}</p>
+              </div>
             </div>
-            <label className="voice-profiles-page__consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>I confirm these recordings are my voice or I have permission to use them, and I want Helix to store and use them to create narration.</span></label>
-            <button className="btn btn-cream" onClick={createProfile} disabled={busy || !name.trim() || !consent}>Create recording session →</button>
+            <label className={"voice-profiles-page__consent " + (consent ? "is-checked" : "")}>
+              <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+              <span><strong>Voice ownership &amp; consent</strong>I confirm these recordings are my voice or I have permission to use them, and I want Helix to store and use them to create narration.</span>
+            </label>
+            <div className="voice-profiles-page__create-row">
+              <button type="button" className="btn btn-cream voice-profiles-page__create-button" onClick={createProfile} disabled={busy}>
+                {busy ? "Creating session…" : "Create recording session"} <span aria-hidden="true">→</span>
+              </button>
+              <span>3–8 short recordings · about 30–60 seconds total</span>
+            </div>
           </section>
         ) : (
           <section className="voice-profiles-page__card">
             <div className="voice-profiles-page__card-head">
               <div><span className="eyebrow">{ready ? "Profile ready" : "Recording studio"}</span><h2>{active.name}</h2><p>{ready ? "This voice can be selected in Storyboard narration." : "Record at least " + minSamples + " clear samples. More consistent samples can improve the resulting clone."}</p></div>
               <button className="btn btn-ghost" onClick={() => setActive(null)}>New profile</button>
+            </div>
+            <div className="voice-profiles-page__studio-summary">
+              <div className="voice-profiles-page__live-status">
+                <span className={"voice-profiles-page__live-dot " + (recording ? "is-live" : "")} aria-hidden="true" />
+                <span>{recording ? "Recording microphone input" : savedCount < minSamples ? "Ready for your next recording" : "Minimum sample count reached"}</span>
+              </div>
+              <span className="voice-profiles-page__studio-engine">{engine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"}</span>
             </div>
             <div className="voice-profiles-page__progress-head"><span>Samples recorded</span><strong>{savedCount} / {maxSamples}</strong></div>
             <div className="voice-profiles-page__progress"><span style={{ width: progress + "%" }} /></div>
@@ -222,8 +286,10 @@ export default function VoiceProfilesPage() {
                   <article key={index} className={"voice-profiles-page__sample " + (saved ? "is-saved" : "")}>
                     <div className="voice-profiles-page__sample-head"><span className="voice-profiles-page__sample-index">{String(index + 1).padStart(2, "0")}</span><div><span className="mono-label">READ ALOUD</span><strong>{prompt}</strong></div></div>
                     <div className="voice-profiles-page__sample-actions">
-                      <button className="btn btn-ghost" onClick={() => startRecording(index)} disabled={recording || savingSample !== null || busy}>{recording ? "Recording…" : saved ? "Re-record" : "Record sample"}</button>
-                      {recording && <button className="btn btn-cream" onClick={stopRecording}>Stop & save</button>}
+                      <button type="button" className={"btn " + (recording ? "btn-cream" : "btn-ghost")} onClick={() => startRecording(index)} disabled={recording || savingSample !== null || busy}>
+                        {recording ? "Recording…" : saved ? "Re-record sample" : "Record sample"} <span aria-hidden="true">◉</span>
+                      </button>
+                      {recording && <button type="button" className="btn btn-danger-soft" onClick={stopRecording}>Stop & save</button>}
                       {saved && <button className="btn btn-ghost" onClick={() => playSample(saved)} disabled={savingSample !== null}>{playingSample === saved.id ? "Playing…" : "Play recording"}</button>}
                       {local && !saved && <button className="btn btn-ghost" onClick={() => playSample({ sampleIndex: index })}>Play latest</button>}
                     </div>
