@@ -68,6 +68,7 @@ export default function SetupPanel({ projectId, onComplete }) {
   const [previewingVoice, setPreviewingVoice] = useState("");
   const [previewLoading, setPreviewLoading] = useState("");
   const previewAudioRef = useRef(null);
+  const previewRequestRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,8 +109,8 @@ export default function SetupPanel({ projectId, onComplete }) {
           framework: data.suggestions.framework.value,
           tone: data.suggestions.tone.value,
           audienceLevel: data.suggestions.audience.value,
-          voiceProfileId: savedProfileId || (!savedPresetId ? readyProfiles[0]?.id || "" : ""),
-          voicePresetId: savedPresetId || (!savedProfileId ? readyProfiles[0]?.id ? "" : presets[0]?.id || "" : ""),
+          voiceProfileId: savedProfileId || (!savedPresetId && readyProfiles[0]?.id ? readyProfiles[0].id : ""),
+          voicePresetId: savedPresetId || (!savedProfileId && !readyProfiles[0]?.id ? presets[0]?.id || "" : ""),
         });
       } catch (err) {
         if (!cancelled) setError(err.message || "Failed to load setup suggestions.");
@@ -120,6 +121,7 @@ export default function SetupPanel({ projectId, onComplete }) {
   }, [projectId]);
 
   useEffect(() => () => {
+    previewRequestRef.current?.abort();
     previewAudioRef.current?.pause();
     previewAudioRef.current = null;
   }, []);
@@ -131,6 +133,8 @@ export default function SetupPanel({ projectId, onComplete }) {
   )), [predefinedVoices, voiceAccent, voiceGender, voiceTone]);
 
   function stopPreview() {
+    previewRequestRef.current?.abort();
+    previewRequestRef.current = null;
     previewAudioRef.current?.pause();
     previewAudioRef.current = null;
     setPreviewingVoice("");
@@ -146,6 +150,8 @@ export default function SetupPanel({ projectId, onComplete }) {
     stopPreview();
     setPreviewLoading(previewKey);
     setError("");
+    const controller = new AbortController();
+    previewRequestRef.current = controller;
     try {
       const endpoint = source === "clone"
         ? `/api/voice-profiles/${encodeURIComponent(id)}/preview`
@@ -154,6 +160,7 @@ export default function SetupPanel({ projectId, onComplete }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
+        signal: controller.signal,
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to preview this voice.");
@@ -173,12 +180,19 @@ export default function SetupPanel({ projectId, onComplete }) {
         }
       };
       await audio.play();
+      if (previewRequestRef.current !== controller) {
+        audio.pause();
+        return;
+      }
+      previewRequestRef.current = null;
       setPreviewLoading("");
       setPreviewingVoice(previewKey);
     } catch (err) {
-      setPreviewLoading("");
-      setPreviewingVoice("");
-      setError(err.message || "Failed to preview this voice.");
+      if (err?.name !== "AbortError") {
+        setPreviewLoading("");
+        setPreviewingVoice("");
+        setError(err.message || "Failed to preview this voice.");
+      }
     }
   }
 
@@ -297,13 +311,19 @@ export default function SetupPanel({ projectId, onComplete }) {
                   const selected = choices.voiceProfileId === profile.id;
                   const previewKey = "clone:" + profile.id;
                   return (
-                    <button
-                      type="button"
+                    <div
                       role="radio"
                       aria-checked={selected}
+                      tabIndex={0}
                       className={"setup-voice-card " + (selected ? "is-selected" : "")}
                       key={profile.id}
                       onClick={() => selectClone(profile.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          selectClone(profile.id);
+                        }
+                      }}
                     >
                       <span className="setup-voice-card__topline">
                         <span className="setup-voice-card__status">YOUR CLONE</span>
@@ -312,7 +332,7 @@ export default function SetupPanel({ projectId, onComplete }) {
                       <strong>{profile.name}</strong>
                       <span className="setup-voice-card__description">Your cloned voice profile</span>
                       <span className="setup-voice-card__meta">{profile.preferredEngine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano"} · {profile.language || "English"}</span>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -368,13 +388,19 @@ export default function SetupPanel({ projectId, onComplete }) {
                 const selected = choices.voicePresetId === voice.id;
                 const previewKey = "preset:" + voice.id;
                 return (
-                  <button
-                    type="button"
+                  <div
                     role="radio"
                     aria-checked={selected}
+                    tabIndex={0}
                     className={"setup-voice-card " + (selected ? "is-selected" : "")}
                     key={voice.id}
                     onClick={() => selectPreset(voice.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectPreset(voice.id);
+                      }
+                    }}
                   >
                     <span className="setup-voice-card__topline">
                       <span className="setup-voice-card__tags">
@@ -386,7 +412,7 @@ export default function SetupPanel({ projectId, onComplete }) {
                     <strong>{voice.name}</strong>
                     <span className="setup-voice-card__description">{voice.description}</span>
                     <span className="setup-voice-card__meta">{voice.tone} · {voice.engine}</span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
