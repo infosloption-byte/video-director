@@ -307,7 +307,7 @@ export async function deleteTtsVoice(voiceId) {
 }
 
 export async function synthesizeSpeech(
-  { projectId, sceneId, text, engine, voiceId, language, instruct, speed, allowFallback },
+  { projectId, sceneId, text, engine, voiceId, voice, language, instruct, speed, allowFallback },
   adapters = {},
 ) {
   const cleanText = String(text || "").trim();
@@ -321,6 +321,7 @@ export async function synthesizeSpeech(
       text: cleanText,
       engine,
       voiceId,
+      voice,
       language,
       instruct,
       speed,
