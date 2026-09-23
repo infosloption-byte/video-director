@@ -153,6 +153,39 @@ export default function SetupPanel({ projectId, onComplete }) {
     return () => window.clearTimeout(timer);
   }, [voicePickerOpen]);
 
+  useEffect(() => {
+    if (!voicePickerOpen) return undefined;
+
+    let frame = 0;
+    const updatePlacement = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const picker = voicePickerRef.current;
+        const menu = voiceMenuRef.current;
+        if (!picker || !menu) return;
+
+        const triggerRect = picker.getBoundingClientRect();
+        const menuHeight = menu.getBoundingClientRect().height;
+        const gap = 8;
+        const spaceBelow = window.innerHeight - triggerRect.bottom - gap;
+        const spaceAbove = triggerRect.top - gap;
+        const shouldOpenUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+
+        setVoicePickerPlacement(shouldOpenUp ? "up" : "down");
+      });
+    };
+
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", updatePlacement, true);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updatePlacement);
+      window.removeEventListener("scroll", updatePlacement, true);
+    };
+  }, [voicePickerOpen, filteredVoiceOptions.length]);
+
   useEffect(() => () => {
     previewRequestRef.current?.abort();
     previewAudioRef.current?.pause();
