@@ -292,7 +292,7 @@ export default function StoryboardPage() {
                     <div className="storyboard-narration-status">
                       <span className="eyebrow">Narration</span>
                       <strong>{scenes.every((scene) => scene.audioUrl) ? "Generated with your selected voice" : "Narration pending"}</strong>
-                      <span>{scenes.every((scene) => scene.audioUrl) ? "Every scene has synchronized narration and word timings." : "Return to Setup to select a ready voice profile."}</span>
+                      <span>{scenes.every((scene) => scene.audioUrl) ? "Every scene has synchronized narration and word timings." : "Return to Setup to select a narration voice."}</span>
                     </div>
                     <div className="hx-board__actions">
                       <button className="btn btn-ghost" onClick={() => changeTab("Setup")}><IconArrowLeft className="btn-icon" /> Back to setup</button>
