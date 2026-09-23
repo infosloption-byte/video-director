@@ -57,7 +57,7 @@ async function requestSpeech({ text, engine, voiceId, voice, language, instruct,
       body: JSON.stringify({
         text,
         engine: engine || defaultEngine,
-        ...(voice ? { voice, voice_type: "preset" } : { voice_id: voiceId || defaultVoiceId, voice_type: "clone" }),
+        ...(voice ? { voice } : { voice_id: voiceId || defaultVoiceId }),
         language: language || defaultLanguage,
         instruct: instruct || null,
         speed: speed ?? 1,
@@ -241,7 +241,7 @@ async function generateRemoteNarration(params) {
 export async function synthesizeVoicePreview({ text, engine, voiceId, voice, language = "English" }) {
   const cleanText = String(text || "").trim();
   if (!cleanText) throw new Error("Preview text is required.");
-  if (!voiceId) throw new Error("A voice ID is required for preview.");
+  if (!voiceId && !voice) throw new Error("A voice ID is required for preview.");
 
   const payload = await requestSpeech({
     text: cleanText,
