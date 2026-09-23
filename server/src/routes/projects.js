@@ -128,6 +128,28 @@ router.post("/:id/setup", async (req, res) => {
       return res.status(400).json({ error: "The Disruptor is blocked for this signal because of a high monetization-risk flag. Choose a safer framework." });
     }
 
+    const setupChanged = (
+      project.scriptLengthSeconds !== length ||
+      project.selectedFramework !== framework ||
+      project.tone !== tone ||
+      project.audienceLevel !== audienceLevel ||
+      project.voiceProfileId !== selectedProfileId ||
+      project.voicePresetId !== selectedPresetId
+    );
+
+    if (setupChanged) {
+      await prisma.$transaction(async (tx) => {
+        const scenes = await tx.projectScene.findMany({
+          where: { projectId: project.id },
+          select: { id: true },
+        });
+        if (scenes.length) {
+          await tx.sceneAsset.deleteMany({ where: { sceneId: { in: scenes.map((scene) => scene.id) } } });
+          await tx.projectScene.deleteMany({ where: { projectId: project.id } });
+        }
+      });
+    }
+
     const updated = await prisma.project.update({
       where: { id: project.id },
       data: {
