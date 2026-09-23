@@ -30,15 +30,6 @@ function formatDuration(value) {
   return `${seconds.toFixed(1)}s`;
 }
 
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error || new Error("Failed to read audio file."));
-    reader.readAsDataURL(file);
-  });
-}
-
 function sceneToStep(scene, selectedAssetIndex = 0) {
   const selectedAsset = scene.assets?.[selectedAssetIndex] || scene.assets?.[0];
   return {
@@ -73,22 +64,10 @@ export default function StoryboardPage() {
   const [sceneError, setSceneError] = useState("");
   const [sceneRetry, setSceneRetry] = useState(0);
   const [persisting, setPersisting] = useState(false);
-  const [voiceLoading, setVoiceLoading] = useState(false);
   const [voiceError, setVoiceError] = useState("");
   const [renderLoading, setRenderLoading] = useState(false);
   const [renderError, setRenderError] = useState("");
   const [renderStatus, setRenderStatus] = useState(null);
-  const [ttsVoices, setTtsVoices] = useState([]);
-  const [voiceProfiles, setVoiceProfiles] = useState([]);
-  const [ttsVoiceProfileId, setTtsVoiceProfileId] = useState("");
-  const [ttsDiagnostics, setTtsDiagnostics] = useState(null);
-  const [ttsEngine, setTtsEngine] = useState("kokoro");
-  const [ttsVoiceId, setTtsVoiceId] = useState("");
-  const [voicePanelOpen, setVoicePanelOpen] = useState(false);
-  const [voiceName, setVoiceName] = useState("");
-  const [voiceReferenceText, setVoiceReferenceText] = useState("");
-  const [voiceReferenceFile, setVoiceReferenceFile] = useState(null);
-  const [voiceSaving, setVoiceSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,74 +131,7 @@ export default function StoryboardPage() {
   }, [id, realProject, tab, sceneRetry]);
 
 
-  useEffect(() => {
-    if (!realProject || !["Storyboard", "Preview"].includes(tab)) return undefined;
-    let cancelled = false;
 
-    async function loadTtsConfig() {
-      const [voicesResponse, diagnosticsResponse, profilesResponse] = await Promise.all([
-        fetch("/api/tts/voices"),
-        fetch("/api/tts/diagnostics"),
-        fetch("/api/voice-profiles"),
-      ]);
-
-      const voices = await voicesResponse.json().catch(() => ({}));
-      const diagnostics = await diagnosticsResponse.json().catch(() => ({}));
-      const profiles = await profilesResponse.json().catch(() => ({}));
-      if (cancelled) return;
-
-      if (voicesResponse.ok) {
-        const nextVoices = Array.isArray(voices.voices) ? voices.voices : [];
-        setTtsVoices(nextVoices);
-        if (!ttsVoiceId && nextVoices[0]?.voice_id) setTtsVoiceId(nextVoices[0].voice_id);
-      }
-      if (diagnosticsResponse.ok) {
-        setTtsDiagnostics(diagnostics);
-        if (diagnostics?.defaultEngine) setTtsEngine((current) => current || diagnostics.defaultEngine);
-      }
-      if (profilesResponse.ok) {
-        setVoiceProfiles(Array.isArray(profiles.profiles) ? profiles.profiles.filter((profile) => profile.status === "ready") : []);
-      }
-    }
-
-    loadTtsConfig().catch(() => {
-      if (!cancelled) setTtsDiagnostics({ configured: false, reachable: false });
-    });
-
-    return () => { cancelled = true; };
-  }, [realProject, tab, id]);
-
-  async function saveClonedVoice() {
-    if (!voiceName.trim() || !voiceReferenceFile || voiceSaving) return;
-    setVoiceSaving(true);
-    setVoiceError("");
-    try {
-      const referenceAudioBase64 = await readFileAsDataUrl(voiceReferenceFile);
-      const response = await fetch("/api/tts/voices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: voiceName.trim(),
-          referenceAudioBase64,
-          referenceText: voiceReferenceText.trim(),
-          preferredEngine: ttsEngine === "qwen3-tts-0.6b" ? "qwen3-tts-0.6b" : "chatterbox-nano",
-          fileName: voiceReferenceFile.name,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to save cloned voice.");
-      setTtsVoices((current) => [data, ...current]);
-      setTtsVoiceId(data.voice_id || "");
-      setVoiceName("");
-      setVoiceReferenceText("");
-      setVoiceReferenceFile(null);
-      setVoicePanelOpen(false);
-    } catch (error) {
-      setVoiceError(error.message || "Failed to save cloned voice.");
-    } finally {
-      setVoiceSaving(false);
-    }
-  }
 
   function changeTab(nextTab) {
     const nextParams = new URLSearchParams(searchParams);
@@ -253,35 +165,6 @@ export default function StoryboardPage() {
     }
   }
 
-  async function generateVoice() {
-    if (!scenes.length || voiceLoading) return;
-    const cloneEngineSelected = ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b";
-    const selectedProfile = voiceProfiles.find((profile) => profile.id === ttsVoiceProfileId) || null;
-    setVoiceLoading(true);
-    setVoiceError("");
-    try {
-      const response = await fetch(`/api/projects/${id}/generate-voice`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          engine: selectedProfile?.preferredEngine || ttsEngine,
-          voiceId: selectedProfile?.ttsVoiceId || (cloneEngineSelected ? (ttsVoiceId || undefined) : undefined),
-          voiceProfileId: selectedProfile?.id || undefined,
-          language: project?.language || "English",
-          allowFallback: true,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to generate narration.");
-      setScenes(data.scenes || []);
-      setProject((current) => ({ ...current, durationSeconds: data.durationSeconds ?? current?.durationSeconds }));
-      setPlaying(false);
-    } catch (error) {
-      setVoiceError(error.message || "Failed to generate narration.");
-    } finally {
-      setVoiceLoading(false);
-    }
-  }
 
   async function goToPreview() {
     if (realProject) {
@@ -369,7 +252,7 @@ export default function StoryboardPage() {
             </div>
             <div className="hx-tabs" role="tablist" aria-label="Reel stages">
               {TABS.map((t) => (
-                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting || voiceLoading || renderLoading}>
+                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting || renderLoading}>
                   <span className="mono-label hx-tab__n">{t.n}</span> {t.label}
                 </button>
               ))}
@@ -393,7 +276,7 @@ export default function StoryboardPage() {
                 <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {scenes[0]?.spokenText || "Helix is building the first scene…"}</p></div>
                 {sceneError && <div className="storyboard-error"><strong>Storyboard couldn't load.</strong><span>{sceneError}</span><button className="btn btn-ghost" onClick={() => setSceneRetry((value) => value + 1)}>Retry</button></div>}
                 {voiceError && <div className="storyboard-error"><strong>Narration couldn't be generated.</strong><span>{voiceError}</span></div>}
-                {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Helix is writing the scenes and fetching five visuals per cut…</strong></div>}
+                {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Helix is writing the scenes, fetching five visuals per cut, and generating narration with your selected voice…</strong></div>}
                 {!sceneLoading && !sceneError && scenes.length > 0 && (
                   <>
                     <div className="hx-steps">
@@ -406,103 +289,15 @@ export default function StoryboardPage() {
                         onSelectAsset={(index) => selectAsset(scene.id, index)}
                       />)}
                     </div>
-                    <div className="hx-tts-panel">
-                      <div className="hx-tts-panel__head">
-                        <div>
-                          <span className="eyebrow">Narration engine</span>
-                          <strong>Self-hosted TTS</strong>
-                        </div>
-                        <span className={`hx-tts-status ${ttsDiagnostics?.reachable ? "is-ready" : "is-offline"}`}>
-                          {ttsDiagnostics?.reachable ? "Service ready" : "Service unavailable"}
-                        </span>
-                      </div>
-                      <div className="hx-tts-panel__controls">
-                        <label>
-                          Engine
-                          <select value={ttsEngine} onChange={(event) => {
-                            const nextEngine = event.target.value;
-                            setTtsEngine(nextEngine);
-                            setTtsVoiceProfileId("");
-                            if (nextEngine !== "chatterbox-nano" && nextEngine !== "qwen3-tts-0.6b") setTtsVoiceId("");
-                            else if (!ttsVoiceId && ttsVoices[0]?.voice_id) setTtsVoiceId(ttsVoices[0].voice_id);
-                          }} disabled={voiceLoading}>
-                            <option value="kokoro">Kokoro-82M</option>
-                            <option value="melotts-v3">MeloTTS v3</option>
-                            <option value="chatterbox-nano">Chatterbox-Nano</option>
-                            <option value="qwen3-tts-0.6b">Qwen3-TTS 0.6B</option>
-                          </select>
-                        </label>
-{(ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b") ? (
-                          <>
-                          <label>
-                            Saved voice profile
-                            <select value={ttsVoiceProfileId} onChange={(event) => {
-                              const nextId = event.target.value;
-                              setTtsVoiceProfileId(nextId);
-                              const profile = voiceProfiles.find((item) => item.id === nextId);
-                              if (profile) {
-                                setTtsEngine(profile.preferredEngine);
-                                setTtsVoiceId(profile.ttsVoiceId || "");
-                              }
-                            }} disabled={voiceLoading}>
-                              <option value="">No saved profile</option>
-                              {voiceProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-                            </select>
-                          </label>
-                          {!ttsVoiceProfileId && (
-                            <label>
-                              Existing cloned voice
-                              <select value={ttsVoiceId} onChange={(event) => setTtsVoiceId(event.target.value)} disabled={voiceLoading}>
-                                <option value="">Select cloned voice</option>
-                                {ttsVoices.map((voice) => <option key={voice.voice_id} value={voice.voice_id}>{voice.name}</option>)}
-                              </select>
-                            </label>
-                          )}
-                          </>
-                        ) : null}
-                      </div>
-                      {ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b" ? (
-                        <div className="hx-tts-panel__clone">
-                          {!ttsVoiceId ? <span className="hx-tts-panel__required">Select or create a cloned voice before generating.</span> : null}
-                          <div>
-                            <strong>Voice cloning</strong>
-                            <span>Use an authorized reference recording for a consistent narrator voice.</span>
-                          </div>
-                          <Link className="btn btn-ghost" to="/voice-profiles">Manage voice profiles</Link>
-                          <button className="btn btn-ghost" type="button" onClick={() => setVoicePanelOpen((open) => !open)}>
-                            {voicePanelOpen ? "Close" : "Add cloned voice"}
-                          </button>
-                        </div>
-                      ) : null}
-                      {voicePanelOpen && (
-                        <div className="hx-tts-clone-form">
-                          <label>
-                            Voice name
-                            <input value={voiceName} onChange={(event) => setVoiceName(event.target.value)} placeholder="Construction Narrator" />
-                          </label>
-                          <label>
-                            Reference audio
-                            <input type="file" accept="audio/*" onChange={(event) => setVoiceReferenceFile(event.target.files?.[0] || null)} />
-                          </label>
-                          <label>
-                            Reference transcript
-                            <textarea value={voiceReferenceText} onChange={(event) => setVoiceReferenceText(event.target.value)} placeholder="Optional, but recommended for Qwen3-TTS." rows={3} />
-                          </label>
-                          <div className="hx-tts-clone-form__actions">
-                            <button className="btn btn-cream" type="button" onClick={saveClonedVoice} disabled={voiceSaving || !voiceName.trim() || !voiceReferenceFile}>
-                              {voiceSaving ? "Saving voice…" : "Save voice"}
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                    <div className="storyboard-narration-status">
+                      <span className="eyebrow">Narration</span>
+                      <strong>{scenes.every((scene) => scene.audioUrl) ? "Generated with your selected voice" : "Narration pending"}</strong>
+                      <span>{scenes.every((scene) => scene.audioUrl) ? "Every scene has synchronized narration and word timings." : "Return to Setup to select a ready voice profile."}</span>
                     </div>
                     <div className="hx-board__actions">
                       <button className="btn btn-ghost" onClick={() => changeTab("Setup")}><IconArrowLeft className="btn-icon" /> Back to setup</button>
                       <div className="hx-board__actions-group">
-                        <button className="btn btn-ghost" onClick={generateVoice} disabled={voiceLoading || ((ttsEngine === "chatterbox-nano" || ttsEngine === "qwen3-tts-0.6b") && !ttsVoiceId)}>
-                          {voiceLoading ? "Generating narration…" : "Generate narration"}
-                        </button>
-                        <button className="btn btn-cream" onClick={goToPreview} disabled={persisting || voiceLoading}>{persisting ? "Saving visuals…" : "Finalize preview →"}</button>
+                        <button className="btn btn-cream" onClick={goToPreview} disabled={persisting}>{persisting ? "Saving visuals…" : "Finalize preview →"}</button>
                       </div>
                     </div>
                   </>
