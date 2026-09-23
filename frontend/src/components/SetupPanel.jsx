@@ -76,10 +76,12 @@ export default function SetupPanel({ projectId, onComplete }) {
   const [previewingVoice, setPreviewingVoice] = useState("");
   const [previewLoading, setPreviewLoading] = useState("");
   const [voicePickerOpen, setVoicePickerOpen] = useState(false);
+  const [voicePickerPlacement, setVoicePickerPlacement] = useState("down");
   const [voiceSearch, setVoiceSearch] = useState("");
   const previewAudioRef = useRef(null);
   const previewRequestRef = useRef(null);
   const voicePickerRef = useRef(null);
+  const voiceMenuRef = useRef(null);
   const voiceSearchRef = useRef(null);
 
   useEffect(() => {
@@ -184,7 +186,7 @@ export default function SetupPanel({ projectId, onComplete }) {
       window.removeEventListener("resize", updatePlacement);
       window.removeEventListener("scroll", updatePlacement, true);
     };
-  }, [voicePickerOpen, filteredVoiceOptions.length]);
+  }, [voicePickerOpen, voiceSearch, voiceProfiles.length, predefinedVoices.length]);
 
   useEffect(() => () => {
     previewRequestRef.current?.abort();
@@ -406,7 +408,12 @@ export default function SetupPanel({ projectId, onComplete }) {
           </button>
 
           {voicePickerOpen && (
-            <div className="setup-voice-menu" role="dialog" aria-label="Select narration voice">
+            <div
+              ref={voiceMenuRef}
+              className={"setup-voice-menu " + (voicePickerPlacement === "up" ? "is-up" : "is-down")}
+              role="dialog"
+              aria-label="Select narration voice"
+            >
               <div className="setup-voice-search">
                 <span aria-hidden="true">⌕</span>
                 <input
