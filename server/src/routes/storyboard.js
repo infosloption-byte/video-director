@@ -222,6 +222,7 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
               tone: project.tone,
               audienceLevel: project.audienceLevel,
               targetDurationSeconds: item.scene.duration_seconds,
+              customized: false,
               voice: narrationVoice.source === "clone"
                 ? { source: "clone", id: narrationVoice.id, engine: narrationVoice.engine, voiceId: narrationVoice.voiceId, language: narrationVoice.language }
                 : { source: "preset", id: narrationVoice.id, engine: narrationVoice.engine, voice: narrationVoice.voice, language: narrationVoice.language },
@@ -437,6 +438,7 @@ router.patch("/scenes/:sceneId/voice", async (req, res) => {
     });
 
     const customization = normalizeCustomization(scene.customization);
+    customization.customized = true;
     customization.voice = voice.source === "clone"
       ? { source: "clone", id: voice.id, name: voice.name, engine: voice.engine, voiceId: voice.voiceId, language: voice.language }
       : { source: "preset", id: voice.id, name: voice.name, engine: voice.engine, voice: voice.voice, language: voice.language };
@@ -509,7 +511,7 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
       throw new Error("Pexels returned fewer than 5 usable visuals for this rewritten scene.");
     }
 
-    const customization = { ...saved, framework, tone, audienceLevel, targetDurationSeconds };
+    const customization = { ...saved, customized: true, framework, tone, audienceLevel, targetDurationSeconds };
     customization.voice = voice.source === "clone"
       ? { source: "clone", id: voice.id, name: voice.name, engine: voice.engine, voiceId: voice.voiceId, language: voice.language }
       : { source: "preset", id: voice.id, name: voice.name, engine: voice.engine, voice: voice.voice, language: voice.language };
