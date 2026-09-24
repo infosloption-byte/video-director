@@ -484,13 +484,22 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
     const researchCorpus = await loadResearchCorpus(scene.projectId);
     if (!researchCorpus) return res.status(409).json({ error: "The persisted research corpus is not available." });
 
+    const siblingScenes = await prisma.projectScene.findMany({
+      where: { projectId: scene.projectId },
+      orderBy: { sceneOrder: "asc" },
+      select: { id: true, sceneOrder: true, spokenText: true },
+    });
+
+    const currentNarration = String(req.body?.currentNarration || scene.spokenText || "").trim().slice(0, 5000);
     const rewritten = await rewriteStoryboardScene({
       project: scene.project,
       signal: scene.project.signal,
       researchCorpus,
       scene,
+      siblingScenes,
       overrides: { framework, tone, audienceLevel, targetDurationSeconds },
       instruction,
+      currentNarration,
     });
 
     const voice = await resolveNarrationVoice({ project: scene.project, userId: req.user.id, voice: saved.voice });
@@ -553,7 +562,16 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
     res.json({ scene: publicScene({ ...refreshed, projectId: scene.projectId }), refreshedVisuals: refreshVisuals });
   } catch (error) {
     console.error(`POST /api/scenes/${req.params.sceneId}/rewrite failed:`, error);
-    res.status(error?.status === 429 ? 429 : 500).json({ error: error.message || "Failed to rewrite this scene." });
+    const status = [409, 429].includes(Number(error?.status)) ? Number(error.status) : 500;
+    const message = error?.message || "Failed to rewrite this scene.";
+    const retryMatch = message.match(/retry in ([0-9.]+)s/i);
+    const retryAfterSeconds = Number.isFinite(Number(error?.retryAfterSeconds))
+      ? Number(error.retryAfterSeconds)
+      : (retryMatch ? Number(retryMatch[1]) : undefined);
+    res.status(status).json({
+      error: message,
+      ...(status === 429 && Number.isFinite(retryAfterSeconds) ? { retryAfterSeconds } : {}),
+    });
   }
 });
 
