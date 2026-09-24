@@ -48,6 +48,7 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     thumbLabel: selectedAsset ? "Pexels B-roll" : "Visual pending",
     swatches: (scene.assets || []).map((asset) => `url(${asset.thumbnailUrl}) center / cover no-repeat`),
     selectedAsset,
+    assets: scene.assets || [],
     customization: scene.customization || null,
   };
 }
