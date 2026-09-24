@@ -286,7 +286,14 @@ export default function StoryboardPage() {
         body: JSON.stringify(body || {}),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Scene update failed.");
+      if (!response.ok) {
+        if (response.status === 429) {
+          const seconds = Number(data.retryAfterSeconds);
+          const suffix = Number.isFinite(seconds) ? " Retry in about " + Math.ceil(seconds) + " seconds." : "";
+          throw new Error((data.error || "AI quota is temporarily exhausted.") + suffix);
+        }
+        throw new Error(data.error || "Scene update failed.");
+      }
       if (data.scene) {
         setScenes((current) => current.map((scene) => scene.id === data.scene.id ? data.scene : scene));
         setSelectedAssetByScene((current) => ({
