@@ -11,6 +11,72 @@ const FRAMEWORKS = [
 const TONES = ["Energetic", "Calm & authoritative", "Conversational"];
 const AUDIENCES = ["General public", "Enthusiast"];
 
+function ModernDropdown({ label, value, options, onChange, voice = false, disabled = false }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const selected = options.find((option) => option.value === value) || options[0];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className={"scene-customize__dropdown " + (open ? "is-open" : "")} ref={rootRef}>
+      <span className="scene-customize__dropdown-label">{label}</span>
+      <button
+        type="button"
+        className="scene-customize__dropdown-trigger"
+        onClick={() => setOpen((current) => !current)}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="scene-customize__dropdown-trigger-copy">
+          <strong>{selected?.label || "Choose"}</strong>
+          {selected?.meta && <small>{selected.meta}</small>}
+        </span>
+        <span className="scene-customize__dropdown-chevron" aria-hidden="true">⌄</span>
+      </button>
+      {open && (
+        <div className={"scene-customize__dropdown-menu " + (voice ? "is-voice" : "")} role="listbox">
+          {options.map((option) => (
+            <button
+              type="button"
+              key={option.value}
+              role="option"
+              aria-selected={option.value === value}
+              className={"scene-customize__dropdown-option " + (option.value === value ? "is-selected" : "")}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              <span className="scene-customize__dropdown-option-main">
+                <strong>{option.label}</strong>
+                {option.meta && <small>{option.meta}</small>}
+                {voice && option.details && <span className="scene-customize__dropdown-option-details">{option.details}</span>}
+              </span>
+              {option.value === value && <span className="scene-customize__dropdown-check" aria-hidden="true">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function voiceKey(voice) {
   return voice ? voice.source + ":" + voice.id : "";
 }
@@ -40,6 +106,7 @@ export default function SceneCustomizePanel({
   voices = [],
   onRewrite,
   onChangeVoice,
+  onSelectAsset,
   onRegenerateVisuals,
   onClose,
   busy = "",
@@ -53,6 +120,11 @@ export default function SceneCustomizePanel({
   const [narration, setNarration] = useState(scene.spokenText || "");
   const [selectedVoiceKey, setSelectedVoiceKey] = useState("");
   const [playingNarration, setPlayingNarration] = useState(false);
+  const [voiceGenerating, setVoiceGenerating] = useState(false);
+  const [selectedVisualIndex, setSelectedVisualIndex] = useState(() => {
+    const index = Array.isArray(scene.assets) ? scene.assets.findIndex((asset) => asset.isSelected) : -1;
+    return index >= 0 ? index : 0;
+  });
 
   const narrationAudioRef = useRef(null);
 
@@ -65,6 +137,8 @@ export default function SceneCustomizePanel({
     setAudience(saved.audienceLevel || customSetup?.audienceLevel || "General public");
     setNarration(scene.spokenText || "");
     setSelectedVoiceKey(voiceKey(getSceneVoice(scene, customSetup, voices)));
+    const visualIndex = Array.isArray(scene.assets) ? scene.assets.findIndex((asset) => asset.isSelected) : -1;
+    setSelectedVisualIndex(visualIndex >= 0 ? visualIndex : 0);
     narrationAudioRef.current?.pause();
     narrationAudioRef.current = null;
     setPlayingNarration(false);
@@ -156,14 +230,25 @@ export default function SceneCustomizePanel({
 
     if (voiceChanged) {
       if (!selectedVoice || !narration.trim()) return;
-      const result = await onChangeVoice?.(selectedVoice, narration);
-      if (result?.scene?.audioUrl) {
-        await playAudioUrl(result.scene.audioUrl);
+      setVoiceGenerating(true);
+      try {
+        const result = await onChangeVoice?.(selectedVoice, narration);
+        if (result?.scene?.audioUrl) {
+          if (result.scene.spokenText) setNarration(result.scene.spokenText);
+          await playAudioUrl(result.scene.audioUrl);
+        }
+      } finally {
+        setVoiceGenerating(false);
       }
       return;
     }
 
     await playAudioUrl(scene.audioUrl);
+  }
+
+  function selectVisual(index) {
+    setSelectedVisualIndex(index);
+    onSelectAsset?.(index);
   }
 
   useEffect(() => () => {
@@ -202,39 +287,40 @@ export default function SceneCustomizePanel({
 
         <div className="scene-customize__settings">
           <div className="scene-customize__fields scene-customize__fields--four">
-            <label>
-              <span>Framework</span>
-              <select value={framework} onChange={(event) => setFramework(event.target.value)} disabled={Boolean(busy)}>
-                {FRAMEWORKS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Tone</span>
-              <select value={tone} onChange={(event) => setTone(event.target.value)} disabled={Boolean(busy)}>
-                {TONES.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Audience</span>
-              <select value={audience} onChange={(event) => setAudience(event.target.value)} disabled={Boolean(busy)}>
-                {AUDIENCES.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Project Voice</span>
-              <select
-                value={selectedVoiceKey}
-                onChange={(event) => selectSceneVoice(voices.find((voice) => voiceKey(voice) === event.target.value))}
-                disabled={Boolean(busy) || !voices.length}
-              >
-                {!voices.length && <option value="">Loading voices…</option>}
-                {voices.map((voice) => (
-                  <option key={voiceKey(voice)} value={voiceKey(voice)}>
-                    {voice.source === "clone" ? "Your clone · " : "Preset · "}{voice.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <ModernDropdown
+              label="Framework"
+              value={framework}
+              onChange={setFramework}
+              options={FRAMEWORKS.map((item) => ({ value: item.key, label: item.label }))}
+              disabled={Boolean(busy)}
+            />
+            <ModernDropdown
+              label="Tone"
+              value={tone}
+              onChange={setTone}
+              options={TONES.map((item) => ({ value: item, label: item }))}
+              disabled={Boolean(busy)}
+            />
+            <ModernDropdown
+              label="Audience"
+              value={audience}
+              onChange={setAudience}
+              options={AUDIENCES.map((item) => ({ value: item, label: item }))}
+              disabled={Boolean(busy)}
+            />
+            <ModernDropdown
+              label="Project Voice"
+              value={selectedVoiceKey}
+              onChange={(value) => selectSceneVoice(voices.find((voice) => voiceKey(voice) === value))}
+              voice
+              options={voices.map((voice) => ({
+                value: voiceKey(voice),
+                label: (voice.source === "clone" ? "Your clone · " : "Preset · ") + voice.name,
+                meta: [voice.engine, voice.language, voice.gender].filter(Boolean).join(" · "),
+                details: [voice.accent, voice.tone, voice.description].filter(Boolean).join(" · "),
+              }))}
+              disabled={Boolean(busy) || !voices.length}
+            />
           </div>
 
         </div>
@@ -252,7 +338,7 @@ export default function SceneCustomizePanel({
                 onClick={toggleNarrationPlayback}
                 disabled={Boolean(busy) || (!voiceChanged && !scene.audioUrl)}
               >
-                {busy === "voice" ? "Generating…" : playingNarration ? "Stop" : voiceChanged ? "Preview Voice" : "Play"}
+                {voiceGenerating || busy === "voice" ? "Generating…" : playingNarration ? "Stop" : voiceChanged ? "Preview Voice" : "Play Narration"}
               </button>
               <button
                 type="button"
@@ -297,13 +383,21 @@ export default function SceneCustomizePanel({
           </div>
 
           <div className="scene-customize__visual-group">
-            <span className="scene-customize__visual-label">CURRENT</span>
+            <span className="scene-customize__visual-label">VISUALS · SELECT ONE</span>
             <div className="scene-customize__visual-strip">
               {(Array.isArray(scene.assets) ? scene.assets.slice(0, 5) : []).map((asset, index) => (
-                <div className="scene-customize__visual-card" key={asset.id || "current-" + index}>
-                  <img src={asset.thumbnailUrl} alt={"Current visual " + (index + 1)} />
-                  <span>{index + 1}</span>
-                </div>
+                <button
+                  type="button"
+                  className={"scene-customize__visual-card " + (selectedVisualIndex === index ? "is-selected" : "")}
+                  key={asset.id || "current-" + index}
+                  onClick={() => selectVisual(index)}
+                  aria-label={"Use visual option " + (index + 1)}
+                  aria-pressed={selectedVisualIndex === index}
+                >
+                  <img src={asset.thumbnailUrl} alt={"Visual option " + (index + 1)} />
+                  {selectedVisualIndex === index && <span className="scene-customize__visual-selected">✓</span>}
+                  <span className="scene-customize__visual-number">{index + 1}</span>
+                </button>
               ))}
               {!scene.assets?.length && <div className="scene-customize__visual-empty">No visuals available.</div>}
             </div>
