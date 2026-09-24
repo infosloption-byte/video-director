@@ -303,7 +303,7 @@ export default function StoryboardPage() {
       if (data.durationSeconds != null) {
         setProject((current) => current ? { ...current, durationSeconds: data.durationSeconds, cuts: data.cuts ?? current.cuts, renderUrl: null } : current);
       }
-      return true;
+      return data;
     } catch (error) {
       setSceneEditError(error.message || "Scene update failed.");
       return false;
