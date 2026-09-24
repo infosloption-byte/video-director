@@ -7,30 +7,51 @@ const LABELS = {
   countdown: "The Countdown",
 };
 
-function ChoiceRow({ title, reasoning, options, value, onChange, renderOption = (option) => option }) {
+function ChoiceRow({ step, title, reasoning, options, value, onChange, renderOption = (option) => option, recommendedValue }) {
+  const selectedOption = options.find((option) => (
+    (typeof option === "object" ? option.key : option) === value
+  ));
+  const selectedLabel = selectedOption
+    ? renderOption(selectedOption)
+    : String(value || "");
+  const isRecommended = recommendedValue !== undefined && value === recommendedValue;
+
   return (
     <section className="setup-choice">
       <div className="setup-choice__copy">
-        <h3>{title}</h3>
+        <div className="setup-choice__eyebrow">
+          <span className="setup-choice__step">0{step}</span>
+          <span className="mono-label">{step === 1 ? "DURATION" : step === 2 ? "NARRATIVE" : step === 3 ? "DELIVERY" : "REACH"}</span>
+        </div>
+        <div className="setup-choice__title-row">
+          <h3>{title}</h3>
+          {isRecommended && <span className="setup-recommendation">Helix pick</span>}
+        </div>
         <p>{reasoning}</p>
       </div>
-      <div className="setup-pills" role="radiogroup" aria-label={title}>
-        {options.map((option) => {
-          const key = typeof option === "object" ? option.key : option;
-          const selected = value === key;
-          return (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              className={"setup-pill " + (selected ? "is-selected" : "")}
-              key={key}
-              onClick={() => onChange(key)}
-            >
-              {renderOption(option)}
-            </button>
-          );
-        })}
+      <div className="setup-choice__control">
+        <div className="setup-selected-value">
+          <span>Selected</span>
+          <strong>{selectedLabel}</strong>
+        </div>
+        <div className="setup-pills" role="radiogroup" aria-label={title}>
+          {options.map((option) => {
+            const key = typeof option === "object" ? option.key : option;
+            const selected = value === key;
+            return (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={"setup-pill " + (selected ? "is-selected" : "")}
+                key={key}
+                onClick={() => onChange(key)}
+              >
+                {renderOption(option)}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
@@ -64,6 +85,16 @@ function voiceSearchText(voice) {
     voice.language,
     voice.engine,
   ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function voiceInitials(name) {
+  return String(name || "Voice")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }
 
 export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
@@ -261,6 +292,26 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
 
   const isDirty = Boolean(choices && savedChoices && !setupChoicesEqual(choices, savedChoices));
 
+  const changedFields = useMemo(() => {
+    if (!choices || !savedChoices) return [];
+    const fields = [
+      ["length", "Script length"],
+      ["framework", "Script template"],
+      ["tone", "Tone"],
+      ["audienceLevel", "Audience"],
+      ["voiceProfileId", "Narration voice"],
+      ["voicePresetId", "Narration voice"],
+    ];
+    return [...new Map(
+      fields
+        .filter(([key]) => choices[key] !== savedChoices[key])
+        .map(([, label]) => [label, label])
+    ).values()];
+  }, [choices, savedChoices]);
+
+  const selectedFrameworkLabel = choices ? (LABELS[choices.framework] || choices.framework) : "";
+  const selectedVoiceLabel = selectedVoice?.name || "Choose a narrator";
+
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
@@ -392,60 +443,118 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
 
   return (
     <div className="setup-panel">
-      <div className="setup-panel__intro">
-        <p className="eyebrow">Guided setup</p>
-        <h2>{hasSavedSetup ? "Refine the storyboard without rerunning research." : "Shape the video without changing the research."}</h2>
-        <p>{hasSavedSetup
-          ? "You're editing the setup used to build the current storyboard. Change any option below and Helix will regenerate the scenes from the same completed research."
-          : "Helix has already completed the research for this project. Choose how that research should be turned into a short-form story, including the narrator."}</p>
-      </div>
-
-      <section className="setup-research-bridge" aria-labelledby="setup-research-bridge-title">
-        <div className="setup-research-bridge__icon" aria-hidden="true">✓</div>
-        <div className="setup-research-bridge__copy">
-          <p className="mono-label">RESEARCH FOUNDATION</p>
-          <h3 id="setup-research-bridge-title">This setup stays connected to the completed research</h3>
-          <p>The storyboard will use the same persisted research corpus for this project. Setup controls presentation — length, narrative framework, tone, audience, and narrator — not the factual foundation.</p>
-          <div className="setup-research-bridge__flow" aria-label="Research to storyboard flow">
-            <span>Completed research</span>
-            <span aria-hidden="true">→</span>
-            <strong>Guided setup</strong>
-            <span aria-hidden="true">→</span>
-            <span>Research-grounded storyboard + narration</span>
+      <header className="setup-panel__hero">
+        <div className="setup-panel__hero-copy">
+          <p className="eyebrow">Storyboard setup</p>
+          <h2>{hasSavedSetup ? "Refine how the finished research becomes a reel." : "Shape how the research becomes a reel."}</h2>
+          <p>{hasSavedSetup
+            ? "Your research is already complete. Adjust the story settings below, then regenerate only when you are ready."
+            : "The research is ready. Choose the storytelling direction and narrator before Helix writes the scenes."}</p>
+        </div>
+        <div className="setup-panel__hero-state">
+          <span className="setup-state-dot" aria-hidden="true" />
+          <div>
+            <span className="mono-label">{hasSavedSetup ? "EDITING SAVED SETUP" : "READY TO CONFIGURE"}</span>
+            <strong>Research stays unchanged</strong>
           </div>
         </div>
+      </header>
+
+      <section className="setup-research-bridge setup-research-bridge--compact" aria-labelledby="setup-research-bridge-title">
+        <div className="setup-research-bridge__icon" aria-hidden="true">✓</div>
+        <div className="setup-research-bridge__copy">
+          <p className="mono-label">RESEARCH COMPLETE</p>
+          <h3 id="setup-research-bridge-title">You are only changing the presentation layer.</h3>
+          <p>Length, narrative framework, tone, audience, and narrator can change without rerunning the research.</p>
+        </div>
+        <span className="setup-research-bridge__badge">Research unchanged</span>
       </section>
 
-      <section className={"setup-edit-status " + (isDirty ? "is-dirty" : "is-saved")} aria-live="polite">
-        <div className="setup-edit-status__icon" aria-hidden="true">{isDirty ? "!" : "✓"}</div>
-        <div className="setup-edit-status__copy">
-          <p className="mono-label">{isDirty ? "CHANGES DETECTED" : hasSavedSetup ? "CURRENT SETUP" : "READY TO CONFIGURE"}</p>
-          <strong>
-            {isDirty
-              ? "These changes will regenerate the storyboard scenes."
-              : hasSavedSetup
-                ? "Your current setup is saved."
-                : "Choose the setup options for your first storyboard."}
-          </strong>
-          <span>
-            {isDirty
-              ? "Continue to storyboard to save the new settings and rebuild scenes, visuals, and narration from the same research."
-              : hasSavedSetup
-                ? "No storyboard work is repeated until you actually change a setup option."
-                : "Your research remains unchanged when you revisit this stage."}
+      <section className="setup-summary" aria-label="Current setup summary">
+        <div className="setup-summary__head">
+          <div>
+            <p className="mono-label">{hasSavedSetup ? "CURRENT SETUP" : "HELIX RECOMMENDATIONS"}</p>
+            <strong>{isDirty ? changedFields.length + " setting" + (changedFields.length === 1 ? "" : "s") + " changed" : hasSavedSetup ? "Your saved configuration" : "Starting point for this story"}</strong>
+          </div>
+          <span className={isDirty ? "setup-summary__state is-dirty" : "setup-summary__state"}>
+            {isDirty ? "Draft changes" : "No changes"}
           </span>
+        </div>
+        <div className="setup-summary__chips">
+          <span><b>{choices.length}s</b><small>Length</small></span>
+          <span><b>{selectedFrameworkLabel}</b><small>Template</small></span>
+          <span><b>{choices.tone}</b><small>Tone</small></span>
+          <span><b>{choices.audienceLevel}</b><small>Audience</small></span>
+          <span><b>{selectedVoiceLabel}</b><small>Voice</small></span>
         </div>
       </section>
 
-      <ChoiceRow title="Script length" reasoning={suggestions.length.reasoning} options={suggestions.length.options} value={choices.length} onChange={(value) => setChoices((current) => ({ ...current, length: value }))} renderOption={(value) => `${value}s`} />
-      <ChoiceRow title="Script template" reasoning={suggestions.framework.reasoning} options={suggestions.framework.options} value={choices.framework} onChange={(value) => setChoices((current) => ({ ...current, framework: value }))} renderOption={(option) => LABELS[option.key] || option.label} />
-      <ChoiceRow title="Tone" reasoning={suggestions.tone.reasoning} options={suggestions.tone.options} value={choices.tone} onChange={(value) => setChoices((current) => ({ ...current, tone: value }))} />
-      <ChoiceRow title="Audience" reasoning={suggestions.audience.reasoning} options={suggestions.audience.options} value={choices.audienceLevel} onChange={(value) => setChoices((current) => ({ ...current, audienceLevel: value }))} />
+      <div className="setup-section-heading">
+        <div>
+          <p className="eyebrow">01 — Story direction</p>
+          <h3>Make four focused decisions.</h3>
+        </div>
+        <span>Helix uses these settings when rebuilding the scenes.</span>
+      </div>
+
+      <ChoiceRow
+        step={1}
+        title="Script length"
+        reasoning={suggestions.length.reasoning}
+        options={suggestions.length.options}
+        value={choices.length}
+        recommendedValue={suggestions.length.value}
+        onChange={(value) => setChoices((current) => ({ ...current, length: value }))}
+        renderOption={(value) => String(value) + "s"}
+      />
+      <ChoiceRow
+        step={2}
+        title="Script template"
+        reasoning={suggestions.framework.reasoning}
+        options={suggestions.framework.options}
+        value={choices.framework}
+        recommendedValue={suggestions.framework.value}
+        onChange={(value) => setChoices((current) => ({ ...current, framework: value }))}
+        renderOption={(option) => LABELS[option.key] || option.label}
+      />
+      <ChoiceRow
+        step={3}
+        title="Tone"
+        reasoning={suggestions.tone.reasoning}
+        options={suggestions.tone.options}
+        value={choices.tone}
+        recommendedValue={suggestions.tone.value}
+        onChange={(value) => setChoices((current) => ({ ...current, tone: value }))}
+      />
+      <ChoiceRow
+        step={4}
+        title="Audience"
+        reasoning={suggestions.audience.reasoning}
+        options={suggestions.audience.options}
+        value={choices.audienceLevel}
+        recommendedValue={suggestions.audience.value}
+        onChange={(value) => setChoices((current) => ({ ...current, audienceLevel: value }))}
+      />
+
+      <div className="setup-section-heading setup-section-heading--voice">
+        <div>
+          <p className="eyebrow">02 — Narration</p>
+          <h3>Choose the voice people will hear.</h3>
+        </div>
+        <span>Preview any voice before you commit the new storyboard.</span>
+      </div>
 
       <section className="setup-choice setup-choice--voice">
         <div className="setup-choice__copy">
-          <h3>Narration voice</h3>
-          <p>Choose your own cloned voice or a predefined narrator. Search by name, accent, gender, tone, or style, then preview before continuing.</p>
+          <div className="setup-choice__eyebrow">
+            <span className="setup-choice__step">05</span>
+            <span className="mono-label">NARRATOR</span>
+          </div>
+          <div className="setup-choice__title-row">
+            <h3>Narration voice</h3>
+            {selectedVoice && <span className="setup-recommendation setup-recommendation--neutral">{selectedVoice.source === "clone" ? "Your clone" : "Predefined"}</span>}
+          </div>
+          <p>Choose your own cloned voice or a predefined narrator. Search and preview without leaving this stage.</p>
         </div>
 
         <div className="setup-voice-picker" ref={voicePickerRef}>
@@ -458,9 +567,12 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
           >
             {selectedVoice ? (
               <span className="setup-voice-trigger__selected">
-                <span className="setup-voice-trigger__source">{selectedVoice.source === "clone" ? "YOUR CLONE" : "PREDEFINED"}</span>
-                <strong>{selectedVoice.name}</strong>
-                <span>{[selectedVoice.accent, selectedVoice.gender, selectedVoice.tone, selectedVoice.language].filter(Boolean).join(" · ")}</span>
+                <span className="setup-voice-trigger__avatar" aria-hidden="true">{voiceInitials(selectedVoice.name)}</span>
+                <span className="setup-voice-trigger__details">
+                  <span className="setup-voice-trigger__source">{selectedVoice.source === "clone" ? "YOUR CLONE" : "PREDEFINED"}</span>
+                  <strong>{selectedVoice.name}</strong>
+                  <span>{[selectedVoice.accent, selectedVoice.gender, selectedVoice.tone, selectedVoice.language].filter(Boolean).join(" · ")}</span>
+                </span>
               </span>
             ) : (
               <span className="setup-voice-trigger__placeholder">Select a narration voice…</span>
@@ -570,9 +682,16 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
 
       {suggestions.framework.guardrailApplied && <div className="setup-guardrail"><strong>Monetization guardrail applied.</strong> Helix selected a safer narrative because the research flagged a high-risk issue.</div>}
       {error && <div className="setup-error"><span>{error}</span></div>}
-      <div className="setup-actions">
-        <button className="btn btn-cream" type="button" disabled={saving} onClick={save}>{saving ? "Saving…" : isDirty ? "Save changes & regenerate →" : "Continue to storyboard →"}</button>
-      </div>
+      <footer className={"setup-actions " + (isDirty ? "is-dirty" : "")}>
+        <div className="setup-actions__status" aria-live="polite">
+          <span className="setup-actions__status-dot" aria-hidden="true" />
+          <div>
+            <strong>{isDirty ? changedFields.length + " change" + (changedFields.length === 1 ? "" : "s") + " ready to apply" : hasSavedSetup ? "Setup is saved" : "Setup is ready"}</strong>
+            <span>{isDirty ? "Storyboard, visuals, and narration will be regenerated from the same research." : "No regeneration happens until you change a setting."}</span>
+          </div>
+        </div>
+        <button className="btn btn-cream" type="button" disabled={saving} onClick={save}>{saving ? "Applying changes…" : isDirty ? "Apply & regenerate storyboard →" : "Continue to storyboard →"}</button>
+      </footer>
     </div>
   );
 }

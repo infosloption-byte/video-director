@@ -248,7 +248,7 @@ export default function StoryboardPage() {
         <main className="container hx-board">
           <div className="hx-board__head">
             <div>
-              <p className="eyebrow">{tab === "Preview" ? "Finalize & export" : project.status === "storyboard" ? "Setup locked" : "Research complete"}</p>
+              <p className="eyebrow">{tab === "Preview" ? "Finalize & export" : tab === "Setup" ? "Configure storyboard" : tab === "Storyboard" ? "Storyboard ready" : "Research complete"}</p>
               <h1 className="hx-board__title">{project.title}</h1>
             </div>
             <div className="hx-tabs" role="tablist" aria-label="Reel stages">
