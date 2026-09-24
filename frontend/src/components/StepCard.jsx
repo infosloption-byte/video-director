@@ -102,6 +102,7 @@ export default function StepCard({
           <div onClick={(event) => event.stopPropagation()}>
             <SceneCustomizePanel
               scene={step}
+              selectedAssetIndex={selectedAssetIndex}
               customSetup={customSetup}
               voices={voices}
               onPreviewVoice={onPreviewVoice}
