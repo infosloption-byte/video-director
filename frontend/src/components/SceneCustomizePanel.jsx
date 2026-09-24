@@ -116,7 +116,8 @@ export default function SceneCustomizePanel({
   }
 
   async function refreshSceneVisuals() {
-    const result = await onRegenerateVisuals?.();
+    const query = narration.trim().replace(/\s+/g, " ").slice(0, 120);
+    const result = await onRegenerateVisuals?.(query);
     if (result?.scene?.assets?.length) setNewVisuals(result.scene.assets.slice(0, 5));
   }
 
