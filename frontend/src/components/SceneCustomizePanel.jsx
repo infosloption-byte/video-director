@@ -251,7 +251,7 @@ export default function SceneCustomizePanel({
                   type="button"
                   className="scene-customize__preview"
                   onClick={toggleNarrationPlayback}
-                  disabled={Boolean(busy) || !scene.audioUrl}
+                  disabled={Boolean(busy) || (!voiceChanged && !scene.audioUrl)}
                 >
                   {busy === "voice" ? "Generating…" : playingNarration ? "Stop" : voiceChanged ? "Preview Voice" : "Play"}
                 </button>
