@@ -10,6 +10,7 @@ export default function StepCard({
   onSelectAsset,
   customizeOpen = false,
   onToggleCustomize,
+  onCloseCustomize,
   customSetup,
   voices = [],
   onPreviewVoice,
@@ -109,6 +110,7 @@ export default function StepCard({
               onRewrite={onRewriteScene}
               onChangeVoice={onChangeSceneVoice}
               onRegenerateVisuals={onRegenerateVisuals}
+              onClose={onCloseCustomize}
               busy={sceneBusy}
             />
           </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./SceneCustomizePanel.css";
 
 const FRAMEWORKS = [
@@ -24,7 +25,7 @@ function sceneVoice(scene,setup,voices){
 }
 
 export default function SceneCustomizePanel({
-  scene,customSetup,voices,onPreviewVoice,previewingVoice,previewLoading,onRewrite,onChangeVoice,onRegenerateVisuals,busy=""
+  scene,customSetup,voices,onPreviewVoice,previewingVoice,previewLoading,onRewrite,onChangeVoice,onRegenerateVisuals,onClose,busy=""
 }){
   const saved=scene.customization&&typeof scene.customization==="object"?scene.customization:{};
   const activeVoice=useMemo(()=>sceneVoice(scene,customSetup,voices),[scene,customSetup,voices]);
@@ -79,9 +80,49 @@ export default function SceneCustomizePanel({
     if(ok){setVoiceOpen(false);setVoiceSearch("");}
   }
   const projectFramework=FRAMEWORKS.find((item)=>item.key===(customSetup?.framework||"how-it-works"))?.label||"How It Works";
+  const projectTone=customSetup?.tone || "Conversational";
+  const projectAudience=customSetup?.audienceLevel || "General public";
+  const projectVoice=customSetup?.voice?.name || "Project voice";
 
-  return (
-    <section className="scene-customize" aria-label={scene.title + " customization"}>
+  useEffect(()=>{
+    const onKeyDown=(event)=>{ if(event.key==="Escape") onClose?.(); };
+    document.addEventListener("keydown",onKeyDown);
+    const previousOverflow=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    return ()=>{
+      document.removeEventListener("keydown",onKeyDown);
+      document.body.style.overflow=previousOverflow;
+    };
+  },[onClose]);
+
+  const modal=(
+    <div className="scene-customize-modal" onMouseDown={(event)=>{if(event.target===event.currentTarget)onClose?.();}}>
+      <div className="scene-customize scene-customize--modal" role="dialog" aria-modal="true" aria-labelledby={"scene-customize-title-"+scene.id}>
+        <div className="scene-customize__head">
+          <div>
+            <p className="mono-label">SCENE {String(scene.sceneOrder).padStart(2,"0")} · SCENE EDITOR</p>
+            <h4 id={"scene-customize-title-"+scene.id}>Fine-tune this scene without changing the rest.</h4>
+            <p>These controls override the project Setup only for this scene. The research foundation stays the same.</p>
+          </div>
+          <div className="scene-customize__head-actions">
+            <span className="scene-customize__inherit">Scene-specific</span>
+            <button type="button" className="scene-customize__close" onClick={()=>onClose?.()} aria-label="Close scene customization">×</button>
+          </div>
+        </div>
+
+        <div className="scene-customize__context">
+          <div><span className="mono-label">INHERITED SETUP</span><strong>{projectFramework}</strong></div>
+          <div><span>Tone</span><strong>{projectTone}</strong></div>
+          <div><span>Audience</span><strong>{projectAudience}</strong></div>
+          <div><span>Voice</span><strong>{projectVoice}</strong></div>
+        </div>
+
+        <div className="scene-customize__current-copy">
+          <span className="mono-label">CURRENT NARRATION</span>
+          <p>{scene.spokenText || "No narration is available yet."}</p>
+        </div>
+
+        <div className="scene-customize__grid">
       <div className="scene-customize__head">
         <div>
           <p className="mono-label">SCENE EDITOR</p>
@@ -188,6 +229,8 @@ export default function SceneCustomizePanel({
           <div className="scene-customize__note"><span aria-hidden="true">↳</span><p>Changing the scene voice regenerates only this scene's narration. It does not replace your project-wide Setup voice.</p></div>
         </div>
       </div>
-    </section>
+      </div>
+    </div>
   );
+  return typeof document === "undefined" ? null : createPortal(modal, document.body);
 }

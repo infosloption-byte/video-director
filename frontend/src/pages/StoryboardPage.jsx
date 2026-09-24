@@ -502,6 +502,7 @@ export default function StoryboardPage() {
                         onSelectAsset={(index) => selectAsset(scene.id, index)}
                         customizeOpen={customizingSceneId === scene.id}
                         onToggleCustomize={() => setCustomizingSceneId((current) => current === scene.id ? null : scene.id)}
+                        onCloseCustomize={() => setCustomizingSceneId(null)}
                         customSetup={projectSceneSetup}
                         voices={sceneVoiceOptions}
                         onPreviewVoice={previewSceneVoice}
