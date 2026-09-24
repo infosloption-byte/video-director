@@ -109,6 +109,7 @@ export default function StepCard({
               previewLoading={previewLoading}
               onRewrite={onRewriteScene}
               onChangeVoice={onChangeSceneVoice}
+              onSelectAsset={onSelectAsset}
               onRegenerateVisuals={onRegenerateVisuals}
               onClose={onCloseCustomize}
               busy={sceneBusy}
