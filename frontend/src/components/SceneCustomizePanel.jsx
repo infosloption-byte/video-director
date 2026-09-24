@@ -55,10 +55,10 @@ export default function SceneCustomizePanel({
   const [audience, setAudience] = useState(saved.audienceLevel || customSetup?.audienceLevel || "General public");
   const [lengthMode, setLengthMode] = useState("keep");
   const [narration, setNarration] = useState(scene.spokenText || "");
-  const [refreshVisuals, setRefreshVisuals] = useState(true);
-  const [visualQuery, setVisualQuery] = useState(scene.brollSearchTerm || "");
 
   const voiceRef = useRef(null);
+  const [currentVisuals] = useState(() => Array.isArray(scene.assets) ? scene.assets.slice(0, 5) : []);
+  const [newVisuals, setNewVisuals] = useState([]);
   const currentDuration = Number(scene.durationSeconds || 5);
   const targetDuration = useMemo(() => {
     if (lengthMode === "shorter") return Math.max(1.5, Math.min(30, currentDuration * 0.78));
@@ -75,12 +75,10 @@ export default function SceneCustomizePanel({
     setTone(saved.tone || customSetup?.tone || "Conversational");
     setAudience(saved.audienceLevel || customSetup?.audienceLevel || "General public");
     setNarration(scene.spokenText || "");
-    setVisualQuery(scene.brollSearchTerm || "");
     setLengthMode("keep");
   }, [
     scene.id,
     scene.spokenText,
-    scene.brollSearchTerm,
     saved.framework,
     saved.tone,
     saved.audienceLevel,
@@ -103,16 +101,23 @@ export default function SceneCustomizePanel({
   }, [onClose]);
 
   async function regenerateNarration() {
-    const ok = await onRewrite?.({
+    const result = await onRewrite?.({
       framework,
       tone,
       audienceLevel: audience,
       targetDurationSeconds: Number(targetDuration.toFixed(1)),
       currentNarration: narration.trim(),
       instruction: "",
-      refreshVisuals,
+      refreshVisuals: false,
     });
-    if (ok) setLengthMode("keep");
+    if (result?.scene?.spokenText) setNarration(result.scene.spokenText);
+    if (result?.scene?.assets?.length) setNewVisuals(result.scene.assets.slice(0, 5));
+    if (result) setLengthMode("keep");
+  }
+
+  async function refreshSceneVisuals() {
+    const result = await onRegenerateVisuals?.();
+    if (result?.scene?.assets?.length) setNewVisuals(result.scene.assets.slice(0, 5));
   }
 
   async function applyVoice(voice) {
@@ -195,19 +200,8 @@ export default function SceneCustomizePanel({
           />
 
           <div className="scene-customize__hint">
-            <span>AI does not simply swap words.</span>
-            <span>It uses the persisted research and the other scenes to create a distinct, evidence-grounded angle.</span>
+            AI rebuilds the scene from the persisted research and the other scenes. It does not simply swap words.
           </div>
-
-          <label className="scene-customize__check">
-            <input
-              type="checkbox"
-              checked={refreshVisuals}
-              onChange={(event) => setRefreshVisuals(event.target.checked)}
-              disabled={Boolean(busy)}
-            />
-            <span>After AI regeneration, refresh the five Pexels visuals from the new narration</span>
-          </label>
         </div>
 
         <div className="scene-customize__grid">
@@ -300,25 +294,45 @@ export default function SceneCustomizePanel({
           <div className="scene-customize__section-head">
             <div>
               <span className="mono-label">VISUALS</span>
-              <strong>Refresh the five Pexels options for this scene</strong>
+              <strong>Current and newly generated Pexels options</strong>
             </div>
             <button
               type="button"
               className="scene-customize__refresh"
-              onClick={() => onRegenerateVisuals?.(visualQuery)}
-              disabled={Boolean(busy) || !visualQuery.trim()}
+              onClick={() => void refreshSceneVisuals()}
+              disabled={Boolean(busy)}
             >
               {busy === "visuals" ? "Refreshing…" : "Refresh 5 visuals"}
             </button>
           </div>
-          <input
-            className="scene-customize__visual-query"
-            value={visualQuery}
-            onChange={(event) => setVisualQuery(event.target.value)}
-            placeholder="Visual search phrase"
-            disabled={Boolean(busy)}
-          />
-          <small className="scene-customize__meta">The AI refresh option above replaces this phrase automatically from the regenerated narration.</small>
+
+          <div className="scene-customize__visual-groups">
+            <div className="scene-customize__visual-group">
+              <span className="scene-customize__visual-label">CURRENT</span>
+              <div className="scene-customize__visual-strip">
+                {currentVisuals.map((asset, index) => (
+                  <div className="scene-customize__visual-card" key={asset.id || "current-" + index}>
+                    <img src={asset.thumbnailUrl} alt={"Current visual " + (index + 1)} />
+                    <span>{index + 1}</span>
+                  </div>
+                ))}
+                {!currentVisuals.length && <div className="scene-customize__visual-empty">No visuals available.</div>}
+              </div>
+            </div>
+
+            <div className="scene-customize__visual-group">
+              <span className="scene-customize__visual-label">NEWLY GENERATED</span>
+              <div className="scene-customize__visual-strip">
+                {newVisuals.map((asset, index) => (
+                  <div className="scene-customize__visual-card scene-customize__visual-card--new" key={asset.id || "new-" + index}>
+                    <img src={asset.thumbnailUrl} alt={"New visual " + (index + 1)} />
+                    <span>{index + 1}</span>
+                  </div>
+                ))}
+                {!newVisuals.length && <div className="scene-customize__visual-empty">Click refresh to generate five new visuals for this narration.</div>}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
