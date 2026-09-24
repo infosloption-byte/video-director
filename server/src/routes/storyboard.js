@@ -426,10 +426,15 @@ router.patch("/scenes/:sceneId/voice", async (req, res) => {
       voice: voiceProfileId ? { source: "clone", id: voiceProfileId } : { source: "preset", id: voicePresetId },
     });
 
+    const requestedText = typeof req.body?.text === "string"
+      ? req.body.text.trim().slice(0, 5000)
+      : scene.spokenText;
+    if (!requestedText) return res.status(400).json({ error: "Narration text is required." });
+
     const narration = await synthesizeSpeech({
       projectId: scene.projectId,
       sceneId: scene.id,
-      text: scene.spokenText,
+      text: requestedText,
       engine: voice.engine,
       voiceId: voice.voiceId,
       voice: voice.voice,
@@ -446,6 +451,7 @@ router.patch("/scenes/:sceneId/voice", async (req, res) => {
     await prisma.projectScene.update({
       where: { id: scene.id },
       data: {
+        ...(requestedText !== scene.spokenText ? { spokenText: requestedText } : {}),
         audioUrl: narration.audioUrl,
         wordTimestamps: narration.wordTimestamps,
         ...(narration.durationSeconds != null ? { durationSeconds: narration.durationSeconds } : {}),
