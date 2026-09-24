@@ -147,8 +147,20 @@ export default function ResearchPage() {
         projectRef.current = nextProject;
         setProject(nextProject);
         setError("");
-        const terminal = nextProject?.researchStatus === "ready" || nextProject?.researchStatus === "error";
+
+        // A terminal in-memory job state can briefly arrive before the
+        // completed report payload is visible to the status endpoint. Keep
+        // polling through that short hydration window instead of leaving the
+        // UI at 100% until a manual page reload.
+        const readyWithoutReport = nextProject?.researchStatus === "ready" && !nextProject?.research;
+        const terminal = nextProject?.researchStatus === "error"
+          || (nextProject?.researchStatus === "ready" && !readyWithoutReport);
         if (terminal) return;
+
+        if (readyWithoutReport) {
+          timer = window.setTimeout(poll, 250);
+          return;
+        }
       } catch (err) {
         if (stopped || err.name === "AbortError") return;
         if (!projectRef.current) setError(err.message || "Failed to load research.");
