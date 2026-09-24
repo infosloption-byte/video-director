@@ -49,32 +49,19 @@ export default function SceneCustomizePanel({
   const [framework, setFramework] = useState(saved.framework || customSetup?.framework || "how-it-works");
   const [tone, setTone] = useState(saved.tone || customSetup?.tone || "Conversational");
   const [audience, setAudience] = useState(saved.audienceLevel || customSetup?.audienceLevel || "General public");
-  const [lengthMode, setLengthMode] = useState("keep");
   const [narration, setNarration] = useState(scene.spokenText || "");
   const [selectedVoiceKey, setSelectedVoiceKey] = useState("");
   const [playingNarration, setPlayingNarration] = useState(false);
 
   const narrationAudioRef = useRef(null);
-  const currentDuration = Number(scene.durationSeconds || 5);
-  const targetDuration = useMemo(() => {
-    if (lengthMode === "shorter") return Math.max(1.5, Math.min(30, currentDuration * 0.78));
-    if (lengthMode === "longer") return Math.max(1.5, Math.min(30, currentDuration * 1.22));
-    return currentDuration;
-  }, [currentDuration, lengthMode]);
 
   const selectedVoice = voices.find((voice) => voiceKey(voice) === selectedVoiceKey) || activeVoice;
-  const sceneDefaultVoiceKey = voiceKey(activeVoice);
-  const settingsDirty = framework !== (saved.framework || customSetup?.framework || "how-it-works")
-    || tone !== (saved.tone || customSetup?.tone || "Conversational")
-    || audience !== (saved.audienceLevel || customSetup?.audienceLevel || "General public")
-    || selectedVoiceKey !== sceneDefaultVoiceKey;
 
   useEffect(() => {
     setFramework(saved.framework || customSetup?.framework || "how-it-works");
     setTone(saved.tone || customSetup?.tone || "Conversational");
     setAudience(saved.audienceLevel || customSetup?.audienceLevel || "General public");
     setNarration(scene.spokenText || "");
-    setLengthMode("keep");
     setSelectedVoiceKey(voiceKey(getSceneVoice(scene, customSetup, voices)));
     narrationAudioRef.current?.pause();
     narrationAudioRef.current = null;
@@ -105,35 +92,18 @@ export default function SceneCustomizePanel({
     };
   }, [onClose]);
 
-  async function applySceneSettings() {
-    const voice = selectedVoice;
-    const result = await onRewrite?.({
-      framework,
-      tone,
-      audienceLevel: audience,
-      targetDurationSeconds: Number(targetDuration.toFixed(1)),
-      currentNarration: narration.trim(),
-      instruction: "Apply the selected framework, tone, audience, and narrator voice to this scene. Rewrite the narration accordingly and regenerate its narration audio using the selected voice.",
-      refreshVisuals: false,
-      voice: voice ? { source: voice.source, id: voice.id } : null,
-    });
-    if (result?.scene?.spokenText) setNarration(result.scene.spokenText);
-    if (result) setLengthMode("keep");
-  }
-
   async function regenerateNarration() {
     const result = await onRewrite?.({
       framework,
       tone,
       audienceLevel: audience,
-      targetDurationSeconds: Number(targetDuration.toFixed(1)),
+      targetDurationSeconds: Number(scene.durationSeconds || 5),
       currentNarration: narration.trim(),
       instruction: "",
-      refreshVisuals: false,
+      refreshVisuals: true,
       voice: selectedVoice ? { source: selectedVoice.source, id: selectedVoice.id } : null,
     });
     if (result?.scene?.spokenText) setNarration(result.scene.spokenText);
-    if (result) setLengthMode("keep");
   }
 
   async function refreshSceneVisuals() {
@@ -243,17 +213,7 @@ export default function SceneCustomizePanel({
               </select>
             </label>
           </div>
-          <div className="scene-customize__settings-actions">
-            <span>{settingsDirty ? "Settings changed — apply to rewrite narration and regenerate its voice." : "Current scene defaults are selected."}</span>
-            <button
-              type="button"
-              className="scene-customize__apply"
-              onClick={() => void applySceneSettings()}
-              disabled={Boolean(busy) || !narration.trim() || !settingsDirty}
-            >
-              {busy === "rewrite" || busy === "rewrite-visuals" ? "Applying…" : "Apply"}
-            </button>
-          </div>
+
         </div>
 
         <div className="scene-customize__section">
@@ -280,7 +240,7 @@ export default function SceneCustomizePanel({
                 disabled={Boolean(busy) || !narration.trim()}
                 title="Regenerate this scene from the research and current draft"
               >
-                {busy === "rewrite" || busy === "rewrite-visuals" ? "✦ Regenerating…" : "✦ AI regenerate"}
+                {busy === "rewrite" || busy === "rewrite-visuals" ? "Regenerating…" : "Regenerate"}
               </button>
             </div>
           </div>
@@ -303,7 +263,7 @@ export default function SceneCustomizePanel({
           <div className="scene-customize__section-head">
             <div>
               <span className="mono-label">VISUALS</span>
-              <strong>Refresh the scene visuals from the current narration</strong>
+              <strong>Regenerate visuals from the current narration</strong>
             </div>
             <button
               type="button"
@@ -311,7 +271,7 @@ export default function SceneCustomizePanel({
               onClick={() => void refreshSceneVisuals()}
               disabled={Boolean(busy)}
             >
-              {busy === "visuals" ? "Refreshing…" : "Refresh 5 visuals"}
+              {busy === "visuals" ? "Regenerating…" : "Regenerate Visuals"}
             </button>
           </div>
 
