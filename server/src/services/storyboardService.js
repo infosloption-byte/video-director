@@ -248,10 +248,15 @@ export async function rewriteStoryboardScene({
   const tone = overrides.tone || project.tone || "Conversational";
   const audience = overrides.audienceLevel || project.audienceLevel || "General public";
   const targetDuration = Number(overrides.targetDurationSeconds || scene.durationSeconds || 5);
-  const siblingTexts = siblingScenes
-    .filter((item) => item.id !== scene.id)
-    .map((item) => String(item.spokenText || "").trim())
-    .filter(Boolean);
+  const otherScenes = siblingScenes.filter((item) => item.id !== scene.id);
+  const siblingTexts = otherScenes.map((item) => String(item.spokenText || "").trim()).filter(Boolean);
+  const siblingContext = otherScenes.map((item) => ({
+    scene: item.sceneOrder,
+    title: item.title,
+    spokenText: item.spokenText,
+    whyLine: item.whyLine,
+    brollSearchTerm: item.brollSearchTerm,
+  }));
   const sceneCount = Math.max(siblingScenes.length, Number(scene.sceneOrder || 1));
   const role = sceneRole(Number(scene.sceneOrder || 1), sceneCount);
   const currentDraft = String(currentNarration || scene.spokenText || "").trim();
@@ -276,8 +281,8 @@ ${currentDraft || "No current draft available."}
 User instruction:
 ${instruction || "Create a materially fresh narration that keeps the same verified topic but takes a distinct angle appropriate to this scene's role."}
 
-Other scene narrations — DO NOT repeat, paraphrase closely, or reuse their central wording:
-${JSON.stringify(siblingTexts.map((text, index) => ({ scene: siblingScenes.filter((item) => item.id !== scene.id)[index]?.sceneOrder, spokenText: text })))}
+Other scene content — treat these as already-covered territory. DO NOT repeat their claims, central points, wording, or visual concept:
+${JSON.stringify(siblingContext)}
 
 Hard rules:
 - Base every factual statement on the persisted research corpus below.
