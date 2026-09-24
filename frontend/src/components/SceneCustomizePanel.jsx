@@ -220,6 +220,7 @@ export default function SceneCustomizePanel({
         </div>
       </div>
     </div>
+  </div>
   );
   return typeof document === "undefined" ? null : createPortal(modal, document.body);
 }
