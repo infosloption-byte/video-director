@@ -317,9 +317,6 @@ export default function StoryboardPage() {
     return runSceneAction(sceneId, options.refreshVisuals ? "rewrite-visuals" : "rewrite", "/api/scenes/" + encodeURIComponent(sceneId) + "/rewrite", options);
   }
 
-  async function changeSceneVoice(sceneId, voice) {
-    return runSceneAction(sceneId, "voice", "/api/scenes/" + encodeURIComponent(sceneId) + "/voice", voice.source === "clone" ? { voiceProfileId: voice.id } : { voicePresetId: voice.id });
-  }
 
   async function regenerateSceneVisuals(sceneId, query = "") {
     return runSceneAction(sceneId, "visuals", "/api/scenes/" + encodeURIComponent(sceneId) + "/regenerate-assets", query ? { query } : {});
@@ -516,7 +513,6 @@ export default function StoryboardPage() {
                         previewingVoice={previewingSceneVoice}
                         previewLoading={previewLoadingSceneVoice}
                         onRewriteScene={(options) => rewriteScene(scene.id, options)}
-                        onChangeSceneVoice={(voice) => changeSceneVoice(scene.id, voice)}
                         onRegenerateVisuals={(query) => regenerateSceneVisuals(scene.id, query)}
                         sceneBusy={sceneActionFor(scene.id)}
                       />)}
