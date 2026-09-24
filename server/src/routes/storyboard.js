@@ -487,7 +487,7 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
     const siblingScenes = await prisma.projectScene.findMany({
       where: { projectId: scene.projectId },
       orderBy: { sceneOrder: "asc" },
-      select: { id: true, sceneOrder: true, spokenText: true },
+      select: { id: true, sceneOrder: true, title: true, spokenText: true, whyLine: true, brollSearchTerm: true },
     });
 
     const currentNarration = String(req.body?.currentNarration || scene.spokenText || "").trim().slice(0, 5000);
