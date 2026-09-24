@@ -118,7 +118,7 @@ export default function SceneCustomizePanel({
   const [tone, setTone] = useState(saved.tone || customSetup?.tone || "Conversational");
   const [audience, setAudience] = useState(saved.audienceLevel || customSetup?.audienceLevel || "General public");
   const [narration, setNarration] = useState(scene.spokenText || "");
-  const [selectedVoiceKey, setSelectedVoiceKey] = useState("");
+  const [selectedVoiceKey, setSelectedVoiceKey] = useState(() => voiceKey(activeVoice));
   const [playingNarration, setPlayingNarration] = useState(false);
   const [voiceGenerating, setVoiceGenerating] = useState(false);
   const [selectedVisualIndex, setSelectedVisualIndex] = useState(() => {
@@ -180,6 +180,7 @@ export default function SceneCustomizePanel({
       voice: selectedVoice ? { source: selectedVoice.source, id: selectedVoice.id } : null,
     });
     if (result?.scene?.spokenText) setNarration(result.scene.spokenText);
+    if (result?.scene?.audioUrl) await playAudioUrl(result.scene.audioUrl);
   }
 
   async function refreshSceneVisuals() {
