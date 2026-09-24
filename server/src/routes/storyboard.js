@@ -4,11 +4,14 @@ import { generateStoryboard } from "../services/storyboardService.js";
 import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
 import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
-import { requireProjectOwner } from "../middleware/ownership.js";
+import { requireProjectOwner, requireSceneOwner } from "../middleware/ownership.js";
 import { getPredefinedVoice } from "../services/predefinedVoiceService.js";
+import { FRAMEWORKS, TONES, AUDIENCES } from "../services/setupService.js";
+import { rewriteStoryboardScene } from "../services/storyboardService.js";
 
 const router = Router();
 router.use("/projects/:id", requireProjectOwner);
+router.use("/scenes/:sceneId", requireSceneOwner);
 
 function normalizeAudioUrl(audioUrl, projectId, sceneId) {
   if (!audioUrl) return null;
@@ -18,10 +21,117 @@ function normalizeAudioUrl(audioUrl, projectId, sceneId) {
   return value;
 }
 function publicScene(scene) {
-  return { id: scene.id, sceneOrder: scene.sceneOrder, title: scene.title, spokenText: scene.spokenText, durationSeconds: scene.durationSeconds == null ? null : Number(scene.durationSeconds), whyLine: scene.whyLine, whyPicture: scene.whyPicture, brollSearchTerm: scene.brollSearchTerm, audioUrl: normalizeAudioUrl(scene.audioUrl, scene.projectId, scene.id), wordTimestamps: scene.wordTimestamps || [], assets: (scene.assets || []).map((asset) => ({ id: asset.id, videoUrl: asset.videoUrl, thumbnailUrl: asset.thumbnailUrl, sortOrder: asset.sortOrder, isSelected: asset.isSelected })) };
+  return {
+    id: scene.id,
+    sceneOrder: scene.sceneOrder,
+    title: scene.title,
+    spokenText: scene.spokenText,
+    durationSeconds: scene.durationSeconds == null ? null : Number(scene.durationSeconds),
+    whyLine: scene.whyLine,
+    whyPicture: scene.whyPicture,
+    brollSearchTerm: scene.brollSearchTerm,
+    customization: scene.customization || null,
+    audioUrl: normalizeAudioUrl(scene.audioUrl, scene.projectId, scene.id),
+    wordTimestamps: scene.wordTimestamps || [],
+    assets: (scene.assets || []).map((asset) => ({
+      id: asset.id,
+      videoUrl: asset.videoUrl,
+      thumbnailUrl: asset.thumbnailUrl,
+      sortOrder: asset.sortOrder,
+      isSelected: asset.isSelected
+    }))
+  };
 }
 async function loadProjectScenes(id) {
   return prisma.project.findUnique({ where: { id }, include: { scenes: { include: { assets: { orderBy: { sortOrder: "asc" } } }, orderBy: { sceneOrder: "asc" } } } });
+}
+function allowedFramework(value) {
+  return FRAMEWORKS.some((item) => item.key === value);
+}
+function allowedTone(value) {
+  return TONES.includes(value);
+}
+function allowedAudience(value) {
+  return AUDIENCES.includes(value);
+}
+function normalizeCustomization(value) {
+  return value && typeof value === "object" ? { ...value } : {};
+}
+async function loadOwnedScene(sceneId) {
+  return prisma.projectScene.findUnique({
+    where: { id: sceneId },
+    include: { project: { include: { signal: true } }, assets: { orderBy: { sortOrder: "asc" } } },
+  });
+}
+async function resolveNarrationVoice({ project, userId, voice }) {
+  const requested = voice && typeof voice === "object" ? voice : null;
+  const requestedSource = requested?.source;
+  const requestedId = String(requested?.id || "").trim();
+
+  if (requestedSource === "clone" && requestedId) {
+    const profile = await prisma.voiceProfile.findFirst({
+      where: { id: requestedId, userId, status: "ready" },
+      select: { id: true, name: true, preferredEngine: true, ttsVoiceId: true, language: true },
+    });
+    if (!profile?.ttsVoiceId) throw new Error("The selected cloned voice is not ready for narration.");
+    return {
+      source: "clone",
+      id: profile.id,
+      name: profile.name,
+      engine: profile.preferredEngine,
+      voiceId: profile.ttsVoiceId,
+      language: profile.language || project.language || "English",
+    };
+  }
+
+  if (requestedSource === "preset" && requestedId) {
+    const preset = getPredefinedVoice(requestedId);
+    if (!preset) throw new Error("The selected predefined voice is not available.");
+    return {
+      source: "preset",
+      id: preset.id,
+      name: preset.name,
+      engine: preset.engine,
+      voice: preset.voice,
+      language: preset.language || project.language || "English",
+    };
+  }
+
+  if (project.voiceProfileId) {
+    const profile = await prisma.voiceProfile.findFirst({
+      where: { id: project.voiceProfileId, userId, status: "ready" },
+      select: { id: true, name: true, preferredEngine: true, ttsVoiceId: true, language: true },
+    });
+    if (!profile?.ttsVoiceId) throw new Error("The project's cloned voice is not ready.");
+    return {
+      source: "clone",
+      id: profile.id,
+      name: profile.name,
+      engine: profile.preferredEngine,
+      voiceId: profile.ttsVoiceId,
+      language: profile.language || project.language || "English",
+    };
+  }
+
+  const preset = getPredefinedVoice(project.voicePresetId);
+  if (!preset) throw new Error("The project's predefined voice is not available.");
+  return {
+    source: "preset",
+    id: preset.id,
+    name: preset.name,
+    engine: preset.engine,
+    voice: preset.voice,
+    language: preset.language || project.language || "English",
+  };
+}
+async function syncProjectStoryboardTotals(projectId) {
+  const scenes = await prisma.projectScene.findMany({ where: { projectId }, select: { durationSeconds: true } });
+  const totalDuration = scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { durationSeconds: totalDuration, cuts: scenes.length, renderUrl: null, status: "storyboard" },
+  });
+  return { durationSeconds: totalDuration, cuts: scenes.length };
 }
 
 router.get("/tts/diagnostics", async (_req, res) => {
@@ -97,7 +207,27 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
       if (existing.length) await tx.sceneAsset.deleteMany({ where: { sceneId: { in: existing.map((item) => item.id) } } });
       await tx.projectScene.deleteMany({ where: { projectId: project.id } });
       for (const item of withAssets) {
-        const createdScene = await tx.projectScene.create({ data: { projectId: project.id, sceneOrder: item.scene.scene_order, title: item.scene.title, spokenText: item.scene.spoken_text, durationSeconds: item.scene.duration_seconds, whyLine: item.scene.why_line, whyPicture: item.scene.why_picture, brollSearchTerm: item.scene.broll_search_term } });
+        const createdScene = await tx.projectScene.create({
+          data: {
+            projectId: project.id,
+            sceneOrder: item.scene.scene_order,
+            title: item.scene.title,
+            spokenText: item.scene.spoken_text,
+            durationSeconds: item.scene.duration_seconds,
+            whyLine: item.scene.why_line,
+            whyPicture: item.scene.why_picture,
+            brollSearchTerm: item.scene.broll_search_term,
+            customization: {
+              framework: project.selectedFramework,
+              tone: project.tone,
+              audienceLevel: project.audienceLevel,
+              targetDurationSeconds: item.scene.duration_seconds,
+              voice: narrationVoice.source === "clone"
+                ? { source: "clone", id: narrationVoice.id, engine: narrationVoice.engine, voiceId: narrationVoice.voiceId, language: narrationVoice.language }
+                : { source: "preset", id: narrationVoice.id, engine: narrationVoice.engine, voice: narrationVoice.voice, language: narrationVoice.language },
+            },
+          },
+        });
         await tx.sceneAsset.createMany({ data: item.assets.map((asset, index) => ({ sceneId: createdScene.id, videoUrl: asset.videoUrl, thumbnailUrl: asset.thumbnailUrl, sortOrder: index, isSelected: index === 0 })) });
       }
       await tx.project.update({ where: { id: project.id }, data: { status: "storyboard", durationSeconds: withAssets.reduce((sum, item) => sum + Number(item.scene.duration_seconds || 0), 0), cuts: withAssets.length } });
@@ -261,11 +391,205 @@ router.patch("/scenes/:sceneId/select-asset", async (req, res) => {
   try {
     const { assetId } = req.body || {};
     if (!assetId) return res.status(400).json({ error: "assetId is required." });
+    const scene = await loadOwnedScene(req.params.sceneId);
+    if (!scene) return res.status(404).json({ error: "Scene not found." });
     const asset = await prisma.sceneAsset.findUnique({ where: { id: assetId } });
-    if (!asset || asset.sceneId !== req.params.sceneId) return res.status(404).json({ error: "Scene asset not found." });
-    await prisma.$transaction([prisma.sceneAsset.updateMany({ where: { sceneId: asset.sceneId }, data: { isSelected: false } }), prisma.sceneAsset.update({ where: { id: asset.id }, data: { isSelected: true } })]);
-    res.json({ assetId: asset.id, sceneId: asset.sceneId });
-  } catch (error) { console.error("PATCH /api/scenes/:sceneId/select-asset failed:", error); res.status(500).json({ error: "Failed to select scene asset." }); }
+    if (!asset || asset.sceneId !== scene.id) return res.status(404).json({ error: "Scene asset not found." });
+    await prisma.$transaction([
+      prisma.sceneAsset.updateMany({ where: { sceneId: scene.id }, data: { isSelected: false } }),
+      prisma.sceneAsset.update({ where: { id: asset.id }, data: { isSelected: true } }),
+      prisma.project.update({ where: { id: scene.projectId }, data: { renderUrl: null, status: "storyboard" } }),
+    ]);
+    const refreshed = await loadOwnedScene(scene.id);
+    res.json({ scene: publicScene({ ...refreshed, projectId: scene.projectId }), assetId: asset.id, sceneId: asset.sceneId });
+  } catch (error) {
+    console.error("PATCH /api/scenes/:sceneId/select-asset failed:", error);
+    res.status(500).json({ error: "Failed to select scene asset." });
+  }
+});
+
+router.patch("/scenes/:sceneId/voice", async (req, res) => {
+  try {
+    const scene = await loadOwnedScene(req.params.sceneId);
+    if (!scene) return res.status(404).json({ error: "Scene not found." });
+
+    const voiceProfileId = String(req.body?.voiceProfileId || "").trim();
+    const voicePresetId = String(req.body?.voicePresetId || "").trim();
+    if ((voiceProfileId && voicePresetId) || (!voiceProfileId && !voicePresetId)) {
+      return res.status(400).json({ error: "Choose either a cloned voice or a predefined voice." });
+    }
+
+    const voice = await resolveNarrationVoice({
+      project: scene.project,
+      userId: req.user.id,
+      voice: voiceProfileId ? { source: "clone", id: voiceProfileId } : { source: "preset", id: voicePresetId },
+    });
+
+    const narration = await synthesizeSpeech({
+      projectId: scene.projectId,
+      sceneId: scene.id,
+      text: scene.spokenText,
+      engine: voice.engine,
+      voiceId: voice.voiceId,
+      voice: voice.voice,
+      language: voice.language,
+      allowFallback: false,
+    });
+
+    const customization = normalizeCustomization(scene.customization);
+    customization.voice = voice.source === "clone"
+      ? { source: "clone", id: voice.id, name: voice.name, engine: voice.engine, voiceId: voice.voiceId, language: voice.language }
+      : { source: "preset", id: voice.id, name: voice.name, engine: voice.engine, voice: voice.voice, language: voice.language };
+
+    await prisma.projectScene.update({
+      where: { id: scene.id },
+      data: {
+        audioUrl: narration.audioUrl,
+        wordTimestamps: narration.wordTimestamps,
+        ...(narration.durationSeconds != null ? { durationSeconds: narration.durationSeconds } : {}),
+        customization,
+      },
+    });
+
+    const totals = await syncProjectStoryboardTotals(scene.projectId);
+    const refreshed = await loadOwnedScene(scene.id);
+    res.json({ scene: publicScene({ ...refreshed, projectId: scene.projectId }), ...totals });
+  } catch (error) {
+    console.error(`PATCH /api/scenes/${req.params.sceneId}/voice failed:`, error);
+    res.status(500).json({ error: error.message || "Failed to regenerate scene narration." });
+  }
+});
+
+router.post("/scenes/:sceneId/rewrite", async (req, res) => {
+  try {
+    const scene = await loadOwnedScene(req.params.sceneId);
+    if (!scene) return res.status(404).json({ error: "Scene not found." });
+
+    const saved = normalizeCustomization(scene.customization);
+    const framework = req.body?.framework || saved.framework || scene.project.selectedFramework || "how-it-works";
+    const tone = req.body?.tone || saved.tone || scene.project.tone || "Conversational";
+    const audienceLevel = req.body?.audienceLevel || saved.audienceLevel || scene.project.audienceLevel || "General public";
+    const instruction = String(req.body?.instruction || "").trim().slice(0, 1000);
+    const requestedDuration = Number(req.body?.targetDurationSeconds);
+    const targetDurationSeconds = Number.isFinite(requestedDuration) && requestedDuration > 0
+      ? Math.min(30, Math.max(1.5, requestedDuration))
+      : Number(scene.durationSeconds || 5);
+
+    if (!allowedFramework(framework)) return res.status(400).json({ error: "Invalid scene framework." });
+    if (!allowedTone(tone)) return res.status(400).json({ error: "Invalid scene tone." });
+    if (!allowedAudience(audienceLevel)) return res.status(400).json({ error: "Invalid scene audience." });
+
+    const researchCorpus = await loadResearchCorpus(scene.projectId);
+    if (!researchCorpus) return res.status(409).json({ error: "The persisted research corpus is not available." });
+
+    const rewritten = await rewriteStoryboardScene({
+      project: scene.project,
+      signal: scene.project.signal,
+      researchCorpus,
+      scene,
+      overrides: { framework, tone, audienceLevel, targetDurationSeconds },
+      instruction,
+    });
+
+    const voice = await resolveNarrationVoice({ project: scene.project, userId: req.user.id, voice: saved.voice });
+    const narration = await synthesizeSpeech({
+      projectId: scene.projectId,
+      sceneId: scene.id,
+      text: rewritten.spoken_text,
+      engine: voice.engine,
+      voiceId: voice.voiceId,
+      voice: voice.voice,
+      language: voice.language,
+      allowFallback: false,
+    });
+
+    const refreshVisuals = req.body?.refreshVisuals !== false;
+    const assets = refreshVisuals ? await searchPexelsVideos(rewritten.broll_search_term, 5) : scene.assets;
+    if (refreshVisuals && assets.length < 5) {
+      throw new Error("Pexels returned fewer than 5 usable visuals for this rewritten scene.");
+    }
+
+    const customization = { ...saved, framework, tone, audienceLevel, targetDurationSeconds };
+    customization.voice = voice.source === "clone"
+      ? { source: "clone", id: voice.id, name: voice.name, engine: voice.engine, voiceId: voice.voiceId, language: voice.language }
+      : { source: "preset", id: voice.id, name: voice.name, engine: voice.engine, voice: voice.voice, language: voice.language };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.projectScene.update({
+        where: { id: scene.id },
+        data: {
+          title: rewritten.title,
+          spokenText: rewritten.spoken_text,
+          durationSeconds: narration.durationSeconds != null ? narration.durationSeconds : rewritten.duration_seconds,
+          whyLine: rewritten.why_line,
+          whyPicture: rewritten.why_picture,
+          brollSearchTerm: rewritten.broll_search_term,
+          audioUrl: narration.audioUrl,
+          wordTimestamps: narration.wordTimestamps,
+          customization,
+        },
+      });
+
+      if (refreshVisuals) {
+        await tx.sceneAsset.deleteMany({ where: { sceneId: scene.id } });
+        await tx.sceneAsset.createMany({
+          data: assets.map((asset, index) => ({
+            sceneId: scene.id,
+            videoUrl: asset.videoUrl,
+            thumbnailUrl: asset.thumbnailUrl,
+            sortOrder: index,
+            isSelected: index === 0,
+          })),
+        });
+      }
+
+      await tx.project.update({ where: { id: scene.projectId }, data: { renderUrl: null, status: "storyboard" } });
+    });
+
+    await syncProjectStoryboardTotals(scene.projectId);
+    const refreshed = await loadOwnedScene(scene.id);
+    res.json({ scene: publicScene({ ...refreshed, projectId: scene.projectId }), refreshedVisuals: refreshVisuals });
+  } catch (error) {
+    console.error(`POST /api/scenes/${req.params.sceneId}/rewrite failed:`, error);
+    res.status(error?.status === 429 ? 429 : 500).json({ error: error.message || "Failed to rewrite this scene." });
+  }
+});
+
+router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
+  try {
+    const scene = await loadOwnedScene(req.params.sceneId);
+    if (!scene) return res.status(404).json({ error: "Scene not found." });
+
+    const query = String(req.body?.query || scene.brollSearchTerm || scene.title || "technology")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 120);
+    if (!query) return res.status(400).json({ error: "A visual search phrase is required." });
+
+    const assets = await searchPexelsVideos(query, 5);
+    if (assets.length < 5) throw new Error("Pexels returned fewer than 5 usable visuals for this scene.");
+
+    await prisma.$transaction(async (tx) => {
+      await tx.sceneAsset.deleteMany({ where: { sceneId: scene.id } });
+      await tx.sceneAsset.createMany({
+        data: assets.map((asset, index) => ({
+          sceneId: scene.id,
+          videoUrl: asset.videoUrl,
+          thumbnailUrl: asset.thumbnailUrl,
+          sortOrder: index,
+          isSelected: index === 0,
+        })),
+      });
+      await tx.projectScene.update({ where: { id: scene.id }, data: { brollSearchTerm: query } });
+      await tx.project.update({ where: { id: scene.projectId }, data: { renderUrl: null, status: "storyboard" } });
+    });
+
+    const refreshed = await loadOwnedScene(scene.id);
+    res.json({ scene: publicScene({ ...refreshed, projectId: scene.projectId }), query, assetCount: assets.length });
+  } catch (error) {
+    console.error(`POST /api/scenes/${req.params.sceneId}/regenerate-assets failed:`, error);
+    res.status(500).json({ error: error.message || "Failed to regenerate scene visuals." });
+  }
 });
 
 router.get("/projects/:id/narration-status", async (req, res) => {

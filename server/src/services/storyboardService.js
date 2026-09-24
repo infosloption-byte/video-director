@@ -2,6 +2,19 @@ const ALLOWED_LENGTHS = [15, 30, 45, 60];
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_MS = 1500;
 
+const SCENE_REWRITE_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    spoken_text: { type: "string" },
+    duration_seconds: { type: "number" },
+    why_line: { type: "string" },
+    why_picture: { type: "string" },
+    broll_search_term: { type: "string" },
+  },
+  required: ["title", "spoken_text", "duration_seconds", "why_line", "why_picture", "broll_search_term"],
+};
+
 const STORYBOARD_SCHEMA = {
   type: "object",
   properties: {
@@ -48,7 +61,7 @@ function retryDelay(error, attempt) {
   return Math.min(12000, RETRY_BASE_MS * (2 ** (attempt - 1)));
 }
 
-async function callGemini(prompt) {
+async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputTokens = 4096) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -59,7 +72,7 @@ async function callGemini(prompt) {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema: STORYBOARD_SCHEMA, temperature: 0.2, maxOutputTokens: 4096 } }),
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema, temperature: 0.2, maxOutputTokens } }),
         signal: AbortSignal.timeout(90000),
       });
       const data = await response.json().catch(() => ({}));
@@ -171,4 +184,57 @@ ${grounding}`;
     }
     throw error;
   }
+}
+
+
+export async function rewriteStoryboardScene({ project, signal, researchCorpus = null, scene, overrides = {}, instruction = "" }) {
+  const grounding = buildResearchGrounding(researchCorpus);
+  const framework = overrides.framework || project.selectedFramework || "how-it-works";
+  const tone = overrides.tone || project.tone || "Conversational";
+  const audience = overrides.audienceLevel || project.audienceLevel || "General public";
+  const targetDuration = Number(overrides.targetDurationSeconds || scene.durationSeconds || 5);
+  const prompt = `You are Helix, editing one scene inside an evidence-grounded short-form science and technology Reel.
+
+Rewrite ONLY this scene. Preserve factual meaning from the persisted research corpus. Never invent facts or make an unverified claim sound established. Keep the scene useful to the overall story and natural when spoken aloud.
+
+Current scene setup:
+- Narrative framework: ${framework}
+- Tone: ${tone}
+- Audience: ${audience}
+- Target scene duration: ${targetDuration.toFixed(1)} seconds
+
+Scene before editing:
+${JSON.stringify({
+    sceneOrder: scene.sceneOrder,
+    title: scene.title,
+    spokenText: scene.spokenText,
+    durationSeconds: scene.durationSeconds,
+    whyLine: scene.whyLine,
+    whyPicture: scene.whyPicture,
+    brollSearchTerm: scene.brollSearchTerm,
+  })}
+
+User rewrite direction:
+${instruction || "Improve clarity, pacing, and spoken delivery while preserving the factual meaning."}
+
+Rules:
+- Return one JSON object matching the schema exactly.
+- Keep the spoken line concise enough for the target duration.
+- Do not add citations to spoken_text.
+- Keep why_line and why_picture concise and specific.
+- broll_search_term must describe visible subjects or actions suitable for Pexels, not an abstract claim.
+- The new picture reasoning and search term must follow the NEW narration.
+- If the user's direction conflicts with the evidence, preserve the evidence and phrase uncertainty clearly.
+
+Signal:
+${JSON.stringify({ title: signal.title, description: signal.description, category: signal.category })}
+
+Research summary:
+${project.researchSummary || "No research summary available."}
+
+Persisted research corpus:
+${grounding}`;
+
+  const result = await callGemini(prompt, SCENE_REWRITE_SCHEMA, 2048);
+  return normalizeScene(result, Math.max(0, Number(scene.sceneOrder || 1) - 1), targetDuration);
 }

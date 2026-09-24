@@ -282,6 +282,7 @@ model ProjectScene {
   whyLine          String?       @map("why_line") @db.Text
   whyPicture       String?       @map("why_picture") @db.Text
   brollSearchTerm  String?       @map("broll_search_term")
+  customization    Json?        @map("customization")
   audioUrl         String?       @map("audio_url") @db.Text
   wordTimestamps   Json?         @map("word_timestamps")
   project          Project       @relation(fields: [projectId], references: [id])
