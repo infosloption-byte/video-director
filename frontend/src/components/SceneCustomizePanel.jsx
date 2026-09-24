@@ -55,8 +55,11 @@ export default function SceneCustomizePanel({
   const [audience, setAudience] = useState(saved.audienceLevel || customSetup?.audienceLevel || "General public");
   const [lengthMode, setLengthMode] = useState("keep");
   const [narration, setNarration] = useState(scene.spokenText || "");
+  const [selectedVoiceKey, setSelectedVoiceKey] = useState("");
+  const [playingNarration, setPlayingNarration] = useState(false);
 
   const voiceRef = useRef(null);
+  const narrationAudioRef = useRef(null);
   const currentDuration = Number(scene.durationSeconds || 5);
   const targetDuration = useMemo(() => {
     if (lengthMode === "shorter") return Math.max(1.5, Math.min(30, currentDuration * 0.78));
@@ -64,9 +67,12 @@ export default function SceneCustomizePanel({
     return currentDuration;
   }, [currentDuration, lengthMode]);
 
-  const selectedVoiceKey = voiceKey(activeVoice);
   const selectedVoice = voices.find((voice) => voiceKey(voice) === selectedVoiceKey) || activeVoice;
-  const projectFramework = FRAMEWORKS.find((item) => item.key === (customSetup?.framework || "how-it-works"))?.label || "How It Works";
+  const sceneDefaultVoiceKey = voiceKey(activeVoice);
+  const settingsDirty = framework !== (saved.framework || customSetup?.framework || "how-it-works")
+    || tone !== (saved.tone || customSetup?.tone || "Conversational")
+    || audience !== (saved.audienceLevel || customSetup?.audienceLevel || "General public")
+    || selectedVoiceKey !== sceneDefaultVoiceKey;
 
   useEffect(() => {
     setFramework(saved.framework || customSetup?.framework || "how-it-works");
@@ -74,12 +80,18 @@ export default function SceneCustomizePanel({
     setAudience(saved.audienceLevel || customSetup?.audienceLevel || "General public");
     setNarration(scene.spokenText || "");
     setLengthMode("keep");
+    setSelectedVoiceKey(voiceKey(getSceneVoice(scene, customSetup, voices)));
+    narrationAudioRef.current?.pause();
+    narrationAudioRef.current = null;
+    setPlayingNarration(false);
   }, [
     scene.id,
     scene.spokenText,
     saved.framework,
     saved.tone,
     saved.audienceLevel,
+    activeVoice,
+    voices,
     customSetup?.framework,
     customSetup?.tone,
     customSetup?.audienceLevel,
@@ -98,6 +110,22 @@ export default function SceneCustomizePanel({
     };
   }, [onClose]);
 
+  async function applySceneSettings() {
+    const voice = selectedVoice;
+    const result = await onRewrite?.({
+      framework,
+      tone,
+      audienceLevel: audience,
+      targetDurationSeconds: Number(targetDuration.toFixed(1)),
+      currentNarration: narration.trim(),
+      instruction: "Apply the selected framework, tone, audience, and narrator voice to this scene. Rewrite the narration accordingly and regenerate its narration audio using the selected voice.",
+      refreshVisuals: false,
+      voice: voice ? { source: voice.source, id: voice.id } : null,
+    });
+    if (result?.scene?.spokenText) setNarration(result.scene.spokenText);
+    if (result) setLengthMode("keep");
+  }
+
   async function regenerateNarration() {
     const result = await onRewrite?.({
       framework,
@@ -107,6 +135,7 @@ export default function SceneCustomizePanel({
       currentNarration: narration.trim(),
       instruction: "",
       refreshVisuals: false,
+      voice: selectedVoice ? { source: selectedVoice.source, id: selectedVoice.id } : null,
     });
     if (result?.scene?.spokenText) setNarration(result.scene.spokenText);
     if (result) setLengthMode("keep");
@@ -117,10 +146,42 @@ export default function SceneCustomizePanel({
     await onRegenerateVisuals?.(query);
   }
 
-  async function applyVoice(voice) {
-    if (!voice || voiceKey(voice) === selectedVoiceKey) return;
-    await onChangeVoice?.(voice);
+  function selectSceneVoice(voice) {
+    if (voice) setSelectedVoiceKey(voiceKey(voice));
   }
+
+  function toggleNarrationPlayback() {
+    if (!scene.audioUrl) return;
+    if (playingNarration) {
+      narrationAudioRef.current?.pause();
+      narrationAudioRef.current = null;
+      setPlayingNarration(false);
+      return;
+    }
+    narrationAudioRef.current?.pause();
+    const separator = scene.audioUrl.includes("?") ? "&" : "?";
+    const audio = new Audio(scene.audioUrl + separator + "v=" + Date.now());
+    narrationAudioRef.current = audio;
+    audio.onended = () => {
+      if (narrationAudioRef.current === audio) {
+        narrationAudioRef.current = null;
+        setPlayingNarration(false);
+      }
+    };
+    audio.onerror = () => {
+      if (narrationAudioRef.current === audio) {
+        narrationAudioRef.current = null;
+        setPlayingNarration(false);
+      }
+    };
+    setPlayingNarration(true);
+    void audio.play().catch(() => setPlayingNarration(false));
+  }
+
+  useEffect(() => () => {
+    narrationAudioRef.current?.pause();
+    narrationAudioRef.current = null;
+  }, [scene.id]);
 
   const modal = (
     <div
@@ -151,22 +212,52 @@ export default function SceneCustomizePanel({
           </button>
         </div>
 
-        <div className="scene-customize__context">
-          <div>
-            <span className="mono-label">INHERITED SETUP</span>
-            <strong>{projectFramework}</strong>
+        <div className="scene-customize__settings">
+          <div className="scene-customize__fields scene-customize__fields--four">
+            <label>
+              <span>Framework</span>
+              <select value={framework} onChange={(event) => setFramework(event.target.value)} disabled={Boolean(busy)}>
+                {FRAMEWORKS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Tone</span>
+              <select value={tone} onChange={(event) => setTone(event.target.value)} disabled={Boolean(busy)}>
+                {TONES.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Audience</span>
+              <select value={audience} onChange={(event) => setAudience(event.target.value)} disabled={Boolean(busy)}>
+                {AUDIENCES.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Project Voice</span>
+              <select
+                value={selectedVoiceKey}
+                onChange={(event) => selectSceneVoice(voices.find((voice) => voiceKey(voice) === event.target.value))}
+                disabled={Boolean(busy) || !voices.length}
+              >
+                {!voices.length && <option value="">Loading voices…</option>}
+                {voices.map((voice) => (
+                  <option key={voiceKey(voice)} value={voiceKey(voice)}>
+                    {voice.source === "clone" ? "Your clone · " : "Preset · "}{voice.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <div>
-            <span>Project tone</span>
-            <strong>{customSetup?.tone || "Conversational"}</strong>
-          </div>
-          <div>
-            <span>Audience</span>
-            <strong>{customSetup?.audienceLevel || "General public"}</strong>
-          </div>
-          <div>
-            <span>Project voice</span>
-            <strong>{customSetup?.voice?.name || "Project voice"}</strong>
+          <div className="scene-customize__settings-actions">
+            <span>{settingsDirty ? "Settings changed — apply to rewrite narration and regenerate its voice." : "Current scene defaults are selected."}</span>
+            <button
+              type="button"
+              className="scene-customize__apply"
+              onClick={() => void applySceneSettings()}
+              disabled={Boolean(busy) || !narration.trim() || !settingsDirty}
+            >
+              {busy === "rewrite" || busy === "rewrite-visuals" ? "Applying…" : "Apply"}
+            </button>
           </div>
         </div>
 
@@ -198,92 +289,6 @@ export default function SceneCustomizePanel({
 
           <div className="scene-customize__hint">
             AI rebuilds the scene from the persisted research and the other scenes. It does not simply swap words.
-          </div>
-        </div>
-
-        <div className="scene-customize__grid">
-          <div className="scene-customize__section">
-            <div className="scene-customize__section-head">
-              <div>
-                <span className="mono-label">STYLE</span>
-                <strong>Scene-level settings</strong>
-              </div>
-            </div>
-
-            <div className="scene-customize__fields">
-              <label>
-                <span>Framework</span>
-                <select value={framework} onChange={(event) => setFramework(event.target.value)} disabled={Boolean(busy)}>
-                  {FRAMEWORKS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-                </select>
-              </label>
-
-              <label>
-                <span>Tone</span>
-                <select value={tone} onChange={(event) => setTone(event.target.value)} disabled={Boolean(busy)}>
-                  {TONES.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
-
-              <label>
-                <span>Audience</span>
-                <select value={audience} onChange={(event) => setAudience(event.target.value)} disabled={Boolean(busy)}>
-                  {AUDIENCES.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
-
-              <label>
-                <span>Line length</span>
-                <select value={lengthMode} onChange={(event) => setLengthMode(event.target.value)} disabled={Boolean(busy)}>
-                  <option value="keep">Keep current</option>
-                  <option value="shorter">Tighter (~22% shorter)</option>
-                  <option value="longer">More room (~22% longer)</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
-          <div className="scene-customize__section">
-            <div className="scene-customize__section-head">
-              <div>
-                <span className="mono-label">VOICE</span>
-                <strong>Scene narrator</strong>
-              </div>
-              {selectedVoice && (
-                <button
-                  type="button"
-                  className="scene-customize__preview"
-                  onClick={() => onPreviewVoice?.(selectedVoice)}
-                  disabled={Boolean(busy)}
-                >
-                  {previewLoading === selectedVoiceKey ? "Loading…" : previewingVoice === selectedVoiceKey ? "Stop" : "Preview"}
-                </button>
-              )}
-            </div>
-
-            <div ref={voiceRef}>
-              <select
-                className="scene-customize__voice-select"
-                value={selectedVoiceKey}
-                onChange={(event) => {
-                  const next = voices.find((voice) => voiceKey(voice) === event.target.value);
-                  if (next) void applyVoice(next);
-                }}
-                disabled={Boolean(busy) || !voices.length}
-                aria-label="Scene narrator"
-              >
-                {!voices.length && <option value="">Loading voices…</option>}
-                {voices.map((voice) => (
-                  <option key={voiceKey(voice)} value={voiceKey(voice)}>
-                    {voice.source === "clone" ? "Your clone · " : "Preset · "}{voice.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <small className="scene-customize__meta">
-              {selectedVoice?.engine || "Project voice"}{selectedVoice?.language ? " · " + selectedVoice.language : ""}
-            </small>
           </div>
         </div>
 
