@@ -246,16 +246,14 @@ export default function SceneCustomizePanel({
               <strong>Write the line you want the scene to say</strong>
             </div>
             <div className="scene-customize__section-actions">
-              {scene.audioUrl && (
-                <button
-                  type="button"
-                  className="scene-customize__preview"
-                  onClick={toggleNarrationPlayback}
-                  disabled={Boolean(busy) || (!voiceChanged && !scene.audioUrl)}
-                >
-                  {busy === "voice" ? "Generating…" : playingNarration ? "Stop" : voiceChanged ? "Preview Voice" : "Play"}
-                </button>
-              )}
+              <button
+                type="button"
+                className="scene-customize__preview"
+                onClick={toggleNarrationPlayback}
+                disabled={Boolean(busy) || (!voiceChanged && !scene.audioUrl)}
+              >
+                {busy === "voice" ? "Generating…" : playingNarration ? "Stop" : voiceChanged ? "Preview Voice" : "Play"}
+              </button>
               <button
                 type="button"
                 className="scene-customize__ai"
