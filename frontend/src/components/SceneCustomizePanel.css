@@ -9,7 +9,7 @@
 .scene-customize__section{padding:13px 17px;border-top:1px solid var(--border-soft)}
 .scene-customize__settings{padding:11px 17px 12px;border-bottom:1px solid var(--border-soft);background:var(--surface-soft)}
 .scene-customize__fields--four{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.scene-customize__section-actions{display:flex;align-items:center;gap:6px}
+.scene-customize__section-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .scene-customize__section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .scene-customize__section-head>div{display:grid;gap:3px;min-width:0}
 .scene-customize__section-head .mono-label{font-size:8px}
@@ -26,8 +26,6 @@
 .scene-customize__hint span:first-child{color:var(--ink-dim);font-weight:650}
 .scene-customize__check{display:flex;align-items:flex-start;gap:8px;margin-top:11px;color:var(--body);font-size:.65rem;line-height:1.4;cursor:pointer}
 .scene-customize__check input{margin:1px 0 0;accent-color:var(--ink)}
-.scene-customize__grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border-soft)}
-.scene-customize__grid>.scene-customize__section:first-child{border-right:1px solid var(--border-soft)}
 .scene-customize__fields{display:grid;gap:9px}
 .scene-customize__fields label{display:grid;gap:5px}
 .scene-customize__fields label>span{color:var(--ink-dim);font-size:.64rem;font-weight:650}
