@@ -42,7 +42,6 @@ export default function SceneCustomizePanel({
   previewingVoice = "",
   previewLoading = "",
   onRewrite,
-  onChangeVoice,
   onRegenerateVisuals,
   onClose,
   busy = "",
@@ -58,7 +57,6 @@ export default function SceneCustomizePanel({
   const [selectedVoiceKey, setSelectedVoiceKey] = useState("");
   const [playingNarration, setPlayingNarration] = useState(false);
 
-  const voiceRef = useRef(null);
   const narrationAudioRef = useRef(null);
   const currentDuration = Number(scene.durationSeconds || 5);
   const targetDuration = useMemo(() => {
