@@ -37,6 +37,7 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     n: String(scene.sceneOrder).padStart(2, "0"),
     title: scene.title,
     line: scene.spokenText,
+    spokenText: scene.spokenText,
     time: formatDuration(scene.durationSeconds),
     durationSeconds: Number(scene.durationSeconds || 0),
     audioUrl: scene.audioUrl,
