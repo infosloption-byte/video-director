@@ -102,6 +102,65 @@
 }
 
 /* Each choice is a small decision card rather than a loose list of controls. */
+.setup-edit-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin: 0 0 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.setup-edit-status.is-dirty {
+  border-color: color-mix(in srgb, var(--ink) 18%, var(--border-soft));
+  background: color-mix(in srgb, var(--cream) 48%, var(--surface-soft));
+}
+
+.setup-edit-status__icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--accent-green-border);
+  background: var(--accent-green-bg);
+  color: var(--accent-green-text);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.setup-edit-status.is-dirty .setup-edit-status__icon {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.setup-edit-status__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.setup-edit-status__copy .mono-label {
+  margin: 0;
+  font-size: 9px;
+}
+
+.setup-edit-status__copy strong {
+  color: var(--ink);
+  font-size: .84rem;
+  line-height: 1.4;
+}
+
+.setup-edit-status__copy span {
+  color: var(--muted);
+  font-size: .76rem;
+  line-height: 1.45;
+}
+
 .setup-choice {
   display: grid;
   grid-template-columns: minmax(210px, .72fr) minmax(0, 1.28fr);
@@ -255,6 +314,10 @@
 
   .setup-panel__intro h2 {
     font-size: 27px;
+  }
+
+  .setup-edit-status {
+    padding: 13px 14px;
   }
 
   .setup-research-bridge {

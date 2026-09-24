@@ -66,11 +66,13 @@ function voiceSearchText(voice) {
   ].filter(Boolean).join(" ").toLowerCase();
 }
 
-export default function SetupPanel({ projectId, onComplete }) {
+export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
   const [suggestions, setSuggestions] = useState(null);
   const [voiceProfiles, setVoiceProfiles] = useState([]);
   const [predefinedVoices, setPredefinedVoices] = useState([]);
   const [choices, setChoices] = useState(null);
+  const [savedChoices, setSavedChoices] = useState(null);
+  const [hasSavedSetup, setHasSavedSetup] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [previewingVoice, setPreviewingVoice] = useState("");
@@ -111,8 +113,11 @@ export default function SetupPanel({ projectId, onComplete }) {
         setVoiceProfiles(readyProfiles);
         setPredefinedVoices(presets);
 
-        const savedProfileId = data.voiceProfileId || "";
-        const savedPresetId = data.voicePresetId || "";
+        const persistedSetup = data.setup && typeof data.setup === "object" ? data.setup : null;
+        setHasSavedSetup(Boolean(persistedSetup));
+
+        const savedProfileId = persistedSetup?.voiceProfileId || data.voiceProfileId || "";
+        const savedPresetId = persistedSetup?.voicePresetId || data.voicePresetId || "";
         const savedProfileReady = readyProfiles.some((profile) => profile.id === savedProfileId);
         const savedPresetAvailable = presets.some((voice) => voice.id === savedPresetId);
         const defaultProfileId = readyProfiles[0]?.id || "";
@@ -123,14 +128,18 @@ export default function SetupPanel({ projectId, onComplete }) {
         const selectedPresetId = savedPresetAvailable
           ? savedPresetId
           : (!selectedProfileId ? defaultPresetId : "");
-        setChoices({
-          length: data.suggestions.length.value,
-          framework: data.suggestions.framework.value,
-          tone: data.suggestions.tone.value,
-          audienceLevel: data.suggestions.audience.value,
+
+        const initialChoices = {
+          length: Number(persistedSetup?.length ?? data.suggestions.length.value),
+          framework: persistedSetup?.framework || data.suggestions.framework.value,
+          tone: persistedSetup?.tone || data.suggestions.tone.value,
+          audienceLevel: persistedSetup?.audienceLevel || data.suggestions.audience.value,
           voiceProfileId: selectedProfileId,
           voicePresetId: selectedPresetId,
-        });
+        };
+
+        setChoices(initialChoices);
+        setSavedChoices(initialChoices);
       } catch (err) {
         if (!cancelled) setError(err.message || "Failed to load setup suggestions.");
       }
@@ -239,6 +248,23 @@ export default function SetupPanel({ projectId, onComplete }) {
   const filteredClones = filteredVoiceOptions.filter((voice) => voice.source === "clone");
   const filteredPresets = filteredVoiceOptions.filter((voice) => voice.source === "preset");
 
+  const setupChoicesEqual = (left, right) => Boolean(
+    left &&
+    right &&
+    Number(left.length) === Number(right.length) &&
+    left.framework === right.framework &&
+    left.tone === right.tone &&
+    left.audienceLevel === right.audienceLevel &&
+    left.voiceProfileId === right.voiceProfileId &&
+    left.voicePresetId === right.voicePresetId
+  );
+
+  const isDirty = Boolean(choices && savedChoices && !setupChoicesEqual(choices, savedChoices));
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
   function stopPreview() {
     previewRequestRef.current?.abort();
     previewRequestRef.current = null;
@@ -341,6 +367,18 @@ export default function SetupPanel({ projectId, onComplete }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to save setup.");
+      const saved = {
+        length: Number(data.project?.setup?.length ?? choices.length),
+        framework: data.project?.setup?.framework || choices.framework,
+        tone: data.project?.setup?.tone || choices.tone,
+        audienceLevel: data.project?.setup?.audienceLevel || choices.audienceLevel,
+        voiceProfileId: data.project?.setup?.voiceProfileId || choices.voiceProfileId || "",
+        voicePresetId: data.project?.setup?.voicePresetId || choices.voicePresetId || "",
+      };
+      setChoices(saved);
+      setSavedChoices(saved);
+      setHasSavedSetup(true);
+      onDirtyChange?.(false);
       onComplete?.(data.project);
     } catch (err) {
       setError(err.message || "Failed to save setup.");
@@ -356,8 +394,10 @@ export default function SetupPanel({ projectId, onComplete }) {
     <div className="setup-panel">
       <div className="setup-panel__intro">
         <p className="eyebrow">Guided setup</p>
-        <h2>Shape the video without changing the research.</h2>
-        <p>Helix has already completed the research for this project. Choose how that research should be turned into a short-form story, including the narrator.</p>
+        <h2>{hasSavedSetup ? "Refine the storyboard without rerunning research." : "Shape the video without changing the research."}</h2>
+        <p>{hasSavedSetup
+          ? "You're editing the setup used to build the current storyboard. Change any option below and Helix will regenerate the scenes from the same completed research."
+          : "Helix has already completed the research for this project. Choose how that research should be turned into a short-form story, including the narrator."}</p>
       </div>
 
       <section className="setup-research-bridge" aria-labelledby="setup-research-bridge-title">
@@ -373,6 +413,27 @@ export default function SetupPanel({ projectId, onComplete }) {
             <span aria-hidden="true">→</span>
             <span>Research-grounded storyboard + narration</span>
           </div>
+        </div>
+      </section>
+
+      <section className={"setup-edit-status " + (isDirty ? "is-dirty" : "is-saved")} aria-live="polite">
+        <div className="setup-edit-status__icon" aria-hidden="true">{isDirty ? "!" : "✓"}</div>
+        <div className="setup-edit-status__copy">
+          <p className="mono-label">{isDirty ? "CHANGES DETECTED" : hasSavedSetup ? "CURRENT SETUP" : "READY TO CONFIGURE"}</p>
+          <strong>
+            {isDirty
+              ? "These changes will regenerate the storyboard scenes."
+              : hasSavedSetup
+                ? "Your current setup is saved."
+                : "Choose the setup options for your first storyboard."}
+          </strong>
+          <span>
+            {isDirty
+              ? "Continue to storyboard to save the new settings and rebuild scenes, visuals, and narration from the same research."
+              : hasSavedSetup
+                ? "No storyboard work is repeated until you actually change a setup option."
+                : "Your research remains unchanged when you revisit this stage."}
+          </span>
         </div>
       </section>
 
@@ -510,7 +571,7 @@ export default function SetupPanel({ projectId, onComplete }) {
       {suggestions.framework.guardrailApplied && <div className="setup-guardrail"><strong>Monetization guardrail applied.</strong> Helix selected a safer narrative because the research flagged a high-risk issue.</div>}
       {error && <div className="setup-error"><span>{error}</span></div>}
       <div className="setup-actions">
-        <button className="btn btn-cream" type="button" disabled={saving} onClick={save}>{saving ? "Saving…" : "Continue to storyboard →"}</button>
+        <button className="btn btn-cream" type="button" disabled={saving} onClick={save}>{saving ? "Saving…" : isDirty ? "Save changes & regenerate →" : "Continue to storyboard →"}</button>
       </div>
     </div>
   );

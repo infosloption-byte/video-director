@@ -92,7 +92,21 @@ router.get("/:id/research/memory", async (req, res) => { try { const project = a
 router.get("/:id/research/metrics", async (req, res) => { try { const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } }); if (!project) return res.status(404).json({ error: "Project not found." }); const session = await prisma.researchSession.findFirst({ where: { projectId: project.id }, orderBy: { version: "desc" }, include: { claims: { include: { verification: true } }, sources: true, evidence: true, conflicts: true } }); if (!session) return res.status(404).json({ error: "Research metrics are not available yet." }); res.json({ metrics: summarizeResearchMetrics(session) }); } catch (error) { console.error(`GET /api/projects/${req.params.id}/research/metrics failed:`, error); res.status(500).json({ error: "Failed to load research metrics." }); } });
 router.post("/:id/research/follow-up", async (req, res) => { try { const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } }); if (!project) return res.status(404).json({ error: "Project not found." }); const session = await prisma.researchSession.findFirst({ where: { projectId: project.id }, orderBy: { version: "desc" }, include: { plan: true, sources: { orderBy: { sourceIndex: "asc" } }, evidence: { orderBy: { evidenceIndex: "asc" } }, claims: { orderBy: { claimIndex: "asc" }, include: { verification: true, sourceLinks: { include: { source: true } }, evidenceLinks: { include: { evidence: true } } } }, conflicts: { orderBy: { createdAt: "asc" } } } }); if (!session) return res.status(404).json({ error: "Research memory is not available yet." }); const question = String(req.body?.question || "").trim(); if (!question) return res.status(400).json({ error: "A follow-up question is required." }); res.json({ question, grounded: true, ...answerResearchQuestion(session, question) }); } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/follow-up failed:`, error); res.status(500).json({ error: "Failed to answer the research follow-up." }); } });
 router.post("/:id/research/conflicts/:conflictId/resolve", async (req, res) => { try { const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } }); if (!project) return res.status(404).json({ error: "Project not found." }); const conflict = await prisma.researchConflict.findFirst({ where: { id: req.params.conflictId, session: { projectId: project.id } } }); if (!conflict) return res.status(404).json({ error: "Conflict not found." }); const updated = await resolveResearchConflict(prisma, { conflictId: conflict.id, status: req.body?.status, resolution: req.body?.resolution }); res.json({ conflict: updated }); } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/conflicts/${req.params.conflictId}/resolve failed:`, error); res.status(500).json({ error: "Failed to resolve the research conflict." }); } });
-router.get("/:id/setup/suggestions", async (req, res) => { try { const project = await prisma.project.findUnique({ where: { id: req.params.id } }); if (!project) return res.status(404).json({ error: "Project not found." }); if (!project.researchSummary) return res.status(409).json({ error: "Research is not ready yet." }); res.json({ suggestions: buildSetupSuggestions(project), voiceProfileId: project.voiceProfileId || null, voicePresetId: project.voicePresetId || null }); } catch (error) { console.error(`GET /api/projects/${req.params.id}/setup/suggestions failed:`, error); res.status(500).json({ error: "Failed to build setup suggestions." }); } });
+router.get("/:id/setup/suggestions", async (req, res) => { try { const project = await prisma.project.findUnique({ where: { id: req.params.id } }); if (!project) return res.status(404).json({ error: "Project not found." }); if (!project.researchSummary) return res.status(409).json({ error: "Research is not ready yet." }); res.json({
+    suggestions: buildSetupSuggestions(project),
+    setup: project.scriptLengthSeconds
+      ? {
+          length: project.scriptLengthSeconds,
+          framework: project.selectedFramework,
+          tone: project.tone,
+          audienceLevel: project.audienceLevel,
+          voiceProfileId: project.voiceProfileId || null,
+          voicePresetId: project.voicePresetId || null,
+        }
+      : null,
+    voiceProfileId: project.voiceProfileId || null,
+    voicePresetId: project.voicePresetId || null,
+  }); } catch (error) { console.error(`GET /api/projects/${req.params.id}/setup/suggestions failed:`, error); res.status(500).json({ error: "Failed to build setup suggestions." }); } });
 router.post("/:id/setup", async (req, res) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id } });
@@ -160,6 +174,13 @@ router.post("/:id/setup", async (req, res) => {
         audienceLevel,
         voiceProfileId: selectedProfileId,
         voicePresetId: selectedPresetId,
+        ...(setupChanged
+          ? {
+              durationSeconds: null,
+              cuts: null,
+              renderUrl: null,
+            }
+          : {}),
         status: "storyboard",
       },
     });

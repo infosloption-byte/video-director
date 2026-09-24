@@ -68,6 +68,7 @@ export default function StoryboardPage() {
   const [renderLoading, setRenderLoading] = useState(false);
   const [renderError, setRenderError] = useState("");
   const [renderStatus, setRenderStatus] = useState(null);
+  const [setupDirty, setSetupDirty] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -252,7 +253,7 @@ export default function StoryboardPage() {
             </div>
             <div className="hx-tabs" role="tablist" aria-label="Reel stages">
               {TABS.map((t) => (
-                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting || renderLoading}>
+                <button key={t.label} role="tab" aria-selected={tab === t.label} className={`hx-tab ${tab === t.label ? "is-active" : ""}`} onClick={() => (t.label === "Preview" ? goToPreview() : changeTab(t.label))} disabled={persisting || renderLoading || (setupDirty && t.label !== "Setup")}>
                   <span className="mono-label hx-tab__n">{t.n}</span> {t.label}
                 </button>
               ))}
@@ -261,7 +262,15 @@ export default function StoryboardPage() {
 
           {tab === "Research" && <ResearchReport projectId={id} project={project} onContinueSetup={() => changeTab("Setup")} />}
 
-          {tab === "Setup" && <SetupPanel projectId={id} onComplete={(updated) => { setProject((current) => ({ ...current, ...updated })); changeTab("Storyboard"); }} />}
+          {tab === "Setup" && <SetupPanel
+            projectId={id}
+            onDirtyChange={setSetupDirty}
+            onComplete={(updated) => {
+              setProject((current) => ({ ...current, ...updated }));
+              setSetupDirty(false);
+              changeTab("Storyboard");
+            }}
+          />}
 
           {tab === "Storyboard" && (
             <section className="hx-board__layout hx-board__layout--real">
