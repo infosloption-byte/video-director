@@ -217,7 +217,7 @@ export default function SceneCustomizePanel({
         </div>
 
         <div className="scene-customize__section">
-          <div className="scene-customize__section-head">
+          <div className="scene-customize__section-head scene-customize__narration-head">
             <div>
               <span className="mono-label">NARRATION</span>
               <strong>Write the line you want the scene to say</strong>
