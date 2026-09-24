@@ -39,6 +39,7 @@ export default function SceneCustomizePanel({
   customSetup,
   voices = [],
   onRewrite,
+  onChangeVoice,
   onRegenerateVisuals,
   onClose,
   busy = "",
@@ -56,6 +57,7 @@ export default function SceneCustomizePanel({
   const narrationAudioRef = useRef(null);
 
   const selectedVoice = voices.find((voice) => voiceKey(voice) === selectedVoiceKey) || activeVoice;
+  const voiceChanged = selectedVoiceKey !== voiceKey(activeVoice);
 
   useEffect(() => {
     setFramework(saved.framework || customSetup?.framework || "how-it-works");
@@ -115,17 +117,11 @@ export default function SceneCustomizePanel({
     if (voice) setSelectedVoiceKey(voiceKey(voice));
   }
 
-  function toggleNarrationPlayback() {
-    if (!scene.audioUrl) return;
-    if (playingNarration) {
-      narrationAudioRef.current?.pause();
-      narrationAudioRef.current = null;
-      setPlayingNarration(false);
-      return;
-    }
+  async function playAudioUrl(audioUrl) {
+    if (!audioUrl) return;
     narrationAudioRef.current?.pause();
-    const separator = scene.audioUrl.includes("?") ? "&" : "?";
-    const audio = new Audio(scene.audioUrl + separator + "v=" + Date.now());
+    const separator = audioUrl.includes("?") ? "&" : "?";
+    const audio = new Audio(audioUrl + separator + "v=" + Date.now());
     narrationAudioRef.current = audio;
     audio.onended = () => {
       if (narrationAudioRef.current === audio) {
@@ -140,7 +136,34 @@ export default function SceneCustomizePanel({
       }
     };
     setPlayingNarration(true);
-    void audio.play().catch(() => setPlayingNarration(false));
+    try {
+      await audio.play();
+    } catch {
+      if (narrationAudioRef.current === audio) {
+        narrationAudioRef.current = null;
+        setPlayingNarration(false);
+      }
+    }
+  }
+
+  async function toggleNarrationPlayback() {
+    if (playingNarration) {
+      narrationAudioRef.current?.pause();
+      narrationAudioRef.current = null;
+      setPlayingNarration(false);
+      return;
+    }
+
+    if (voiceChanged) {
+      if (!selectedVoice || !narration.trim()) return;
+      const result = await onChangeVoice?.(selectedVoice, narration);
+      if (result?.scene?.audioUrl) {
+        await playAudioUrl(result.scene.audioUrl);
+      }
+      return;
+    }
+
+    await playAudioUrl(scene.audioUrl);
   }
 
   useEffect(() => () => {
@@ -228,9 +251,9 @@ export default function SceneCustomizePanel({
                   type="button"
                   className="scene-customize__preview"
                   onClick={toggleNarrationPlayback}
-                  disabled={Boolean(busy)}
+                  disabled={Boolean(busy) || !scene.audioUrl}
                 >
-                  {playingNarration ? "Stop" : "Play"}
+                  {busy === "voice" ? "Generating…" : playingNarration ? "Stop" : voiceChanged ? "Preview Voice" : "Play"}
                 </button>
               )}
               <button
