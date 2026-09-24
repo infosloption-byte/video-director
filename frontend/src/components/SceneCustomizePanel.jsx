@@ -38,9 +38,6 @@ export default function SceneCustomizePanel({
   scene,
   customSetup,
   voices = [],
-  onPreviewVoice,
-  previewingVoice = "",
-  previewLoading = "",
   onRewrite,
   onRegenerateVisuals,
   onClose,
@@ -265,15 +262,27 @@ export default function SceneCustomizePanel({
               <span className="mono-label">NARRATION</span>
               <strong>Write the line you want the scene to say</strong>
             </div>
-            <button
-              type="button"
-              className="scene-customize__ai"
-              onClick={regenerateNarration}
-              disabled={Boolean(busy) || !narration.trim()}
-              title="Regenerate this scene from the research and current draft"
-            >
-              {busy === "rewrite" || busy === "rewrite-visuals" ? "✦ Regenerating…" : "✦ AI regenerate"}
-            </button>
+            <div className="scene-customize__section-actions">
+              {scene.audioUrl && (
+                <button
+                  type="button"
+                  className="scene-customize__preview"
+                  onClick={toggleNarrationPlayback}
+                  disabled={Boolean(busy)}
+                >
+                  {playingNarration ? "Stop" : "Play"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="scene-customize__ai"
+                onClick={regenerateNarration}
+                disabled={Boolean(busy) || !narration.trim()}
+                title="Regenerate this scene from the research and current draft"
+              >
+                {busy === "rewrite" || busy === "rewrite-visuals" ? "✦ Regenerating…" : "✦ AI regenerate"}
+              </button>
+            </div>
           </div>
 
           <textarea
