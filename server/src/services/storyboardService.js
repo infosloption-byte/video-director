@@ -54,14 +54,20 @@ function parseJson(text) {
   throw new Error("Gemini returned invalid storyboard JSON.");
 }
 
-function isRetryable(error) { return error?.status === 408 || error?.status === 429 || error?.status >= 500 || error?.name === "AbortError" || error?.name === "TimeoutError" || error?.cause?.code === "UND_ERR_CONNECT_TIMEOUT"; }
+function isQuotaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.status === 429 && (message.includes("quota") || message.includes("free_tier") || message.includes("free tier") || message.includes("rate limit"));
+}
+function isRetryable(error) {
+  return !isQuotaError(error) && (error?.status === 408 || error?.status === 429 || error?.status >= 500 || error?.name === "AbortError" || error?.name === "TimeoutError" || error?.cause?.code === "UND_ERR_CONNECT_TIMEOUT");
+}
 function retryDelay(error, attempt) {
   const retryAfter = Number(error?.retryAfterSeconds);
   if (Number.isFinite(retryAfter) && retryAfter >= 0) return Math.min(30000, retryAfter * 1000);
   return Math.min(12000, RETRY_BASE_MS * (2 ** (attempt - 1)));
 }
 
-async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputTokens = 4096) {
+async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputTokens = 4096, temperature = 0.2) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -72,7 +78,7 @@ async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputT
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema, temperature: 0.2, maxOutputTokens } }),
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema, temperature, maxOutputTokens } }),
         signal: AbortSignal.timeout(90000),
       });
       const data = await response.json().catch(() => ({}));
@@ -104,6 +110,39 @@ async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputT
 function normalizeScene(scene, index, targetLength) {
   const duration = Number(scene.duration_seconds);
   return { scene_order: index + 1, title: String(scene.title || `Scene ${index + 1}`).trim().slice(0, 255), spoken_text: String(scene.spoken_text || scene.line || "").trim(), duration_seconds: Number.isFinite(duration) && duration > 0 ? Math.min(duration, 30) : Math.max(2, targetLength / 6), why_line: String(scene.why_line || "").trim(), why_picture: String(scene.why_picture || "").trim(), broll_search_term: String(scene.broll_search_term || scene.title || "science technology").trim().slice(0, 160) };
+}
+
+function normalizeComparisonText(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9\\s]/g, " ").replace(/\\s+/g, " ").trim();
+}
+function tokenSimilarity(a, b) {
+  const left = new Set(normalizeComparisonText(a).split(" ").filter(Boolean));
+  const right = new Set(normalizeComparisonText(b).split(" ").filter(Boolean));
+  if (!left.size || !right.size) return 0;
+  const intersection = [...left].filter((token) => right.has(token)).length;
+  return intersection / (left.size + right.size - intersection);
+}
+function sceneRole(sceneOrder, sceneCount) {
+  if (sceneOrder <= 1) return "opening hook: create curiosity without summarizing later scenes";
+  if (sceneOrder >= sceneCount) return "closing takeaway: synthesize what the evidence means next without repeating earlier explanations";
+  if (sceneOrder === 2) return "core mechanism: explain a distinct cause, mechanism, or process";
+  if (sceneOrder === 3) return "evidence/detail: surface a specific verified finding, measurement, example, or contrast";
+  return "implication: explain a distinct practical consequence, limitation, or uncertainty";
+}
+function assertUniqueSceneNarration(spokenText, siblingTexts) {
+  const normalized = normalizeComparisonText(spokenText);
+  const duplicate = siblingTexts.find((other) => normalizeComparisonText(other) === normalized);
+  if (duplicate) {
+    const error = new Error("The regenerated narration duplicated another scene. Please regenerate again after the current AI quota window resets.");
+    error.status = 409;
+    throw error;
+  }
+  const tooSimilar = siblingTexts.some((other) => tokenSimilarity(spokenText, other) >= 0.78);
+  if (tooSimilar) {
+    const error = new Error("The regenerated narration was too similar to another scene. Please regenerate again after the current AI quota window resets.");
+    error.status = 409;
+    throw error;
+  }
 }
 
 function fallbackSentences(project, signal) {
@@ -187,44 +226,63 @@ ${grounding}`;
 }
 
 
-export async function rewriteStoryboardScene({ project, signal, researchCorpus = null, scene, overrides = {}, instruction = "" }) {
+export async function rewriteStoryboardScene({
+  project,
+  signal,
+  researchCorpus = null,
+  scene,
+  siblingScenes = [],
+  overrides = {},
+  instruction = "",
+  currentNarration = "",
+}) {
   const grounding = buildResearchGrounding(researchCorpus);
   const framework = overrides.framework || project.selectedFramework || "how-it-works";
   const tone = overrides.tone || project.tone || "Conversational";
   const audience = overrides.audienceLevel || project.audienceLevel || "General public";
   const targetDuration = Number(overrides.targetDurationSeconds || scene.durationSeconds || 5);
-  const prompt = `You are Helix, editing one scene inside an evidence-grounded short-form science and technology Reel.
+  const siblingTexts = siblingScenes
+    .filter((item) => item.id !== scene.id)
+    .map((item) => String(item.spokenText || "").trim())
+    .filter(Boolean);
+  const sceneCount = Math.max(siblingScenes.length, Number(scene.sceneOrder || 1));
+  const role = sceneRole(Number(scene.sceneOrder || 1), sceneCount);
+  const currentDraft = String(currentNarration || scene.spokenText || "").trim();
 
-Rewrite ONLY this scene. Preserve factual meaning from the persisted research corpus. Never invent facts or make an unverified claim sound established. Keep the scene useful to the overall story and natural when spoken aloud.
+  const prompt = `You are Helix, the AI director for one scene inside an evidence-grounded short-form science and technology Reel.
 
-Current scene setup:
+Regenerate ONLY this scene's narration. This is not a word-swap, synonym pass, or light paraphrase. Rebuild the narration from the persisted research evidence so it contributes a distinct piece of information to the overall story.
+
+The other scenes must remain unchanged.
+
+Scene context:
+- Scene number: ${scene.sceneOrder} of ${sceneCount}
+- Scene role: ${role}
 - Narrative framework: ${framework}
 - Tone: ${tone}
 - Audience: ${audience}
-- Target scene duration: ${targetDuration.toFixed(1)} seconds
+- Target duration: ${targetDuration.toFixed(1)} seconds
 
-Scene before editing:
-${JSON.stringify({
-    sceneOrder: scene.sceneOrder,
-    title: scene.title,
-    spokenText: scene.spokenText,
-    durationSeconds: scene.durationSeconds,
-    whyLine: scene.whyLine,
-    whyPicture: scene.whyPicture,
-    brollSearchTerm: scene.brollSearchTerm,
-  })}
+Current narration draft:
+${currentDraft || "No current draft available."}
 
-User rewrite direction:
-${instruction || "Improve clarity, pacing, and spoken delivery while preserving the factual meaning."}
+User instruction:
+${instruction || "Create a materially fresh narration that keeps the same verified topic but takes a distinct angle appropriate to this scene's role."}
 
-Rules:
-- Return one JSON object matching the schema exactly.
-- Keep the spoken line concise enough for the target duration.
-- Do not add citations to spoken_text.
-- Keep why_line and why_picture concise and specific.
-- broll_search_term must describe visible subjects or actions suitable for Pexels, not an abstract claim.
-- The new picture reasoning and search term must follow the NEW narration.
-- If the user's direction conflicts with the evidence, preserve the evidence and phrase uncertainty clearly.
+Other scene narrations — DO NOT repeat, paraphrase closely, or reuse their central wording:
+${JSON.stringify(siblingTexts.map((text, index) => ({ scene: siblingScenes.filter((item) => item.id !== scene.id)[index]?.sceneOrder, spokenText: text })))}
+
+Hard rules:
+- Base every factual statement on the persisted research corpus below.
+- Do not invent facts, numbers, examples, causes, or conclusions.
+- If evidence is uncertain or conflicting, preserve that uncertainty.
+- Do not merely replace words in the current narration. Reconstruct the line around a different verified fact, mechanism, consequence, contrast, limitation, or takeaway that belongs to this scene.
+- The new spoken_text must be materially different from every other scene's narration and must not repeat another scene's main point.
+- Do not quote or copy wording from other scenes.
+- Keep the spoken line natural aloud and within the target duration.
+- Return exactly one JSON object matching the schema.
+- Regenerate why_line, why_picture, and broll_search_term so they describe the NEW narration.
+- The B-roll phrase must describe visible people, objects, environments, or actions suitable for Pexels.
 
 Signal:
 ${JSON.stringify({ title: signal.title, description: signal.description, category: signal.category })}
@@ -232,9 +290,11 @@ ${JSON.stringify({ title: signal.title, description: signal.description, categor
 Research summary:
 ${project.researchSummary || "No research summary available."}
 
-Persisted research corpus:
+Persisted verified research corpus:
 ${grounding}`;
 
-  const result = await callGemini(prompt, SCENE_REWRITE_SCHEMA, 2048);
-  return normalizeScene(result, Math.max(0, Number(scene.sceneOrder || 1) - 1), targetDuration);
+  const result = await callGemini(prompt, SCENE_REWRITE_SCHEMA, 2048, 0.55);
+  const rewritten = normalizeScene(result, Math.max(0, Number(scene.sceneOrder || 1) - 1), targetDuration);
+  assertUniqueSceneNarration(rewritten.spoken_text, siblingTexts);
+  return rewritten;
 }
