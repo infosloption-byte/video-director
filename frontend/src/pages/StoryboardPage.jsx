@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import PhonePreview from "../components/PhonePreview";
@@ -47,6 +47,7 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     thumbLabel: selectedAsset ? "Pexels B-roll" : "Visual pending",
     swatches: (scene.assets || []).map((asset) => `url(${asset.thumbnailUrl}) center / cover no-repeat`),
     selectedAsset,
+    customization: scene.customization || null,
   };
 }
 
@@ -69,6 +70,15 @@ export default function StoryboardPage() {
   const [renderError, setRenderError] = useState("");
   const [renderStatus, setRenderStatus] = useState(null);
   const [setupDirty, setSetupDirty] = useState(false);
+  const [voiceProfiles, setVoiceProfiles] = useState([]);
+  const [predefinedVoices, setPredefinedVoices] = useState([]);
+  const [customizingSceneId, setCustomizingSceneId] = useState(null);
+  const [sceneAction, setSceneAction] = useState({ id: "", type: "" });
+  const [sceneEditError, setSceneEditError] = useState("");
+  const [previewingSceneVoice, setPreviewingSceneVoice] = useState("");
+  const [previewLoadingSceneVoice, setPreviewLoadingSceneVoice] = useState("");
+  const sceneVoiceAudioRef = useRef(null);
+  const sceneVoiceRequestRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +141,182 @@ export default function StoryboardPage() {
     return () => { cancelled = true; };
   }, [id, realProject, tab, sceneRetry]);
 
+  useEffect(() => {
+    if (!realProject || tab !== "Storyboard") return undefined;
+    let cancelled = false;
+    async function loadVoices() {
+      try {
+        const [profilesResponse, presetsResponse] = await Promise.all([
+          fetch("/api/voice-profiles"),
+          fetch("/api/voice-presets"),
+        ]);
+        const profilesData = await profilesResponse.json().catch(() => ({}));
+        const presetsData = await presetsResponse.json().catch(() => ({}));
+        if (!profilesResponse.ok) throw new Error(profilesData.error || "Failed to load voice profiles.");
+        if (!presetsResponse.ok) throw new Error(presetsData.error || "Failed to load predefined voices.");
+        if (cancelled) return;
+        setVoiceProfiles(Array.isArray(profilesData.profiles)
+          ? profilesData.profiles.filter((profile) => profile.status === "ready" && profile.ttsVoiceId)
+          : []);
+        setPredefinedVoices(Array.isArray(presetsData.voices) ? presetsData.voices : []);
+      } catch (error) {
+        if (!cancelled) setSceneEditError(error.message || "Failed to load narration voices.");
+      }
+    }
+    void loadVoices();
+    return () => { cancelled = true; };
+  }, [realProject, tab]);
+
+  useEffect(() => () => {
+    sceneVoiceRequestRef.current?.abort();
+    sceneVoiceAudioRef.current?.pause();
+    sceneVoiceAudioRef.current = null;
+  }, []);
+
+  const sceneVoiceOptions = useMemo(() => [
+    ...voiceProfiles.map((profile) => ({
+      source: "clone",
+      id: profile.id,
+      name: profile.name,
+      language: profile.language || "English",
+      engine: profile.preferredEngine === "qwen3-tts-0.6b" ? "Qwen3-TTS 0.6B" : "Chatterbox-Nano",
+      description: "Your cloned voice",
+      accent: "",
+      gender: "",
+      tone: "",
+    })),
+    ...predefinedVoices.map((voice) => ({
+      source: "preset",
+      id: voice.id,
+      name: voice.name,
+      language: voice.language || "English",
+      engine: voice.engine,
+      description: voice.description,
+      accent: voice.accent,
+      gender: voice.gender,
+      tone: voice.tone,
+    })),
+  ], [voiceProfiles, predefinedVoices]);
+
+  const projectSceneSetup = useMemo(() => {
+    const setupVoice = project?.setup?.voiceProfileId
+      ? sceneVoiceOptions.find((voice) => voice.source === "clone" && voice.id === project.setup.voiceProfileId)
+      : sceneVoiceOptions.find((voice) => voice.source === "preset" && voice.id === project?.setup?.voicePresetId);
+    return {
+      framework: project?.setup?.framework || "how-it-works",
+      tone: project?.setup?.tone || "Conversational",
+      audienceLevel: project?.setup?.audienceLevel || "General public",
+      voice: setupVoice || null,
+    };
+  }, [project, sceneVoiceOptions]);
+
+  function sceneActionFor(sceneId) {
+    return sceneAction.id === sceneId ? sceneAction.type : "";
+  }
+
+  async function previewSceneVoice(voice) {
+    const key = voice.source + ":" + voice.id;
+    if (previewingSceneVoice === key || previewLoadingSceneVoice === key) {
+      sceneVoiceRequestRef.current?.abort();
+      sceneVoiceRequestRef.current = null;
+      sceneVoiceAudioRef.current?.pause();
+      sceneVoiceAudioRef.current = null;
+      setPreviewingSceneVoice("");
+      setPreviewLoadingSceneVoice("");
+      return;
+    }
+    sceneVoiceRequestRef.current?.abort();
+    sceneVoiceAudioRef.current?.pause();
+    sceneVoiceAudioRef.current = null;
+    setPreviewingSceneVoice("");
+    setPreviewLoadingSceneVoice(key);
+    const controller = new AbortController();
+    sceneVoiceRequestRef.current = controller;
+    try {
+      const endpoint = voice.source === "clone"
+        ? "/api/voice-profiles/" + encodeURIComponent(voice.id) + "/preview"
+        : "/api/voice-presets/" + encodeURIComponent(voice.id) + "/preview";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to preview this voice.");
+      const audio = new Audio("data:" + (data.mimeType || "audio/wav") + ";base64," + data.audioBase64);
+      sceneVoiceAudioRef.current = audio;
+      audio.onended = () => {
+        if (sceneVoiceAudioRef.current === audio) {
+          sceneVoiceAudioRef.current = null;
+          setPreviewingSceneVoice("");
+        }
+      };
+      audio.onerror = () => {
+        if (sceneVoiceAudioRef.current === audio) {
+          sceneVoiceAudioRef.current = null;
+          setPreviewingSceneVoice("");
+          setSceneEditError("This voice preview could not be played.");
+        }
+      };
+      await audio.play();
+      if (sceneVoiceRequestRef.current !== controller) {
+        audio.pause();
+        return;
+      }
+      sceneVoiceRequestRef.current = null;
+      setPreviewLoadingSceneVoice("");
+      setPreviewingSceneVoice(key);
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setPreviewLoadingSceneVoice("");
+        setPreviewingSceneVoice("");
+        setSceneEditError(error.message || "Failed to preview this voice.");
+      }
+    }
+  }
+
+  async function runSceneAction(sceneId, type, endpoint, body) {
+    setSceneAction({ id: sceneId, type });
+    setSceneEditError("");
+    try {
+      const response = await fetch(endpoint, {
+        method: type === "voice" ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {}),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Scene update failed.");
+      if (data.scene) {
+        setScenes((current) => current.map((scene) => scene.id === data.scene.id ? data.scene : scene));
+        setSelectedAssetByScene((current) => ({
+          ...current,
+          [data.scene.id]: Math.max(0, (data.scene.assets || []).findIndex((asset) => asset.isSelected)),
+        }));
+      }
+      if (data.durationSeconds != null) {
+        setProject((current) => current ? { ...current, durationSeconds: data.durationSeconds, cuts: data.cuts ?? current.cuts, renderUrl: null } : current);
+      }
+      return true;
+    } catch (error) {
+      setSceneEditError(error.message || "Scene update failed.");
+      return false;
+    } finally {
+      setSceneAction({ id: "", type: "" });
+    }
+  }
+
+  async function rewriteScene(sceneId, options) {
+    return runSceneAction(sceneId, options.refreshVisuals ? "rewrite-visuals" : "rewrite", "/api/scenes/" + encodeURIComponent(sceneId) + "/rewrite", options);
+  }
+
+  async function changeSceneVoice(sceneId, voice) {
+    return runSceneAction(sceneId, "voice", "/api/scenes/" + encodeURIComponent(sceneId) + "/voice", voice.source === "clone" ? { voiceProfileId: voice.id } : { voicePresetId: voice.id });
+  }
+
+  async function regenerateSceneVisuals(sceneId, query = "") {
+    return runSceneAction(sceneId, "visuals", "/api/scenes/" + encodeURIComponent(sceneId) + "/regenerate-assets", query ? { query } : {});
+  }
 
 
 
@@ -212,6 +398,9 @@ export default function StoryboardPage() {
     setSelectedAssetByScene((current) => ({ ...current, [sceneId]: index }));
   }
 
+  const narratedSceneCount = useMemo(() => scenes.filter((scene) => Boolean(scene.audioUrl)).length, [scenes]);
+  const customizedSceneCount = useMemo(() => scenes.filter((scene) => Boolean(scene.customization?.customized)).length, [scenes]);
+
   const activeSceneStep = useMemo(() => {
     if (!scenes.length) return null;
     const scene = scenes[activeStep] || scenes[0];
@@ -273,7 +462,21 @@ export default function StoryboardPage() {
           />}
 
           {tab === "Storyboard" && (
-            <section className="hx-board__layout hx-board__layout--real">
+            <>
+              <section className="storyboard-editor-intro">
+                <div className="storyboard-editor-intro__copy">
+                  <p className="eyebrow">Storyboard editor</p>
+                  <h2>Review every cut, then tune only what needs changing.</h2>
+                  <p>Each scene inherits the project Setup. Customize a single scene without regenerating the rest of the storyboard.</p>
+                </div>
+                <div className="storyboard-editor-intro__stats" aria-label="Storyboard summary">
+                  <span><strong>{scenes.length}</strong><small>Scenes</small></span>
+                  <span><strong>{narratedSceneCount}</strong><small>Narrated</small></span>
+                  <span><strong>{scenes.length * 5}</strong><small>Visuals</small></span>
+                  <span><strong>{customizedSceneCount}</strong><small>Customized</small></span>
+                </div>
+              </section>
+              <section className="hx-board__layout hx-board__layout--real">
               <PhonePreview
                 step={activeSceneStep}
                 duration={project.setup?.length ? `${project.setup.length}s` : `${Math.round(project.durationSeconds || 0)}s`}
@@ -285,6 +488,7 @@ export default function StoryboardPage() {
                 <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {scenes[0]?.spokenText || "Helix is building the first scene…"}</p></div>
                 {sceneError && <div className="storyboard-error"><strong>Storyboard couldn't load.</strong><span>{sceneError}</span><button className="btn btn-ghost" onClick={() => setSceneRetry((value) => value + 1)}>Retry</button></div>}
                 {voiceError && <div className="storyboard-error"><strong>Narration couldn't be generated.</strong><span>{voiceError}</span></div>}
+                {sceneEditError && <div className="storyboard-error storyboard-error--scene"><strong>Scene update couldn't be applied.</strong><span>{sceneEditError}</span></div>}
                 {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Helix is writing the scenes, fetching five visuals per cut, and generating narration with your selected voice…</strong></div>}
                 {!sceneLoading && !sceneError && scenes.length > 0 && (
                   <>
@@ -296,6 +500,17 @@ export default function StoryboardPage() {
                         selectedAssetIndex={selectedAssetByScene[scene.id] ?? 0}
                         onFocus={() => { setActiveStep(i); setPlaying(false); }}
                         onSelectAsset={(index) => selectAsset(scene.id, index)}
+                        customizeOpen={customizingSceneId === scene.id}
+                        onToggleCustomize={() => setCustomizingSceneId((current) => current === scene.id ? null : scene.id)}
+                        customSetup={projectSceneSetup}
+                        voices={sceneVoiceOptions}
+                        onPreviewVoice={previewSceneVoice}
+                        previewingVoice={previewingSceneVoice}
+                        previewLoading={previewLoadingSceneVoice}
+                        onRewriteScene={(options) => rewriteScene(scene.id, options)}
+                        onChangeSceneVoice={(voice) => changeSceneVoice(scene.id, voice)}
+                        onRegenerateVisuals={(query) => regenerateSceneVisuals(scene.id, query)}
+                        sceneBusy={sceneActionFor(scene.id)}
                       />)}
                     </div>
                     <div className="storyboard-narration-status">
@@ -312,7 +527,8 @@ export default function StoryboardPage() {
                   </>
                 )}
               </div>
-            </section>
+              </section>
+            </>
           )}
 
           {tab === "Preview" && (

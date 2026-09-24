@@ -588,16 +588,20 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
               aria-label="Select narration voice"
             >
               <div className="setup-voice-search">
-                <span aria-hidden="true">⌕</span>
-                <input
-                  ref={voiceSearchRef}
-                  type="search"
-                  value={voiceSearch}
-                  onChange={(event) => setVoiceSearch(event.target.value)}
-                  placeholder="Search voices, accents, styles…"
-                  aria-label="Search narration voices"
-                />
-                {voiceSearch && <button type="button" onClick={() => setVoiceSearch("")} aria-label="Clear voice search">×</button>}
+                <div className="setup-voice-search__field">
+                  <span className="setup-voice-search__icon" aria-hidden="true">⌕</span>
+                  <input
+                    ref={voiceSearchRef}
+                    type="search"
+                    value={voiceSearch}
+                    onChange={(event) => setVoiceSearch(event.target.value)}
+                    placeholder="Search by name, accent, tone, or style…"
+                    aria-label="Search narration voices"
+                  />
+                  {!voiceSearch && <span className="setup-voice-search__hint">name · accent · tone</span>}
+                  {voiceSearch && <button type="button" onClick={() => setVoiceSearch("")} aria-label="Clear voice search">×</button>}
+                </div>
+                <span className="setup-voice-search__count">{filteredVoiceOptions.length}/{allVoiceOptions.length}</span>
               </div>
 
               <div className="setup-voice-menu__body">
