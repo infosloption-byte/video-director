@@ -102,6 +102,7 @@ function getSceneVoice(scene, setup, voices) {
 
 export default function SceneCustomizePanel({
   scene,
+  selectedAssetIndex = 0,
   customSetup,
   voices = [],
   onRewrite,
@@ -121,10 +122,7 @@ export default function SceneCustomizePanel({
   const [selectedVoiceKey, setSelectedVoiceKey] = useState(() => voiceKey(activeVoice));
   const [playingNarration, setPlayingNarration] = useState(false);
   const [voiceGenerating, setVoiceGenerating] = useState(false);
-  const [selectedVisualIndex, setSelectedVisualIndex] = useState(() => {
-    const index = Array.isArray(scene.assets) ? scene.assets.findIndex((asset) => asset.isSelected) : -1;
-    return index >= 0 ? index : 0;
-  });
+  const [selectedVisualIndex, setSelectedVisualIndex] = useState(selectedAssetIndex);
 
   const narrationAudioRef = useRef(null);
 
@@ -137,8 +135,7 @@ export default function SceneCustomizePanel({
     setAudience(saved.audienceLevel || customSetup?.audienceLevel || "General public");
     setNarration(scene.spokenText || "");
     setSelectedVoiceKey(voiceKey(getSceneVoice(scene, customSetup, voices)));
-    const visualIndex = Array.isArray(scene.assets) ? scene.assets.findIndex((asset) => asset.isSelected) : -1;
-    setSelectedVisualIndex(visualIndex >= 0 ? visualIndex : 0);
+    setSelectedVisualIndex(selectedAssetIndex);
     narrationAudioRef.current?.pause();
     narrationAudioRef.current = null;
     setPlayingNarration(false);
@@ -153,6 +150,7 @@ export default function SceneCustomizePanel({
     customSetup?.framework,
     customSetup?.tone,
     customSetup?.audienceLevel,
+    selectedAssetIndex,
   ]);
 
   useEffect(() => {
