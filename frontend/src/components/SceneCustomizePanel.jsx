@@ -123,7 +123,6 @@ export default function SceneCustomizePanel({
         </div>
 
         <div className="scene-customize__grid">
-      <div className="scene-customize__head">
         <div>
           <p className="mono-label">SCENE EDITOR</p>
           <h4>Fine-tune this scene without changing the rest.</h4>
@@ -228,7 +227,6 @@ export default function SceneCustomizePanel({
 
           <div className="scene-customize__note"><span aria-hidden="true">↳</span><p>Changing the scene voice regenerates only this scene's narration. It does not replace your project-wide Setup voice.</p></div>
         </div>
-      </div>
       </div>
     </div>
   );
