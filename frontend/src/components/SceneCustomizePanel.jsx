@@ -57,8 +57,6 @@ export default function SceneCustomizePanel({
   const [narration, setNarration] = useState(scene.spokenText || "");
 
   const voiceRef = useRef(null);
-  const [currentVisuals] = useState(() => Array.isArray(scene.assets) ? scene.assets.slice(0, 5) : []);
-  const [newVisuals, setNewVisuals] = useState([]);
   const currentDuration = Number(scene.durationSeconds || 5);
   const targetDuration = useMemo(() => {
     if (lengthMode === "shorter") return Math.max(1.5, Math.min(30, currentDuration * 0.78));
@@ -111,14 +109,12 @@ export default function SceneCustomizePanel({
       refreshVisuals: false,
     });
     if (result?.scene?.spokenText) setNarration(result.scene.spokenText);
-    if (result?.scene?.assets?.length) setNewVisuals(result.scene.assets.slice(0, 5));
     if (result) setLengthMode("keep");
   }
 
   async function refreshSceneVisuals() {
     const query = narration.trim().replace(/\s+/g, " ").slice(0, 120);
     const result = await onRegenerateVisuals?.(query);
-    if (result?.scene?.assets?.length) setNewVisuals(result.scene.assets.slice(0, 5));
   }
 
   async function applyVoice(voice) {
@@ -295,7 +291,7 @@ export default function SceneCustomizePanel({
           <div className="scene-customize__section-head">
             <div>
               <span className="mono-label">VISUALS</span>
-              <strong>Current and newly generated Pexels options</strong>
+              <strong>Refresh the scene visuals from the current narration</strong>
             </div>
             <button
               type="button"
@@ -307,31 +303,16 @@ export default function SceneCustomizePanel({
             </button>
           </div>
 
-          <div className="scene-customize__visual-groups">
-            <div className="scene-customize__visual-group">
-              <span className="scene-customize__visual-label">CURRENT</span>
-              <div className="scene-customize__visual-strip">
-                {currentVisuals.map((asset, index) => (
-                  <div className="scene-customize__visual-card" key={asset.id || "current-" + index}>
-                    <img src={asset.thumbnailUrl} alt={"Current visual " + (index + 1)} />
-                    <span>{index + 1}</span>
-                  </div>
-                ))}
-                {!currentVisuals.length && <div className="scene-customize__visual-empty">No visuals available.</div>}
-              </div>
-            </div>
-
-            <div className="scene-customize__visual-group">
-              <span className="scene-customize__visual-label">NEWLY GENERATED</span>
-              <div className="scene-customize__visual-strip">
-                {newVisuals.map((asset, index) => (
-                  <div className="scene-customize__visual-card scene-customize__visual-card--new" key={asset.id || "new-" + index}>
-                    <img src={asset.thumbnailUrl} alt={"New visual " + (index + 1)} />
-                    <span>{index + 1}</span>
-                  </div>
-                ))}
-                {!newVisuals.length && <div className="scene-customize__visual-empty">Click refresh to generate five new visuals for this narration.</div>}
-              </div>
+          <div className="scene-customize__visual-group">
+            <span className="scene-customize__visual-label">CURRENT</span>
+            <div className="scene-customize__visual-strip">
+              {(Array.isArray(scene.assets) ? scene.assets.slice(0, 5) : []).map((asset, index) => (
+                <div className="scene-customize__visual-card" key={asset.id || "current-" + index}>
+                  <img src={asset.thumbnailUrl} alt={"Current visual " + (index + 1)} />
+                  <span>{index + 1}</span>
+                </div>
+              ))}
+              {!scene.assets?.length && <div className="scene-customize__visual-empty">No visuals available.</div>}
             </div>
           </div>
         </div>
