@@ -288,9 +288,7 @@ export default function StoryboardPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 429) {
-          const seconds = Number(data.retryAfterSeconds);
-          const suffix = Number.isFinite(seconds) ? " Retry in about " + Math.ceil(seconds) + " seconds." : "";
-          throw new Error((data.error || "AI quota is temporarily exhausted.") + suffix);
+          throw new Error(data.error || "AI quota is temporarily exhausted. Please retry after the Gemini quota window resets.");
         }
         throw new Error(data.error || "Scene update failed.");
       }
