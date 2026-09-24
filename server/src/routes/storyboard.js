@@ -502,7 +502,17 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
       currentNarration,
     });
 
-    const voice = await resolveNarrationVoice({ project: scene.project, userId: req.user.id, voice: saved.voice });
+    const requestedVoice = req.body?.voice && typeof req.body.voice === "object"
+      ? {
+          source: String(req.body.voice.source || "").trim(),
+          id: String(req.body.voice.id || "").trim(),
+        }
+      : null;
+    const voice = await resolveNarrationVoice({
+      project: scene.project,
+      userId: req.user.id,
+      voice: requestedVoice?.source && requestedVoice?.id ? requestedVoice : saved.voice,
+    });
     const narration = await synthesizeSpeech({
       projectId: scene.projectId,
       sceneId: scene.id,
