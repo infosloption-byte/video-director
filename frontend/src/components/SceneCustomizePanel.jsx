@@ -114,7 +114,7 @@ export default function SceneCustomizePanel({
 
   async function refreshSceneVisuals() {
     const query = narration.trim().replace(/\s+/g, " ").slice(0, 120);
-    const result = await onRegenerateVisuals?.(query);
+    await onRegenerateVisuals?.(query);
   }
 
   async function applyVoice(voice) {
