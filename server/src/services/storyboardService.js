@@ -101,6 +101,13 @@ async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputT
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
+  if (isQuotaError(lastError)) {
+    const error = new Error(`Gemini AI quota is temporarily exhausted. No additional retry was sent. ${lastError.message || "Please check your Gemini API quota or billing plan and retry after the quota window resets."}`);
+    error.status = 429;
+    error.retryAfterSeconds = lastError.retryAfterSeconds;
+    throw error;
+  }
+
   const error = new Error(`Gemini storyboard generation failed after ${MAX_ATTEMPTS} attempts: ${lastError?.message || "Unknown error."}`);
   error.status = lastError?.status || 502;
   error.retryAfterSeconds = lastError?.retryAfterSeconds;
