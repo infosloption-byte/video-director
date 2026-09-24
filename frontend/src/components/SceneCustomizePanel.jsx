@@ -123,15 +123,6 @@ export default function SceneCustomizePanel({
         </div>
 
         <div className="scene-customize__grid">
-        <div>
-          <p className="mono-label">SCENE EDITOR</p>
-          <h4>Fine-tune this scene without changing the rest.</h4>
-          <p>These controls override the project Setup only for this scene. The research foundation stays the same.</p>
-        </div>
-        <span className="scene-customize__inherit">Project: {projectFramework}</span>
-      </div>
-
-      <div className="scene-customize__grid">
         <div className="scene-customize__column">
           <div className="scene-customize__section-title"><span className="scene-customize__index">01</span><div><strong>Rewrite narration</strong><span>Change the line while keeping it evidence-grounded.</span></div></div>
 
