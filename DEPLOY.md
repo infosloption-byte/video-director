@@ -74,7 +74,7 @@ The Lightsail compose file deliberately supplies an empty `DATABASE_URL` to the 
 
 In `server/.env`, configure the external provider credentials you intend to use (for example Gemini, Tavily, Brave, or Pexels). Never commit that file. Production auth is set to required, development auth fallback is disabled, and secure cookies are enabled by the Lightsail Compose configuration.
 
-If your separately hosted TTS service is still available, set `TTS_SERVICE_URL` and `TTS_SERVICE_AUTH_TOKEN` in `.env.lightsail`. The URL must be reachable **from the Lightsail Docker container**; a private IP from a different VPC may not be reachable. Leave these values empty if you have not verified connectivity and use the configured provider fallback supported by your application.
+If your separately hosted TTS service is still available, set `TTS_SERVICE_URL` and `TTS_SERVICE_AUTH_TOKEN` in `.env.lightsail`. The URL must be reachable **from the Lightsail Docker container**; a private IP from a different VPC may not be reachable. If this URL is empty or unreachable, the app's integration diagnostics will warn that narration generation is unavailable; do not assume it will fall back automatically. Test the endpoint from the Lightsail host before enabling narration for users.
 
 ## 5. Validate, build, and start Voxora
 

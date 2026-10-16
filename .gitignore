@@ -1,3 +1,16 @@
+# Local and production environment secrets
+.env
+.env.*
+!.env.example
+!.env.compose.example
+!.env.lightsail.example
+server/.env
+server/.env.*
+!server/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
 # Voxora self-hosted TTS runtime secrets and generated voice data
 tts-service/.env
 tts-service/data/

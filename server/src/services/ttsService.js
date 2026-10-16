@@ -270,7 +270,7 @@ export async function createTtsVoiceFromFile({ name, referenceAudioPath, referen
   const audio = await (await import("node:fs/promises")).readFile(referenceAudioPath);
   if (!audio.length) throw new Error("Reference audio is empty.");
   const form = new FormData();
-  form.append("name", String(name || "Helix Voice"));
+  form.append("name", String(name || "Voxora Voice"));
   form.append("reference_text", String(referenceText || ""));
   form.append("preferred_engine", String(preferredEngine || "qwen3-tts-0.6b"));
   form.append("reference_audio", new Blob([audio]), "reference.wav");
