@@ -2,23 +2,22 @@
 
 This guide deploys Voxora at `https://usevoxora.online` alongside your existing personal website and Buildhire installation.
 
-Voxora uses a React/Vite frontend, an Express API, the existing shared MySQL instance, a private Redis queue service, FFmpeg, and Remotion/Chromium for video rendering. Buildhire already connects to the shared `mysql_shared` container over the external `shared_net` Docker network. Voxora uses that same MySQL server but has its own database and dedicated user; it must not use Buildhire's database. The optional self-hosted TTS service should remain on suitable separate compute.
+Voxora uses a React/Vite frontend, an Express API, a dedicated MySQL container/database, Redis queues, FFmpeg, and Remotion/Chromium for video rendering. It does not connect to Buildhire's `buildhire_db` or change existing containers. The optional self-hosted TTS service should remain on suitable separate compute.
 
 ## 1. Check the existing host first
 
-SSH into the same Ubuntu Lightsail instance and inspect available memory, disk, containers, the MySQL network, and Nginx sites before deploying:
+SSH into the Ubuntu Lightsail instance and inspect memory, disk, containers, and Nginx sites before deploying. Your account currently needs `sudo` for Docker commands:
 
 ```bash
 free -h
 df -h
-docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-docker inspect mysql_shared --format '{{json .NetworkSettings.Networks}}'
-docker network ls
+sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+sudo docker network ls
 sudo nginx -t
 ls -la /etc/nginx/sites-enabled/
 ```
 
-Buildhire's current Compose file expects the external Docker network `shared_net`. Confirm the `mysql_shared` container exists and check its attached network. If the network name differs, use the actual network name in `.env.lightsail`. **Do not start the Voxora stack until the existing MySQL container and network are confirmed.** Do not stop or remove existing containers. Video rendering can use significant memory; monitor it during the first render with `docker stats`.
+The instance has about 3.7 GiB RAM. Voxora's MySQL is configured with a conservative 128 MiB InnoDB buffer pool and 40 max connections to reduce baseline use, but Remotion/Chromium rendering may still create memory pressure. Do not stop or remove existing containers. Monitor the first render with `sudo docker stats`.
 
 ## 2. Confirm Route 53 records
 
@@ -57,32 +56,15 @@ nano .env.lightsail
 nano server/.env
 ```
 
-Copy the generated 64-character hexadecimal value into `DB_PASSWORD` in `.env.lightsail`. Hexadecimal is intentional: the application entrypoint builds the MySQL URL from these values, so a hex-only password avoids URL-escaping errors. Set:
+Use the **first** generated value for `DB_PASSWORD` and the **second, different** value for `MYSQL_ROOT_PASSWORD` in `.env.lightsail`. Keep both as 64-character hexadecimal values; the entrypoint uses `DB_PASSWORD` to construct the MySQL connection URL. Set:
 
 - `DB_DATABASE=voxora`
 - `DB_USERNAME=voxora_app`
-- `SHARED_MYSQL_NETWORK=shared_net` (or the actual network name confirmed in step 1)
+- `DB_PASSWORD` and `MYSQL_ROOT_PASSWORD` to different generated values
 - `AUTH_PUBLIC_URL=https://usevoxora.online`
 - `AUTH_ALLOWED_ORIGINS=https://usevoxora.online,https://www.usevoxora.online`
 
-Now create the dedicated database and user on the **existing** shared MySQL server. Enter the MySQL root password when prompted:
-
-```bash
-docker exec -it mysql_shared mysql -uroot -p
-```
-
-At the MySQL prompt, run the following statements, replacing `PASTE_THE_SAME_HEX_VALUE_AS_DB_PASSWORD` with the value in `.env.lightsail`:
-
-```sql
-CREATE DATABASE IF NOT EXISTS voxora CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'voxora_app'@'%' IDENTIFIED BY 'PASTE_THE_SAME_HEX_VALUE_AS_DB_PASSWORD';
-ALTER USER 'voxora_app'@'%' IDENTIFIED BY 'PASTE_THE_SAME_HEX_VALUE_AS_DB_PASSWORD';
-GRANT ALL PRIVILEGES ON voxora.* TO 'voxora_app'@'%';
-FLUSH PRIVILEGES;
-EXIT;
-```
-
-This grants the Voxora account access only to the `voxora` database, not Buildhire's database. Do not use the MySQL root account for the application. Keep the real password out of Git.
+The separate MySQL container creates the `voxora` database and `voxora_app` user automatically the first time it starts. Its port is not published; data persists in the `voxora_mysql_data` volume. Do not use the root account for application connections. Keep secrets out of Git.
 
 In `server/.env`, configure the external provider credentials you intend to use, such as `GEMINI_API_KEY`, `TAVILY_API_KEY` or `BRAVE_API_KEY`, and `PEXELS_API_KEY`. Never commit that file. Production authentication is enforced, development auth fallback is disabled, and secure cookies are enabled by the Lightsail Compose configuration.
 
@@ -93,11 +75,11 @@ If your separately hosted TTS service is still available, set `TTS_SERVICE_URL` 
 Run these from `/opt/apps/voxora`:
 
 ```bash
-docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml config
-docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml build
-docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml up -d
-docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml ps
-docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml logs --tail=150 api
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml config
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml build
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml up -d
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml ps
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml logs --tail=150 api
 ```
 
 The API entrypoint retries the MySQL connection and applies Prisma migrations before starting. If the API fails to start, inspect its logs before retrying; do not delete volumes or reset the database.
@@ -152,8 +134,8 @@ To update later:
 ```bash
 cd /opt/apps/voxora
 git pull --ff-only
-docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml build
-docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml up -d
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml build
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml up -d
 ```
 
-Back up the shared MySQL instance according to the existing infrastructure procedure and back up the Voxora `redis_data` and `app_storage` volumes as appropriate. **Do not run `docker compose down -v`** for routine updates; removing Voxora's volumes would delete its Redis data and saved render/audio files. Do not expose MySQL, Redis, or port 8090 through the Lightsail firewall.
+Back up Voxora's MySQL database and back up the Voxora `redis_data` and `app_storage` volumes as appropriate. **Do not run `sudo docker compose down -v`** for routine updates; removing Voxora's volumes would delete its Redis data and saved render/audio files. Do not expose MySQL, Redis, or port 8090 through the Lightsail firewall.
