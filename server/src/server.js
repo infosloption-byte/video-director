@@ -10,7 +10,7 @@ import { prisma } from "./db/client.js";
 const PORT = process.env.PORT || 4000;
 
 const server = app.listen(PORT, () => {
-  console.log(`Helix server listening on http://localhost:${PORT}`);
+  console.log(`Voxora server listening on http://localhost:${PORT}`);
   // Signal scraping is deliberately opt-in at startup. A third-party feed
   // outage must never make the API unavailable while the UI is running.
   startSignalScraper();

@@ -42,11 +42,11 @@ export default function SignUpPage() {
           <section className="auth-pitch">
             <p className="eyebrow">Start creating</p>
             <h1>Your ideas in. Better reels out.</h1>
-            <p>Create a Helix workspace for research, storyboards, narration, renders, and the advanced editor.</p>
+            <p>Create a Voxora workspace for research, storyboards, narration, renders, and the advanced editor.</p>
             <div className="auth-pitch__features"><span><strong>Research</strong><small>Trusted signals and evidence.</small></span><span><strong>Direct</strong><small>AI-assisted stories and visuals.</small></span><span><strong>Finish</strong><small>Narration, captions, and video.</small></span></div>
           </section>
           <section className="auth-card" aria-labelledby="signup-title">
-            <div className="auth-card__intro"><p className="eyebrow">Create account</p><h2 id="signup-title">Build your Helix workspace.</h2><p>Save your work and return to it whenever you are ready.</p></div>
+            <div className="auth-card__intro"><p className="eyebrow">Create account</p><h2 id="signup-title">Build your Voxora workspace.</h2><p>Save your work and return to it whenever you are ready.</p></div>
             {error && <div className="auth-card__error" role="alert">{error}</div>}
             <form className="auth-card__form" onSubmit={submit}>
               <label><span>Name <em>optional</em></span><input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={120} autoComplete="name" placeholder="Your name" /></label>

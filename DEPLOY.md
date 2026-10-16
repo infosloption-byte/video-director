@@ -1,198 +1,147 @@
-# Deploying Helix (video-director) to helix.ycusriya.online
+# Deploy Voxora to your existing Lightsail server
 
-## What this app actually is
-Looking at the repo directly (frontend/, server/), it's not one simple
-static site — it's three moving parts:
-- `frontend`: React + Vite SPA, calls its own backend via relative `/api/...`
-  fetches with `credentials: "include"` (cookie auth) — so frontend and API
-  must be served from the **same origin** in production.
-- `server`: Node/Express API + Prisma **MySQL** database, using **Redis**
-  (BullMQ) for a background video-render queue, `ffmpeg` for media
-  processing, and Remotion (which drives a headless Chrome) to actually
-  render the video reels.
-- `server/qwen-tts`: an *optional* local Python TTS fallback (only used if
-  ElevenLabs fails/isn't configured). Skip it for now — it needs
-  torch/faster-whisper and GPU is recommended. Not included below.
+This guide deploys Voxora at `https://usevoxora.online` alongside your existing personal website and Buildhire installation.
 
-So this needs more than a single container: MySQL + Redis + the API +
-the built frontend.
+Voxora uses a React/Vite frontend, an Express API, MySQL through Prisma, Redis queues, FFmpeg, and Remotion/Chromium for video rendering. The Lightsail compose file defines an isolated MySQL database and Redis instance for Voxora so it does not depend on or modify Buildhire's database. The optional self-hosted TTS service should remain on its suitable dedicated host.
 
-## Files I've prepared
-Drop these into your existing repo (same relative paths), don't recreate
-the app itself:
-```
-server/Dockerfile
-server/docker-entrypoint.sh
-server/.dockerignore
-frontend/Dockerfile
-frontend/nginx.conf
-frontend/.dockerignore
-docker-compose.yml          (repo root)
-.env.compose.example        (repo root)
-deploy/helix.ycusriya.online.conf   (host nginx vhost)
-```
+## 1. Check the existing host first
 
----
+SSH into the same Ubuntu Lightsail instance and inspect available memory, disk, containers, and Nginx sites before deploying:
 
-## 1. DNS
-Create the A record you mentioned:
-```
-Type: A
-Host: helix
-Value: <your AWS server's public IP>
-TTL:  default
-```
-Wait for it to resolve (`dig helix.ycusriya.online` or `nslookup`).
-
-## 2. Get the code on the server
-SSH into the same AWS server that runs shop.tattoo, then:
 ```bash
-cd /var/www          # or wherever you keep the other projects
-git clone https://github.com/infosloption-byte/video-director.git helix
-cd helix
+free -h
+df -h
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+docker network ls
+sudo nginx -t
+ls -la /etc/nginx/sites-enabled/
 ```
-Add the files above into this checkout (`server/Dockerfile`, etc.).
 
-## 3. Configure environment variables
+Do not stop or remove existing containers. Video rendering can use significant memory; monitor it during the first render with `docker stats`.
 
-**`server/.env`** — copy from `server/.env.example` and fill in for
-production:
+## 2. Confirm Route 53 records
+
+Attach a Lightsail static IP to the instance, then make sure the Route 53 hosted zone has:
+
+- An apex `A` record for `usevoxora.online` pointing to that static IPv4 address.
+- Optionally, a `www` CNAME record pointing to `usevoxora.online`.
+
+If an `AAAA` record exists, confirm it points to the correct IPv6 endpoint or remove it if IPv6 is not configured for this host. Verify DNS before requesting HTTPS:
+
 ```bash
+dig +short usevoxora.online A
+dig +short www.usevoxora.online
+```
+
+The first result must match the server's static IPv4 address. If you are not using `www`, omit it from the certificate command below.
+
+## 3. Get the current code
+
+```bash
+sudo mkdir -p /opt/apps
+sudo chown "$USER":"$USER" /opt/apps
+cd /opt/apps
+git clone https://github.com/infosloption-byte/video-director.git voxora
+cd /opt/apps/voxora
+```
+
+If `/opt/apps/voxora` already exists, do not clone over it; inspect the existing checkout and back up any local changes first.
+
+## 4. Create production environment files
+
+Create the Compose variables file and application environment file:
+
+```bash
+cp .env.lightsail.example .env.lightsail
 cp server/.env.example server/.env
+openssl rand -hex 32
+openssl rand -hex 32
+nano .env.lightsail
+nano server/.env
 ```
-This app uses Prisma, which wants a single `DATABASE_URL`. Since you're
-using the **shared mysql_shared container** (same as voxora) instead of a
-per-project MySQL, don't set `DATABASE_URL` by hand here — leave it out of
-`server/.env` entirely. `docker-compose.yml` passes `DB_CONNECTION`,
-`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` into the
-container instead, and `docker-entrypoint.sh` assembles `DATABASE_URL` from
-those automatically at boot.
 
-Key changes from the example, since this now runs in Docker:
-```env
-REDIS_URL="redis://redis:6379"
-PORT=4000
+Use the first generated random value for `DB_PASSWORD` and the second, different value for `MYSQL_ROOT_PASSWORD` in `.env.lightsail`. Use these hex-only values so the database connection URL assembled by the entrypoint is not broken by special URL characters.
 
-# These matter once you're behind HTTPS on a real domain:
-AUTH_PUBLIC_URL="https://helix.ycusriya.online"
-AUTH_ALLOWED_ORIGINS="https://helix.ycusriya.online"
-COOKIE_SECURE="true"
-COOKIE_SAMESITE="Lax"
+Set your actual production values in `.env.lightsail`:
 
-# Fill in whichever of these you actually use:
-ELEVENLABS_API_KEY="..."
-ELEVENLABS_VOICE_ID="..."
-GEMINI_API_KEY="..."
-TAVILY_API_KEY="..."
-BRAVE_API_KEY="..."
-PEXELS_API_KEY="..."
+- `DB_DATABASE=voxora`
+- `DB_USERNAME=voxora_app`
+- `DB_PASSWORD` and `MYSQL_ROOT_PASSWORD` to the generated secrets
+- `AUTH_PUBLIC_URL=https://usevoxora.online`
+- `AUTH_ALLOWED_ORIGINS=https://usevoxora.online,https://www.usevoxora.online`
 
-# Leave the Qwen TTS block as-is (QWEN3_TTS_ENABLED="false") unless you're
-# also standing up server/qwen-tts as its own service.
-```
-`mysql` and `redis` above are the **service names** in docker-compose —
-Docker's internal DNS resolves them, no need for real hostnames/IPs.
+The Lightsail compose file deliberately supplies an empty `DATABASE_URL` to the API container so `server/docker-entrypoint.sh` builds it from the `DB_*` values for the internal `db` service. Do not put production database credentials in Git.
 
-**`.env`** at the repo root (next to `docker-compose.yml`) — connection
-details for the shared MySQL, plus which Docker network it lives on:
+In `server/.env`, configure the external provider credentials you intend to use (for example Gemini, Tavily, Brave, or Pexels). Never commit that file. Production auth is set to required, development auth fallback is disabled, and secure cookies are enabled by the Lightsail Compose configuration.
+
+If your separately hosted TTS service is still available, set `TTS_SERVICE_URL` and `TTS_SERVICE_AUTH_TOKEN` in `.env.lightsail`. The URL must be reachable **from the Lightsail Docker container**; a private IP from a different VPC may not be reachable. Leave these values empty if you have not verified connectivity and use the configured provider fallback supported by your application.
+
+## 5. Validate, build, and start Voxora
+
+Run these from `/opt/apps/voxora`:
+
 ```bash
-cp .env.compose.example .env
-```
-```env
-DB_CONNECTION=mysql
-DB_HOST=mysql_shared
-DB_PORT=3306
-DB_DATABASE=helix
-DB_USERNAME=root
-DB_PASSWORD=<the shared mysql_shared password>
-
-SHARED_MYSQL_NETWORK=mysql_shared_net
-```
-Find the real network name and confirm the container name/port before
-filling this in:
-```bash
-docker ps --filter name=mysql_shared
-docker inspect mysql_shared --format '{{json .NetworkSettings.Networks}}'
-```
-Whatever key shows up in that JSON output is what `SHARED_MYSQL_NETWORK`
-should be — it won't necessarily be exactly `mysql_shared_net`.
-
-Then create the `helix` database on the shared instance (Prisma expects the
-database to already exist — it only creates tables inside it):
-```bash
-docker exec -it mysql_shared mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS helix CHARACTER SET utf8mb4;"
+docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml config
+docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml build
+docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml up -d
+docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml ps
+docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml logs --tail=150 api
 ```
 
-Never commit `.env` — check `.gitignore` covers it.
+The API entrypoint retries the MySQL connection and applies Prisma migrations before starting. If the API fails to start, inspect its logs before retrying; do not delete volumes or reset the database.
 
-## 4. Build and start the stack
+Check the local health endpoint:
+
 ```bash
-docker compose build
-docker compose up -d
-docker compose ps        # redis should be "healthy", api and frontend "running"
-docker compose logs -f api   # watch it apply Prisma migrations and boot
-```
-The entrypoint script builds `DATABASE_URL` from the `DB_*` vars and runs
-`prisma migrate deploy` automatically on first boot (retrying until the
-shared MySQL is reachable), so you shouldn't need to do this by hand. If it
-keeps retrying and failing, double check: the `helix` database actually
-exists on `mysql_shared` (step above), the password is right, and
-`SHARED_MYSQL_NETWORK` actually matches the network `mysql_shared` runs on
-— a wrong network name is the most common reason the api container can't
-even resolve the `mysql_shared` hostname. If you want to seed the demo signals like the local setup does:
-```bash
-docker compose exec api npm run prisma:seed
+curl -i http://127.0.0.1:8090/api/health
 ```
 
-At this point the app is reachable at `http://127.0.0.1:8090` on the
-server itself — not yet on the internet. Sanity check:
-```bash
-curl http://127.0.0.1:8090/api/health
-```
+It should return HTTP 200 with a healthy JSON response before you proceed.
 
-## 5. Point host Nginx + Certbot at it
-This follows the exact same pattern as your shop.tattoo subdomain:
+## 6. Add a separate Nginx virtual host
+
+The repository includes `deploy/usevoxora.online.conf`. It forwards only requests for Voxora's domain to `127.0.0.1:8090`; it does not replace the virtual hosts for your other sites.
+
 ```bash
-sudo cp deploy/helix.ycusriya.online.conf /etc/nginx/sites-available/
-sudo ln -s /etc/nginx/sites-available/helix.ycusriya.online.conf /etc/nginx/sites-enabled/
+sudo cp deploy/usevoxora.online.conf /etc/nginx/sites-available/usevoxora.online
+sudo ln -s /etc/nginx/sites-available/usevoxora.online /etc/nginx/sites-enabled/usevoxora.online
 sudo nginx -t
 sudo systemctl reload nginx
 ```
-Then issue the certificate (assuming certbot's already installed, as it
-must be for shop.tattoo):
+
+If the link already exists, inspect it instead of creating a duplicate. If Nginx reports a conflict, check the existing virtual hosts rather than changing the server's default site.
+
+If Certbot is not installed, install the Nginx plugin package for your Ubuntu version. Then request HTTPS:
+
 ```bash
-sudo certbot --nginx -d helix.ycusriya.online
-```
-Certbot edits that config file in place to add the SSL server block and a
-redirect from port 80. Confirm renewal is already automated (it usually is
-if certbot manages the other subdomain):
-```bash
+sudo certbot --nginx -d usevoxora.online -d www.usevoxora.online
 sudo certbot renew --dry-run
 ```
 
-## 6. Verify
-```bash
-curl https://helix.ycusriya.online/api/health
-```
-should return `{"ok":true}`. Then open `https://helix.ycusriya.online` in a
-browser and confirm the signals page loads and (if you have provider keys
-set) that generating a storyboard/render actually works end-to-end — that
-exercises Redis, the render worker, ffmpeg, and headless Chrome all at
-once, which is the part most likely to need debugging on a fresh box.
+Only include `www.usevoxora.online` if its DNS record resolves correctly. Certbot configures the HTTPS server block and HTTP-to-HTTPS redirect.
 
-## Notes on sizing
-- Remotion renders spin up headless Chrome per job — on a small instance
-  (e.g. t3.small/medium) keep an eye on memory during a render
-  (`docker stats`). If renders OOM, that's your signal to bump the
-  instance size before optimizing anything else.
-- `helix_storage` is a named Docker volume holding rendered videos,
-  exports, and audio (`storage/renders`, `storage/exports`,
-  `storage/audio`, `storage/render-assets`). Back it up like you would any
-  other persistent data — it isn't ephemeral.
-- Updating the app later:
-  ```bash
-  git pull
-  docker compose build
-  docker compose up -d
-  ```
-  (migrations re-run automatically on the api container's boot.)
+## 7. Final verification
+
+Check all of the following:
+
+1. `https://usevoxora.online` loads with the Voxora brand and a valid certificate.
+2. `https://usevoxora.online/api/health` returns healthy JSON.
+3. Sign-up, sign-in, sign-out, email verification, and password reset work with the production configuration.
+4. Creating a research brief and storyboard works with the provider keys you configured.
+5. Narration works through the chosen TTS/provider path.
+6. A short video renders successfully, and the output survives a container restart.
+
+Monitor memory and storage during the first render. If Chromium/Remotion is killed or Docker reports an OOM condition, increase the Lightsail plan before inviting users.
+
+## 8. Safe updates and backups
+
+To update later:
+
+```bash
+cd /opt/apps/voxora
+git pull --ff-only
+docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml build
+docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml up -d
+```
+
+Back up MySQL and the `app_storage` volume regularly. **Do not run `docker compose down -v`** for routine updates; removing volumes would delete Voxora's database and saved render/audio files. Do not expose ports 3306, 6379, or 8090 through the Lightsail firewall.

@@ -105,7 +105,7 @@ export default function PlatformShell({ children }) {
   return <div className={`platform-shell ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}>
     <aside className="platform-sidebar" aria-label="Platform navigation">
       <div className="platform-sidebar__top">
-        <Link to="/" className="platform-brand" onClick={handleBrandClick} aria-label={collapsed ? "Expand sidebar" : "Helix workspace"} title={collapsed ? "Expand sidebar" : "Helix workspace"}><span className="platform-brand__mark">X</span><span className="platform-brand__name">Helix</span></Link>
+        <Link to="/" className="platform-brand" onClick={handleBrandClick} aria-label={collapsed ? "Expand sidebar" : "Helix workspace"} title={collapsed ? "Expand sidebar" : "Helix workspace"}><span className="platform-brand__mark">V</span><span className="platform-brand__name">Helix</span></Link>
         <button
           type="button"
           className="platform-collapse"

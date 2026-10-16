@@ -2,7 +2,7 @@ FROM node:20-bookworm-slim AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Build-time env (VITE_* vars get baked into the JS bundle here)
 ARG VITE_AUTH_REQUIRED=false

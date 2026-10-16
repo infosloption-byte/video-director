@@ -1,0 +1,84 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-voxora}
+      MYSQL_USER: ${DB_USERNAME:-voxora_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.lightsail}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env.lightsail}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping --protocol=tcp -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./server
+    restart: unless-stopped
+    env_file:
+      - ./server/.env
+    environment:
+      # The entrypoint builds DATABASE_URL from the DB_* variables below.
+      DATABASE_URL: ""
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ${DB_DATABASE:-voxora}
+      DB_USERNAME: ${DB_USERNAME:-voxora_app}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.lightsail}
+      REDIS_URL: redis://redis:6379
+      AUTH_REQUIRED: "true"
+      DEV_AUTH_FALLBACK: "false"
+      AUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-https://usevoxora.online}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-https://usevoxora.online,https://www.usevoxora.online}
+      COOKIE_SECURE: "true"
+      COOKIE_SAMESITE: "Lax"
+      TTS_SERVICE_URL: ${TTS_SERVICE_URL:-}
+      TTS_SERVICE_AUTH_TOKEN: ${TTS_SERVICE_AUTH_TOKEN:-}
+      # Keep both queue workers in the service for a simple initial deployment.
+      RENDER_WORKER_IN_API: "true"
+      EDITOR_RENDER_WORKER_IN_API: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - app_storage:/app/storage
+    expose:
+      - "4000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_AUTH_REQUIRED: "true"
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8090:80"
+
+volumes:
+  mysql_data:
+  redis_data:
+  app_storage:

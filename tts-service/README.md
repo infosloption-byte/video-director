@@ -1,10 +1,10 @@
-# Helix self-hosted TTS service
+# Voxora self-hosted TTS service
 
-This service moves narration inference off the main Helix application EC2 instance and onto a dedicated CPU-only TTS EC2 instance.
+This service moves narration inference off the main Voxora application EC2 instance and onto a dedicated CPU-only TTS EC2 instance.
 
 Architecture
 
-Helix server -> private HTTP -> TTS gateway :8000 -> selected worker -> WAV -> Helix server -> existing MP3 storage
+Voxora server -> private HTTP -> TTS gateway :8000 -> selected worker -> WAV -> Voxora server -> existing MP3 storage
 
 Workers
 
@@ -39,7 +39,7 @@ Do not expose ports 8101-8104 in Docker or the EC2 security group.
 
 Security group
 
-Allow inbound TCP 8000 only from the existing Helix application EC2 security group. Prefer a private VPC address for the TTS instance. No public browser traffic should call the TTS gateway directly.
+Allow inbound TCP 8000 only from the existing Voxora application EC2 security group. Prefer a private VPC address for the TTS instance. No public browser traffic should call the TTS gateway directly.
 
 Voice cloning
 
@@ -52,7 +52,7 @@ Create a voice profile:
       -F "preferred_engine=chatterbox-nano" \
       -F "reference_audio=@reference.wav"
 
-The returned voice_id can be used by Helix.
+The returned voice_id can be used by Voxora.
 
 Qwen3-TTS 0.6B Base benefits from a clean reference transcript. Without one, its worker uses x-vector-only cloning mode.
 
@@ -61,16 +61,16 @@ Example standard synthesis:
     curl -X POST http://127.0.0.1:8000/v1/audio/speech \
       -H "Authorization: Bearer YOUR_TOKEN" \
       -H "Content-Type: application/json" \
-      -d '{"text":"Welcome to Helix.","engine":"kokoro"}'
+      -d '{"text":"Welcome to Voxora.","engine":"kokoro"}'
 
 Example voice-cloned synthesis:
 
     curl -X POST http://127.0.0.1:8000/v1/audio/speech \
       -H "Authorization: Bearer YOUR_TOKEN" \
       -H "Content-Type: application/json" \
-      -d '{"text":"Welcome to Helix.","voice_id":"voice_xxx"}'
+      -d '{"text":"Welcome to Voxora.","voice_id":"voice_xxx"}'
 
-The response contains audio_base64, format, sample_rate, duration_seconds, engine, fallback, and word_timestamps. The Helix server converts the WAV to MP3 and continues using the existing /api/audio/... delivery path.
+The response contains audio_base64, format, sample_rate, duration_seconds, engine, fallback, and word_timestamps. The Voxora server converts the WAV to MP3 and continues using the existing /api/audio/... delivery path.
 
 Model licensing
 

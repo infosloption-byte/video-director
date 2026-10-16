@@ -1,4 +1,4 @@
-// Helix — Prisma schema (MySQL)
+// Voxora — Prisma schema (MySQL)
 
 generator client {
   provider = "prisma-client-js"

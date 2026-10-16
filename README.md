@@ -1,20 +1,30 @@
-# Helix (video-director) Docker bundle
+# Voxora
 
-This repo already ships its own Dockerfiles, docker-entrypoint.sh, nginx.conf and
-docker-compose.yml -- they're carried through here unchanged after testing. Only
-two things were wrong, both fixed in this bundle:
+Voxora is an AI-assisted research-to-video workspace for discovering topics, building research briefs and storyboards, generating narration, and editing/rendering videos.
 
-1. server/prisma/migrations/20260906084944_mg5 renamed to
-   20260906190000_mg5 -- it alters 5 tables (research_claims, research_plans,
-   research_evidence, research_verifications, research_conflicts) that are only
-   CREATEd by 20260906180000_m17_research_graph, which has a LATER timestamp
-   folder name but needs to run FIRST. Confirmed: with the old name, applying
-   all 13 migrations to a fresh MySQL 8 database failed at mg5 with
-   `Table 'helix.research_conflicts' doesn't exist`. Renamed, all 13 apply
-   cleanly in order.
-2. .env.example's SHARED_MYSQL_NETWORK default corrected from the repo's
-   guessed "mysql_shared_net" to "shared_net" -- the actual external network
-   name from your shared-infra setup.
+## Services
 
-Copy this bundle's files over the repo root (same relative paths), keeping
-your own copy of anything you've already customized.
+- `frontend/`: React + Vite web client, served by Nginx.
+- `server/`: Express API, Prisma/MySQL, Redis queues, FFmpeg, and Remotion/Chromium rendering.
+- `tts-service/`: optional self-hosted narration gateway and model workers. Run this on suitable separate compute rather than assuming it fits on the application Lightsail instance.
+
+## Deploy to the existing Lightsail host
+
+The Lightsail deployment has its own MySQL database and Redis service; it does not reuse or replace Buildhire's database or containers.
+
+1. Read [DEPLOY.md](./DEPLOY.md).
+2. Copy `.env.lightsail.example` to `.env.lightsail` and create strong, unique passwords.
+3. Copy `server/.env.example` to `server/.env` and configure the external provider keys you use.
+4. Validate and start the stack with:
+
+   ```bash
+   docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml config
+   docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml build
+   docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml up -d
+   ```
+
+The web container binds to `127.0.0.1:8090`; the host Nginx virtual host forwards only the Voxora domain to it. Database, Redis, render files, and audio are persisted in Voxora-specific Docker volumes.
+
+The original `docker-compose.yml` remains available for environments that already provide a shared MySQL Docker network. For the Lightsail host shared with other sites, use the dedicated Lightsail compose file above.
+
+Never commit `.env.lightsail` or `server/.env`. Do not expose MySQL, Redis, or port 8090 directly to the Internet.

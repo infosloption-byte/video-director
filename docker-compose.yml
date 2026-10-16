@@ -23,7 +23,7 @@ services:
       DB_CONNECTION: ${DB_CONNECTION:-mysql}
       DB_HOST: ${DB_HOST:-mysql_shared}
       DB_PORT: ${DB_PORT:-3306}
-      DB_DATABASE: ${DB_DATABASE:-helix}
+      DB_DATABASE: ${DB_DATABASE:-voxora}
       DB_USERNAME: ${DB_USERNAME:-root}
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_URL: redis://redis:6379
