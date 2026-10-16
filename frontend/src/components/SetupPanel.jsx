@@ -25,7 +25,7 @@ function ChoiceRow({ step, title, reasoning, options, value, onChange, renderOpt
         </div>
         <div className="setup-choice__title-row">
           <h3>{title}</h3>
-          {isRecommended && <span className="setup-recommendation">Helix pick</span>}
+          {isRecommended && <span className="setup-recommendation">Voxora pick</span>}
         </div>
         <p>{reasoning}</p>
       </div>
@@ -439,7 +439,7 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
   }
 
   if (error && !suggestions) return <div className="setup-error"><strong>Setup couldn't load.</strong><span>{error}</span></div>;
-  if (!suggestions || !choices) return <div className="setup-loading">Helix is preparing your best defaults…</div>;
+  if (!suggestions || !choices) return <div className="setup-loading">Voxora is preparing your best defaults…</div>;
 
   return (
     <div className="setup-panel">
@@ -449,7 +449,7 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
           <h2>{hasSavedSetup ? "Refine how the finished research becomes a reel." : "Shape how the research becomes a reel."}</h2>
           <p>{hasSavedSetup
             ? "Your research is already complete. Adjust the story settings below, then regenerate only when you are ready."
-            : "The research is ready. Choose the storytelling direction and narrator before Helix writes the scenes."}</p>
+            : "The research is ready. Choose the storytelling direction and narrator before Voxora writes the scenes."}</p>
         </div>
         <div className="setup-panel__hero-state">
           <span className="setup-state-dot" aria-hidden="true" />
@@ -473,7 +473,7 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
       <section className="setup-summary" aria-label="Current setup summary">
         <div className="setup-summary__head">
           <div>
-            <p className="mono-label">{hasSavedSetup ? "CURRENT SETUP" : "HELIX RECOMMENDATIONS"}</p>
+            <p className="mono-label">{hasSavedSetup ? "CURRENT SETUP" : "VOXORA RECOMMENDATIONS"}</p>
             <strong>{isDirty ? changedFields.length + " setting" + (changedFields.length === 1 ? "" : "s") + " changed" : hasSavedSetup ? "Your saved configuration" : "Starting point for this story"}</strong>
           </div>
           <span className={isDirty ? "setup-summary__state is-dirty" : "setup-summary__state"}>
@@ -494,7 +494,7 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
           <p className="eyebrow">01 — Story direction</p>
           <h3>Make four focused decisions.</h3>
         </div>
-        <span>Helix uses these settings when rebuilding the scenes.</span>
+        <span>Voxora uses these settings when rebuilding the scenes.</span>
       </div>
 
       <ChoiceRow
@@ -684,7 +684,7 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
         </div>
       </section>
 
-      {suggestions.framework.guardrailApplied && <div className="setup-guardrail"><strong>Monetization guardrail applied.</strong> Helix selected a safer narrative because the research flagged a high-risk issue.</div>}
+      {suggestions.framework.guardrailApplied && <div className="setup-guardrail"><strong>Monetization guardrail applied.</strong> Voxora selected a safer narrative because the research flagged a high-risk issue.</div>}
       {error && <div className="setup-error"><span>{error}</span></div>}
       <footer className={"setup-actions " + (isDirty ? "is-dirty" : "")}>
         <div className="setup-actions__status" aria-live="polite">

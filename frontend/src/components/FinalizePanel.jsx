@@ -6,7 +6,7 @@ const RENDER_STAGES = [
   { id: "queued", label: "Queued", detail: "Waiting for the render worker to start." },
   { id: "preflight", label: "Preflight", detail: "Validating narration, duration, and render settings." },
   { id: "assets", label: "Preparing B-roll", detail: "Downloading and caching the selected visuals locally." },
-  { id: "bundle", label: "Building composition", detail: "Bundling the Helix Remotion composition." },
+  { id: "bundle", label: "Building composition", detail: "Bundling the Voxora Remotion composition." },
   { id: "composition", label: "Preparing timeline", detail: "Loading the 9:16 composition and scene timeline." },
   { id: "rendering", label: "Rendering video", detail: "Encoding video frames, audio, and synchronized captions." },
   { id: "finalizing", label: "Finalizing", detail: "Writing the MP4 and saving the completed render." },
@@ -227,7 +227,7 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: project?.title || "Helix Reel",
+          title: project?.title || "Voxora Reel",
           description: exports?.seoCaption || project?.seoCaption || project?.title || "",
         }),
       });

@@ -38,7 +38,7 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
   const running = !["ready", "error"].includes(effectiveStatus);
   const stopped = effectiveStatus === "error" && /stopped by the user/i.test(effectiveError || "");
   const currentLabel = stageLabel || (effectiveStatus === "error" ? (stopped ? "Research stopped" : "Research needs attention") : effectiveStatus === "ready" ? "Research brief ready" : "Preparing deep research");
-  const currentDetail = stageDetail || (effectiveStatus === "error" ? (stopped ? "The research run was stopped before the evidence brief was completed." : "The previous research run is no longer active. Retry research to start a new run.") : effectiveStatus === "ready" ? "The evidence-backed brief is ready for guided setup." : "Helix is preparing the evidence pipeline.");
+  const currentDetail = stageDetail || (effectiveStatus === "error" ? (stopped ? "The research run was stopped before the evidence brief was completed." : "The previous research run is no longer active. Retry research to start a new run.") : effectiveStatus === "ready" ? "The evidence-backed brief is ready for guided setup." : "Voxora is preparing the evidence pipeline.");
 
   async function stopResearch() {
     if (!resolvedProjectId || stopping || !running) return;
@@ -100,7 +100,7 @@ export default function ResearchProgress({ status, progress = 0, stageLabel, sta
       <div className="research-progress__title-row">
         <div>
           <h1>{effectiveStatus === "ready" ? "Research brief ready." : stopped ? "Research stopped." : effectiveStatus === "error" ? "Research needs attention." : "Building the research brief."}</h1>
-          <p className="research-progress__lead">Helix plans, discovers, reads, verifies, resolves conflicts, and synthesizes evidence before making creative recommendations.</p>
+          <p className="research-progress__lead">Voxora plans, discovers, reads, verifies, resolves conflicts, and synthesizes evidence before making creative recommendations.</p>
         </div>
         <div className="research-progress__percent" aria-label={`${safeProgress}% complete`}>
           <strong>{safeProgress}%</strong>

@@ -87,7 +87,7 @@ export default function SignalCard({ signal, featured = false }) {
       <AuthChoiceDialog
         open={authPromptOpen}
         title="Save this Reel to your workspace."
-        message="Sign in or create a free account to direct this signal. After authentication, Helix will bring you back to the public Signals page."
+        message="Sign in or create a free account to direct this signal. After authentication, Voxora will bring you back to the public Signals page."
         onSignIn={() => navigate(`/signin?next=${encodeURIComponent(returnPath)}`)}
         onSignUp={() => navigate(`/signup?next=${encodeURIComponent(returnPath)}`)}
         onClose={closeAuthPrompt}

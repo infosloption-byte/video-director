@@ -125,7 +125,7 @@ export default function EditorAIAssistantPage() {
       <Header right={<Link to={`/editor/${id}`} className="btn btn-ghost">Back to editor</Link>} />
       <main className="container" style={{ maxWidth: 900, paddingTop: 48, paddingBottom: 64 }}>
         <p className="eyebrow">Advanced editor · AI assistant</p>
-        <h1>What should Helix change?</h1>
+        <h1>What should Voxora change?</h1>
         <p>AI suggestions are converted into validated, reversible editor operations. Source Storyboard and media records are never edited.</p>
 
         <section className="hx-card" style={{ marginTop: 24, padding: 24 }}>

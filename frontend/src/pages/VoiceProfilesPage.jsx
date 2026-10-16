@@ -22,11 +22,11 @@ const ENGINE_OPTIONS = [
 ];
 
 const ENGINE_DESCRIPTIONS = {
-  "qwen3-tts-0.6b": "GPU-powered cloning on the Helix TTS worker.",
+  "qwen3-tts-0.6b": "GPU-powered cloning on the Voxora TTS worker.",
   "chatterbox-nano": "A lightweight alternative for voice-profile generation."
 };
 
-const VOICE_PREVIEW_TEXT = "Hello, this is a sample preview of my Helix narrator voice. The same saved voice profile can now read narration naturally and consistently.";
+const VOICE_PREVIEW_TEXT = "Hello, this is a sample preview of my Voxora narrator voice. The same saved voice profile can now read narration naturally and consistently.";
 
 function chooseMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
@@ -592,7 +592,7 @@ export default function VoiceProfilesPage() {
           <div className="voice-profiles-page__hero-copy">
             <p className="eyebrow">Voice Profiles</p>
             <h1>Create your narrator voice.</h1>
-            <p>Record a few guided passages one at a time. Helix keeps the original tracks, prepares a clean reference, and saves the finished clone as a reusable voice profile.</p>
+            <p>Record a few guided passages one at a time. Voxora keeps the original tracks, prepares a clean reference, and saves the finished clone as a reusable voice profile.</p>
           </div>
           <div className="voice-profiles-page__hero-note">
             <strong>{minSamples} recordings minimum</strong>
@@ -623,7 +623,7 @@ export default function VoiceProfilesPage() {
 
             <label className={"voice-profiles-page__consent " + (consent ? "is-checked" : "")}>
               <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-              <span><strong>Voice ownership &amp; consent</strong>I confirm these recordings are my voice or I have permission to use them, and I want Helix to store and use them to create narration.</span>
+              <span><strong>Voice ownership &amp; consent</strong>I confirm these recordings are my voice or I have permission to use them, and I want Voxora to store and use them to create narration.</span>
             </label>
 
             <div className="voice-profiles-page__create-row">

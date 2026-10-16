@@ -62,7 +62,7 @@ export default function AccountPage() {
         <section className="account-page__header">
           <div>
             <p className="eyebrow">Account</p>
-            <h1>Manage your Helix account.</h1>
+            <h1>Manage your Voxora account.</h1>
             <p>Your projects and generated media belong to this account.</p>
           </div>
         </section>

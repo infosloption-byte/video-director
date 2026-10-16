@@ -32,9 +32,9 @@ export default function ResearchConversationStartPage() {
       <main className="container rc-start">
         <IntegrationsWarningBanner />
         <div className="rc-start__intro">
-          <p className="eyebrow">Research with Helix</p>
+          <p className="eyebrow">Research with Voxora</p>
           <h1>Start with a conversation.</h1>
-          <p>Explore what you want to investigate with Helix first. When the direction is clear, build the full evidence-backed research brief from the conversation and carry that research memory into Setup and Storyboard.</p>
+          <p>Explore what you want to investigate with Voxora first. When the direction is clear, build the full evidence-backed research brief from the conversation and carry that research memory into Setup and Storyboard.</p>
         </div>
         <form className="rc-start__form" onSubmit={start}>
           <label htmlFor="research-topic">What do you want to investigate?</label>

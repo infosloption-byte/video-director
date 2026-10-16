@@ -69,7 +69,7 @@ export default function VoiceProfileDialog({
             </span>
           </div>
           <p className="voice-profile-dialog__sample-text">
-            “Hello, this is a sample preview of my Helix narrator voice. The same saved voice profile can now read narration naturally and consistently.”
+            “Hello, this is a sample preview of my Voxora narrator voice. The same saved voice profile can now read narration naturally and consistently.”
           </p>
           <div className="voice-profile-dialog__preview-actions">
             <button

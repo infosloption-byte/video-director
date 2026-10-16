@@ -7,7 +7,7 @@ export default function FrameworkPanel({ frameworks, activeKey, onContinue }) {
   return (
     <div className="fw-panel">
       <p className="fw-panel__intro">
-        Helix scanned this signal against every narrative it knows and matched it to the
+        Voxora scanned this signal against every narrative it knows and matched it to the
         framework below. You can keep it or pick a different angle.
       </p>
 

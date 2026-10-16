@@ -40,7 +40,7 @@ function activityLabel(item) {
 function formatActivityDetail(item) {
   if (item?.type === "source.read_complete") return `${item.title || item.url || "Source"} · ${item.chars || 0} characters read`;
   if (item?.type === "source.read_failed") return `${item.title || item.url || "Source"} · ${item.status || "unavailable"}`;
-  return item?.message || item?.title || "Helix is processing the research corpus.";
+  return item?.message || item?.title || "Voxora is processing the research corpus.";
 }
 
 function normalizeClaimText(value) {
@@ -325,7 +325,7 @@ export default function ResearchPage() {
             <summary>
               <span>
                 <strong>Live research activity</strong>
-                <span>See what Helix is doing while the research runs.</span>
+                <span>See what Voxora is doing while the research runs.</span>
               </span>
               <span>{activity.length} events</span>
             </summary>
@@ -349,7 +349,7 @@ export default function ResearchPage() {
               <div className="research-report__hero-copy">
                 <p className="eyebrow">Research complete</p>
                 <h2 id="research-report-title">{project?.title || "Research report"}</h2>
-                <p>Helix reviewed the selected signal across multiple research areas, read source material, checked evidence, and assembled the report below.</p>
+                <p>Voxora reviewed the selected signal across multiple research areas, read source material, checked evidence, and assembled the report below.</p>
                 <div className="research-report__hero-meta">
                   <span>{discoveredCount} sources found</span>
                   <span>{reviewedCount} sources reviewed</span>
@@ -362,7 +362,7 @@ export default function ResearchPage() {
                   <strong>{reliability.overall_score}%</strong>
                   <span>{reliability.label || "Overall"} confidence</span>
                 </div>}
-                <button type="button" className="btn btn-ghost" onClick={() => setAssistantOpen(true)} aria-expanded={assistantOpen}>Ask Helix</button>
+                <button type="button" className="btn btn-ghost" onClick={() => setAssistantOpen(true)} aria-expanded={assistantOpen}>Ask Voxora</button>
               </div>
             </header>
 
@@ -379,7 +379,7 @@ export default function ResearchPage() {
             <section className="research-report__section research-report__section--summary" id="summary" aria-labelledby="summary-title">
               <div className="research-report__section-intro">
                 <p className="eyebrow">The research</p>
-                <h3 id="summary-title">What Helix found</h3>
+                <h3 id="summary-title">What Voxora found</h3>
               </div>
               <div className="research-report__summary-copy">
                 {deep.executive_summary && <p className="research-report__lead">{deep.executive_summary}</p>}
@@ -456,7 +456,7 @@ export default function ResearchPage() {
               <div className="research-report__section-head">
                 <div>
                   <p className="eyebrow">Source trail</p>
-                  <h3 id="sources-title">Where Helix looked</h3>
+                  <h3 id="sources-title">Where Voxora looked</h3>
                 </div>
                 <span>{discoveredCount} found · {reviewedCount} reviewed</span>
               </div>
@@ -494,7 +494,7 @@ export default function ResearchPage() {
                             {scoreLabel(relevance) && <span>{scoreLabel(relevance)} relevance</span>}
                             {scoreLabel(evidenceQuality) && <span>{scoreLabel(evidenceQuality)} evidence quality</span>}
                           </div>
-                          {excerpt ? <blockquote>{excerpt}</blockquote> : status === "read" || status === "success" ? <p className="research-report__muted">Helix reviewed this source, but no short excerpt was stored for the report surface.</p> : <p className="research-report__warning-copy">This source was discovered but could not be fully reviewed. Its absence has not been treated as evidence.</p>}
+                          {excerpt ? <blockquote>{excerpt}</blockquote> : status === "read" || status === "success" ? <p className="research-report__muted">Voxora reviewed this source, but no short excerpt was stored for the report surface.</p> : <p className="research-report__warning-copy">This source was discovered but could not be fully reviewed. Its absence has not been treated as evidence.</p>}
                           <SourceLink source={source} />
                         </div>
                       </details>
@@ -515,21 +515,21 @@ export default function ResearchPage() {
                 <span>{conflictCount === 0 ? "No conflicts found" : `${conflictCount} area${conflictCount === 1 ? "" : "s"} to review`}</span>
               </div>
               {conflictCount === 0 ? (
-                <div className="research-report__check-success"><strong>✓ No major conflicts were surfaced between the reviewed sources.</strong><span>Helix did not identify a material contradiction that required adjudication in this run.</span></div>
+                <div className="research-report__check-success"><strong>✓ No major conflicts were surfaced between the reviewed sources.</strong><span>Voxora did not identify a material contradiction that required adjudication in this run.</span></div>
               ) : (
                 <div className="research-report__conflicts">
                   {graphConflicts.map((item, index) => (
                     <article key={item.id || `graph-conflict-${index}`} className={String(item.status).toLowerCase() === "unresolved" ? "is-unresolved" : ""}>
                       <div className="research-report__conflict-head"><span className="research-report__status">{humanize(item.status || "reviewed")}</span><strong>Evidence overlap {item.overlapScore != null ? `${item.overlapScore}%` : "detected"}</strong></div>
-                      <p>{item.reason || "Helix found evidence that should be considered together rather than averaged into a single certainty."}</p>
-                      <div className="research-report__conflict-resolution"><strong>Helix's conclusion</strong><span>{item.resolution || "No clear resolution was established from the available evidence."}</span></div>
+                      <p>{item.reason || "Voxora found evidence that should be considered together rather than averaged into a single certainty."}</p>
+                      <div className="research-report__conflict-resolution"><strong>Voxora's conclusion</strong><span>{item.resolution || "No clear resolution was established from the available evidence."}</span></div>
                     </article>
                   ))}
                   {disagreements.map((item, index) => (
                     <article key={`${item.topic}-${index}`} className={String(item.resolution || "").toLowerCase().includes("unresolved") ? "is-unresolved" : ""}>
                       <div className="research-report__conflict-head"><span className="research-report__status">Source disagreement</span><strong>{item.topic || "Conflicting evidence"}</strong></div>
                       {Array.isArray(item.positions) && item.positions.length > 0 ? <div className="research-report__positions">{item.positions.map((position, positionIndex) => <p key={positionIndex}>{position}</p>)}</div> : <p>No separate source positions were returned.</p>}
-                      <div className="research-report__conflict-resolution"><strong>Helix's conclusion</strong><span>{item.resolution || "No clear resolution was established."}{item.confidence != null ? ` · ${item.confidence}% confidence` : ""}</span></div>
+                      <div className="research-report__conflict-resolution"><strong>Voxora's conclusion</strong><span>{item.resolution || "No clear resolution was established."}{item.confidence != null ? ` · ${item.confidence}% confidence` : ""}</span></div>
                     </article>
                   ))}
                   {unresolvedCount > 0 && <p className="research-report__unresolved-note">{unresolvedCount} conflict{unresolvedCount === 1 ? " remains" : "s remain"} unresolved. That uncertainty is intentionally preserved rather than being averaged away.</p>}
@@ -583,7 +583,7 @@ export default function ResearchPage() {
                 </div>
               </div>
               <div className="research-report__handoff-actions">
-                <button className="btn btn-ghost" type="button" onClick={() => setAssistantOpen(true)}>Ask Helix</button>
+                <button className="btn btn-ghost" type="button" onClick={() => setAssistantOpen(true)}>Ask Voxora</button>
                 <button className="btn btn-cream" type="button" onClick={() => navigate(`/storyboard/${id}?stage=setup`)}>Continue to guided setup →</button>
               </div>
             </section>
@@ -607,7 +607,7 @@ export default function ResearchPage() {
 
       {assistantOpen && (
         <div className="research-assistant-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAssistantOpen(false); }}>
-          <div className="research-assistant-drawer" role="dialog" aria-modal="true" aria-label="Ask Helix">
+          <div className="research-assistant-drawer" role="dialog" aria-modal="true" aria-label="Ask Voxora">
             <button type="button" className="research-assistant-drawer__close btn btn-ghost" onClick={() => setAssistantOpen(false)}>Close</button>
             <ResearchAssistantPanel projectId={id} />
           </div>

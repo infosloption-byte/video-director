@@ -42,7 +42,7 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     durationSeconds: Number(scene.durationSeconds || 0),
     audioUrl: scene.audioUrl,
     wordTimestamps: scene.wordTimestamps || [],
-    whyLine: scene.whyLine || "Helix uses the strongest evidence-led line for this beat.",
+    whyLine: scene.whyLine || "Voxora uses the strongest evidence-led line for this beat.",
     whyPicture: scene.whyPicture || "The visual makes the mechanism concrete before the next cut.",
     thumb: selectedAsset ? `url(${selectedAsset.thumbnailUrl}) center / cover no-repeat` : "linear-gradient(145deg, #17304a, #09131f)",
     thumbLabel: selectedAsset ? "Pexels B-roll" : "Visual pending",
@@ -497,11 +497,11 @@ export default function StoryboardPage() {
                 onTogglePlay={() => setPlaying((p) => !p)}
               />
               <div className="hx-board__content">
-                <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {scenes[0]?.spokenText || "Helix is building the first scene…"}</p></div>
+                <div className="hx-hookbox"><IconInfo className="hx-hookbox__icon" /><p><span className="mono-label">HOOK</span> {scenes[0]?.spokenText || "Voxora is building the first scene…"}</p></div>
                 {sceneError && <div className="storyboard-error"><strong>Storyboard couldn't load.</strong><span>{sceneError}</span><button className="btn btn-ghost" onClick={() => setSceneRetry((value) => value + 1)}>Retry</button></div>}
                 {voiceError && <div className="storyboard-error"><strong>Narration couldn't be generated.</strong><span>{voiceError}</span></div>}
                 {sceneEditError && <div className="storyboard-error storyboard-error--scene"><strong>Scene update couldn't be applied.</strong><span>{sceneEditError}</span></div>}
-                {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Helix is writing the scenes, fetching five visuals per cut, and generating narration with your selected voice…</strong></div>}
+                {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Voxora is writing the scenes, fetching five visuals per cut, and generating narration with your selected voice…</strong></div>}
                 {!sceneLoading && !sceneError && scenes.length > 0 && (
                   <>
                     <div className="hx-steps">

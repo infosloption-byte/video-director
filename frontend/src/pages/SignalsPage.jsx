@@ -142,8 +142,8 @@ export default function SignalsPage() {
         <IntegrationsWarningBanner />
         <div className="hx-hero__content">
           <p className="eyebrow">Science &amp; Tech Auto-Director</p>
-          <h1 className="hx-hero__title">Pick a signal. Helix directs the Reel.</h1>
-          <p className="hx-hero__desc">Discover what is heating up in science and technology. Helix turns a signal into research, a narrative, visuals, and a finished short-form reel.</p>
+          <h1 className="hx-hero__title">Pick a signal. Voxora directs the Reel.</h1>
+          <p className="hx-hero__desc">Discover what is heating up in science and technology. Voxora turns a signal into research, a narrative, visuals, and a finished short-form reel.</p>
           <div className="hx-hero__actions">
             <a className="btn btn-cream hx-hero__cta" href="#signals"><IconClapper className="btn-icon" /> Explore today's signals</a>
             <a className="btn btn-ghost hx-hero__cta" href="/research/new">Research your own topic →</a>
@@ -218,7 +218,7 @@ export default function SignalsPage() {
         )}
       </section>
 
-      <footer className="hx-footer"><div className="container hx-footer__inner"><span>Helix — a science &amp; tech auto-director.</span><span>Signals refresh every 4 hours.</span></div></footer>
+      <footer className="hx-footer"><div className="container hx-footer__inner"><span>Voxora — a science &amp; tech auto-director.</span><span>Signals refresh every 4 hours.</span></div></footer>
     </div>
   );
 }
