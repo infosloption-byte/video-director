@@ -47,7 +47,7 @@ function buildSrt(scenes) {
 
 function buildScript(project, scenes) {
   const lines = [
-    project.title || "Helix Reel",
+    project.title || "Voxora Reel",
     "",
     `Framework: ${project.selectedFramework || "—"}`,
     `Length: ${project.scriptLengthSeconds || Math.round(Number(project.durationSeconds || 0)) || "—"}s`,

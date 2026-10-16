@@ -85,7 +85,7 @@ export function answerResearchQuestion(session, question) {
       sources: sourceMatches.map(({ source }) => sourceView(source)).filter(Boolean),
     };
   }
-  return { grounded: false, answer: "No sufficiently relevant evidence was found in the stored research corpus. Helix did not perform a web search for this follow-up.", evidence: [], relatedClaims: [], searchUsed: false, sources: [] };
+  return { grounded: false, answer: "No sufficiently relevant evidence was found in the stored research corpus. Voxora did not perform a web search for this follow-up.", evidence: [], relatedClaims: [], searchUsed: false, sources: [] };
 }
 
 export function buildStrengthAnswer(session) {

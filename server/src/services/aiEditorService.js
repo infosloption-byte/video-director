@@ -46,7 +46,7 @@ function compactResearch(researchCorpus) {
 export async function suggestEditorOperations({ timeline, instruction, scenes = [], researchCorpus = null }) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("AI editing is not configured. Set GEMINI_API_KEY on the server.");
-  const prompt = `You are the Helix AI editing assistant. Return ONLY JSON. Suggest safe, reversible operations for the independent editor timeline. Never delete or modify source media, storyboard records, narration source records, or external assets. Only reference existing timeline clip IDs and B-roll assets listed below. Maximum 25 operations.
+  const prompt = `You are the Voxora AI editing assistant. Return ONLY JSON. Suggest safe, reversible operations for the independent editor timeline. Never delete or modify source media, storyboard records, narration source records, or external assets. Only reference existing timeline clip IDs and B-roll assets listed below. Maximum 25 operations.
 
 The persisted research corpus is the factual authority for research-derived edits. Never introduce a factual claim that is not supported by readable evidence. Preserve uncertainty where the corpus records conflicting evidence. Do not treat search metadata or unreadable sources as established evidence.
 

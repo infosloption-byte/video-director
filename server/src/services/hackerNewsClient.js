@@ -1,5 +1,5 @@
 const HN_API = "https://hacker-news.firebaseio.com/v0";
-const REQUEST_HEADERS = { "user-agent": "HelixSignalFeed/1.0" };
+const REQUEST_HEADERS = { "user-agent": "VoxoraSignalFeed/1.0" };
 
 async function fetchJson(path) {
   const response = await fetch(`${HN_API}/${path}`, {

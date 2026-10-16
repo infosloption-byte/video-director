@@ -35,7 +35,7 @@ async function runResearch(projectId, signal) {
   // an orphaned state and automatically resume it. See resumeOrphanedResearch().
   await prisma.project.update({ where: { id: projectId }, data: { researchJobRunning: true } }).catch(() => {});
   try {
-    const brief = await researchSignal(signal, { onProgress: (stage, progress) => { const labels = { planning: ["Planning the research", "Defining the questions Helix needs to answer before synthesis."], discovering: ["Discovering sources", "Searching academic, institutional, news, and independent evidence."], reading: ["Reading sources", "Opening selected sources and extracting their available evidence."], verifying: ["Verifying evidence", "Comparing claims, source quality, and conflicting findings."], synthesizing: ["Synthesizing findings", "Building an evidence-backed research intelligence brief."], ready: ["Research brief ready", "The evidence-backed brief is ready for guided setup."] }; const [label, detail] = labels[stage] || [stage, "Helix is working through the evidence pipeline."]; setJob(stage, progress, label, detail); }, onActivity: (activity) => appendActivity(projectId, activity) });
+    const brief = await researchSignal(signal, { onProgress: (stage, progress) => { const labels = { planning: ["Planning the research", "Defining the questions Voxora needs to answer before synthesis."], discovering: ["Discovering sources", "Searching academic, institutional, news, and independent evidence."], reading: ["Reading sources", "Opening selected sources and extracting their available evidence."], verifying: ["Verifying evidence", "Comparing claims, source quality, and conflicting findings."], synthesizing: ["Synthesizing findings", "Building an evidence-backed research intelligence brief."], ready: ["Research brief ready", "The evidence-backed brief is ready for guided setup."] }; const [label, detail] = labels[stage] || [stage, "Voxora is working through the evidence pipeline."]; setJob(stage, progress, label, detail); }, onActivity: (activity) => appendActivity(projectId, activity) });
     const keyFacts = normalizeResearchFacts(brief);
     const executiveSummary = String(brief.executive_summary || brief.mechanism_summary || "").trim();
     const fallbackSummary = [executiveSummary, ...keyFacts.map((fact) => `• ${fact}`)].filter(Boolean).join("\n\n");
@@ -46,7 +46,7 @@ async function runResearch(projectId, signal) {
   } catch (error) {
     console.error(`[research] Project ${projectId} failed:`, error);
     appendActivity(projectId, { type: "research.failed", status: "error", message: error.message || "Research failed." });
-    const existing = researchJobs.get(projectId) || {}; setJob("error", existing.progress || 0, "Research failed", "Helix could not complete the evidence check."); researchJobs.set(projectId, { ...researchJobs.get(projectId), error: error.message || "Research failed." }); await prisma.project.update({ where: { id: projectId }, data: { status: "researching", researchJobRunning: false } }).catch(() => {});
+    const existing = researchJobs.get(projectId) || {}; setJob("error", existing.progress || 0, "Research failed", "Voxora could not complete the evidence check."); researchJobs.set(projectId, { ...researchJobs.get(projectId), error: error.message || "Research failed." }); await prisma.project.update({ where: { id: projectId }, data: { status: "researching", researchJobRunning: false } }).catch(() => {});
   }
 }
 

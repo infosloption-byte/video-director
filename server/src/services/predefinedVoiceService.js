@@ -206,4 +206,4 @@ export function getPredefinedVoiceFilters() {
 }
 
 export const PREDEFINED_VOICE_PREVIEW_TEXT =
-  "Hi, this is a Helix narrator preview. This voice is available as a built-in narration option for your storyboard.";
+  "Hi, this is a Voxora narrator preview. This voice is available as a built-in narration option for your storyboard.";

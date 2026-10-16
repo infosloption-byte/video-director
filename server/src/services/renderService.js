@@ -179,7 +179,7 @@ export async function renderProject(projectId, { onProgress } = {}) {
     data: { durationSeconds: effectiveDuration, cuts: scenes.length },
   });
 
-  report("bundle", 10, "Bundling the Helix composition", 21, {
+  report("bundle", 10, "Bundling the Voxora composition", 21, {
     substeps: [
       { id: "resolve", label: "Resolve composition entry", progress: 100 },
       { id: "bundle", label: "Build Remotion bundle", progress: 10 },
@@ -196,14 +196,14 @@ export async function renderProject(projectId, { onProgress } = {}) {
   const inputProps = { scenes };
   report("composition", 35, "Selecting the 9:16 composition", 26, {
     substeps: [
-      { id: "composition", label: "Load HelixReel composition", progress: 35 },
+      { id: "composition", label: "Load video composition", progress: 35 },
       { id: "timeline", label: `Build ${scenes.length}-scene timeline`, progress: 0 },
     ],
   });
   const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps });
   report("composition", 100, "Composition ready", 28, {
     substeps: [
-      { id: "composition", label: "Load HelixReel composition", progress: 100 },
+      { id: "composition", label: "Load video composition", progress: 100 },
       { id: "timeline", label: `Build ${scenes.length}-scene timeline`, progress: 100 },
     ],
   });

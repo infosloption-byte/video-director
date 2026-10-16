@@ -1,6 +1,6 @@
 const ARXIV_URL = "https://export.arxiv.org/api/query";
 const REQUEST_HEADERS = {
-  "user-agent": "HelixSignalFeed/1.0 (+https://github.com/infosloption-byte/video-director)",
+  "user-agent": "VoxoraSignalFeed/1.0 (+https://github.com/infosloption-byte/video-director)",
   accept: "application/atom+xml, application/xml;q=0.9, */*;q=0.8",
 };
 

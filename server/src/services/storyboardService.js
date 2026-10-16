@@ -192,7 +192,7 @@ function buildResearchGrounding(researchCorpus) {
 export async function generateStoryboard({ project, signal, researchCorpus = null }) {
   const length = ALLOWED_LENGTHS.includes(Number(project.scriptLengthSeconds)) ? Number(project.scriptLengthSeconds) : 30;
   const grounding = buildResearchGrounding(researchCorpus);
-  const prompt = `You are Helix, a short-form science and technology Reel director. Create a complete scene-by-scene storyboard for a ${length}-second vertical video. Use the persisted research corpus as the factual authority. Never invent facts, and never present an unverified claim as established. When evidence conflicts, preserve the uncertainty instead of averaging it away. Keep the selected framework and tone. Each scene needs a concise spoken line, a reason that line belongs, a reason for the picture, and a concrete B-roll search phrase suitable for Pexels.
+  const prompt = `You are Voxora, a short-form science and technology Reel director. Create a complete scene-by-scene storyboard for a ${length}-second vertical video. Use the persisted research corpus as the factual authority. Never invent facts, and never present an unverified claim as established. When evidence conflicts, preserve the uncertainty instead of averaging it away. Keep the selected framework and tone. Each scene needs a concise spoken line, a reason that line belongs, a reason for the picture, and a concrete B-roll search phrase suitable for Pexels.
 
 Return ONLY a single JSON object matching this schema exactly. Do not include markdown or commentary.
 
@@ -261,7 +261,7 @@ export async function rewriteStoryboardScene({
   const role = sceneRole(Number(scene.sceneOrder || 1), sceneCount);
   const currentDraft = String(currentNarration || scene.spokenText || "").trim();
 
-  const prompt = `You are Helix, the AI director for one scene inside an evidence-grounded short-form science and technology Reel.
+  const prompt = `You are Voxora, the AI director for one scene inside an evidence-grounded short-form science and technology Reel.
 
 Regenerate ONLY this scene's narration. This is not a word-swap, synonym pass, or light paraphrase. Rebuild the narration from the persisted research evidence so it contributes a distinct piece of information to the overall story.
 

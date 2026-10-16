@@ -95,7 +95,7 @@ router.post("/:id/research/follow-up", async (req, res) => {
     const question = String(req.body?.question || "").trim().slice(0, 2000);
     if (!question) return res.status(400).json({ error: "A research question is required." });
     const session = await getResearchSession(req.params.id, req.user.id);
-    if (!session) return res.status(409).json({ error: "The persisted research corpus is not available yet. Complete research before asking Helix." });
+    if (!session) return res.status(409).json({ error: "The persisted research corpus is not available yet. Complete research before asking Voxora." });
     const result = isStrengthQuestion(question) ? buildStrengthAnswer(session) : answerResearchQuestion(session, question);
     res.json({ question, ...result, source: "research-corpus" });
   } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/follow-up failed:`, error); res.status(500).json({ error: error.message || "Failed to answer the research question." }); }
@@ -146,7 +146,7 @@ router.post("/:id/research/chat", async (req, res) => {
     const question = String(req.body?.question || "").trim().slice(0, 2000);
     if (!question) return res.status(400).json({ error: "A research question is required." });
     const session = await getResearchSession(req.params.id, req.user.id);
-    if (!session) return res.status(409).json({ error: "The persisted research corpus is not available yet. Complete research before asking Helix." });
+    if (!session) return res.status(409).json({ error: "The persisted research corpus is not available yet. Complete research before asking Voxora." });
     const result = isStrengthQuestion(question) ? buildStrengthAnswer(session) : answerResearchQuestion(session, question);
     res.json({ question, ...result, source: "research-corpus" });
   } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/chat failed:`, error); res.status(500).json({ error: error.message || "Failed to answer the research question." }); }

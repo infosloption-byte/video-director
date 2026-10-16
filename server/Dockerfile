@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install dependencies first (better layer caching)
 COPY package*.json ./
 COPY prisma ./prisma
-RUN npm install --omit=dev --no-audit --no-fund \
+RUN npm install --no-audit --no-fund \
   && npx prisma generate
 
 # App source

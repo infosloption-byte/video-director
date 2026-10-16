@@ -133,7 +133,7 @@ export async function renderEditorProject(projectId, version, expectedHash, { on
   const serveUrl = await getBundle();
   report(onProgress, "bundle", 100, "Editor composition bundle ready", 20, { substeps: [{ id: "entry", label: "Resolve editor composition", progress: 100 }, { id: "bundle", label: "Build Remotion bundle", progress: 100 }] });
   const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps });
-  report(onProgress, "composition", 100, `Prepared ${duration.toFixed(1)}s editor timeline`, 25, { substeps: [{ id: "select", label: "Select HelixEditorReel", progress: 100 }, { id: "timeline", label: "Resolve canonical timeline", progress: 100 }] });
+  report(onProgress, "composition", 100, `Prepared ${duration.toFixed(1)}s editor timeline`, 25, { substeps: [{ id: "select", label: "Select editor composition", progress: 100 }, { id: "timeline", label: "Resolve canonical timeline", progress: 100 }] });
   const outputPath = renderOutputPath(projectId, editor.version, expectedHash);
   await mkdir(path.dirname(outputPath), { recursive: true });
   const output = { renderUrl: renderUrl(projectId, editor.version, expectedHash), outputPath, durationSeconds: duration };

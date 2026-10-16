@@ -114,7 +114,7 @@ function activityMessage(activity = {}) {
     "verification.completed": "Source traceability and claim verification completed.",
     "verification.adjudicated": "Evidence conflicts were evaluated.",
   };
-  return messages[activity.type] || "Helix is processing the research evidence.";
+  return messages[activity.type] || "Voxora is processing the research evidence.";
 }
 
 function sourceCandidate(item) {
@@ -162,7 +162,7 @@ async function persistConversationMessages(projectId, messages, extra = {}) {
 }
 function buildResearchContext(topic, messages) {
   const context = messages.slice(-RESEARCH_CONTEXT_MESSAGES)
-    .map((message) => `${message.role === "user" ? "USER" : "HELIX"}: ${String(message.content || "").trim()}`)
+    .map((message) => `${message.role === "user" ? "USER" : "VOXORA"}: ${String(message.content || "").trim()}`)
     .filter(Boolean).join("\n\n").slice(0, 10000);
   return context ? `${topic}\n\nResearch direction from the conversation:\n${context}` : topic;
 }
@@ -180,7 +180,7 @@ async function runInitialResearch(projectId, signal, conversationMessages) {
           planning: "Using the conversation to define focused evidence lanes.", discovering: "Searching academic, institutional, news, and independent sources.",
           reading: "Opening selected sources and extracting available evidence.", verifying: "Comparing claims, source quality, and conflicting findings.",
           synthesizing: "Building the evidence-backed research brief from the full research pass.", ready: "The research corpus is ready for conversation."
-        })[stage] || "Helix is working through the evidence pipeline.";
+        })[stage] || "Voxora is working through the evidence pipeline.";
         setJob(stage, progress, detail);
       },
       onActivity: (activity) => recordActivity(projectId, activity, { messageId: "initial" }),
@@ -212,10 +212,10 @@ async function runFollowUpResearch(projectId, question, messageId) {
   const setJob = (status, progress, detail) => updateJob(projectId, { status, progress, detail, messageId, question, conversationThinking: false });
   const signal = { id: crypto.randomUUID(), origin: "search", sourceType: "research_conversation", sourceReliability: "general_web", searchQuery: question, category: "TECHNOLOGY", title: question, description: `Targeted research requested from a user-directed research conversation: ${question}`, whyReasoning: "Triggered because the persisted research corpus did not contain sufficiently relevant evidence for the user's follow-up question.", status: "used" };
   try {
-    setJob("planning", 8, "The existing corpus does not cover this question well enough, so Helix is planning a focused evidence search.");
+    setJob("planning", 8, "The existing corpus does not cover this question well enough, so Voxora is planning a focused evidence search.");
     const brief = await researchSignal(signal, {
       onProgress: (stage, progress) => {
-        const detail = ({ planning: "Planning a focused follow-up around the knowledge gap.", discovering: "Searching for sources specific to this unanswered question.", reading: "Reading the most relevant follow-up sources.", verifying: "Checking the new evidence and its source quality.", synthesizing: "Adding the new evidence to the research corpus." })[stage] || "Helix is researching the follow-up question.";
+        const detail = ({ planning: "Planning a focused follow-up around the knowledge gap.", discovering: "Searching for sources specific to this unanswered question.", reading: "Reading the most relevant follow-up sources.", verifying: "Checking the new evidence and its source quality.", synthesizing: "Adding the new evidence to the research corpus." })[stage] || "Voxora is researching the follow-up question.";
         setJob(stage, progress, detail);
       },
       onActivity: (activity) => recordActivity(projectId, activity, { messageId }),
@@ -239,7 +239,7 @@ async function runFollowUpResearch(projectId, question, messageId) {
     const current = project?.researchSources && typeof project.researchSources === "object" ? project.researchSources : {};
     const stored = Array.isArray(current.research_conversation?.messages) ? current.research_conversation.messages : [];
     const messages = stored.map((message) => message.id === `${messageId}:assistant`
-      ? { ...message, content: "The focused research pass failed. No new evidence was added to the corpus, so Helix will not guess an answer.", researchPending: false, researchError: true, grounded: false } : message);
+      ? { ...message, content: "The focused research pass failed. No new evidence was added to the corpus, so Voxora will not guess an answer.", researchPending: false, researchError: true, grounded: false } : message);
     await prisma.project.update({ where: { id: projectId }, data: { researchSources: { ...current, research_conversation: { messages } } } }).catch(() => {});
     emit(projectId, "conversation", { messages });
     recordActivity(projectId, { type: "message.failed", message: error.message || "Focused research failed." }, { messageId });
@@ -253,7 +253,7 @@ router.post("/", async (req, res) => {
     if (topic.length < 3) return res.status(400).json({ error: "Enter a research topic to begin." });
     let signal = await prisma.signal.findFirst({ where: { origin: "search", sourceUrl: null, title: topic } });
     if (!signal) {
-      signal = await prisma.signal.create({ data: { id: crypto.randomUUID(), origin: "search", sourceType: "brave", sourceReliability: "general_web", searchQuery: topic, category: "TECHNOLOGY", title: topic, description: `User-directed research topic: ${topic}`, whyReasoning: "Started directly by the user from Research with Helix.", status: "used" } });
+      signal = await prisma.signal.create({ data: { id: crypto.randomUUID(), origin: "search", sourceType: "brave", sourceReliability: "general_web", searchQuery: topic, category: "TECHNOLOGY", title: topic, description: `User-directed research topic: ${topic}`, whyReasoning: "Started directly by the user from Research with Voxora.", status: "used" } });
     }
     const project = await prisma.project.create({ data: { id: crypto.randomUUID(), userId: req.user.id, signalId: signal.id, title: topic, status: "researching" } });
     jobs.set(project.id, { status: "conversation", progress: 0, detail: "Conversation is ready. Explore the topic before building the research brief.", messageId: null, question: topic, conversationThinking: false, activity: [], discoveredSources: [] });
@@ -330,7 +330,7 @@ router.post("/:id/messages", async (req, res) => {
       const initial = req.body?.initial === true && currentMessages.length === 1 && currentMessages[0]?.role === "user";
       const userMessage = { id: crypto.randomUUID(), role: "user", content: question };
       const history = initial ? currentMessages : [...currentMessages, userMessage].slice(-MAX_MESSAGES);
-      updateJob(project.id, { status: "conversation", detail: "Helix is thinking through the research direction before answering.", conversationThinking: true, messageId: initial ? currentMessages[0].id : userMessage.id, question });
+      updateJob(project.id, { status: "conversation", detail: "Voxora is thinking through the research direction before answering.", conversationThinking: true, messageId: initial ? currentMessages[0].id : userMessage.id, question });
       try {
         const answer = await answerResearchConversation({ topic: project.title, messages: history });
         const assistantMessage = { id: crypto.randomUUID(), role: "assistant", content: answer, grounded: false, conversationOnly: true, source: "research-scoping" };

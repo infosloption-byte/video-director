@@ -7,7 +7,7 @@ import { buildCombinedReference, deleteVoiceProfileFiles, getVoiceProfileSampleP
 
 const router = Router();
 const SUPPORTED_ENGINES = new Set(["qwen3-tts-0.6b", "chatterbox-nano"]);
-const PREVIEW_TEXT = "Hello, this is a sample preview of my Helix narrator voice. The same saved voice profile can now read narration naturally and consistently.";
+const PREVIEW_TEXT = "Hello, this is a sample preview of my Voxora narrator voice. The same saved voice profile can now read narration naturally and consistently.";
 const DEFAULT_PROMPTS = [
   "Thanks for taking a moment to record your voice. In this first passage, speak in your normal everyday style, at a comfortable pace, as though you are explaining something useful to a friend. Keep your voice relaxed and steady. There is no need to perform, whisper, or project more than you normally would. Just read naturally, and leave a brief pause when you reach a full stop.",
   "Let us add a little more variety to the recording. Imagine you are telling a short story about a busy morning: at 8:15, the first message arrives, the kettle is already warm, and you have three small tasks to finish before nine. Some details are simple, some are specific, and the sentence lengths change. Read the whole passage clearly, keeping your usual tone and pronunciation.",
