@@ -1,22 +1,27 @@
 export const LEGAL_VERSION = "2026-10-24";
 export const LEGAL_EFFECTIVE_DATE = "24 October 2026";
 
-// Set these public Vite build variables in the Lightsail Compose build args.
-// The company name, monitored privacy mailbox, and official address must be
-// verified by the operator before a full commercial launch.
+// Registered operating business details published by SL Options on sloptions.xyz.
+// Verified against infosloption-byte/sl-options/src/data.ts and its legal notices.
+// Vite build options allow the operator to change public contact details if needed.
 export const legalIdentity = {
-  operator: String(import.meta.env.VITE_LEGAL_ENTITY_NAME || "Voxora").trim(),
-  email: String(import.meta.env.VITE_LEGAL_CONTACT_EMAIL || "").trim(),
-  address: String(import.meta.env.VITE_LEGAL_BUSINESS_ADDRESS || "").trim(),
+  operator: String(import.meta.env.VITE_LEGAL_ENTITY_NAME || "SL Options").trim(),
+  registrationNumber: "261006017",
+  registeredDate: "6 October 2026",
+  email: String(import.meta.env.VITE_LEGAL_CONTACT_EMAIL || "info.sloptions@gmail.com").trim(),
+  address: String(import.meta.env.VITE_LEGAL_BUSINESS_ADDRESS || "119, Regency Park, Ranapanadeniya, Rathgama, Sri Lanka").trim(),
+  phone: "+94 758054772",
+  website: "https://sloptions.xyz",
+  product: "Voxora",
 };
 
 export const legalDocuments = {
   privacy: {
     title:"Privacy Policy", category:"YOUR DATA & YOUR VOICE",
-    intro:"This notice explains how Voxora handles account details, research and video projects, recordings supplied for voice cloning, generated narration, billing information, and related technical data. We treat voice recordings and cloned-voice reference material as particularly sensitive.",
+    intro:"Voxora is a product of SL Options, a registered Sri Lankan business. This notice explains how Voxora handles account details, research and video projects, recordings supplied for voice cloning, generated narration, billing information, and related technical data. We treat voice recordings and cloned-voice reference material as particularly sensitive.",
     sections:[
       {title:"Who operates Voxora", paragraphs:[
-        "Voxora is the AI-assisted research, narration and video-creation service operated by the entity identified in the contact section below. The operator is responsible for the personal information it controls; individual infrastructure and payment providers may have their own responsibilities.",
+        "Voxora (usevoxora.online) is an AI-assisted video creation product developed and operated by SL Options, a registered business in Sri Lanka (Business Registration No. 261006017; registered 6 October 2026). Its registered business address is 119, Regency Park, Ranapanadeniya, Rathgama, Sri Lanka. SL Options is responsible for personal information it controls through Voxora; infrastructure and payment providers may also have their own responsibilities.",
         "This notice applies to the Voxora website, workspace, account services and optional voice-profile features. Additional notices may be shown before features involving sensitive information are used."
       ]},
       {title:"Information we collect", bullets:[
@@ -77,8 +82,12 @@ export const legalDocuments = {
   },
   terms: {
     title:"Terms & Conditions", category:"USING VOXORA RESPONSIBLY",
-    intro:"These Terms govern your use of Voxora's research-to-video workspace, optional AI-generated narration and voice cloning, video editing, and subscription services. By creating an account, you agree to these Terms and acknowledge the Privacy Policy.",
+    intro:"Voxora is a product of SL Options. These Terms govern your use of Voxora's research-to-video workspace, optional AI-generated narration and voice cloning, video editing, and subscription services. By creating an account, you agree to these Terms and acknowledge the Privacy Policy.",
     sections:[
+      {title:"Contracting operator", paragraphs:[
+        "These Terms are between the user and SL Options (Business Registration No. 261006017), a business registered in Sri Lanka on 6 October 2026, operating from 119, Regency Park, Ranapanadeniya, Rathgama, Sri Lanka. Voxora is the product name, not a separately incorporated contracting entity.",
+        "These product-specific Terms apply to Voxora. The corporate website at sloptions.xyz has separate website terms and a privacy policy; those company website terms do not replace the product-specific rules stated here."
+      ]},
       {title:"Service and eligibility", paragraphs:[
         "Voxora provides tools for researching topics, preparing scripts and storyboards, generating narration, editing and rendering short videos. Features may depend on external AI and media services and may vary by subscription.",
         "You must be at least 18 years old, have the legal capacity to enter into this agreement, and provide accurate account information. Keep your password and account access secure; you are responsible for activity under your account, subject to applicable law."
@@ -127,8 +136,11 @@ export const legalDocuments = {
   },
   refund: {
     title:"Refund Policy", category:"BILLING, CANCELLATION & REFUNDS",
-    intro:"This policy explains Voxora subscription cancellations and how refund requests are handled when paid plans are available. Purchases processed through Paddle are also subject to Paddle's Buyer Terms and Refund Policy, and mandatory consumer-protection rights always take priority.",
+    intro:"Voxora is an SL Options software product. This policy explains Voxora subscription cancellations and how refund requests are handled when paid plans are available. Purchases processed through Paddle are also subject to Paddle's Buyer Terms and Refund Policy, and mandatory consumer-protection rights always take priority.",
     sections:[
+      {title:"Who provides the service", paragraphs:[
+        "Voxora is developed and operated by SL Options, Business Registration No. 261006017, 119, Regency Park, Ranapanadeniya, Rathgama, Sri Lanka. Paddle serves as merchant of record for eligible paid checkouts processed on Voxora; Paddle buyer terms and applicable law govern transaction-specific refund rights."
+      ]},
       {title:"Subscription billing", paragraphs:[
         "The Free plan does not require payment. Paid plans, once enabled, renew according to the subscription period shown at checkout. The checkout total, currency, taxes and renewal information will be provided before payment. Paddle acts as the merchant of record for purchases completed through its checkout.",
         "A payment does not guarantee immediate rendering when an external TTS, AI or rendering provider is temporarily unavailable. Contact support about an unresolved service problem."
