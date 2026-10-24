@@ -6,7 +6,7 @@ import { useProjects } from "../context/useProjects.js";
 import "./PlatformShell.css";
 
 const NAV = [
-  { label: "Signals", icon: "Signals", path: "/" },
+  { label: "Signals", icon: "Signals", path: "/signals" },
   { label: "My Research", icon: "My Research", path: "/my-research", authOnly: true },
   { label: "Voice Profiles", icon: "Voice Profiles", path: "/voice-profiles", authOnly: true },
 ];
@@ -133,11 +133,11 @@ export default function PlatformShell({ children }) {
       <div className="platform-sidebar__footer">
         {user ? <div className="platform-account" ref={accountMenuRef}>
           {accountMenuOpen && <div className="platform-account-menu" role="menu" aria-label="Account menu">
-            <Link to="/about" className="platform-account-menu__item" role="menuitem"><span className="platform-account-menu__icon">{renderNavIcon({ label: "About", icon: "About" })}</span><span>About</span></Link>
-            <Link to="/support" className="platform-account-menu__item" role="menuitem"><span className="platform-account-menu__icon">{renderNavIcon({ label: "Support", icon: "Support" })}</span><span>Support</span></Link>
-            <Link to="/account" className="platform-account-menu__item" role="menuitem"><span className="platform-account-menu__icon">{renderNavIcon({ label: "Settings", icon: "Settings" })}</span><span>Settings</span></Link>
+            <Link to="/about" className="platform-account-menu__item" role="menuitem" title="About" aria-label="About"><span className="platform-account-menu__icon">{renderNavIcon({ label: "About", icon: "About" })}</span><span>About</span></Link>
+            <Link to="/support" className="platform-account-menu__item" role="menuitem" title="Support" aria-label="Support"><span className="platform-account-menu__icon">{renderNavIcon({ label: "Support", icon: "Support" })}</span><span>Support</span></Link>
+            <Link to="/account" className="platform-account-menu__item" role="menuitem" title="Settings" aria-label="Settings"><span className="platform-account-menu__icon">{renderNavIcon({ label: "Settings", icon: "Settings" })}</span><span>Settings</span></Link>
             <div className="platform-account-menu__divider" />
-            <button type="button" className="platform-account-menu__item platform-account-menu__item--danger" onClick={handleSignOut} disabled={signingOut} role="menuitem"><span className={signingOut ? "platform-signout__spinner" : "platform-account-menu__icon"} aria-hidden="true">{signingOut ? "" : "↪"}</span><span>{signingOut ? "Signing out…" : "Sign Out"}</span></button>
+            <button type="button" className="platform-account-menu__item platform-account-menu__item--danger" onClick={handleSignOut} disabled={signingOut} role="menuitem" title="Sign Out" aria-label="Sign Out"><span className={signingOut ? "platform-signout__spinner" : "platform-account-menu__icon"} aria-hidden="true">{signingOut ? "" : "↪"}</span><span>{signingOut ? "Signing out…" : "Sign Out"}</span></button>
           </div>}
           <button type="button" className={`platform-user ${accountMenuOpen ? "is-open" : ""}`} onClick={() => setAccountMenuOpen((value) => !value)} title={collapsed ? userLabel : undefined} disabled={signingOut} aria-expanded={accountMenuOpen} aria-haspopup="menu"><span className="platform-user__avatar">{String(userLabel).charAt(0).toUpperCase()}</span><span className="platform-user__copy"><strong>{userLabel}</strong><small>Account</small></span><span className="platform-user__chevron" aria-hidden="true">⌃</span></button>
         </div> : <div className="platform-auth-actions"><Link to="/signin" className="platform-auth-action platform-auth-actions__primary"><span className="platform-auth-action__icon">→</span><span>Sign in</span></Link><Link to="/signup" className="platform-auth-action platform-auth-actions__secondary"><span className="platform-auth-action__icon">+</span><span>Sign up</span></Link></div>}

@@ -36,3 +36,19 @@
 @media (max-width: 380px) { .auth-page__main { padding-inline: 12px; } .auth-card { padding-inline: 17px; } .auth-pitch h1 { font-size: 2.35rem; } }
 
 .auth-consent-options{display:grid;gap:14px;padding:15px;border:1px solid var(--border);background:var(--surface-soft);border-radius:12px}.auth-card__form .auth-consent-option{display:flex;align-items:flex-start;gap:11px;font-size:13px;font-weight:400;line-height:1.6;color:var(--ink-dim)}.auth-card__form .auth-consent-option input{width:17px;min-height:17px;height:17px;flex:none;margin:3px 0 0;accent-color:var(--ink)}.auth-consent-option a{color:var(--ink);font-weight:650;text-decoration:underline;text-underline-offset:3px}
+
+/* Email code verification */
+.auth-card--verify { max-width: 460px; margin: 0 auto; text-align: center; display: grid; gap: 14px; justify-items: center; }
+.auth-card--verify h1 { font: 500 clamp(1.8rem, 5vw, 2.3rem)/1.1 var(--font-serif); color: var(--ink); margin: 0; }
+.auth-card--verify .auth-card__form, .auth-card--verify .auth-card__error, .auth-card--verify .auth-card__notice { width: 100%; text-align: left; }
+.auth-verify__icon { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-soft); font-size: 24px; color: var(--ink); }
+.auth-verify__lead { margin: 0; line-height: 1.65; color: var(--body); overflow-wrap: anywhere; }
+.auth-verify__lead strong { color: var(--ink); }
+.auth-code input { width: 100%; text-align: center; font: 600 clamp(1.7rem, 8vw, 2.2rem) var(--font-mono); letter-spacing: .5em; padding: 16px 8px 16px calc(8px + .5em); border: 1px solid var(--border); border-radius: 12px; background: var(--surface-input); color: var(--ink); }
+.auth-code input:focus { outline: 2px solid var(--accent-green-text); outline-offset: 2px; }
+.auth-card__notice { padding: 10px 12px; border: 1px solid var(--accent-green-border); border-radius: 10px; background: var(--accent-green-bg); color: var(--accent-green-text); font-size: 13px; }
+.auth-verify__help { display: grid; gap: 8px; justify-items: center; font-size: 13px; color: var(--muted); }
+.auth-verify__help p { margin: 0; }
+.auth-verify__link { background: none; border: 0; padding: 6px; color: var(--ink-dim); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.auth-verify__link:disabled { color: var(--muted); text-decoration: none; cursor: default; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }

@@ -82,6 +82,7 @@ export async function requireAuth(req, res, next) {
     if (resolved?.user) {
       req.user = resolved.user;
       req.authSession = resolved.session;
+      if (!resolved.user.emailVerifiedAt) return res.status(403).json({ error: "Verify your email to use Voxora.", code: "EMAIL_NOT_VERIFIED" });
       return next();
     }
 

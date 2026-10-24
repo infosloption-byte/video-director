@@ -28,6 +28,7 @@ function ProtectedRoute({ children }) {
   if (!authRequired()) return <PlatformShell>{children}</PlatformShell>;
   if (status === "loading") return <SessionGate />;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`} replace />;
+  if (!user.emailVerifiedAt) return <Navigate to="/verify-email" replace />;
   return <PlatformShell>{children}</PlatformShell>;
 }
 

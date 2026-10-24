@@ -422,7 +422,7 @@ export default function StoryboardPage() {
   if (projectLoading) {
     return (
       <div className="hx-page">
-        <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
+        <Header right={<Link to="/signals" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
         <div className="container hx-notfound">
           <p>Loading your reel project…</p>
         </div>
@@ -433,7 +433,7 @@ export default function StoryboardPage() {
   if (!realProject) {
     return (
       <div className="hx-page">
-        <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
+        <Header right={<Link to="/signals" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
         <div className="container hx-notfound">
           <p>We couldn't find this reel project.</p>
           <button className="btn btn-cream" onClick={() => navigate("/")}>Back to signals</button>
@@ -445,7 +445,7 @@ export default function StoryboardPage() {
   if (realProject) {
     return (
       <div className="hx-page">
-        <Header right={<Link to="/" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
+        <Header right={<Link to="/signals" className="btn btn-ghost"><IconArrowLeft className="btn-icon" /> Signals</Link>} />
         <main className="container hx-board">
           <div className="hx-board__head">
             <div>

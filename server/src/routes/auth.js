@@ -12,7 +12,12 @@ const TOKEN_HOURS = 2;
 const EMAIL_TOKEN_HOURS = 24;
 const MAX_EMAIL_LENGTH = 255;
 const MIN_PASSWORD_LENGTH = 8;
+const CODE_MINUTES = 15;
+const CODE_MAX_ATTEMPTS = 5;
+const RESEND_COOLDOWN_MS = 60 * 1000;
 const resetLimiter = new Map();
+const codeAttempts = new Map();
+const resendAt = new Map();
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -39,6 +44,28 @@ function publicUser(user) {
 
 function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function generateCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+}
+
+function codeHash(userId, code) {
+  return hashToken(`${userId}:${code}`);
+}
+
+// Replaces any outstanding verification link/code with a fresh pair and emails them.
+async function issueVerification(user) {
+  const linkToken = randomToken();
+  const code = generateCode();
+  await prisma.authToken.deleteMany({ where: { userId: user.id, kind: { in: ["email_verification", "email_code"] } } });
+  await prisma.authToken.createMany({ data: [
+    { userId: user.id, kind: "email_verification", tokenHash: hashToken(linkToken), expiresAt: new Date(Date.now() + EMAIL_TOKEN_HOURS * 3600000) },
+    { userId: user.id, kind: "email_code", tokenHash: codeHash(user.id, code), expiresAt: new Date(Date.now() + CODE_MINUTES * 60000) },
+  ] });
+  codeAttempts.delete(user.id);
+  resendAt.set(user.id, Date.now());
+  return sendVerificationEmail(user, linkToken, code);
 }
 
 function randomToken() {
@@ -95,21 +122,11 @@ router.post("/signup", async (req, res, next) => {
     if (existing) return res.status(409).json({ error: "An account with that email already exists." });
 
     const user = await prisma.user.create({ data: { email, displayName: displayName || null, passwordHash: await hashPassword(password), termsAcceptedAt: new Date(), termsVersion: CURRENT_LEGAL_VERSION, adultConfirmedAt: new Date() } });
-    const verifyToken = randomToken();
-    await prisma.authToken.create({
-      data: {
-        userId: user.id,
-        kind: "email_verification",
-        tokenHash: hashToken(verifyToken),
-        expiresAt: new Date(Date.now() + EMAIL_TOKEN_HOURS * 3600000),
-      },
-    });
-
     const sessionToken = await createSession(user.id);
     setSessionCookie(res, sessionToken);
     let emailSent = false;
-    try { emailSent = await sendVerificationEmail(user, verifyToken); } catch (error) { console.error("[auth] Signup verification email failed:", error.message); }
-    return res.status(201).json({ user: publicUser(user), emailVerificationRequired: true, emailSent, message: emailSent ? "Check your inbox to verify your email." : "Account created. We could not send the verification email; use Resend verification in Account settings." });
+    try { emailSent = await issueVerification(user); } catch (error) { console.error("[auth] Signup verification email failed:", error.message); }
+    return res.status(201).json({ user: publicUser(user), emailVerificationRequired: true, emailSent, message: emailSent ? "We emailed you a 6-digit code." : "Account created, but we could not send the code. Use Resend on the next page." });
   } catch (error) {
     return next(error);
   }
@@ -148,27 +165,50 @@ router.post("/verify-email", async (req, res) => {
   const authToken = await prisma.authToken.findFirst({ where: { kind: "email_verification", tokenHash: hashToken(token), expiresAt: { gt: new Date() } } });
   if (!authToken) return res.status(400).json({ error: "This verification link is invalid or expired." });
   const user = await prisma.user.update({ where: { id: authToken.userId }, data: { emailVerifiedAt: new Date() } });
-  await prisma.authToken.deleteMany({ where: { userId: user.id, kind: "email_verification" } });
+  await prisma.authToken.deleteMany({ where: { userId: user.id, kind: { in: ["email_verification", "email_code"] } } });
   void sendSecurityEmail(user, "verified").catch((error) => console.error("[mail] Verification confirmation failed:", error.message));
   return res.json({ user: publicUser(user) });
+});
+
+router.post("/verify-code", authOptional, requireUser, async (req, res, next) => {
+  try {
+    if (req.user.emailVerifiedAt) return res.json({ user: publicUser(req.user) });
+    const code = String(req.body?.code || "").replace(/\s/g, "");
+    if (!/^\d{6}$/.test(code)) return res.status(400).json({ error: "Enter the 6-digit code from your email." });
+    const attempts = codeAttempts.get(req.user.id) || 0;
+    if (attempts >= CODE_MAX_ATTEMPTS) {
+      await prisma.authToken.deleteMany({ where: { userId: req.user.id, kind: "email_code" } });
+      return res.status(429).json({ error: "Too many incorrect attempts. Request a new code." });
+    }
+    const token = await prisma.authToken.findFirst({ where: { userId: req.user.id, kind: "email_code", tokenHash: codeHash(req.user.id, code), expiresAt: { gt: new Date() } } });
+    if (!token) {
+      codeAttempts.set(req.user.id, attempts + 1);
+      const left = CODE_MAX_ATTEMPTS - attempts - 1;
+      return res.status(400).json({ error: left > 0 ? `That code is incorrect or expired. ${left} ${left === 1 ? "attempt" : "attempts"} left.` : "That code is incorrect or expired. Request a new code." });
+    }
+    const user = await prisma.user.update({ where: { id: req.user.id }, data: { emailVerifiedAt: new Date() } });
+    await prisma.authToken.deleteMany({ where: { userId: user.id, kind: { in: ["email_verification", "email_code"] } } });
+    codeAttempts.delete(user.id);
+    void sendSecurityEmail(user, "verified").catch((error) => console.error("[mail] Verification confirmation failed:", error.message));
+    return res.json({ user: publicUser(user) });
+  } catch (error) { return next(error); }
 });
 
 router.post("/resend-verification", authOptional, requireUser, async (req, res, next) => {
   try {
     if (req.user.emailVerifiedAt) return res.json({ message: "Your email is already verified." });
-    if (!rateLimitByIp(req, "resend-verification", 4, 60 * 60 * 1000)) return res.status(429).json({ error: "Please try again later." });
-    const token = randomToken();
-    const createdToken = await prisma.authToken.create({ data: { userId: req.user.id, kind: "email_verification", tokenHash: hashToken(token), expiresAt: new Date(Date.now() + EMAIL_TOKEN_HOURS * 3600000) } });
+    const wait = RESEND_COOLDOWN_MS - (Date.now() - (resendAt.get(req.user.id) || 0));
+    if (wait > 0) return res.status(429).json({ error: `Please wait ${Math.ceil(wait / 1000)} seconds before requesting another code.`, retryAfterSeconds: Math.ceil(wait / 1000) });
+    if (!rateLimitByIp(req, "resend-verification", 6, 60 * 60 * 1000)) return res.status(429).json({ error: "Too many requests. Please try again later." });
     try {
-      const sent = await sendVerificationEmail(req.user, token);
+      const sent = await issueVerification(req.user);
       if (!sent) throw new Error("SMTP email is not configured.");
     } catch (error) {
-      await prisma.authToken.delete({ where: { id: createdToken.id } }).catch(() => {});
+      resendAt.delete(req.user.id);
       console.error("[mail] Resend verification failed:", error.message);
-      return res.status(503).json({ error: "Verification email could not be sent. Please try again later." });
+      return res.status(503).json({ error: "The email could not be sent. Please try again shortly." });
     }
-    await prisma.authToken.deleteMany({ where: { userId: req.user.id, kind: "email_verification", id: { not: createdToken.id } } });
-    return res.json({ message: "A new verification email has been sent." });
+    return res.json({ message: "A new code has been sent.", retryAfterSeconds: RESEND_COOLDOWN_MS / 1000 });
   } catch (error) { return next(error); }
 });
 

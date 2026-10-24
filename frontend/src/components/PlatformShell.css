@@ -51,6 +51,11 @@
 .platform-account-menu__divider { height: 1px; margin: 6px 4px; background: var(--border-soft); }
 .platform-account-menu__item--danger { color: var(--danger); }
 .platform-account-menu__item--danger:hover { color: var(--danger); background: var(--danger-soft); }
+/* Collapsed sidebar: account menu becomes an icon-only column that fits the 72px rail */
+.platform-shell.is-collapsed .platform-account-menu { padding: 6px 0; display: grid; justify-items: center; gap: 2px; }
+.platform-shell.is-collapsed .platform-account-menu__item { width: 40px; min-height: 40px; padding: 0; justify-content: center; gap: 0; }
+.platform-shell.is-collapsed .platform-account-menu__item > span:last-child:not(.platform-account-menu__icon) { display: none; }
+.platform-shell.is-collapsed .platform-account-menu__divider { width: 28px; margin: 4px 0; }
 .platform-auth-actions { display: flex; flex-direction: column; gap: 6px; }
 .platform-auth-action { min-height: 38px; display: flex; align-items: center; justify-content: flex-start; gap: 9px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; font-size: 12px; font-weight: 600; transition: background 120ms ease, color 120ms ease, border-color 120ms ease, transform 120ms ease; }
 .platform-auth-action:hover { transform: translateY(-1px); }
@@ -85,6 +90,10 @@
   .platform-sidebar { width: 272px; transform: translateX(-100%); box-shadow: var(--shadow-mobile); }
   .platform-shell.is-mobile-open .platform-sidebar { transform: translateX(0); }
   .platform-shell.is-collapsed .platform-sidebar { width: 272px; }
+  .platform-shell.is-collapsed .platform-account-menu { display: block; padding: 6px; }
+  .platform-shell.is-collapsed .platform-account-menu__item { width: 100%; padding: 0 10px; justify-content: flex-start; gap: 10px; }
+  .platform-shell.is-collapsed .platform-account-menu__item > span:last-child:not(.platform-account-menu__icon) { display: initial; }
+  .platform-shell.is-collapsed .platform-account-menu__divider { width: auto; margin: 6px 4px; }
   .platform-shell.is-collapsed .platform-brand__name, .platform-shell.is-collapsed .platform-nav__label, .platform-shell.is-collapsed .platform-nav__section-title, .platform-shell.is-collapsed .platform-user__copy, .platform-shell.is-collapsed .platform-user__chevron { display: initial; }
   .platform-shell.is-collapsed .platform-sidebar__top { padding: 0 14px 0 18px; justify-content: space-between; }
   .platform-shell.is-collapsed .platform-brand { width: auto; height: auto; gap: 10px; }

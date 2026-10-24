@@ -20,7 +20,7 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (user) navigate(user.emailVerifiedAt ? next : "/account", { replace: true });
+    if (user) navigate(user.emailVerifiedAt ? next : "/verify-email", { replace: true });
   }, [user, next, navigate]);
 
   async function submit(event) {
@@ -33,14 +33,14 @@ export default function SignUpPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Account creation failed.");
       await refresh();
-      navigate("/account", { replace: true });
+      navigate("/verify-email", { replace: true, state: { fresh: true } });
     } catch (err) { setError(err.message || "Account creation failed."); }
     finally { setBusy(false); }
   }
 
   return (
     <div className="hx-page auth-page">
-      <Header right={<Link to="/" className="btn btn-ghost">Signals</Link>} />
+      <Header right={<Link to="/signals" className="btn btn-ghost">Signals</Link>} />
       <main className="auth-page__main">
         <div className="auth-shell auth-shell--signup">
           <section className="auth-pitch">
