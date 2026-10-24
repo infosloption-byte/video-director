@@ -32,7 +32,9 @@ billingRouter.get("/portal", async (req, res, next) => {
     const sub=await prisma.billingSubscription.findUnique({where:{userId:req.user.id}});
     if(!sub) return res.status(404).json({error:"No subscription to manage."});
     const data=await paddleFetch(`/subscriptions/${encodeURIComponent(sub.paddleSubscriptionId)}`);
-    const url=data?.management_urls?.update_payment_method||data?.management_urls?.cancel;
+    const action=String(req.query.action||"payment");
+    if(!["payment","cancel"].includes(action)) return res.status(400).json({error:"Unsupported management action."});
+    const url=action==="cancel"?data?.management_urls?.cancel:data?.management_urls?.update_payment_method;
     if(!url || !/^https:\/\//.test(url)) return res.status(503).json({error:"Paddle management link is unavailable."});
     res.json({url});
   } catch(error) { next(error); }
@@ -44,7 +46,7 @@ function subscriptionPlan(data) {
   const found=paidPlanIds.find(p=>values.includes(priceId(p)));
   return found||null;
 }
-function emailForEvent(eventType, user, plan) {
+function emailForEvent(eventType, user, plan, info = {}) {
   const messages={
     "subscription.created":["Subscription created","Your Voxora subscription is now being prepared."],
     "subscription.activated":["Subscription active",`Your ${PLANS[plan]?.name||"paid"} plan is active. You can review your usage on the Billing page.`],
@@ -55,7 +57,13 @@ function emailForEvent(eventType, user, plan) {
   };
   const m=messages[eventType];
   if(!m) return;
-  void sendEmail({to:user.email,subject:m[0],title:m[0],lead:m[1],detail:"For your security, sign in to Voxora to review account details."}).catch(error=>console.error("[billing] notification email failed:",error.message));
+  const details=[`Plan: ${PLANS[plan]?.name || "Voxora"}`];
+  if(info.amountMinor != null && info.currency) details.push(`Amount: ${(Number(info.amountMinor)/100).toFixed(2)} ${info.currency}`);
+  if(info.transactionId) details.push(`Transaction: ${info.transactionId}`);
+  if(info.invoiceNumber) details.push(`Invoice: ${info.invoiceNumber}`);
+  if(info.periodEnd) details.push(`Period end: ${String(info.periodEnd).slice(0,10)}`);
+  details.push("Sign in to Voxora to review your account and billing details.");
+  void sendEmail({to:user.email,subject:m[0],title:m[0],lead:m[1],detail:details.join("\n")}).catch(error=>console.error("[billing] notification email failed:",error.message));
 }
 export function paddleWebhook(req, res) {
   return processWebhook(req,res).catch(error=>{
@@ -95,21 +103,21 @@ async function processWebhook(req,res) {
           } else {
             await tx.billingSubscription.upsert({where:{userId},create:{userId,...payload},update:payload});
           }
-          if(["subscription.created","subscription.activated","subscription.canceled","subscription.past_due"].includes(event.event_type)) notification={type:event.event_type,userId,plan};
+          if(["subscription.created","subscription.activated","subscription.canceled","subscription.past_due"].includes(event.event_type)) notification={type:event.event_type,userId,plan,info:{periodEnd:payload.periodEnd?.toISOString()}};
         }
       } else console.warn("[billing] Ignoring unlinked subscription event:",event.event_type,data.id);
     } else if(["transaction.completed","transaction.payment_failed"].includes(event.event_type)) {
       const checkout=data.id?await tx.billingCheckout.findUnique({where:{transactionId:data.id}}):null;
       const subscription=data.subscription_id?await tx.billingSubscription.findUnique({where:{paddleSubscriptionId:data.subscription_id}}):null;
       const userId=checkout?.userId||subscription?.userId;
-      if(userId) notification={type:event.event_type,userId,plan:checkout?.plan||subscription?.plan};
+      if(userId) notification={type:event.event_type,userId,plan:checkout?.plan||subscription?.plan,info:{amountMinor:data.details?.totals?.total,currency:data.currency_code,transactionId:data.id,invoiceNumber:data.invoice_number}};
     }
     await tx.billingWebhookEvent.create({data:{eventId:event.event_id,eventType:event.event_type,occurredAt:date}});
   });
   res.json({ok:true});
   if(notification) {
     void prisma.user.findUnique({where:{id:notification.userId}})
-      .then(user=>{ if(user) emailForEvent(notification.type,user,notification.plan); })
+      .then(user=>{ if(user) emailForEvent(notification.type,user,notification.plan,notification.info); })
       .catch(error=>console.error("[billing] Notification lookup failed:",error.message));
   }
 }
