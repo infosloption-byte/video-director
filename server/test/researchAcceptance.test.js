@@ -11,7 +11,7 @@ test("R6 Ask Helix is corpus-only and marks unsupported follow-ups", async () =>
   assert.match(route, /if \(!session\) return res\.status\(409\).*persisted research corpus/i);
   assert.match(route, /source: "research-corpus"/);
   assert.match(memory, /grounded: false/);
-  assert.match(memory, /Helix did not perform a web search for this follow-up/);
+  assert.match(memory, /Voxora did not perform a web search for this follow-up/);
   assert.doesNotMatch(memory, /google_search/);
 });
 
@@ -41,8 +41,13 @@ test("R6 persisted research inspection, metrics and conflict resolution endpoint
   assert.match(route, /current research session/i);
 });
 
-test("R6 research UI stops both polling loops at terminal states", async () => {
-  const page = await source("../../frontend/src/pages/ResearchPage.jsx");
-  assert.match(page, /researchStatus === "ready" \|\| nextProject\?\.researchStatus === "error"/);
+test("R6 research UI stops both polling loops at terminal states", async (t) => {
+  const page = await source("../../frontend/src/pages/ResearchPage.jsx").catch((error) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+  if (page === null) { t.skip("Frontend sources are not part of the backend-only Docker image; run in the complete workspace."); return; }
+  assert.match(page, /const terminal = nextProject\?\.researchStatus === "error"/);
+  assert.match(page, /nextProject\?\.researchStatus === "ready" && !readyWithoutReport/);
   assert.match(page, /data\.status === "ready" \|\| data\.status === "error"/);
 });

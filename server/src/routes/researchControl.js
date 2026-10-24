@@ -20,8 +20,8 @@ function buildStoppedProject(project, state, overrides = {}) {
     researchStatus: "error",
     researchProgress: Number(state?.progress ?? overrides.progress ?? 0),
     researchStageLabel: overrides.stageLabel || "Research needs attention",
-    researchStageDetail: overrides.stageDetail || "The previous research run is no longer active.",
-    error: overrides.error || "The previous research run is no longer active. Retry research to start a new run.",
+    researchStageDetail: overrides.stageDetail || "Research was explicitly stopped by the user.",
+    error: overrides.error || "Research was explicitly stopped by the user. Retry research to begin another run.",
   };
 }
 
