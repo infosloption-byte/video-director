@@ -15,6 +15,8 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -24,9 +26,10 @@ export default function SignUpPage() {
   async function submit(event) {
     event.preventDefault();
     if (password !== confirmPassword) { setError("Passwords do not match."); return; }
+    if (!adultConfirmed || !termsAccepted) { setError("Confirm your age and accept the Terms & Conditions to create an account."); return; }
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/auth/signup", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, displayName, password }) });
+      const response = await fetch("/api/auth/signup", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, displayName, password, adultConfirmed, termsAccepted }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Account creation failed.");
       await refresh();
@@ -54,7 +57,11 @@ export default function SignUpPage() {
               <label><span>Email address</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" required /></label>
               <label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} autoComplete="new-password" placeholder="At least 8 characters" required /></label>
               <label><span>Confirm password</span><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} minLength={8} autoComplete="new-password" placeholder="Repeat your password" required /></label>
-              <p className="auth-card__hint">Your account keeps your research private and lets you resume unfinished projects.</p>
+              <div className="auth-consent-options">
+                <label className="auth-consent-option"><input type="checkbox" checked={adultConfirmed} onChange={e=>setAdultConfirmed(e.target.checked)} /><span>I confirm I am 18 or older.</span></label>
+                <label className="auth-consent-option"><input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} /><span>I agree to the <Link to="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</Link> and acknowledge the <Link to="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>, including the separate rules for voice cloning.</span></label>
+              </div>
+              <p className="auth-card__hint">Voice cloning is optional and requires additional consent in the voice-profile workflow.</p>
               <button className="btn btn-cream auth-card__submit" disabled={busy}>{busy ? "Creating account…" : "Create free account →"}</button>
             </form>
             <div className="auth-card__switch"><span>Already have an account?</span><Link to={`/signin${next !== "/my-research" ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in</Link></div>
