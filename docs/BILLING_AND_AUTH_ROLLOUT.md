@@ -14,18 +14,41 @@ Prices and allowances are **provisional**, not a commercial commitment. Keep pri
 
 Source of truth: `server/src/services/billingService.js`. Keep `frontend/src/pages/LandingPage.jsx` marketing copy and `frontend/src/pages/BillingPage.jsx` in sync when revising it.
 
-## Configure transactional email
+## Configure Gmail SMTP transactional email
 
-This implementation uses **Resend's HTTPS email API** and Node's native `fetch` to avoid new dependency changes. Do not commit secrets.
-Configure in `server/.env` (and on Lightsail in secure runtime configuration):
+Voxora sends branded HTML and plain-text email via **Nodemailer + Gmail SMTP** (not an HTTP email provider). To use a Google account, enable 2-Step Verification and generate a **Google App Password**. Do not use your ordinary Gmail password. Never commit secrets.
+
+Set the following **in `server/.env` on Lightsail** (read by the API service's `env_file`):
 
 ```ini
-RESEND_API_KEY=your_resend_api_key
-EMAIL_FROM=Voxora <hello@YOUR_VERIFIED_DOMAIN>
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your_account@gmail.com
+SMTP_APP_PASSWORD=your_16_character_google_app_password
+SMTP_FROM_NAME=Voxora
 AUTH_PUBLIC_URL=https://usevoxora.online
 ```
 
-Resend requires a verified sending domain. Production signup fails closed if email is not configured; do not enable new registrations without working mail delivery.
+If Google shows the app password in groups, the service removes spaces automatically. Gmail normally sends from the authenticated `SMTP_USER` address; use the correct sender mailbox or configured Gmail send-as alias rather than setting an unrelated From address.
+
+The Docker image includes Nodemailer. After rebuilding the API, verify authentication without sending a message:
+
+```bash
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml \
+  run --rm --no-deps --entrypoint node api scripts/check-smtp.js
+```
+
+To send a branded test email, add an email recipient after the script path:
+
+```bash
+sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml \
+  run --rm --no-deps --entrypoint node api scripts/check-smtp.js recipient@example.com
+```
+
+Verify the message in the recipient inbox. Production signup will refuse requests if SMTP credentials are absent; if SMTP delivery fails during signup, the account response will say the email was not sent and the user can retry from Account settings.
+
+Gmail is appropriate for initial testing and low-volume transactional messaging. It has daily recipient limits and automated traffic protections; reconsider the delivery method before high-volume production rollout.
 
 Existing workflows:
 
@@ -69,7 +92,7 @@ The webhook endpoint uses the raw request body and validates Paddle HMAC signatu
    `cd frontend && npm ci && npm run lint && npm run build`
 3. Apply **only after a database backup**:
    `cd server && npx prisma migrate deploy`
-4. Set Resend and Paddle secrets only on server runtime config.
+4. Set Gmail SMTP and Paddle secrets only in the server runtime configuration.
 5. Deploy application normally through the existing Compose process. Do not delete persistent volumes.
 6. Check `/api/health`, `/api/billing/plans`, `/api/billing/me` (authenticated) and `/api/auth/me`.
 7. Open a paid checkout in Paddle sandbox; verify that subscription status changes only after a signed webhook is processed.
@@ -98,7 +121,7 @@ The webhook endpoint uses the raw request body and validates Paddle HMAC signatu
 ## Known follow-up work (not complete)
 
 - Paddle end-to-end sandbox and live validation require credentials, approved domain and notification destination.
-- Production SMTP/Resend sender-domain verification and inbox testing require external setup.
+- Production Gmail SMTP App Password setup, account security and inbox testing require external setup.
 - Confirm prices/plan allowances with owner; currently provisional.
 - Add refund/chargeback adjustments, per-feature narration/voice-clone caps, admin reconciliation, and plan-change proration rules.
 - Meter TTS usage, research-provider requests and storage allocation if separate plan entitlements are desired.

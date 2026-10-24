@@ -104,8 +104,9 @@ router.post("/signup", async (req, res, next) => {
 
     const sessionToken = await createSession(user.id);
     setSessionCookie(res, sessionToken);
-    try { await sendVerificationEmail(user, verifyToken); } catch (error) { console.error("[auth] Signup verification email failed:", error.message); }
-    return res.status(201).json({ user: publicUser(user), emailVerificationRequired: true, message: "Check your inbox to verify your email." });
+    let emailSent = false;
+    try { emailSent = await sendVerificationEmail(user, verifyToken); } catch (error) { console.error("[auth] Signup verification email failed:", error.message); }
+    return res.status(201).json({ user: publicUser(user), emailVerificationRequired: true, emailSent, message: emailSent ? "Check your inbox to verify your email." : "Account created. We could not send the verification email; use Resend verification in Account settings." });
   } catch (error) {
     return next(error);
   }
@@ -153,10 +154,17 @@ router.post("/resend-verification", authOptional, requireUser, async (req, res, 
   try {
     if (req.user.emailVerifiedAt) return res.json({ message: "Your email is already verified." });
     if (!rateLimitByIp(req, "resend-verification", 4, 60 * 60 * 1000)) return res.status(429).json({ error: "Please try again later." });
-    await prisma.authToken.deleteMany({ where: { userId: req.user.id, kind: "email_verification" } });
     const token = randomToken();
-    await prisma.authToken.create({ data: { userId: req.user.id, kind: "email_verification", tokenHash: hashToken(token), expiresAt: new Date(Date.now() + EMAIL_TOKEN_HOURS * 3600000) } });
-    await sendVerificationEmail(req.user, token);
+    const createdToken = await prisma.authToken.create({ data: { userId: req.user.id, kind: "email_verification", tokenHash: hashToken(token), expiresAt: new Date(Date.now() + EMAIL_TOKEN_HOURS * 3600000) } });
+    try {
+      const sent = await sendVerificationEmail(req.user, token);
+      if (!sent) throw new Error("SMTP email is not configured.");
+    } catch (error) {
+      await prisma.authToken.delete({ where: { id: createdToken.id } }).catch(() => {});
+      console.error("[mail] Resend verification failed:", error.message);
+      return res.status(503).json({ error: "Verification email could not be sent. Please try again later." });
+    }
+    await prisma.authToken.deleteMany({ where: { userId: req.user.id, kind: "email_verification", id: { not: createdToken.id } } });
     return res.json({ message: "A new verification email has been sent." });
   } catch (error) { return next(error); }
 });
