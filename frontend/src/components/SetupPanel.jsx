@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import "./SetupPanelLayout.css";
 
 const LABELS = {
   disruptor: "The Disruptor",

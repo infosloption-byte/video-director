@@ -3,6 +3,7 @@ import ResearchFindingInspector from "./ResearchFindingInspector";
 import ResearchAssistantPanel from "./ResearchAssistantPanel";
 import "./ResearchAssistantPanel.css";
 import "../pages/ResearchStageUX.css";
+import "../pages/ResearchStageLayout.css";
 
 function SourceLink({ source }) {
   if (!source?.url) return null;

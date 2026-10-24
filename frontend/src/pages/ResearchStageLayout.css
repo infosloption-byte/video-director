@@ -1,0 +1,28 @@
+/* Research stage layout pass: loaded last. */
+.research-report { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.research-report .research-report__section { padding: 20px 22px; border: 1px solid var(--border-soft); border-radius: 14px; background: var(--card); }
+.research-report .research-report__section-head { margin-bottom: 14px; }
+.research-report .research-report__hero { padding: 8px 0 18px; border-bottom: 1px solid var(--border-soft); }
+.research-report .research-report__findings { display: grid; gap: 12px; }
+.research-report .research-report__finding { border: 1px solid var(--border-soft); border-radius: 12px; padding: 14px 16px; background: var(--bg-raised, var(--card)); transition: border-color .15s ease; }
+.research-report .research-report__finding:hover { border-color: var(--border); }
+.research-report .research-report__sources { display: grid; gap: 8px; }
+.research-report .research-report__source { border: 1px solid var(--border-soft); border-radius: 10px; padding: 10px 14px; }
+.research-report .research-report__handoff {
+  position: sticky; bottom: 0; z-index: 15;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 16px 20px; border: 1px solid var(--border); border-radius: 14px;
+  background: var(--bg-raised, var(--card)); box-shadow: 0 -10px 24px -14px rgba(0, 0, 0, .45);
+}
+.research-report .research-report__handoff h3 { margin: 2px 0 4px; font-size: 18px; }
+.research-report .research-report__handoff p { margin: 0; }
+.research-report .research-report__handoff-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; }
+.research-report .research-report__handoff-meta span { display: inline-flex; gap: 6px; font-size: 12.5px; color: var(--body); }
+.research-report .research-report__handoff-meta strong { color: var(--muted); font-weight: 500; }
+.research-report .research-report__handoff-actions { display: flex; gap: 10px; flex: 0 0 auto; }
+@media (max-width: 760px) {
+  .research-report .research-report__section { padding: 16px; }
+  .research-report .research-report__handoff { position: static; flex-direction: column; align-items: stretch; }
+  .research-report .research-report__handoff-actions { flex-direction: column; }
+  .research-report .research-report__handoff-actions .btn { width: 100%; justify-content: center; }
+}
