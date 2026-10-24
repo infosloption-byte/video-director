@@ -10,6 +10,7 @@ import AccountPage from "./pages/AccountPage";
 import VoiceProfilesPage from "./pages/VoiceProfilesPage";
 import SignInPage from "./pages/SignInPage";
 import LandingPage from "./pages/LandingPage";
+import BillingPage from "./pages/BillingPage";
 import SignUpPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -50,6 +51,7 @@ export default function App() {
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
     <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+    <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/voice-profiles" element={<ProtectedRoute><VoiceProfilesPage /></ProtectedRoute>}/>
     <Route path="/research/new" element={<ProtectedRoute><ResearchConversationStartPage /></ProtectedRoute>} />
     <Route path="/research-conversation/:id" element={<ProtectedRoute><ResearchConversationPage /></ProtectedRoute>} />
