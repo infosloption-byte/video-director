@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
 import "./BillingPage.css";
@@ -19,7 +19,6 @@ async function loadPaddle() {
 }
 export default function BillingPage() {
   const {user}=useAuth();
-  const [search]=useSearchParams();
   const [data,setData]=useState(null);
   const [catalog,setCatalog]=useState(null);
   const [busy,setBusy]=useState("");
