@@ -4,6 +4,20 @@ import Header from "../components/Header";
 import { useAuth } from "../context/AuthContext";
 import "./AuthPage.css";
 
+// React StrictMode replays effects; reuse the in-flight request for single-use tokens.
+const verificationRequests = new Map();
+function verifyTokenOnce(token) {
+  if (!verificationRequests.has(token)) {
+    verificationRequests.set(token, fetch("/api/auth/verify-email", {
+      method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({token})
+    }).then(async response=>{
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(data.error||"Verification failed.");
+      return data;
+    }));
+  }
+  return verificationRequests.get(token);
+}
 export default function VerifyEmailPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -19,14 +33,7 @@ export default function VerifyEmailPage() {
 
     (async () => {
       try {
-        const response = await fetch("/api/auth/verify-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ token }),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Verification failed.");
+        await verifyTokenOnce(token);
         if (cancelled) return;
         await refresh();
         if (cancelled) return;
