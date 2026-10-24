@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db/client.js";
-import { checkoutEnabled, effectivePlan, paddleFetch, PLANS, paidPlanIds, priceId, publicPlans, userBilling, verifyPaddleSignature } from "../services/billingService.js";
+import { checkoutEnabled, paddleFetch, PLANS, paidPlanIds, priceId, publicPlans, userBilling, verifyPaddleSignature } from "../services/billingService.js";
 import { sendEmail } from "../services/emailService.js";
 
 export const billingRouter = Router();
@@ -108,7 +108,8 @@ async function processWebhook(req,res) {
   });
   res.json({ok:true});
   if(notification) {
-    const user=await prisma.user.findUnique({where:{id:notification.userId}}).catch(()=>null);
-    if(user) emailForEvent(notification.type,user,notification.plan);
+    void prisma.user.findUnique({where:{id:notification.userId}})
+      .then(user=>{ if(user) emailForEvent(notification.type,user,notification.plan); })
+      .catch(error=>console.error("[billing] Notification lookup failed:",error.message));
   }
 }
