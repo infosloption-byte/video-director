@@ -1,8 +1,30 @@
+import nodemailer from "nodemailer";
 const BRAND = "Voxora";
-const FROM = () => String(process.env.EMAIL_FROM || "").trim();
+const smtpUser = () => String(process.env.SMTP_USER || "").trim();
+const appPassword = () => String(process.env.SMTP_APP_PASSWORD || "").replace(/\s/g, "");
+const fromAddress = () => ({ name: String(process.env.SMTP_FROM_NAME || BRAND).trim(), address: smtpUser() });
+let mailTransport;
+function getTransport() {
+  if (!mailTransport) {
+    const port = Number(process.env.SMTP_PORT || 465);
+    const secure = String(process.env.SMTP_SECURE || (port === 465 ? "true" : "false")).toLowerCase() === "true";
+    mailTransport = nodemailer.createTransport({
+      host: String(process.env.SMTP_HOST || "smtp.gmail.com").trim(),
+      port,
+      secure,
+      requireTLS: !secure,
+      auth: { user: smtpUser(), pass: appPassword() },
+      connectionTimeout: 12000,
+      greetingTimeout: 12000,
+      socketTimeout: 20000,
+    });
+  }
+  return mailTransport;
+}
 const BASE_URL = () => String(process.env.AUTH_PUBLIC_URL || "http://localhost:5173").replace(/\/$/, "");
 const escapeHtml = (text) => String(text || "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char]));
-export function emailReady() { return Boolean(process.env.RESEND_API_KEY && FROM()); }
+export function emailReady() { return Boolean(smtpUser() && appPassword()); }
+export async function verifyEmailTransport() { if (!emailReady()) throw new Error("SMTP credentials are not configured."); return getTransport().verify(); }
 export function templateEmail({ title, lead, detail, link, action }) {
   const detailHtml = escapeHtml(detail).replace(/\n/g, "<br/>");
   const button = link ? `<p style="margin:30px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#f1efe9;color:#151519;text-decoration:none;padding:13px 24px;border-radius:9px;font-weight:700">${escapeHtml(action || "Open Voxora")}</a></p>` : "";
@@ -11,21 +33,18 @@ export function templateEmail({ title, lead, detail, link, action }) {
 }
 export async function sendEmail({ to, subject, title, lead, detail = "", link, action }) {
   if (!emailReady()) {
-    if (process.env.NODE_ENV === "production") throw new Error("Transactional email is not configured.");
-    console.warn("[mail] Resend is not configured; email was not delivered.");
+    if (process.env.NODE_ENV === "production") throw new Error("Gmail SMTP is not configured.");
+    console.warn("[mail] SMTP is not configured; email was not delivered.");
     return false;
   }
   const body = templateEmail({ title, lead, detail, link, action });
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: FROM(), to: [to], subject: `${BRAND} · ${subject}`, html: body.html, text: body.text }),
-    signal: AbortSignal.timeout(12000),
+  await getTransport().sendMail({
+    from: fromAddress(),
+    to,
+    subject: `${BRAND} · ${subject}`,
+    html: body.html,
+    text: body.text,
   });
-  if (!response.ok) {
-    console.error(`[mail] Delivery failed: HTTP ${response.status}`);
-    throw new Error("Email delivery failed.");
-  }
   return true;
 }
 export function publicUrl(path) { return `${BASE_URL()}${path}`; }
