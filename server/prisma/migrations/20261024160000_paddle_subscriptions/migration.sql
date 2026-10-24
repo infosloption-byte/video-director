@@ -45,7 +45,7 @@ CREATE TABLE `render_credits` (
   `render_key` VARCHAR(255) NOT NULL,
   `month` CHAR(7) NOT NULL,
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  UNIQUE INDEX `render_credits_user_id_render_key_key`(`user_id`,`render_key`),
+  UNIQUE INDEX `render_credits_user_id_render_key_month_key`(`user_id`,`render_key`,`month`),
   INDEX `render_credits_user_id_month_idx`(`user_id`,`month`),
   PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
