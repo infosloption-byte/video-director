@@ -49,11 +49,12 @@ export default function LegalPage({ type }) {
           <section className="legal-page__contact" id="contact">
             <p className="legal-page__section-number">CONTACT</p>
             <h2>Questions or privacy requests?</h2>
-            <p>Service operator: <strong>{legalIdentity.operator}</strong></p>
-            {legalIdentity.address && <p>Business address: {legalIdentity.address}</p>}
-            {legalIdentity.email
-              ? <p>Contact: <a href={`mailto:${legalIdentity.email}`}>{legalIdentity.email}</a></p>
-              : <p>Contact Voxora by replying to a transactional email you received from our support mailbox. We are preparing a dedicated publicly listed privacy contact.</p>}
+            <p>Voxora is a product of <strong>{legalIdentity.operator}</strong>, a registered business in Sri Lanka.</p>
+            <p>Business registration: <strong>{legalIdentity.registrationNumber}</strong> · Registered {legalIdentity.registeredDate}</p>
+            <p>Registered address: {legalIdentity.address}</p>
+            <p>Email: <a href={`mailto:${legalIdentity.email}`}>{legalIdentity.email}</a></p>
+            <p>Phone: <a href="tel:+94758054772">{legalIdentity.phone}</a></p>
+            <p>Company website: <a href={legalIdentity.website} target="_blank" rel="noopener noreferrer">sloptions.xyz ↗</a></p>
             <p className="legal-page__note">For privacy requests, do not attach password reset links, payment-card details or voice samples. We may ask you to verify account ownership.</p>
           </section>
           <div className="legal-page__related"><span>MORE INFORMATION</span>
