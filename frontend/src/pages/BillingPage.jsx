@@ -45,10 +45,10 @@ export default function BillingPage() {
       Paddle.Checkout.open({transactionId:result.transactionId});
     } catch(e){setError(e.message||"Checkout failed");} finally {setBusy("");}
   }
-  async function portal() {
-    setBusy("portal");setError("");
+  async function portal(action = "payment") {
+    setBusy(action);setError("");
     try {
-      const r=await fetch("/api/billing/portal",{credentials:"include"});
+      const r=await fetch(`/api/billing/portal?action=${action}`,{credentials:"include"});
       const result=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(result.error||"Unable to open Paddle billing.");
       window.location.assign(result.url);
@@ -63,7 +63,7 @@ export default function BillingPage() {
       <div><span className="eyebrow">{plan.id===data?.plan?.id?"CURRENT PLAN":"MONTHLY"}</span><h3>{plan.name}</h3><p>{plan.rendersPerMonth} videos per month · up to {plan.maxSeconds} seconds each</p></div><div className="billing-card__price">${plan.monthlyUsd}<small>/ month</small></div>
       {plan.id===data?.plan?.id?<span className="billing-current">Active plan</span>:plan.id==="free"?<span className="billing-current">Included by default</span>:<button className="btn btn-cream" disabled={!catalog.billingReady||!!busy||!user?.emailVerifiedAt||Boolean(data?.subscription&&["active","trialing"].includes(data.subscription.status))} onClick={()=>checkout(plan.id)}>{busy===plan.id?"Opening…":catalog.billingReady?"Subscribe with Paddle":"Coming soon"}</button>}
     </article>)}</div>
-    {data?.subscription&&<section className="billing-manage"><div><strong>Existing subscription</strong><p>Update payment method and manage your subscription in Paddle's secure customer portal.</p></div><button className="btn btn-ghost" disabled={!!busy} onClick={portal}>Manage billing ↗</button></section>}
+    {data?.subscription&&<section className="billing-manage"><div><strong>Existing subscription</strong><p>Update payment method and manage your subscription in Paddle's secure customer portal.</p></div><button className="btn btn-ghost" disabled={!!busy} onClick={()=>portal("payment")}>Update payment method ↗</button>{!data.subscription.cancelAtPeriodEnd&&<button className="btn btn-ghost" disabled={!!busy} onClick={()=>portal("cancel")}>Cancel subscription ↗</button>}</section>}
     <p className="billing-footnote">Proposed launch pricing shown for planning; paid checkout only activates after Paddle sandbox and production configuration. Payment confirmation comes from signed webhooks—not from the browser checkout result. Monthly render counts currently reset on the first day of the month (UTC).</p>
   </main></div>;
 }
