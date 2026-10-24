@@ -35,7 +35,8 @@ Legal counsel must approve the contracting entity, governing-law/dispute clauses
 4. The delete route was hardened in this change to return a **retryable 503**, not successful 204, if the TTS copy cannot be removed. Local file deletion failure is no longer silently ignored. Other paths and backups still need systematic deletion reconciliation.
 5. The UI and API currently accept a user affirmation that the samples are their own voice. This is **not independent identity or liveness verification**. Voice-cloning abuse remains possible without stronger checks.
 6. We have not verified at-rest encryption across every Docker volume, backup, hosting provider and TTS instance, nor end-to-end TLS to the remote TTS gateway. Do not claim encryption, SOC 2 or ISO 27001 certification without evidence.
-7. Account deletion, recorded-consent withdrawal across all processors, key rotation, video/audio retention, account data export and full data-subject request workflow are not yet complete.
+7. Legacy raw TTS voice passthrough APIs (`/api/tts/voices` and `/api/tts/voices/:voiceId`) previously allowed a signed-in user to list or act on unowned TTS voice IDs. These are now disabled with HTTP 410; the storyboard narration path no longer trusts a browser-supplied raw voice ID.
+8. Account deletion, recorded-consent withdrawal across all processors, key rotation, video/audio retention, account data export and full data-subject request workflow are not yet complete.
 
 ## Prioritized voice security controls
 
@@ -93,6 +94,6 @@ Sources for counsel:
 5. Visit `/privacy`, `/terms`, `/refund-policy` logged out; check mobile layout and all footer links.
 6. Submit signup without Terms/adult confirmation (expect 400), then confirm acceptance (expect account and audit fields).
 7. Create a new voice profile without self-voice consent (expect 400), then with consent; check stored notice version.
-8. Test voice deletion success; simulate TTS unavailable and confirm **503**, not a misleading successful deletion.
+8. Test voice deletion success; simulate TTS unavailable and confirm **503**, not a misleading successful deletion. Confirm raw `GET/POST/DELETE /api/tts/voices` return 410, and a supplied unowned voice ID cannot be used in storyboard narration.
 9. Confirm that Paddle refund links and production legal contact information are correct.
 10. Request lawyer sign-off before activating paid subscriptions and public voice cloning.
