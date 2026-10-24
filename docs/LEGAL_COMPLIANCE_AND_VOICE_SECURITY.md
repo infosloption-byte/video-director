@@ -12,20 +12,35 @@
 - Voice profile creation collects separately affirmative consent and records the voice policy version and timestamp.
 - Links are available in the landing, signup, sign-in, account and billing flows.
 
-### Required operator information before public commercial launch
+### Legal operator — SL Options
 
-Configure a **real, monitored contact mailbox** and verified registered operating entity. These are **public** fields injected into the Vite build, not API credentials:
+Voxora is a **software product developed and operated by SL Options**. SL Options is registered as a business in Sri Lanka; Voxora is not a separately registered company. These details were checked against the SL Options corporate-site source (`infosloption-byte/sl-options/src/data.ts` and `src/legal.ts`), which supplies its published registration details and distinguishes product-specific legal policies.
+
+| Item | Company information |
+| --- | --- |
+| Business | SL Options |
+| Registration number | 261006017 |
+| Registration date | 6 October 2026 |
+| Registered business address | 119, Regency Park, Ranapanadeniya, Rathgama, Sri Lanka |
+| Main contact email | info.sloptions@gmail.com |
+| Phone | +94 758054772 |
+| Corporate website | https://sloptions.xyz |
+| Product | Voxora — https://usevoxora.online |
+
+The legal policy pages display this identity and the common SL Options contact address. The separate company-site privacy policy covers `sloptions.xyz`; Voxora's own policy addresses AI scripts, voice recordings, model/reference audio, rendering and Paddle subscriptions in more detail.
+
+You can optionally override **public** contact details through `.env.lightsail` if they change:
 
 ```ini
-# .env.lightsail — example only; replace with real registered operator details
-LEGAL_ENTITY_NAME="YOUR REGISTERED LEGAL ENTITY"
-LEGAL_CONTACT_EMAIL="YOUR MONITORED PRIVACY / LEGAL MAILBOX"
-LEGAL_BUSINESS_ADDRESS="YOUR REGISTERED BUSINESS ADDRESS"
+LEGAL_ENTITY_NAME="SL Options"
+LEGAL_CONTACT_EMAIL=info.sloptions@gmail.com
+LEGAL_BUSINESS_ADDRESS="119, Regency Park, Ranapanadeniya, Rathgama, Sri Lanka"
 ```
 
-Only enter information that is correct. Do not publish a guessed registered entity or an unmonitored email. After changing these fields, **rebuild** the frontend (they are Vite build-time variables).
+These fields are compiled into frontend assets during the Docker build; rebuild the frontend after any change. Use a mailbox with an established support/privacy-request response process. Do not use these fields for private API credentials.
 
-Legal counsel must approve the contracting entity, governing-law/dispute clauses, material liability limits, effective date, consumer rights and all data-controller statements. Do not represent policies as certified by AWS/Paddle/regulators.
+**Still requires legal sign-off:** confirm the registered business capacity/contracting party, governing-law and dispute terms, payment obligations, refund wording, statutory rights, privacy controller notices and whether any additional official business identification must be displayed in customer invoices or terms.
+
 
 ## Evidence-based security snapshot (current repository)
 
