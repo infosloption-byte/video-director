@@ -44,7 +44,7 @@ router.post("/projects/:id/render", async (req, res) => {
   let reservation = null;
   const renderKey = `project:${req.params.id}`;
   try {
-    const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { scenes: { select: { id: true, sceneOrder: true, audioUrl: true } } } });
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { scenes: { select: { id: true, sceneOrder: true, audioUrl: true, durationSeconds: true } } } });
     if (!project) return res.status(404).json({ error: "Project not found." });
     if (!project.scenes.length) return res.status(409).json({ error: "Generate the storyboard before rendering." });
     const missingNarration = [];
@@ -66,7 +66,9 @@ router.post("/projects/:id/render", async (req, res) => {
       }
       await existing.remove().catch(() => {});
     }
-    reservation = await reserveRender(req.user, renderKey, Number(project.scriptLengthSeconds || project.durationSeconds || 0));
+    const sceneSeconds = project.scenes.reduce((total, scene) => total + Number(scene.durationSeconds || 0), 0);
+    const effectiveSeconds = Math.max(sceneSeconds, Number(project.scriptLengthSeconds || 0), Number(project.durationSeconds || 0));
+    reservation = await reserveRender(req.user, renderKey, effectiveSeconds);
     await prisma.project.update({ where: { id: project.id }, data: { status: "rendering" } });
     const job = await enqueueRender(project.id);
     const timing = buildTiming(job, 0);
