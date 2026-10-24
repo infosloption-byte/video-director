@@ -1,0 +1,76 @@
+/* Public top bar (landing + legal pages) */
+.ph {
+  position: sticky; top: 0; z-index: 60;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-soft);
+}
+.ph .container { padding-left: clamp(16px, 4vw, 56px); padding-right: clamp(16px, 4vw, 56px); max-width: 1320px; }
+.ph__inner {
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(12px, 2.5vw, 32px);
+}
+.ph__logo { display: inline-flex; align-items: center; gap: 10px; min-width: 0; color: var(--ink); }
+.ph__logo-mark { width: 30px; height: 30px; display: inline-grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; font: italic 500 17px var(--font-serif); color: var(--ink-dim); flex: 0 0 auto; }
+.ph__logo-word { font: 500 21px var(--font-serif); letter-spacing: .01em; }
+
+.ph__nav { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; }
+.ph__link { position: relative; padding: 9px 14px; border-radius: 999px; font-size: 14px; font-weight: 500; color: var(--body); white-space: nowrap; transition: color .15s ease, background .15s ease; }
+.ph__link:hover { color: var(--ink); background: var(--surface-soft); }
+.ph__link.is-current { color: var(--ink); background: var(--surface-soft); }
+.ph__link:first-child::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--accent-green-text); box-shadow: 0 0 10px var(--accent-green-text); vertical-align: 1px; }
+
+.ph__actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.ph__icon-btn { width: 40px; height: 40px; display: inline-grid; place-items: center; border: 1px solid var(--pill-border); border-radius: 10px; background: var(--pill-bg); color: var(--ink-dim); transition: background .15s ease, border-color .15s ease, color .15s ease; }
+.ph__icon-btn:hover { background: var(--card-hover); border-color: var(--border); color: var(--ink); }
+.ph__signin { padding: 9px 14px; font-size: 14px; font-weight: 500; color: var(--ink-dim); border-radius: 8px; white-space: nowrap; }
+.ph__signin:hover { color: var(--ink); background: var(--surface-soft); }
+.ph__cta { padding: 10px 18px; }
+.ph-icon { width: 18px; height: 18px; flex: 0 0 auto; }
+
+.ph__account { position: relative; }
+.ph__avatar { width: 40px; height: 40px; display: inline-grid; place-items: center; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: var(--ink); font: 600 14px var(--font-sans); }
+.ph__avatar:hover { background: var(--card-hover); }
+.ph__dropdown { position: absolute; right: 0; top: calc(100% + 10px); width: 250px; padding: 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-raised); box-shadow: var(--shadow-soft); z-index: 5; }
+.ph__dropdown-user { display: grid; gap: 2px; padding: 10px 12px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border-soft); }
+.ph__dropdown-user strong { color: var(--ink); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph__dropdown-user span { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph__dropdown a, .ph__dropdown button { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--body); font: inherit; font-size: 14px; cursor: pointer; }
+.ph__dropdown a:hover, .ph__dropdown button:hover { background: var(--card-hover); color: var(--ink); }
+
+.ph__burger { display: none; width: 42px; height: 42px; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.ph__burger span { width: 17px; height: 1.5px; background: var(--ink-dim); border-radius: 2px; transition: transform .18s ease, opacity .18s ease; }
+.ph__burger.is-open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+.ph__burger.is-open span:nth-child(2) { opacity: 0; }
+.ph__burger.is-open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+.ph__panel { display: none; }
+
+/* Tablet + phone: collapse into one organized panel */
+@media (max-width: 960px) {
+  .ph__inner { grid-template-columns: 1fr auto; min-height: 62px; }
+  .ph__nav, .ph__actions { display: none; }
+  .ph__burger { display: inline-flex; }
+  .ph__panel { display: block; border-top: 1px solid var(--border-soft); background: var(--bg); box-shadow: var(--shadow-mobile); max-height: calc(100vh - 62px); max-height: calc(100dvh - 62px); overflow-y: auto; overscroll-behavior: contain; }
+  .ph__panel[hidden] { display: none; }
+  .ph__panel-inner { padding-top: 12px; padding-bottom: 18px; display: grid; gap: 14px; }
+  .ph__panel-nav { display: grid; gap: 2px; grid-template-columns: 1fr; }
+  .ph__panel-nav a { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px; border-radius: 10px; color: var(--ink-dim); font-size: 15px; font-weight: 500; }
+  .ph__panel-nav a:hover, .ph__panel-nav a.is-current { background: var(--surface-soft); color: var(--ink); }
+  .ph__panel-nav a .ph-icon { color: var(--muted); }
+  .ph__panel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+  .ph__panel-actions .btn { justify-content: center; min-height: 46px; }
+  .ph__panel-theme, .ph__panel-signout { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--ink-dim); font: inherit; font-size: 14px; }
+  .ph__panel-signout { color: var(--danger); }
+}
+@media (min-width: 640px) and (max-width: 960px) {
+  .ph__panel-nav { grid-template-columns: 1fr 1fr; column-gap: 8px; }
+}
+@media (max-width: 380px) {
+  .ph__logo-word { font-size: 19px; }
+  .ph__panel-actions { grid-template-columns: 1fr; }
+}
