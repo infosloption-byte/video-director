@@ -10,6 +10,7 @@ import AccountPage from "./pages/AccountPage";
 import VoiceProfilesPage from "./pages/VoiceProfilesPage";
 import SignInPage from "./pages/SignInPage";
 import LandingPage from "./pages/LandingPage";
+import LegalPage from "./pages/LegalPage";
 import BillingPage from "./pages/BillingPage";
 import SignUpPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -40,6 +41,9 @@ export default function App() {
     <Route path="/" element={<LandingPage />} />
     <Route path="/signals" element={<ProtectedRoute><SignalsPage /></ProtectedRoute>} />
     <Route path="/pricing" element={<LandingPage />} />
+    <Route path="/privacy" element={<LegalPage type="privacy" />} />
+    <Route path="/terms" element={<LegalPage type="terms" />} />
+    <Route path="/refund-policy" element={<LegalPage type="refund" />} />
     <Route path="/signin" element={<SignInPage />} /><Route path="/signup" element={<SignUpPage />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
     <Route path="/review/:token" element={<ReviewPage />} />
