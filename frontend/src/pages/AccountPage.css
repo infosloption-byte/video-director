@@ -70,3 +70,5 @@
     padding-bottom: 48px;
   }
 }
+
+.account-page__billing-link{border:1px solid var(--border);border-radius:17px;padding:20px;margin:0 0 20px;background:var(--card);display:flex;gap:20px;justify-content:space-between;align-items:center}.account-page__billing-link strong{color:var(--ink)}.account-page__billing-link p{font-size:13px;line-height:1.5}.account-page__billing-link .btn{white-space:nowrap}@media(max-width:560px){.account-page__billing-link{display:block}.account-page__billing-link .btn{margin-top:10px}}
