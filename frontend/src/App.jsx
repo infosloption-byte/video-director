@@ -21,12 +21,6 @@ import SessionGate from "./components/SessionGate";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
-function SignalsRoute() {
-  const { status } = useAuth();
-  if (authRequired() && status === "loading") return <SessionGate />;
-  return <PlatformShell><SignalsPage /></PlatformShell>;
-}
-
 function ProtectedRoute({ children }) {
   const location = useLocation();
   const { user, status } = useAuth();
@@ -44,7 +38,7 @@ function LegacyEditorToolRedirect({ tool }) {
 export default function App() {
   return <AuthProvider><ProjectProvider><Routes>
     <Route path="/" element={<LandingPage />} />
-    <Route path="/signals" element={<SignalsRoute />} />
+    <Route path="/signals" element={<ProtectedRoute><SignalsPage /></ProtectedRoute>} />
     <Route path="/pricing" element={<LandingPage />} />
     <Route path="/signin" element={<SignInPage />} /><Route path="/signup" element={<SignUpPage />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
