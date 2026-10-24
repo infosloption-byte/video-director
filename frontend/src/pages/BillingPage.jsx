@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
+import LegalFooter from "../components/LegalFooter";
 import { useAuth } from "../context/AuthContext";
 import "./BillingPage.css";
 
@@ -65,5 +66,6 @@ export default function BillingPage() {
     </article>)}</div>
     {data?.subscription&&<section className="billing-manage"><div><strong>Existing subscription</strong><p>Update payment method and manage your subscription in Paddle's secure customer portal.</p></div><button className="btn btn-ghost" disabled={!!busy} onClick={()=>portal("payment")}>Update payment method ↗</button>{!data.subscription.cancelAtPeriodEnd&&<button className="btn btn-ghost" disabled={!!busy} onClick={()=>portal("cancel")}>Cancel subscription ↗</button>}</section>}
     <p className="billing-footnote">Proposed launch pricing shown for planning; paid checkout only activates after Paddle sandbox and production configuration. Payment confirmation comes from signed webhooks—not from the browser checkout result. Monthly render counts currently reset on the first day of the month (UTC).</p>
-  </main></div>;
+  </main>
+    <LegalFooter /></div>;
 }
