@@ -3,6 +3,7 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { hashPassword, verifyPassword } from "../services/passwordService.js";
 import { authOptional, clearSessionCookie, setSessionCookie } from "../middleware/auth.js";
+import { sendVerificationEmail, sendResetEmail, sendSecurityEmail } from "../services/emailService.js";
 
 const router = Router();
 const SESSION_DAYS = 30;
@@ -102,10 +103,8 @@ router.post("/signup", async (req, res, next) => {
 
     const sessionToken = await createSession(user.id);
     setSessionCookie(res, sessionToken);
-    const verificationUrl = `/verify-email?token=${encodeURIComponent(verifyToken)}`;
-    if (String(process.env.NODE_ENV || "development") !== "production") console.log(`[auth] Email verification URL for ${email}: ${verificationUrl}`);
-
-    return res.status(201).json({ user: publicUser(user), emailVerificationRequired: true, verificationUrl: String(process.env.AUTH_PUBLIC_URL || "") + verificationUrl });
+    try { await sendVerificationEmail(user, verifyToken); } catch (error) { console.error("[auth] Signup verification email failed:", error.message); }
+    return res.status(201).json({ user: publicUser(user), emailVerificationRequired: true, message: "Check your inbox to verify your email." });
   } catch (error) {
     return next(error);
   }
@@ -144,8 +143,21 @@ router.post("/verify-email", async (req, res) => {
   const authToken = await prisma.authToken.findFirst({ where: { kind: "email_verification", tokenHash: hashToken(token), expiresAt: { gt: new Date() } } });
   if (!authToken) return res.status(400).json({ error: "This verification link is invalid or expired." });
   const user = await prisma.user.update({ where: { id: authToken.userId }, data: { emailVerifiedAt: new Date() } });
-  await prisma.authToken.delete({ where: { id: authToken.id } });
+  await prisma.authToken.deleteMany({ where: { userId: user.id, kind: "email_verification" } });
+  void sendSecurityEmail(user, "verified").catch((error) => console.error("[mail] Verification confirmation failed:", error.message));
   return res.json({ user: publicUser(user) });
+});
+
+router.post("/resend-verification", authOptional, requireUser, async (req, res, next) => {
+  try {
+    if (req.user.emailVerifiedAt) return res.json({ message: "Your email is already verified." });
+    if (!rateLimitByIp(req, "resend-verification", 4, 60 * 60 * 1000)) return res.status(429).json({ error: "Please try again later." });
+    await prisma.authToken.deleteMany({ where: { userId: req.user.id, kind: "email_verification" } });
+    const token = randomToken();
+    await prisma.authToken.create({ data: { userId: req.user.id, kind: "email_verification", tokenHash: hashToken(token), expiresAt: new Date(Date.now() + EMAIL_TOKEN_HOURS * 3600000) } });
+    await sendVerificationEmail(req.user, token);
+    return res.json({ message: "A new verification email has been sent." });
+  } catch (error) { return next(error); }
 });
 
 router.post("/forgot-password", async (req, res) => {
@@ -158,9 +170,8 @@ router.post("/forgot-password", async (req, res) => {
   await prisma.authToken.deleteMany({ where: { userId: user.id, kind: "password_reset" } });
   const token = randomToken();
   await prisma.authToken.create({ data: { userId: user.id, kind: "password_reset", tokenHash: hashToken(token), expiresAt: new Date(Date.now() + TOKEN_HOURS * 3600000) } });
-  const resetPath = `/reset-password?token=${encodeURIComponent(token)}`;
-  if (String(process.env.NODE_ENV || "development") !== "production") console.log(`[auth] Password reset URL for ${email}: ${resetPath}`);
-  return res.json({ ...generic, resetUrl: String(process.env.AUTH_PUBLIC_URL || "") + resetPath });
+  try { await sendResetEmail(user, token); } catch (error) { console.error("[mail] Password reset delivery failed:", error.message); }
+  return res.json(generic);
 });
 
 router.post("/reset-password", async (req, res) => {
@@ -175,6 +186,7 @@ router.post("/reset-password", async (req, res) => {
   const sessionToken = await createSession(authToken.userId);
   setSessionCookie(res, sessionToken);
   const user = await prisma.user.findUnique({ where: { id: authToken.userId } });
+  void sendSecurityEmail(user, "password").catch((error) => console.error("[mail] Password confirmation failed:", error.message));
   return res.json({ user: publicUser(user) });
 });
 
@@ -198,6 +210,7 @@ router.post("/change-password", authOptional, requireUser, async (req, res, next
     if (!user?.passwordHash || !(await verifyPassword(currentPassword, user.passwordHash))) return res.status(401).json({ error: "Current password is incorrect." });
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(newPassword) } });
     await prisma.authSession.deleteMany({ where: { userId: user.id, id: { not: req.authSession?.id || undefined } } });
+    void sendSecurityEmail(user, "password").catch((error) => console.error("[mail] Password confirmation failed:", error.message));
     return res.json({ ok: true });
   } catch (error) {
     return next(error);
