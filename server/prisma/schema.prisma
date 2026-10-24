@@ -616,7 +616,7 @@ model RenderCredit {
   month      String   @db.Char(7)
   createdAt  DateTime @default(now()) @map("created_at")
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  @@unique([userId, renderKey])
+  @@unique([userId, renderKey, month])
   @@index([userId, month])
   @@map("render_credits")
 }
