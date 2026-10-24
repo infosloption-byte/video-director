@@ -42,7 +42,7 @@ function looksTruncated(value = "") {
   return false;
 }
 
-function normalizeConversationMarkdown(value = "") {
+export function normalizeConversationMarkdown(value = "") {
   let answer = String(value || "")
     .replace(/\r\n?/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
