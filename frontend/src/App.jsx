@@ -9,6 +9,7 @@ import MyResearchPage from "./pages/MyResearchPage";
 import AccountPage from "./pages/AccountPage";
 import VoiceProfilesPage from "./pages/VoiceProfilesPage";
 import SignInPage from "./pages/SignInPage";
+import LandingPage from "./pages/LandingPage";
 import SignUpPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -41,7 +42,9 @@ function LegacyEditorToolRedirect({ tool }) {
 
 export default function App() {
   return <AuthProvider><ProjectProvider><Routes>
-    <Route path="/" element={<SignalsRoute />} />
+    <Route path="/" element={<LandingPage />} />
+    <Route path="/signals" element={<SignalsRoute />} />
+    <Route path="/pricing" element={<LandingPage />} />
     <Route path="/signin" element={<SignInPage />} /><Route path="/signup" element={<SignUpPage />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
     <Route path="/review/:token" element={<ReviewPage />} />
