@@ -9,13 +9,13 @@ export default function LegalPage({ type }) {
   const policy = legalDocuments[type];
   useEffect(() => {
     if (!policy) return undefined;
-    const previousTitle = window.policy.title;
+    const previousTitle = window.document.title;
     const canonical = window.document.querySelector('link[rel="canonical"]');
     const previousHref = canonical?.getAttribute("href");
-    window.policy.title = `${policy.title} — Voxora`;
+    window.document.title = `${policy.title} — Voxora`;
     if (canonical) canonical.href = `${window.location.origin}${window.location.pathname}`;
     return () => {
-      window.policy.title = previousTitle;
+      window.document.title = previousTitle;
       if (canonical && previousHref) canonical.href = previousHref;
     };
   }, [policy]);
