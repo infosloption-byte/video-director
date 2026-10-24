@@ -25,7 +25,14 @@ async function readSource(source, onActivity, parentSignal) {
     if (!response.ok) { onActivity?.({ type: "source.read_failed", title: source.title, url, status: `http_${response.status}` }); return { ...source, readStatus: `http_${response.status}`, content: "" }; }
     const type = response.headers.get("content-type") || ""; if (!/(text|html|xml)/i.test(type)) { onActivity?.({ type: "source.read_failed", title: source.title, url, status: "non_text" }); return { ...source, readStatus: "non_text", content: "" }; }
     const content = cleanText(await response.text()).slice(0, MAX_SOURCE_CHARS); onActivity?.({ type: content ? "source.read_complete" : "source.read_failed", title: source.title, url, status: content ? "read" : "empty", chars: content.length }); return { ...source, readStatus: content ? "read" : "empty", content };
-  } catch (error) { onActivity?.({ type: "source.read_failed", title: source.title, url, status: parentSignal?.aborted ? "cancelled" : "failed", error: error.message }); throw error; }
+  } catch (error) {
+    const cancelled = Boolean(parentSignal?.aborted);
+    onActivity?.({ type: "source.read_failed", title: source.title, url, status: cancelled ? "cancelled" : "failed", error: error.message });
+    // A failed/timeout source is not evidence, but must not crash all research.
+    // Explicit user cancellation still aborts the complete pipeline.
+    if (cancelled) throw error;
+    return { ...source, readStatus: "failed", content: "" };
+  }
 }
 
 const DEEP_SCHEMA = {
