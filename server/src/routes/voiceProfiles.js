@@ -3,6 +3,7 @@ import { readFile, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/client.js";
 import { createTtsVoiceFromFile, deleteTtsVoice, synthesizeVoicePreview } from "../services/ttsService.js";
+import { CURRENT_LEGAL_VERSION } from "../services/legalConsent.js";
 import { buildCombinedReference, deleteVoiceProfileFiles, getVoiceProfileSamplePath, saveVoiceProfileSample, MAX_SAMPLES, MIN_SAMPLES, MAX_SAMPLE_BYTES } from "../services/voiceProfileService.js";
 
 const router = Router();
@@ -86,9 +87,9 @@ router.post("/", async (req, res) => {
     const preferredEngine = String(req.body?.preferredEngine || "qwen3-tts-0.6b").trim();
     if (!name) return res.status(400).json({ error: "Voice profile name is required." });
     if (!SUPPORTED_ENGINES.has(preferredEngine)) return res.status(400).json({ error: "Choose Qwen3-TTS 0.6B or Chatterbox-Nano." });
-    if (req.body?.consentAccepted !== true) return res.status(400).json({ error: "Confirm that you own or have permission to use these recordings." });
+    if (req.body?.consentAccepted !== true) return res.status(400).json({ error: "You must confirm these recordings are your own voice and consent to the stated processing purpose." });
     const profile = await prisma.voiceProfile.create({
-      data: { userId: req.user.id, name: name.slice(0, 120), language, preferredEngine, consentAcceptedAt: new Date() },
+      data: { userId: req.user.id, name: name.slice(0, 120), language, preferredEngine, consentAcceptedAt: new Date(), consentNoticeVersion: CURRENT_LEGAL_VERSION },
       include: { samples: true }
     });
     res.status(201).json(publicProfile(profile));
