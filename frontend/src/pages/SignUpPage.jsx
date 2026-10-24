@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import LegalFooter from "../components/LegalFooter";
 import { useAuth } from "../context/AuthContext";
 import "./AuthPage.css";
 
@@ -60,6 +61,7 @@ export default function SignUpPage() {
           </section>
         </div>
       </main>
+    <LegalFooter />
     </div>
   );
 }
