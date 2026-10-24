@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
 import LegalFooter from "../components/LegalFooter";
@@ -5,28 +6,40 @@ import { legalDocuments, legalIdentity, LEGAL_EFFECTIVE_DATE } from "../legal/le
 import "./LegalPage.css";
 
 export default function LegalPage({ type }) {
-  const document = legalDocuments[type];
-  if (!document) return null;
+  const policy = legalDocuments[type];
+  useEffect(() => {
+    if (!policy) return undefined;
+    const previousTitle = window.policy.title;
+    const canonical = window.document.querySelector('link[rel="canonical"]');
+    const previousHref = canonical?.getAttribute("href");
+    window.policy.title = `${policy.title} — Voxora`;
+    if (canonical) canonical.href = `${window.location.origin}${window.location.pathname}`;
+    return () => {
+      window.policy.title = previousTitle;
+      if (canonical && previousHref) canonical.href = previousHref;
+    };
+  }, [policy]);
+  if (!policy) return null;
   return <div className="hx-page legal-page">
     <Header right={<Link to="/" className="btn btn-ghost">Back to Voxora</Link>} />
     <main className="container legal-page__main">
       <div className="legal-page__top">
-        <span className="legal-page__category">{document.category}</span>
-        <h1>{document.title}</h1>
-        <p className="legal-page__intro">{document.intro}</p>
+        <span className="legal-page__category">{policy.category}</span>
+        <h1>{policy.title}</h1>
+        <p className="legal-page__intro">{policy.intro}</p>
         <p className="legal-page__date">Effective {LEGAL_EFFECTIVE_DATE} · Version 1</p>
       </div>
       <div className="legal-page__layout">
         <aside className="legal-page__toc" aria-label="Policy sections">
           <p>IN THIS DOCUMENT</p>
-          {document.sections.map((section, index) =>
+          {policy.sections.map((section, index) =>
             <a key={section.title} href={`#section-${index + 1}`}>
               <span>{String(index + 1).padStart(2, "0")}</span>{section.title}
             </a>
           )}
         </aside>
         <article className="legal-page__content">
-          {document.sections.map((section,index)=><section id={`section-${index + 1}`} className="legal-page__section" key={section.title}>
+          {policy.sections.map((section,index)=><section id={`section-${index + 1}`} className="legal-page__section" key={section.title}>
             <span className="legal-page__section-number">{String(index + 1).padStart(2, "0")} /</span>
             <h2>{section.title}</h2>
             {section.paragraphs?.map((p,i)=><p key={i}>{p}</p>)}
