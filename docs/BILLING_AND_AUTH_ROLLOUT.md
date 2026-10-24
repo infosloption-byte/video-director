@@ -16,7 +16,7 @@ Source of truth: `server/src/services/billingService.js`. Keep `frontend/src/pag
 
 ## Configure Gmail SMTP transactional email
 
-Voxora sends branded HTML and plain-text email via **Nodemailer + Gmail SMTP** (not Gmail SMTP). To use a Google account, enable 2-Step Verification and generate a **Google App Password**. Do not use your ordinary Gmail password. Never commit secrets.
+Voxora sends branded HTML and plain-text email via **Nodemailer + Gmail SMTP** (not an HTTP email provider). To use a Google account, enable 2-Step Verification and generate a **Google App Password**. Do not use your ordinary Gmail password. Never commit secrets.
 
 Set the following **in `server/.env` on Lightsail** (read by the API service's `env_file`):
 
@@ -92,7 +92,7 @@ The webhook endpoint uses the raw request body and validates Paddle HMAC signatu
    `cd frontend && npm ci && npm run lint && npm run build`
 3. Apply **only after a database backup**:
    `cd server && npx prisma migrate deploy`
-4. Set Resend and Paddle secrets only on server runtime config.
+4. Set Gmail SMTP and Paddle secrets only in the server runtime configuration.
 5. Deploy application normally through the existing Compose process. Do not delete persistent volumes.
 6. Check `/api/health`, `/api/billing/plans`, `/api/billing/me` (authenticated) and `/api/auth/me`.
 7. Open a paid checkout in Paddle sandbox; verify that subscription status changes only after a signed webhook is processed.
