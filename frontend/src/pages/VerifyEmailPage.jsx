@@ -51,7 +51,7 @@ export default function VerifyEmailPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate, token]);
+  }, [navigate, refresh, token]);
 
   return (
     <div className="hx-page auth-page">
