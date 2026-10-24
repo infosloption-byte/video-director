@@ -19,6 +19,7 @@ import renderRouter from "./routes/render.js";
 import editorRenderRouter from "./routes/editorRender.js";
 import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
+import { billingRouter, paddleWebhook } from "./routes/billing.js";
 import ttsRouter from "./routes/tts.js";
 import voiceProfilesRouter from "./routes/voiceProfiles.js";
 import voicePresetsRouter from "./routes/voicePresets.js";
@@ -31,6 +32,8 @@ import { waitForResearchGraph } from "./services/researchGraphAvailability.js";
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
+// Paddle signs the exact raw body; mount this before JSON parsing and CSRF checks.
+app.post("/api/billing/webhook", express.raw({type:"application/json",limit:"1mb"}), paddleWebhook);
 app.use(express.json({ limit: "40mb" }));
 app.use(authOptional);
 app.use(sameOriginProtection);
@@ -59,6 +62,7 @@ app.get("/api/health/integrations", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/billing", billingRouter);
 app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
 app.use("/api", reviewRouter);
 app.use("/api/research-conversations", requireAuth, expensiveOperationRateLimit, researchConversationsRouter);
