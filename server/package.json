@@ -16,7 +16,8 @@
     "media:process": "node src/jobs/processMedia.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "test:core": "node scripts/test-core.js"
   },
   "dependencies": {
     "@prisma/client": "^6.3.1",
