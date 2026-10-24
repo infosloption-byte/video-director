@@ -9,6 +9,8 @@ import MyResearchPage from "./pages/MyResearchPage";
 import AccountPage from "./pages/AccountPage";
 import VoiceProfilesPage from "./pages/VoiceProfilesPage";
 import SignInPage from "./pages/SignInPage";
+import LandingPage from "./pages/LandingPage";
+import BillingPage from "./pages/BillingPage";
 import SignUpPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -18,12 +20,6 @@ import EditorWorkspace from "./components/EditorWorkspace";
 import SessionGate from "./components/SessionGate";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 import { ProjectProvider } from "./context/ProjectProvider.jsx";
-
-function SignalsRoute() {
-  const { status } = useAuth();
-  if (authRequired() && status === "loading") return <SessionGate />;
-  return <PlatformShell><SignalsPage /></PlatformShell>;
-}
 
 function ProtectedRoute({ children }) {
   const location = useLocation();
@@ -41,12 +37,15 @@ function LegacyEditorToolRedirect({ tool }) {
 
 export default function App() {
   return <AuthProvider><ProjectProvider><Routes>
-    <Route path="/" element={<SignalsRoute />} />
+    <Route path="/" element={<LandingPage />} />
+    <Route path="/signals" element={<ProtectedRoute><SignalsPage /></ProtectedRoute>} />
+    <Route path="/pricing" element={<LandingPage />} />
     <Route path="/signin" element={<SignInPage />} /><Route path="/signup" element={<SignUpPage />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
     <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+    <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/voice-profiles" element={<ProtectedRoute><VoiceProfilesPage /></ProtectedRoute>}/>
     <Route path="/research/new" element={<ProtectedRoute><ResearchConversationStartPage /></ProtectedRoute>} />
     <Route path="/research-conversation/:id" element={<ProtectedRoute><ResearchConversationPage /></ProtectedRoute>} />

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const AuthContext = createContext(null);
 
@@ -7,7 +7,7 @@ export function AuthProvider({ children }) {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setError("");
     try {
       const response = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
       setError(err.message || "Unable to load account session.");
       return { authenticated: false, user: null };
     }
-  }
+  }, []);
 
   async function signOut() {
     setError("");
@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
   }
 
   // oxlint-disable-next-line react(set-state-in-effect)
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
 
   const value = useMemo(() => ({ user, status, error, refresh, signOut }), [user, status, error]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

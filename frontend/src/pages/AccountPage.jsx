@@ -14,6 +14,8 @@ export default function AccountPage() {
   const [profileBusy, setProfileBusy] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
 
   async function saveProfile(event) {
@@ -53,6 +55,26 @@ export default function AccountPage() {
     }
   }
 
+  async function resendVerification() {
+    setResending(true);setError("");setMessage("");
+    try {
+      const response = await fetch("/api/auth/resend-verification",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"}});
+      const data = await response.json().catch(()=>({}));
+      if (!response.ok) throw new Error(data.error||"Unable to send verification email.");
+      setMessage(data.message||"Verification email sent.");
+    } catch(err) {setError(err.message||"Unable to send verification email.");}
+    finally{setResending(false);}
+  }
+  async function resendVerification() {
+    setResending(true);setError("");setMessage("");
+    try {
+      const response = await fetch("/api/auth/resend-verification",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"}});
+      const data = await response.json().catch(()=>({}));
+      if (!response.ok) throw new Error(data.error||"Unable to send verification email.");
+      setMessage(data.message||"Verification email sent.");
+    } catch(err) {setError(err.message||"Unable to send verification email.");}
+    finally{setResending(false);}
+  }
   if (!user) return null;
 
   return (
@@ -70,6 +92,8 @@ export default function AccountPage() {
         {error && <div className="auth-card__error" role="alert">{error}</div>}
         {message && <div className="account-page__success" role="status">{message}</div>}
 
+        <div className="account-page__billing-link"><div><strong>Subscription and usage</strong><p>View your plan, monthly render allowance and billing details.</p></div><Link className="btn btn-ghost" to="/billing">Manage plan →</Link></div>
+        <div className="account-page__billing-link"><div><strong>Subscription and usage</strong><p>View your plan, monthly render allowance and billing details.</p></div><Link className="btn btn-ghost" to="/billing">Manage plan →</Link></div>
         <div className="account-page__grid">
           <section className="auth-card account-card">
             <p className="eyebrow">Profile</p>
@@ -77,6 +101,8 @@ export default function AccountPage() {
               <label><span>Email</span><input type="email" value={user.email} readOnly /></label>
               <label><span>Display name</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={120} autoComplete="name" /></label>
               <div className="account-card__verification"><span className={`account-card__dot ${user.emailVerifiedAt ? "is-verified" : ""}`} />{user.emailVerifiedAt ? "Email verified" : "Email verification pending"}</div>
+              {!user.emailVerifiedAt && <button type="button" className="btn btn-ghost" onClick={resendVerification} disabled={resending}>{resending?"Sending…":"Resend verification email"}</button>}
+              {!user.emailVerifiedAt && <button type="button" className="btn btn-ghost" onClick={resendVerification} disabled={resending}>{resending?"Sending…":"Resend verification email"}</button>}
               <button className="btn btn-cream auth-card__submit" disabled={profileBusy}>{profileBusy ? "Saving…" : "Save profile →"}</button>
             </form>
           </section>

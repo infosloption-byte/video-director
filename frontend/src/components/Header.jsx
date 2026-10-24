@@ -84,6 +84,7 @@ export default function Header({ right }) {
                       {editorMediaLink && <Link role="menuitem" to={editorMediaLink} onClick={() => setMenuOpen(false)}><span aria-hidden="true">▤</span> Media Library</Link>}
                       <Link role="menuitem" to="/voice-profiles" onClick={() => setMenuOpen(false)}>Voice Profiles</Link>
                       <Link role="menuitem" to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
+                      <Link role="menuitem" to="/billing" onClick={() => setMenuOpen(false)}>Subscription & billing</Link>
                       <button role="menuitem" type="button" onClick={handleSignOut}>Sign out</button>
                     </div>
                   )}
@@ -116,6 +117,7 @@ export default function Header({ right }) {
               {showResearchLink && <Link to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>}
               <Link to="/voice-profiles" onClick={() => setMenuOpen(false)}>Voice Profiles</Link>
               <Link to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
+              <Link to="/billing" onClick={() => setMenuOpen(false)}>Subscription & billing</Link>
               <div className="hx-header__mobile-actions">{right}</div>
               <button type="button" onClick={handleSignOut}>Sign out</button>
             </>

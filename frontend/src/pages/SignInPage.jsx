@@ -15,7 +15,7 @@ export default function SignInPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (user) navigate(next, { replace: true });
+    if (user) navigate(user.emailVerifiedAt ? next : "/account", { replace: true });
   }, [user, next, navigate]);
 
   async function submit(event) {
@@ -24,7 +24,7 @@ export default function SignInPage() {
       const response = await fetch("/api/auth/signin", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Sign in failed.");
-      await refresh(); navigate(next, { replace: true });
+      await refresh(); navigate(data.user?.emailVerifiedAt ? next : "/account", { replace: true });
     } catch (err) { setError(err.message || "Sign in failed."); }
     finally { setBusy(false); }
   }

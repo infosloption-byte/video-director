@@ -382,6 +382,10 @@ model User {
   displayName     String?           @map("display_name")
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
+  subscription    BillingSubscription?
+  pendingCheckouts BillingCheckout[]
+  monthlyUsage    MonthlyRenderUsage[]
+  renderCredits   RenderCredit[]
   sessions        AuthSession[]
   tokens          AuthToken[]
   templates       ProjectTemplate[]
@@ -558,4 +562,61 @@ model ProjectActivity {
 
   @@index([projectId, createdAt])
   @@map("project_activities")
+}
+
+model BillingSubscription {
+  id                   String   @id @default(uuid())
+  userId               String   @unique @map("user_id")
+  paddleSubscriptionId String   @unique @map("paddle_subscription_id") @db.VarChar(100)
+  paddleCustomerId     String?  @map("paddle_customer_id") @db.VarChar(100)
+  plan                 String   @db.VarChar(30)
+  status               String   @db.VarChar(40)
+  periodEnd            DateTime? @map("period_end")
+  cancelAtPeriodEnd    Boolean  @default(false) @map("cancel_at_period_end")
+  lastEventAt          DateTime @map("last_event_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("billing_subscriptions")
+}
+
+model BillingCheckout {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  transactionId String  @unique @map("transaction_id") @db.VarChar(100)
+  plan        String    @db.VarChar(30)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@map("billing_checkouts")
+}
+
+model BillingWebhookEvent {
+  eventId     String   @id @map("event_id") @db.VarChar(100)
+  eventType   String   @map("event_type") @db.VarChar(80)
+  occurredAt  DateTime @map("occurred_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  @@map("billing_webhook_events")
+}
+
+model MonthlyRenderUsage {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  month     String   @db.Char(7)
+  used      Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, month])
+  @@map("monthly_render_usage")
+}
+
+model RenderCredit {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  renderKey  String   @map("render_key") @db.VarChar(255)
+  month      String   @db.Char(7)
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, renderKey, month])
+  @@index([userId, month])
+  @@map("render_credits")
 }

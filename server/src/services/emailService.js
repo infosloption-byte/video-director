@@ -1,0 +1,40 @@
+const BRAND = "Voxora";
+const FROM = () => String(process.env.EMAIL_FROM || "").trim();
+const BASE_URL = () => String(process.env.AUTH_PUBLIC_URL || "http://localhost:5173").replace(/\/$/, "");
+const escapeHtml = (text) => String(text || "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char]));
+export function emailReady() { return Boolean(process.env.RESEND_API_KEY && FROM()); }
+export function templateEmail({ title, lead, detail, link, action }) {
+  const detailHtml = escapeHtml(detail).replace(/\n/g, "<br/>");
+  const button = link ? `<p style="margin:30px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#f1efe9;color:#151519;text-decoration:none;padding:13px 24px;border-radius:9px;font-weight:700">${escapeHtml(action || "Open Voxora")}</a></p>` : "";
+  const html = `<!doctype html><html><body style="background:#0a0a0b;margin:0;padding:36px 16px;color:#f1efe9;font-family:Arial,sans-serif"><main style="max-width:560px;margin:auto;background:#161519;border:1px solid #303034;border-radius:18px;padding:34px"><p style="letter-spacing:4px;font-size:14px;font-weight:800">V / VOXORA</p><h1 style="font-size:30px;margin-top:32px">${escapeHtml(title)}</h1><p style="color:#d8d6d0;line-height:1.7">${escapeHtml(lead)}</p>${button}<p style="color:#a2a1a8;line-height:1.6;font-size:13px">${detailHtml}</p><hr style="border:0;border-top:1px solid #303034;margin:30px 0"/><p style="font-size:12px;color:#77767d">Voxora · Research, direct and create. If you did not request this message, you can ignore it.</p></main></body></html>`;
+  return { html, text: [title, lead, link || "", detail].filter(Boolean).join("\n\n") };
+}
+export async function sendEmail({ to, subject, title, lead, detail = "", link, action }) {
+  if (!emailReady()) {
+    if (process.env.NODE_ENV === "production") throw new Error("Transactional email is not configured.");
+    console.warn("[mail] Resend is not configured; email was not delivered.");
+    return false;
+  }
+  const body = templateEmail({ title, lead, detail, link, action });
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: FROM(), to: [to], subject: `${BRAND} · ${subject}`, html: body.html, text: body.text }),
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!response.ok) {
+    console.error(`[mail] Delivery failed: HTTP ${response.status}`);
+    throw new Error("Email delivery failed.");
+  }
+  return true;
+}
+export function publicUrl(path) { return `${BASE_URL()}${path}`; }
+export function sendVerificationEmail(user, token) {
+  return sendEmail({ to:user.email, subject:"Verify your email", title:"Verify your email address", lead:"Confirm your email to start creating with Voxora.", detail:"This verification link expires in 24 hours.", link:publicUrl(`/verify-email?token=${encodeURIComponent(token)}`), action:"Verify email" });
+}
+export function sendResetEmail(user, token) {
+  return sendEmail({ to:user.email, subject:"Reset your password", title:"Reset your password", lead:"We received a request to reset the password for your Voxora account.", detail:"This link expires in 2 hours. If you did not request this, your password has not been changed.", link:publicUrl(`/reset-password?token=${encodeURIComponent(token)}`), action:"Reset password" });
+}
+export function sendSecurityEmail(user, kind) {
+  return sendEmail({ to:user.email, subject:kind === "password" ? "Your password was updated" : "Your email is verified", title:kind === "password" ? "Password changed" : "Email verified", lead:kind === "password" ? "Your Voxora password was changed. If this was not you, request a reset immediately." : "Your Voxora email address has been verified successfully.", detail:"You can manage your account securely in your Voxora workspace." });
+}
