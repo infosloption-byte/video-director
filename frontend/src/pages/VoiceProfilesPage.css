@@ -149,3 +149,5 @@
   .voice-profiles-page__review-actions { grid-template-columns: 1fr; align-items: start; }
   .voice-profiles-page__grid { grid-template-columns: 1fr; }
 }
+
+.voice-profiles-page__consent a{color:var(--ink);font-weight:700;text-decoration:underline;text-underline-offset:3px}.voice-profiles-page__consent a:hover{opacity:.8}
