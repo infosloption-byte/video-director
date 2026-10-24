@@ -63,7 +63,19 @@ app.get("/api/health/integrations", (_req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/billing", billingRouter);
-app.use("/api/signals", expensiveOperationRateLimit, signalsRouter);
+
+app.use("/api", (req, res, next) => {
+  // Production write access to generation routes requires verified ownership
+  // of an email address; public marketing and account recovery remain usable.
+  if (String(process.env.AUTH_REQUIRED || "false").toLowerCase() !== "true") return next();
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const path = req.path;
+  if (!["/signals", "/research-conversations", "/projects", "/tts", "/voice-profiles", "/voice-presets"].some(prefix => path === prefix || path.startsWith(prefix + "/"))) return next();
+  if (!req.user?.emailVerifiedAt) return res.status(403).json({ code:"EMAIL_VERIFICATION_REQUIRED", error:"Verify your email before using Voxora generation tools." });
+  return next();
+});
+
+app.use("/api/signals", requireAuth, expensiveOperationRateLimit, signalsRouter);
 app.use("/api", reviewRouter);
 app.use("/api/research-conversations", requireAuth, expensiveOperationRateLimit, researchConversationsRouter);
 app.use("/api", (req, res, next) => {
