@@ -3,6 +3,7 @@ import { prisma } from "../db/client.js";
 import { enqueueRender, getRenderQueue } from "../jobs/renderQueue.js";
 import { narrationFileExists } from "../services/ttsService.js";
 import { requireProjectOwner } from "../middleware/ownership.js";
+import { reserveRender, releaseRender } from "../services/billingService.js";
 
 const router = Router();
 router.use("/projects/:id", requireProjectOwner);
@@ -40,6 +41,8 @@ function withTimingMessage(message, timing, state) {
 }
 
 router.post("/projects/:id/render", async (req, res) => {
+  let reservation = null;
+  const renderKey = `project:${req.params.id}`;
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { scenes: { select: { id: true, sceneOrder: true, audioUrl: true } } } });
     if (!project) return res.status(404).json({ error: "Project not found." });
@@ -63,13 +66,15 @@ router.post("/projects/:id/render", async (req, res) => {
       }
       await existing.remove().catch(() => {});
     }
+    reservation = await reserveRender(req.user, renderKey, Number(project.scriptLengthSeconds || project.durationSeconds || 0));
     await prisma.project.update({ where: { id: project.id }, data: { status: "rendering" } });
     const job = await enqueueRender(project.id);
     const timing = buildTiming(job, 0);
     res.status(202).json({ projectId: project.id, jobId: job.id, status: "queued", progress: 0, stage: "queued", stageProgress: 0, message: "Waiting for the render worker to start.", ...timing });
   } catch (error) {
+    if (reservation?.fresh) await releaseRender(req.user.id, renderKey, reservation.month).catch(() => {});
     console.error(`POST /api/projects/${req.params.id}/render failed:`, error);
-    res.status(503).json({ error: error.message || "Render queue is unavailable." });
+    res.status(error.status || 503).json({ error: error.message || "Render queue is unavailable.", code: error.code || undefined });
   }
 });
 
