@@ -17,7 +17,7 @@ function dedupeSources(items) { const seen = new Map(); for (const item of items
 function buildResearchPlan(topic) { return [ { id: "definition", question: `What exactly is ${topic}, and what is the most precise definition?` }, { id: "mechanism", question: `How does ${topic} work, and what mechanism explains the observed effect?` }, { id: "evidence", question: `What primary, academic, government, or institutional evidence supports the main claims about ${topic}?` }, { id: "numbers", question: `What important measurements, statistics, dates, sample sizes, percentages, or comparisons exist for ${topic}?` }, { id: "counterevidence", question: `What evidence challenges, qualifies, or contradicts common claims about ${topic}?` }, { id: "recent", question: `What important developments or changes about ${topic} are recent?` } ]; }
 function timeoutSignal(parentSignal, ms) { const timeout = AbortSignal.timeout(ms); if (!parentSignal) return timeout; return AbortSignal.any([parentSignal, timeout]); }
 
-async function readSource(source, onActivity, parentSignal) {
+export async function readSource(source, onActivity, parentSignal) {
   const url = source.sourceUrl; onActivity?.({ type: "source.read_started", title: source.title, url, source_class: sourceClass(source) });
   try {
     const parsed = new URL(url); if (!["http:", "https:"].includes(parsed.protocol)) return { ...source, readStatus: "unsupported", content: "" };
