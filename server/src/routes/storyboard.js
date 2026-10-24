@@ -289,9 +289,10 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
     if (!project) return res.status(404).json({ error: "Project not found." });
     if (!project.scenes.length) return res.status(409).json({ error: "Generate the storyboard before generating narration." });
 
-    const { engine, voiceId, voiceProfileId, voicePresetId, language, instruct, speed, allowFallback } = req.body || {};
-    let selectedEngine = engine;
-    let selectedVoiceId = voiceId;
+    const { voiceProfileId, voicePresetId, language, instruct, speed, allowFallback } = req.body || {};
+    // Never trust a raw voiceId from the browser: resolve a voice the user owns.
+    let selectedEngine = null;
+    let selectedVoiceId = null;
     let selectedVoice = null;
     let selectedVoiceProfileId = null;
     let selectedVoicePresetId = null;
@@ -312,7 +313,7 @@ router.post("/projects/:id/generate-voice", async (req, res) => {
       selectedVoiceId = null;
       selectedVoicePresetId = preset.id;
       selectedVoice = preset.voice;
-    } else if (!selectedEngine || !selectedVoiceId) {
+    } else {
       if (project.voiceProfileId) {
         const profile = await prisma.voiceProfile.findFirst({
           where: { id: project.voiceProfileId, userId: req.user.id, status: "ready" },
