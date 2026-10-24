@@ -134,7 +134,7 @@ router.post("/:id/samples", async (req, res) => {
       await prisma.voiceProfileSample.create({ data: { profileId: profile.id, sampleIndex, promptText, storageKey: saved.storageKey, filename: String(req.body?.filename || ("voice-sample-" + (sampleIndex + 1))), mimeType, sizeBytes: BigInt(audio.length), status: "ready" } });
     }
 
-    if (profile.ttsVoiceId) await deleteTtsVoice(profile.ttsVoiceId).catch((error) => console.warn("[voice-profile] failed to delete remote voice:", error.message));
+    if (profile.ttsVoiceId) await deleteTtsVoice(profile.ttsVoiceId);
 
     const updated = await prisma.voiceProfile.update({
       where: { id: profile.id },
@@ -220,9 +220,19 @@ router.delete("/:id", async (req, res) => {
   try {
     const profile = await ownedProfile(req.user.id, req.params.id);
     if (!profile) return res.status(404).json({ error: "Voice profile not found." });
-    if (profile.ttsVoiceId) await deleteTtsVoice(profile.ttsVoiceId).catch((error) => console.warn("[voice-profile] failed to delete remote voice:", error.message));
-    await prisma.voiceProfile.delete({ where: { id: profile.id } });
+    // Return success only when the known TTS copy and local files have been removed.
+    if (profile.ttsVoiceId) {
+      try { await deleteTtsVoice(profile.ttsVoiceId); }
+      catch (error) {
+        console.error("[voice-profile] Remote deletion failed", { profileId: profile.id, status: error.providerStatus || null });
+        return res.status(503).json({
+          code: "VOICE_REMOTE_DELETE_PENDING",
+          error: "Unable to delete the voice from the TTS service. Retry when the service is available or contact support."
+        });
+      }
+    }
     await deleteVoiceProfileFiles(profile.id);
+    await prisma.voiceProfile.delete({ where: { id: profile.id } });
     return res.status(204).end();
   } catch (error) {
     console.error("DELETE /api/voice-profiles/" + req.params.id + " failed:", error);
