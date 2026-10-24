@@ -3,7 +3,7 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { hashPassword, verifyPassword } from "../services/passwordService.js";
 import { authOptional, clearSessionCookie, setSessionCookie } from "../middleware/auth.js";
-import { sendVerificationEmail, sendResetEmail, sendSecurityEmail } from "../services/emailService.js";
+import { emailReady, sendVerificationEmail, sendResetEmail, sendSecurityEmail } from "../services/emailService.js";
 
 const router = Router();
 const SESSION_DAYS = 30;
@@ -80,6 +80,7 @@ router.get("/me", authOptional, async (req, res) => {
 
 router.post("/signup", async (req, res, next) => {
   try {
+    if (process.env.NODE_ENV === "production" && !emailReady()) return res.status(503).json({ error: "Signups are temporarily unavailable." });
     if (!rateLimitByIp(req, "signup", 8, 15 * 60 * 1000)) return res.status(429).json({ error: "Too many sign-up attempts. Please try again later." });
     const email = normalizeEmail(req.body?.email);
     const displayName = String(req.body?.displayName || "").trim().slice(0, 120);
