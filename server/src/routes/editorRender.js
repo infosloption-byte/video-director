@@ -3,6 +3,7 @@ import { getEditorRenderQueue, enqueueEditorRender } from "../jobs/editorRenderQ
 import { prisma } from "../db/client.js";
 import { getEditorTimelineHash } from "../services/editorRenderService.js";
 import { requireProjectOwner } from "../middleware/ownership.js";
+import { reserveRender, releaseRender } from "../services/billingService.js";
 
 const router = Router();
 router.use("/projects/:id", requireProjectOwner);
@@ -52,6 +53,8 @@ function withTiming(message, timing, status) {
 }
 
 router.post("/projects/:id/editor/render", async (req, res) => {
+  let reservation = null;
+  let renderKey = null;
   try {
     const editor = await prisma.projectEditor.findUnique({ where: { projectId: req.params.id } });
     if (!editor) return res.status(409).json({ error: "Open the Advanced Editor and save a timeline before rendering." });
@@ -75,13 +78,16 @@ router.post("/projects/:id/editor/render", async (req, res) => {
       if (state === "failed") await existing.remove().catch(() => {});
     }
 
+    renderKey = `editor:${req.params.id}:${editor.version}:${renderHash.slice(0, 40)}`;
+    reservation = await reserveRender(req.user, renderKey, Number(editor.timeline?.duration || 0));
     await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "queued", renderVersion: editor.version, renderHash, renderError: null } });
     const job = await enqueueEditorRender(req.params.id, editor.version, renderHash);
     const timing = buildTiming(job, 0);
     res.status(202).json({ projectId: req.params.id, jobId: job.id, status: "queued", version: editor.version, renderHash, progress: 0, stage: "queued", stageProgress: 0, message: "Waiting for the editor render worker to start.", ...timing });
   } catch (error) {
+    if (reservation?.fresh && renderKey) await releaseRender(req.user.id, renderKey, reservation.month).catch(() => {});
     console.error(`POST /api/projects/${req.params.id}/editor/render failed:`, error);
-    res.status(503).json({ error: error.message || "Editor render queue is unavailable." });
+    res.status(error.status || 503).json({ error: error.message || "Editor render queue is unavailable.", code: error.code || undefined });
   }
 });
 
