@@ -17,7 +17,7 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (user) navigate(next, { replace: true });
+    if (user) navigate(user.emailVerifiedAt ? next : "/account", { replace: true });
   }, [user, next, navigate]);
 
   async function submit(event) {
@@ -29,7 +29,7 @@ export default function SignUpPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Account creation failed.");
       await refresh();
-      navigate(next, { replace: true });
+      navigate("/account", { replace: true });
     } catch (err) { setError(err.message || "Account creation failed."); }
     finally { setBusy(false); }
   }
