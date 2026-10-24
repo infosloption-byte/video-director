@@ -39,7 +39,7 @@ export async function voiceSampleExists(storageKey) {
 }
 
 export async function deleteVoiceProfileFiles(profileId) {
-  await rm(path.join(ROOT, profileId), { recursive: true, force: true }).catch(() => {});
+  await rm(path.join(ROOT, profileId), { recursive: true, force: true });
 }
 
 async function normalizeSample(inputPath, outputPath) {

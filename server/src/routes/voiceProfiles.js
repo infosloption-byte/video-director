@@ -3,6 +3,7 @@ import { readFile, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/client.js";
 import { createTtsVoiceFromFile, deleteTtsVoice, synthesizeVoicePreview } from "../services/ttsService.js";
+import { CURRENT_LEGAL_VERSION } from "../services/legalConsent.js";
 import { buildCombinedReference, deleteVoiceProfileFiles, getVoiceProfileSamplePath, saveVoiceProfileSample, MAX_SAMPLES, MIN_SAMPLES, MAX_SAMPLE_BYTES } from "../services/voiceProfileService.js";
 
 const router = Router();
@@ -86,9 +87,9 @@ router.post("/", async (req, res) => {
     const preferredEngine = String(req.body?.preferredEngine || "qwen3-tts-0.6b").trim();
     if (!name) return res.status(400).json({ error: "Voice profile name is required." });
     if (!SUPPORTED_ENGINES.has(preferredEngine)) return res.status(400).json({ error: "Choose Qwen3-TTS 0.6B or Chatterbox-Nano." });
-    if (req.body?.consentAccepted !== true) return res.status(400).json({ error: "Confirm that you own or have permission to use these recordings." });
+    if (req.body?.consentAccepted !== true) return res.status(400).json({ error: "You must confirm these recordings are your own voice and consent to the stated processing purpose." });
     const profile = await prisma.voiceProfile.create({
-      data: { userId: req.user.id, name: name.slice(0, 120), language, preferredEngine, consentAcceptedAt: new Date() },
+      data: { userId: req.user.id, name: name.slice(0, 120), language, preferredEngine, consentAcceptedAt: new Date(), consentNoticeVersion: CURRENT_LEGAL_VERSION },
       include: { samples: true }
     });
     res.status(201).json(publicProfile(profile));
@@ -133,7 +134,7 @@ router.post("/:id/samples", async (req, res) => {
       await prisma.voiceProfileSample.create({ data: { profileId: profile.id, sampleIndex, promptText, storageKey: saved.storageKey, filename: String(req.body?.filename || ("voice-sample-" + (sampleIndex + 1))), mimeType, sizeBytes: BigInt(audio.length), status: "ready" } });
     }
 
-    if (profile.ttsVoiceId) await deleteTtsVoice(profile.ttsVoiceId).catch((error) => console.warn("[voice-profile] failed to delete remote voice:", error.message));
+    if (profile.ttsVoiceId) await deleteTtsVoice(profile.ttsVoiceId);
 
     const updated = await prisma.voiceProfile.update({
       where: { id: profile.id },
@@ -219,9 +220,19 @@ router.delete("/:id", async (req, res) => {
   try {
     const profile = await ownedProfile(req.user.id, req.params.id);
     if (!profile) return res.status(404).json({ error: "Voice profile not found." });
-    if (profile.ttsVoiceId) await deleteTtsVoice(profile.ttsVoiceId).catch((error) => console.warn("[voice-profile] failed to delete remote voice:", error.message));
-    await prisma.voiceProfile.delete({ where: { id: profile.id } });
+    // Return success only when the known TTS copy and local files have been removed.
+    if (profile.ttsVoiceId) {
+      try { await deleteTtsVoice(profile.ttsVoiceId); }
+      catch (error) {
+        console.error("[voice-profile] Remote deletion failed", { profileId: profile.id, status: error.providerStatus || null });
+        return res.status(503).json({
+          code: "VOICE_REMOTE_DELETE_PENDING",
+          error: "Unable to delete the voice from the TTS service. Retry when the service is available or contact support."
+        });
+      }
+    }
     await deleteVoiceProfileFiles(profile.id);
+    await prisma.voiceProfile.delete({ where: { id: profile.id } });
     return res.status(204).end();
   } catch (error) {
     console.error("DELETE /api/voice-profiles/" + req.params.id + " failed:", error);

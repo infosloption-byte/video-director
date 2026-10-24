@@ -4,6 +4,7 @@ import { prisma } from "../db/client.js";
 import { hashPassword, verifyPassword } from "../services/passwordService.js";
 import { authOptional, clearSessionCookie, setSessionCookie } from "../middleware/auth.js";
 import { emailReady, sendVerificationEmail, sendResetEmail, sendSecurityEmail } from "../services/emailService.js";
+import { CURRENT_LEGAL_VERSION } from "../services/legalConsent.js";
 
 const router = Router();
 const SESSION_DAYS = 30;
@@ -87,11 +88,13 @@ router.post("/signup", async (req, res, next) => {
     const password = req.body?.password;
     if (!validEmail(email)) return res.status(400).json({ error: "Enter a valid email address." });
     if (!validPassword(password)) return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` });
+    if (req.body?.adultConfirmed !== true) return res.status(400).json({ error: "You must be at least 18 to create a Voxora account." });
+    if (req.body?.termsAccepted !== true) return res.status(400).json({ error: "Read and accept the Terms & Conditions and Privacy Policy." });
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return res.status(409).json({ error: "An account with that email already exists." });
 
-    const user = await prisma.user.create({ data: { email, displayName: displayName || null, passwordHash: await hashPassword(password) } });
+    const user = await prisma.user.create({ data: { email, displayName: displayName || null, passwordHash: await hashPassword(password), termsAcceptedAt: new Date(), termsVersion: CURRENT_LEGAL_VERSION, adultConfirmedAt: new Date() } });
     const verifyToken = randomToken();
     await prisma.authToken.create({
       data: {

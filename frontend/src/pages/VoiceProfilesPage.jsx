@@ -167,7 +167,7 @@ export default function VoiceProfilesPage() {
       return;
     }
     if (!consent) {
-      setError("Confirm that these recordings are your voice or that you have permission to use them.");
+      setError("Confirm that you are an adult recording your own voice before continuing.");
       return;
     }
     setBusy(true);
@@ -623,7 +623,7 @@ export default function VoiceProfilesPage() {
 
             <label className={"voice-profiles-page__consent " + (consent ? "is-checked" : "")}>
               <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-              <span><strong>Voice ownership &amp; consent</strong>I confirm these recordings are my voice or I have permission to use them, and I want Voxora to store and use them to create narration.</span>
+              <span><strong>Your voice. Your explicit consent.</strong>I confirm I am at least 18, these recordings are of my own voice, and I consent to Voxora storing them and sending a prepared voice reference to its TTS service for synthetic narration. I can request deletion. Read our <Link to="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link> and <Link to="/terms" target="_blank" rel="noopener noreferrer">voice-cloning rules</Link>.</span>
             </label>
 
             <div className="voice-profiles-page__create-row">
