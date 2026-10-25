@@ -233,7 +233,7 @@ export default function LandingPage() {
                   <div className="lp-price">{plan.price}<span> / month</span></div>
                   <strong className="lp-quota">{plan.limit}</strong>
                   <ul>{plan.perks.map((perk) => <li key={perk}><Icon name="check" className="lp-icon lp-icon--check" />{perk}</li>)}</ul>
-                  <Link className={plan.featured ? "btn btn-cream" : "btn btn-ghost"} to={plan.id === "free" ? destination : `/billing?plan=${plan.id}`}>{plan.cta} <Icon name="arrow" className="lp-icon lp-icon--sm" /></Link>
+                  <Link className={plan.featured ? "btn btn-cream" : "btn btn-ghost"} to={plan.id === "free" ? destination : `/choose-plan?plan=${plan.id}`}>{plan.cta} <Icon name="arrow" className="lp-icon lp-icon--sm" /></Link>
                 </article>
               ))}
             </div>
