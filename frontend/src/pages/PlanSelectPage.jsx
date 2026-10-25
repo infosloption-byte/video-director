@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { openPaddleCheckout } from "../lib/paddle";
@@ -40,17 +40,8 @@ export default function PlanSelectPage() {
   const [retryCount, setRetryCount] = useState(0);
   const completedTransaction = useRef("");
   const selectedPlan = params.get("plan");
-  const isReturningCustomer = Boolean(user?.planSelectedAt) && params.get("onboarding") !== "1";
+  const isReturningCustomer = Boolean(user?.planSelectedAt || ["active", "trialing"].includes(billing?.subscription?.status)) && params.get("onboarding") !== "1";
 
-  const reloadBilling = useCallback(async () => {
-    const [plans, account] = await Promise.all([
-      api("/api/billing/plans"),
-      api("/api/billing/me"),
-    ]);
-    setCatalog(plans);
-    setBilling(account);
-    return account;
-  }, []);
 
   useEffect(() => {
     if (status !== "ready" || !user?.emailVerifiedAt) return undefined;
