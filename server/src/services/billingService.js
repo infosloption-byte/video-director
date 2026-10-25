@@ -68,9 +68,10 @@ export function verifyPaddleSignature(signature, rawBody, secret, now = Date.now
 }
 export async function paddleFetch(path, options={}) {
   const api=String(process.env.PADDLE_ENV||"sandbox").toLowerCase()==="live"?"https://api.paddle.com":"https://sandbox-api.paddle.com";
+  const { timeoutMs = 12000, ...requestOptions } = options;
   const response=await fetch(`${api}${path}`,{
-    ...options, headers:{Authorization:`Bearer ${process.env.PADDLE_API_KEY}`,"Content-Type":"application/json",...(options.headers||{})},
-    signal:AbortSignal.timeout(12000)
+    ...requestOptions, headers:{Authorization:`Bearer ${process.env.PADDLE_API_KEY}`,"Content-Type":"application/json",...(requestOptions.headers||{})},
+    signal:AbortSignal.timeout(timeoutMs)
   });
   const result=await response.json().catch(()=>({}));
   if(!response.ok) throw new Error(`Paddle request failed (HTTP ${response.status}).`);
