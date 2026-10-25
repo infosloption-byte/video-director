@@ -76,3 +76,12 @@
 .setup-voice-modal .setup-voice-search__field input:focus,
 .setup-voice-modal .setup-voice-search__field input:focus-visible { border: 0; outline: 0; box-shadow: none; background: transparent; padding-left: 0; min-height: 36px; }
 @media (max-width: 640px) { .setup-voice-modal .setup-voice-search__hint { display: none; } }
+
+/* Keep header, search and tabs at full height; only the voice list scrolls. */
+.setup-voice-modal .setup-voice-menu__head,
+.setup-voice-modal .setup-voice-search,
+.setup-voice-modal .setup-voice-tabs,
+.setup-voice-modal .setup-voice-menu__footer { flex: 0 0 auto; }
+.setup-voice-modal .setup-voice-tabs { padding: 2px 20px 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.setup-voice-modal .setup-voice-tabs::-webkit-scrollbar { display: none; }
+.setup-voice-modal .setup-voice-menu__body { padding-top: 12px; }
