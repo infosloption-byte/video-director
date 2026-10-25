@@ -21,7 +21,7 @@ export async function loadPaddle() {
 
 // Paddle.Checkout emits a client-side event, not server-side payment proof.
 // Always wait for the signed Paddle webhook before activating entitlements.
-export async function openPaddleCheckout({ transactionId, clientToken, environment, onCompleted, onClosed, onError, customerEmail }) {
+export async function openPaddleCheckout({ transactionId, clientToken, environment, onCompleted, onClosed, onError, customerEmail, successUrl }) {
   if (!/^txn_[a-z0-9]{20,100}$/.test(transactionId || "")) throw new Error("Invalid Paddle transaction.");
   const Paddle = await loadPaddle();
   if (!Paddle) throw new Error("Paddle checkout could not load.");
@@ -48,7 +48,7 @@ export async function openPaddleCheckout({ transactionId, clientToken, environme
   Paddle.Checkout.open({
     transactionId,
     ...(customerEmail ? { customer: { email: customerEmail } } : {}),
-    settings: { displayMode: "overlay" },
+    settings: { displayMode: "overlay", ...(successUrl ? { successUrl } : {}) },
   });
   return Paddle;
 }
