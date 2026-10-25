@@ -16,6 +16,7 @@ import SignUpPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import PlanSelectPage from "./pages/PlanSelectPage";
 import PlatformShell from "./components/PlatformShell";
 import EditorWorkspace from "./components/EditorWorkspace";
 import SessionGate from "./components/SessionGate";
@@ -29,6 +30,7 @@ function ProtectedRoute({ children }) {
   if (status === "loading") return <SessionGate />;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`} replace />;
   if (!user.emailVerifiedAt) return <Navigate to="/verify-email" replace />;
+  if (!user.planSelectedAt) return <Navigate to="/choose-plan" replace />;
   return <PlatformShell>{children}</PlatformShell>;
 }
 
@@ -47,6 +49,7 @@ export default function App() {
     <Route path="/refund-policy" element={<LegalPage type="refund" />} />
     <Route path="/signin" element={<SignInPage />} /><Route path="/signup" element={<SignUpPage />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
+    <Route path="/choose-plan" element={<PlanSelectPage />} />
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
     <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />

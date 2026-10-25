@@ -48,7 +48,7 @@ export default function Header({ right }) {
   return (
     <header className="hx-header">
       <div className="container hx-header__inner">
-        <Link to="/" className="hx-logo" onClick={() => setMenuOpen(false)}>
+        <Link to={status === "ready" && user ? "/signals" : "/"} className="hx-logo" onClick={() => setMenuOpen(false)}>
           <span className="hx-logo__mark">V</span>
           <span className="hx-logo__word">Voxora</span>
         </Link>

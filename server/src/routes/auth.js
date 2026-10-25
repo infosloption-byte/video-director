@@ -38,6 +38,7 @@ function publicUser(user) {
     email: user.email,
     displayName: user.displayName,
     emailVerifiedAt: user.emailVerifiedAt,
+    planSelectedAt: user.planSelectedAt || null,
     createdAt: user.createdAt,
   };
 }

@@ -38,7 +38,7 @@ function LinkVerification({ token }) {
         if (cancelled) return;
         setStatus("done");
         setMessage("Your email is verified. Redirecting to your workspace…");
-        window.setTimeout(() => navigate("/my-research", { replace: true }), 900);
+        window.setTimeout(() => navigate("/choose-plan", { replace: true }), 900);
       } catch (err) {
         if (!cancelled) { setStatus("error"); setMessage(err.message || "Verification failed."); }
       }
@@ -67,7 +67,7 @@ function CodeVerification() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, status, refresh, signOut } = useAuth();
-  const next = new URLSearchParams(location.search).get("next") || "/my-research";
+  const next = new URLSearchParams(location.search).get("next") || "/choose-plan";
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);

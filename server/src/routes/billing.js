@@ -8,6 +8,15 @@ billingRouter.get("/plans", (_req, res) => res.json({ plans: publicPlans(), bill
 billingRouter.get("/me", async (req, res, next) => {
   try { if (!req.user?.id) return res.status(401).json({ error:"Sign in first." }); res.json(await userBilling(req.user.id)); } catch (error) { next(error); }
 });
+// Records that the person has finished the post-sign-up plan step (free plan chosen, or paid checkout completed).
+billingRouter.post("/plan-selected", async (req, res, next) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
+    if (!req.user.emailVerifiedAt) return res.status(403).json({ error: "Verify your email first." });
+    const user = req.user.planSelectedAt ? req.user : await prisma.user.update({ where: { id: req.user.id }, data: { planSelectedAt: new Date() } });
+    res.json({ ok: true, planSelectedAt: user.planSelectedAt });
+  } catch (error) { next(error); }
+});
 billingRouter.post("/checkout", async (req, res, next) => {
   try {
     if (!req.user?.id) return res.status(401).json({error:"Sign in to continue."});
