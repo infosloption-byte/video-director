@@ -591,6 +591,7 @@ model BillingCheckout {
   id          String    @id @default(uuid())
   userId      String    @map("user_id")
   transactionId String  @unique @map("transaction_id") @db.VarChar(100)
+  paddleSubscriptionId String? @map("paddle_subscription_id") @db.VarChar(100)
   plan        String    @db.VarChar(30)
   createdAt   DateTime  @default(now()) @map("created_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
