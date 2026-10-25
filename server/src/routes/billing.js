@@ -76,6 +76,12 @@ async function validatedPlanChange(userId, nextPlan) {
     const error = new Error("Paddle subscription state has changed. Refresh Billing and try again.");
     error.status = 409; throw error;
   }
+  // Paddle replaces the entire item list on PATCH. Never silently remove
+  // unknown add-ons or extra subscription lines when changing the main plan.
+  if (!Array.isArray(paddle?.items) || paddle.items.length !== 1) {
+    const error = new Error("This subscription has additional items and must be updated through billing support.");
+    error.status = 409; throw error;
+  }
   const change = planChangeRequest(local.plan, nextPlan, priceId(nextPlan));
   if (!change) {
     const error = new Error("Select a different paid plan.");
