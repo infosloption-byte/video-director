@@ -54,7 +54,7 @@ export default function BillingPage() {
       window.location.assign(result.url);
     }catch(e){setError(e.message)}finally{setBusy("")}
   }
-  return <div className="hx-page billing-page"><Header right={<Link className="btn btn-ghost" to="/my-research">Workspace</Link>}/><main className="container billing-page__main">
+  return <div className="hx-page billing-page"><Header right={<Link className="btn btn-ghost" to="/my-research">Workspace</Link>}/><main className="billing-page__main platform-page-content">
     <p className="eyebrow">Subscription & usage</p><h1>Build at your pace.</h1><p>Manage your subscription and keep track of your monthly video render allowance. Quotas are enforced when you submit a render.</p>
     {error&&<div role="alert" className="billing-alert">{error}</div>}{message&&<div role="status" className="billing-message">{message}</div>}
     {!user?.emailVerifiedAt&&<div className="billing-alert">Verify your email before upgrading or generating videos. <Link to="/settings?tab=account">Settings →</Link></div>}
