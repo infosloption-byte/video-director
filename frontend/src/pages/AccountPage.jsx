@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
-import LegalFooter from "../components/LegalFooter";
 import { useAuth } from "../context/AuthContext";
 import "../components/ui.css";
 import "./AuthPage.css";
@@ -106,7 +105,6 @@ export default function AccountPage() {
           </section>
         </div>
       </main>
-    <LegalFooter />
     </div>
   );
 }

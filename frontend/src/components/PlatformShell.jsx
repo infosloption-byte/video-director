@@ -70,11 +70,10 @@ export default function PlatformShell({ children }) {
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
-    try { await signOut(); } finally {
-      setAccountMenuOpen(false);
-      navigate("/", { replace: true });
-      setSigningOut(false);
-    }
+    setAccountMenuOpen(false);
+    const pending = signOut();
+    navigate("/signin", { replace: true });
+    try { await pending; } finally { setSigningOut(false); }
   }
 
   const handleBrandClick = (event) => {
@@ -91,6 +90,9 @@ export default function PlatformShell({ children }) {
       "Advanced Editor": <><path d="m14.5 5.5 4 4L10 18H6v-4zM13 7l4 4" /></>,
       About: <><circle cx="12" cy="12" r="8" /><path d="M12 10v6M12 7.5h.01" /></>,
       Support: <><circle cx="12" cy="12" r="8" /><path d="M9.5 9.5a2.6 2.6 0 1 1 4.1 2.1c-1 .7-1.6 1.1-1.6 2.4M12 16.5h.01" /></>,
+      "Account settings": <><circle cx="12" cy="9" r="3.5" /><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" /></>,
+      "Subscription & billing": <><rect x="3.5" y="6" width="17" height="12" rx="2" /><path d="M3.5 10.5h17" /></>,
+      "Privacy & legal": <><path d="M12 4 5 7v5c0 4 2.8 6.6 7 8 4.2-1.4 7-4 7-8V7z" /></>,
       Settings: <><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19 13.2 1.1.8-1.5 2.6-1.3-.5a7 7 0 0 1-1.8 1.1l-.2 1.4h-3l-.2-1.4a7 7 0 0 1-1.8-1.1l-1.3.5-1.5-2.6 1.1-.8a7 7 0 0 1 0-2.4l-1.1-.8 1.5-2.6 1.3.5a7 7 0 0 1 1.8-1.1l.2-1.4h3l.2 1.4a7 7 0 0 1 1.8 1.1l1.3-.5 1.5 2.6-1.1.8a7 7 0 0 1 0 2.4Z" /></>,
     };
     return <svg className="platform-nav__icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[item.icon] || paths.Research}</svg>;
@@ -133,11 +135,13 @@ export default function PlatformShell({ children }) {
       <div className="platform-sidebar__footer">
         {user ? <div className="platform-account" ref={accountMenuRef}>
           {accountMenuOpen && <div className="platform-account-menu" role="menu" aria-label="Account menu">
-            <Link to="/about" className="platform-account-menu__item" role="menuitem" title="About" aria-label="About"><span className="platform-account-menu__icon">{renderNavIcon({ label: "About", icon: "About" })}</span><span>About</span></Link>
-            <Link to="/support" className="platform-account-menu__item" role="menuitem" title="Support" aria-label="Support"><span className="platform-account-menu__icon">{renderNavIcon({ label: "Support", icon: "Support" })}</span><span>Support</span></Link>
-            <Link to="/account" className="platform-account-menu__item" role="menuitem" title="Settings" aria-label="Settings"><span className="platform-account-menu__icon">{renderNavIcon({ label: "Settings", icon: "Settings" })}</span><span>Settings</span></Link>
+            <Link to="/my-research" className="platform-account-menu__item" role="menuitem" title="My Research" aria-label="My Research" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "My Research", icon: "My Research" })}</span><span>My Research</span></Link>
+            <Link to="/voice-profiles" className="platform-account-menu__item" role="menuitem" title="Voice Profiles" aria-label="Voice Profiles" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Voice Profiles", icon: "Voice Profiles" })}</span><span>Voice Profiles</span></Link>
+            <Link to="/account" className="platform-account-menu__item" role="menuitem" title="Account settings" aria-label="Account settings" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Account settings", icon: "Account settings" })}</span><span>Account settings</span></Link>
+            <Link to="/billing" className="platform-account-menu__item" role="menuitem" title="Subscription & billing" aria-label="Subscription & billing" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Subscription & billing", icon: "Subscription & billing" })}</span><span>Subscription &amp; billing</span></Link>
+            <Link to="/privacy" className="platform-account-menu__item" role="menuitem" title="Privacy & legal" aria-label="Privacy & legal" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Privacy & legal", icon: "Privacy & legal" })}</span><span>Privacy &amp; legal</span></Link>
             <div className="platform-account-menu__divider" />
-            <button type="button" className="platform-account-menu__item platform-account-menu__item--danger" onClick={handleSignOut} disabled={signingOut} role="menuitem" title="Sign Out" aria-label="Sign Out"><span className={signingOut ? "platform-signout__spinner" : "platform-account-menu__icon"} aria-hidden="true">{signingOut ? "" : "↪"}</span><span>{signingOut ? "Signing out…" : "Sign Out"}</span></button>
+            <button type="button" className="platform-account-menu__item platform-account-menu__item--danger" onClick={handleSignOut} disabled={signingOut} role="menuitem" title="Sign out" aria-label="Sign out"><span className={signingOut ? "platform-signout__spinner" : "platform-account-menu__icon"} aria-hidden="true">{signingOut ? "" : "↪"}</span><span>{signingOut ? "Signing out…" : "Sign out"}</span></button>
           </div>}
           <button type="button" className={`platform-user ${accountMenuOpen ? "is-open" : ""}`} onClick={() => setAccountMenuOpen((value) => !value)} title={collapsed ? userLabel : undefined} disabled={signingOut} aria-expanded={accountMenuOpen} aria-haspopup="menu"><span className="platform-user__avatar">{String(userLabel).charAt(0).toUpperCase()}</span><span className="platform-user__copy"><strong>{userLabel}</strong><small>Account</small></span><span className="platform-user__chevron" aria-hidden="true">⌃</span></button>
         </div> : <div className="platform-auth-actions"><Link to="/signin" className="platform-auth-action platform-auth-actions__primary"><span className="platform-auth-action__icon">→</span><span>Sign in</span></Link><Link to="/signup" className="platform-auth-action platform-auth-actions__secondary"><span className="platform-auth-action__icon">+</span><span>Sign up</span></Link></div>}

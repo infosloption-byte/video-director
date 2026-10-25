@@ -41,3 +41,6 @@ h1, h2, h3, p, li, td, th, label, .btn { overflow-wrap: anywhere; }
 html[data-theme="light"] .lv-claim .lv-pill { color: #7a5f12; }
 html[data-theme="light"] .lv-chips .ok { color: #1f6b3c; }
 html[data-theme="light"] .lv-chips .warn { color: #a73535; }
+
+/* Account + Billing live inside the platform shell: match other platform pages' bottom spacing. */
+.platform-content .account-page__main, .platform-content .billing-page__main { padding-bottom: 48px; }

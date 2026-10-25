@@ -37,8 +37,8 @@ export default function Header({ right }) {
     event?.preventDefault();
     event?.stopPropagation();
     setMenuOpen(false);
-    navigate("/", { replace: true });
     void signOut();
+    navigate("/signin", { replace: true });
   }
 
   const authenticated = status === "ready" && Boolean(user);

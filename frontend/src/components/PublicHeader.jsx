@@ -82,8 +82,9 @@ export default function PublicHeader() {
   async function handleSignOut() {
     setAccountKey(null);
     setMobileKey(null);
-    navigate("/", { replace: true });
-    await signOut();
+    const pending = signOut();
+    navigate("/signin", { replace: true });
+    await pending;
   }
 
   const isCurrent = (to) => {

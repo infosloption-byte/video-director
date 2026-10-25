@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import Header from "../components/Header";
+import PublicHeader from "../components/PublicHeader";
 import LegalFooter from "../components/LegalFooter";
 import SessionGate from "../components/SessionGate";
 import { useAuth } from "../context/AuthContext";
@@ -48,7 +48,7 @@ function LinkVerification({ token }) {
 
   return (
     <div className="hx-page auth-page">
-      <Header right={<Link to="/signin" className="btn btn-ghost">Sign in</Link>} />
+      <PublicHeader />
       <main className="container auth-page__main">
         <section className="auth-card">
           <p className="eyebrow">Email verification</p>
@@ -134,7 +134,7 @@ function CodeVerification() {
 
   return (
     <div className="hx-page auth-page">
-      <Header right={<button type="button" className="btn btn-ghost" onClick={useDifferentEmail}>Sign out</button>} />
+      <PublicHeader />
       <main className="auth-page__main">
         <section className="auth-card auth-card--verify" aria-labelledby="verify-title">
           <div className="auth-verify__icon" aria-hidden="true">✉</div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import Header from "../components/Header";
+import PublicHeader from "../components/PublicHeader";
 import LegalFooter from "../components/LegalFooter";
 import { useAuth } from "../context/AuthContext";
 import "./AuthPage.css";
@@ -32,7 +32,7 @@ export default function SignInPage() {
 
   return (
     <div className="hx-page auth-page">
-      <Header right={<Link to="/signals" className="btn btn-ghost">Signals</Link>} />
+      <PublicHeader />
       <main className="auth-page__main">
         <div className="auth-shell">
           <section className="auth-pitch">
