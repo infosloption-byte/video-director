@@ -2,7 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { checkoutEnabled, paddleFetch, PLANS, paidPlanIds, priceId, publicPlans, userBilling, verifyPaddleSignature } from "../services/billingService.js";
 import { sendEmail } from "../services/emailService.js";
-import { isPaidSubscriptionActive, planFromSubscriptionItems, planChangeRequest, successfulCheckout } from "../services/paddlePlanFlow.js";
+import { isPaidSubscriptionActive, planFromSubscriptionItems, planChangeRequest, successfulCheckout, voxoraCheckoutUrl } from "../services/paddlePlanFlow.js";
 
 export const billingRouter = Router();
 billingRouter.get("/plans", (_req, res) => res.json({ plans: publicPlans(), billingReady: checkoutEnabled(), currency: "USD", provisionalPricing: true }));
@@ -42,7 +42,7 @@ billingRouter.post("/checkout", async (req, res, next) => {
     if(current.subscription && !["canceled","paused"].includes(current.subscription.status)) return res.status(409).json({error:"Your existing Paddle subscription needs attention. Open Billing to resolve it before buying another plan."});
     const data=await paddleFetch("/transactions",{
       method:"POST",
-      body:JSON.stringify({ items:[{price_id:priceId(plan),quantity:1}],collection_mode:"automatic",custom_data:{voxora_user_id:req.user.id,voxora_plan:plan} }),
+      body:JSON.stringify({ items:[{price_id:priceId(plan),quantity:1}],collection_mode:"automatic",checkout:{url:voxoraCheckoutUrl(process.env.AUTH_PUBLIC_URL,process.env.PADDLE_CHECKOUT_URL,process.env.PADDLE_ENV||"sandbox")},custom_data:{voxora_user_id:req.user.id,voxora_plan:plan} }),
     });
     if(!data?.id || !String(data.id).startsWith("txn_")) throw new Error("Paddle did not return a transaction.");
     await prisma.billingCheckout.create({data:{userId:req.user.id,plan,transactionId:data.id}});
