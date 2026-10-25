@@ -21,7 +21,7 @@ Set in server/.env on Lightsail (not frontend):
     PADDLE_PRICE_CREATOR=pri_your_monthly_creator_price_id
     PADDLE_PRICE_STUDIO=pri_your_monthly_studio_price_id
 
-Configure an approved Paddle Checkout default payment link/domain and an active webhook destination at https://usevoxora.online/api/billing/webhook.
+Set Paddle > Checkout > Checkout configuration > Default payment link to https://usevoxora.online/checkout. The public /checkout page initializes Paddle.js and handles Paddle's _ptxn transaction query, including subscription payment-method updates. Sandbox domains do not require approval; live domains require website approval. Configure an active webhook destination at https://usevoxora.online/api/billing/webhook.
 Enable subscription.created, subscription.updated, subscription.activated, subscription.trialing, subscription.canceled, subscription.paused, subscription.resumed, subscription.past_due, transaction.completed, transaction.payment_failed.
 Ensure the Paddle API key has permissions for creating transactions, reading subscriptions, previewing changes, and writing subscriptions. Use sandbox-only test payment methods.
 Confirm product prices match the provisional $19 / $49 catalog before charging anyone.
@@ -31,6 +31,7 @@ Confirm product prices match the provisional $19 / $49 catalog before charging a
 - [ ] New user Free → signals, no payment.
 - [ ] New user Creator/Studio → sandbox checkout completes → wait for signed webhook → signals; confirmed plan and checkout-linked subscription exist.
 - [ ] Checkout canceled → no paid access; incomplete webhook activation → pending, no double charge.
+- [ ] Paddle default payment link /checkout?_ptxn=... automatically initializes Paddle checkout; emailed payment-method update URL works without a Voxora session.
 - [ ] Wrong transaction ID or another account's ID → server rejects; no access.
 - [ ] Existing Free → paid → billing shows correct quota after webhook.
 - [ ] Creator → Studio preview, accept prorated immediate payment, webhook changes quota.
