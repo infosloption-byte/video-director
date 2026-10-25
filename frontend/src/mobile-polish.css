@@ -1,0 +1,34 @@
+/* Final, app-wide mobile/touch polish. Loaded last from main.jsx. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+img, video, canvas, svg { max-width: 100%; }
+h1, h2, h3, p, li, td, th, label, .btn { overflow-wrap: anywhere; }
+
+/* Touch devices & small screens: comfortable targets, no iOS focus-zoom. */
+@media (max-width: 900px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select, textarea { font-size: 16px; }
+  .btn, .platform-mobile-menu, .platform-topbar button, .platform-collapse, .pill, .ph__icon-btn { min-height: 40px; }
+  .platform-mobile-menu, .platform-topbar button { min-width: 40px; }
+  .legal-footer__col a, .legal-footer__brand small a { display: inline-flex; align-items: center; min-height: 32px; }
+  .legal-footer__logo { min-height: 36px; }
+  .auth-card__forgot, .auth-card__foot a, .auth-card a { padding-block: 4px; }
+  .platform-content { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .setup-panel .setup-actions, .research-report .research-report__handoff { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 480px) {
+  .platform-content .container, .platform-content .hx-page { padding-left: 16px; padding-right: 16px; }
+  .platform-content h1 { font-size: clamp(28px, 9vw, 36px); line-height: 1.1; }
+}
+@media (hover: none) {
+  .pill, .btn { -webkit-tap-highlight-color: transparent; }
+}
+
+/* Decorative rotated rail pokes outside the content area next to the sidebar. */
+.platform-content .hx-hero__rail { display: none; }
+@media (max-width: 900px) {
+  button.pill, .pill { height: auto; min-height: 38px; }
+}
+
+/* One consistent page-title style across platform pages (serif, full-ink). */
+.platform-content h1 { font-family: var(--font-serif); font-weight: 500; color: var(--ink); letter-spacing: -0.02em; }
