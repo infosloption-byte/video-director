@@ -6,6 +6,15 @@ import { isPaidSubscriptionActive, planFromSubscriptionItems, planChangeRequest,
 
 export const billingRouter = Router();
 billingRouter.get("/plans", (_req, res) => res.json({ plans: publicPlans(), billingReady: checkoutEnabled(), currency: "USD", provisionalPricing: true }));
+ // Client-side tokens are publishable; API keys and notification secrets are not.
+billingRouter.get("/checkout-config", (_req, res) => {
+  if (!checkoutEnabled()) return res.status(503).json({ error: "Paddle checkout is not configured yet." });
+  res.set("Cache-Control", "no-store");
+  res.json({
+    clientToken: process.env.PADDLE_CLIENT_TOKEN,
+    environment: String(process.env.PADDLE_ENV || "sandbox").toLowerCase() === "live" ? "production" : "sandbox",
+  });
+});
 billingRouter.get("/me", async (req, res, next) => {
   try { if (!req.user?.id) return res.status(401).json({ error:"Sign in first." }); res.json(await userBilling(req.user.id)); } catch (error) { next(error); }
 });
