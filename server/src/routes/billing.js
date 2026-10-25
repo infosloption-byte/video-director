@@ -120,9 +120,24 @@ billingRouter.post("/change-plan", async (req, res, next) => {
     if (!req.user.emailVerifiedAt) return res.status(403).json({ error: "Verify your email first." });
     const plan = String(req.body?.plan || "");
     const { local, change } = await validatedPlanChange(req.user.id, plan);
-    const updated = await paddleFetch(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}`, {
-      method: "PATCH", body: JSON.stringify(change),
-    });
+    let updated;
+    try {
+      // Prorated immediate charges can take longer than ordinary Paddle reads.
+      updated = await paddleFetch(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}`, {
+        method: "PATCH", body: JSON.stringify(change), timeoutMs: 45000,
+      });
+    } catch (error) {
+      // Unknown network outcomes must not encourage a second charge. The
+      // client waits for Paddle's signed update, rather than trusting a retry.
+      if (error.name === "TimeoutError" || error.name === "AbortError" ||
+          error instanceof TypeError) {
+        return res.status(202).json({
+          pending: true, plan, confirmationDelayed: true,
+          message: "Paddle is still confirming this change. Please do not submit another request.",
+        });
+      }
+      throw error;
+    }
     if (updated?.id !== local.paddleSubscriptionId) throw new Error("Paddle did not confirm the requested subscription.");
     // Never grant increased quotas based on this response. The signed Paddle
     // subscription.updated webhook is the only source of local entitlements.
