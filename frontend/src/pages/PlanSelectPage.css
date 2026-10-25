@@ -1,5 +1,18 @@
 .plan-select { min-height: 100dvh; background: var(--bg); color: var(--body); display: flex; flex-direction: column; }
-.plan-select__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px clamp(16px, 4vw, 48px); border-bottom: 1px solid var(--border-soft); }
+.plan-select__bar { width: 100%; border-bottom: 1px solid var(--border-soft); }
+.plan-select__bar-inner { width: 100%; max-width: 1040px; margin: 0 auto; padding: 14px clamp(16px, 4vw, 32px); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.plan-select__back { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 42px; padding: 0 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--ink); font: 500 13px/1.25 var(--font-sans); white-space: nowrap; text-decoration: none; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.plan-select__back-arrow { font-size: 19px; line-height: 1; transition: transform .15s ease; }
+.plan-select__back:hover { background: var(--card-hover); border-color: var(--ink-dim); color: var(--ink); }
+.plan-select__back:hover .plan-select__back-arrow { transform: translateX(-3px); }
+.plan-select__back:focus-visible, .plan-select__signout:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+@media (max-width: 420px) {
+  .plan-select__bar-inner { gap: 10px; }
+  .plan-select__back { gap: 6px; min-height: 40px; padding: 0 11px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-select__back, .plan-select__back-arrow { transition: none; }
+}
 .plan-select__logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font: 500 20px var(--font-serif); }
 .plan-select__logo span { width: 30px; height: 30px; display: inline-grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; font: italic 500 17px var(--font-serif); color: var(--ink-dim); }
 .plan-select__signout { min-height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: var(--ink-dim); font: 500 14px var(--font-sans); cursor: pointer; }
