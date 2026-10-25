@@ -33,3 +33,18 @@ export function successfulCheckout(checkout, subscription) {
     && subscription?.plan === checkout.plan
     && isPaidSubscriptionActive(subscription));
 }
+
+export function voxoraCheckoutUrl(publicBaseUrl, checkoutOverride, environment = "sandbox") {
+  const base = new URL(publicBaseUrl || "https://usevoxora.online");
+  const link = new URL(checkoutOverride || "/checkout", base);
+  // URLs are chosen by the service operator, never from customer input.
+  // Do not permit a payment link redirect to an unrelated checkout domain.
+  const sandboxLocalhost = environment === "sandbox"
+    && ["localhost", "127.0.0.1"].includes(base.hostname);
+  if (link.origin !== base.origin || link.pathname !== "/checkout"
+      || link.search || link.hash || link.username || link.password
+      || (link.protocol !== "https:" && !(sandboxLocalhost && link.protocol === "http:"))) {
+    throw new Error("Paddle checkout URL must be the Voxora /checkout page on the configured public origin.");
+  }
+  return link.href;
+}
