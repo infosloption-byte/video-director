@@ -40,7 +40,7 @@ export default function PlanSelectPage() {
   const [retryCount, setRetryCount] = useState(0);
   const completedTransaction = useRef("");
   const selectedPlan = params.get("plan");
-  const isReturningCustomer = Boolean(user?.planSelectedAt);
+  const isReturningCustomer = Boolean(user?.planSelectedAt) && params.get("onboarding") !== "1";
 
   const reloadBilling = useCallback(async () => {
     const [plans, account] = await Promise.all([
@@ -133,10 +133,10 @@ export default function PlanSelectPage() {
         clientToken: data.clientToken,
         environment: data.environment,
         customerEmail: user.email,
-        successUrl: `${window.location.origin}/choose-plan?transactionId=${encodeURIComponent(data.transactionId)}`,
+        successUrl: `${window.location.origin}/choose-plan?transactionId=${encodeURIComponent(data.transactionId)}${isReturningCustomer ? "" : "&onboarding=1"}`,
         onCompleted: () => {
           completedTransaction.current = data.transactionId;
-          setParams({ transactionId: data.transactionId }, { replace: true });
+          setParams(isReturningCustomer ? { transactionId: data.transactionId } : { transactionId: data.transactionId, onboarding: "1" }, { replace: true });
           setPending({ type: "checkout", id: data.transactionId });
           setMessage("Paddle received the payment. Activating your plan securely…");
           window.Paddle?.Checkout?.close?.();
