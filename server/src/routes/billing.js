@@ -130,7 +130,7 @@ billingRouter.post("/change-plan", async (req, res, next) => {
       // Unknown network outcomes must not encourage a second charge. The
       // client waits for Paddle's signed update, rather than trusting a retry.
       if (error.name === "TimeoutError" || error.name === "AbortError" ||
-          error instanceof TypeError) {
+          error instanceof TypeError || /Paddle request failed \(HTTP 5\d\d\)/.test(error.message || "")) {
         return res.status(202).json({
           pending: true, plan, confirmationDelayed: true,
           message: "Paddle is still confirming this change. Please do not submit another request.",
