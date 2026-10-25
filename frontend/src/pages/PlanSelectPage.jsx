@@ -187,10 +187,15 @@ export default function PlanSelectPage() {
 
   return <div className="plan-select">
     <header className="plan-select__bar">
-      <Link to={isReturningCustomer ? WORKSPACE : "/"} className="plan-select__logo"><span>V</span>Voxora</Link>
-      {isReturningCustomer
-        ? <Link className="plan-select__signout" to="/billing">Back to Billing</Link>
-        : <button type="button" className="plan-select__signout" onClick={() => { navigate("/", { replace: true }); void signOut(); }}>Sign out</button>}
+      <nav className="plan-select__bar-inner" aria-label="Plan selection navigation">
+        <Link to={isReturningCustomer ? WORKSPACE : "/"} className="plan-select__logo"><span>V</span>Voxora</Link>
+        {isReturningCustomer
+          ? <Link className="plan-select__back" to="/billing" aria-label="Back to subscription and billing">
+              <span aria-hidden="true" className="plan-select__back-arrow">←</span>
+              <span>Back to Billing</span>
+            </Link>
+          : <button type="button" className="plan-select__signout" onClick={() => { navigate("/", { replace: true }); void signOut(); }}>Sign out</button>}
+      </nav>
     </header>
     <main className="plan-select__main">
       {!isReturningCustomer && <ol className="plan-select__steps" aria-label="Account setup progress">
