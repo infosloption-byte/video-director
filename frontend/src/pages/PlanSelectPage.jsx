@@ -35,7 +35,10 @@ export default function PlanSelectPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState(null);
-  const [pending, setPending] = useState(null);
+  const [pending, setPending] = useState(() => {
+    const id = params.get("transactionId");
+    return id && /^txn_[a-z0-9]{20,100}$/.test(id) ? { type: "checkout", id } : null;
+  });
   const [verificationDelayed, setVerificationDelayed] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const completedTransaction = useRef("");
@@ -52,21 +55,12 @@ export default function PlanSelectPage() {
     return () => { active = false; };
   }, [status, user?.id, user?.emailVerifiedAt]);
 
-  // The success URL allows return after a full-page payment-method redirect;
-  // the transaction ID is only a lookup hint, never proof of payment.
-  useEffect(() => {
-    const id = params.get("transactionId");
-    if (id && /^txn_[a-z0-9]{20,100}$/.test(id)) {
-      setPending((old) => old?.type === "checkout" && old.id === id ? old : { type: "checkout", id });
-    }
-  }, [params]);
 
   useEffect(() => {
     if (!pending || !user?.id) return undefined;
     let active = true;
     let inFlight = false;
     let checks = 0;
-    setVerificationDelayed(false);
     const verify = async () => {
       if (inFlight || !active) return;
       inFlight = true;
@@ -142,6 +136,7 @@ export default function PlanSelectPage() {
         onCompleted: () => {
           completedTransaction.current = data.transactionId;
           setParams(isReturningCustomer ? { transactionId: data.transactionId } : { transactionId: data.transactionId, onboarding: "1" }, { replace: true });
+          setVerificationDelayed(false);
           setPending({ type: "checkout", id: data.transactionId });
           setMessage("Paddle received the payment. Activating your plan securely…");
           window.Paddle?.Checkout?.close?.();
@@ -171,6 +166,7 @@ export default function PlanSelectPage() {
     try {
       await api("/api/billing/change-plan", { method: "POST", body: JSON.stringify({ plan }) });
       setPreview(null);
+      setVerificationDelayed(false);
       setPending({ type: "change", plan });
       setMessage("Paddle is applying your change. Your current plan stays active until we receive confirmation.");
     } catch (e) { setError(e.message); }
@@ -218,7 +214,7 @@ export default function PlanSelectPage() {
             ? "Don't pay a second time. Paddle may still be delivering the subscription event. You can check again or contact billing support."
             : "Paddle verifies the payment and Voxora waits for the signed subscription update. This page will advance automatically when confirmed."}</p>
         </div>
-        {verificationDelayed && <button type="button" className="btn btn-ghost" onClick={() => { setRetryCount((x) => x + 1); setMessage("Checking again…"); }}>Check again</button>}
+        {verificationDelayed && <button type="button" className="btn btn-ghost" onClick={() => { setVerificationDelayed(false); setRetryCount((x) => x + 1); setMessage("Checking again…"); }}>Check again</button>}
       </section>}
 
       <div className="plan-select__grid">
