@@ -174,7 +174,7 @@ function AccountTab({ user, refresh, notify }) {
       </Card>
       <Card title="Plan & usage" description="Your subscription and monthly render allowance.">
         <Row title={billing?.plan?.name ? `${billing.plan.name} plan` : "Current plan"} description={billing ? `${billing.used ?? 0} of ${billing.plan?.rendersPerMonth ?? "—"} renders used this month.` : "Loading your plan…"}>
-          <Link className="btn btn-ghost" to="/billing">Manage plan →</Link>
+          <Link className="btn btn-ghost" to="/choose-plan?mode=upgrade">Change plan →</Link>
         </Row>
         <Row title="Member since"><span className="settings-value">{dateFmt(user.createdAt)}</span></Row>
       </Card>
