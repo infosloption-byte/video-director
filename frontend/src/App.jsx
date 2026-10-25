@@ -18,6 +18,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlanSelectPage from "./pages/PlanSelectPage";
+import PaddlePaymentLinkPage from "./pages/PaddlePaymentLinkPage";
 import PlatformShell from "./components/PlatformShell";
 import EditorWorkspace from "./components/EditorWorkspace";
 import SessionGate from "./components/SessionGate";
@@ -51,6 +52,7 @@ export default function App() {
     <Route path="/signin" element={<SignInPage />} /><Route path="/signup" element={<SignUpPage />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/verify-email" element={<VerifyEmailPage />} />
     <Route path="/choose-plan" element={<PlanSelectPage />} />
+    <Route path="/checkout" element={<PaddlePaymentLinkPage />} />
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
