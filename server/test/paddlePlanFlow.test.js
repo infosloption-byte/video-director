@@ -6,6 +6,7 @@ import {
   planChangeMode,
   planChangeRequest,
   successfulCheckout,
+  voxoraCheckoutUrl,
 } from "../src/services/paddlePlanFlow.js";
 
 const prices = { creator: "pri_creator01", studio: "pri_studio01" };
@@ -47,4 +48,15 @@ test("checkout confirmation requires the checkout-linked subscription and its pa
   assert.equal(successfulCheckout(checkout, { ...live, plan: "studio" }), false);
   assert.equal(successfulCheckout(checkout, { ...live, status: "past_due" }), false);
   assert.equal(successfulCheckout(checkout, null), false);
+});
+
+test("Voxora transactions use their own checkout URL, without changing Paddle's account default", () => {
+  assert.equal(voxoraCheckoutUrl("https://usevoxora.online", undefined), "https://usevoxora.online/checkout");
+  assert.equal(voxoraCheckoutUrl("https://usevoxora.online/", "/checkout", "sandbox"), "https://usevoxora.online/checkout");
+  assert.equal(voxoraCheckoutUrl("https://usevoxora.online", "https://usevoxora.online/checkout"), "https://usevoxora.online/checkout");
+  assert.throws(() => voxoraCheckoutUrl("https://usevoxora.online", "https://buildhire.sloptions.xyz/checkout"), /configured public origin/);
+  assert.throws(() => voxoraCheckoutUrl("https://usevoxora.online", "https://attacker.example/checkout"), /configured public origin/);
+  assert.throws(() => voxoraCheckoutUrl("https://usevoxora.online", "https://usevoxora.online/checkout?redirect=evil"), /configured public origin/);
+  assert.equal(voxoraCheckoutUrl("http://localhost:5173", "/checkout", "sandbox"), "http://localhost:5173/checkout");
+  assert.throws(() => voxoraCheckoutUrl("http://localhost:5173", "/checkout", "live"), /configured public origin/);
 });
