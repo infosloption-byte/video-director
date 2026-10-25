@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./SetupPanelLayout.css";
 
 const LABELS = {
@@ -110,12 +111,10 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
   const [previewingVoice, setPreviewingVoice] = useState("");
   const [previewLoading, setPreviewLoading] = useState("");
   const [voicePickerOpen, setVoicePickerOpen] = useState(false);
-  const [voicePickerPlacement, setVoicePickerPlacement] = useState("down");
+  const [voiceFilter, setVoiceFilter] = useState("all");
   const [voiceSearch, setVoiceSearch] = useState("");
   const previewAudioRef = useRef(null);
   const previewRequestRef = useRef(null);
-  const voicePickerRef = useRef(null);
-  const voiceMenuRef = useRef(null);
   const voiceSearchRef = useRef(null);
 
   useEffect(() => {
@@ -181,16 +180,6 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
   }, [projectId]);
 
   useEffect(() => {
-    function handleOutside(event) {
-      if (!voicePickerRef.current?.contains(event.target)) {
-        setVoicePickerOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, []);
-
-  useEffect(() => {
     if (!voicePickerOpen) return;
     const timer = window.setTimeout(() => voiceSearchRef.current?.focus(), 0);
     return () => window.clearTimeout(timer);
@@ -198,36 +187,17 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
 
   useEffect(() => {
     if (!voicePickerOpen) return undefined;
-
-    let frame = 0;
-    const updatePlacement = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const picker = voicePickerRef.current;
-        const menu = voiceMenuRef.current;
-        if (!picker || !menu) return;
-
-        const triggerRect = picker.getBoundingClientRect();
-        const menuHeight = menu.getBoundingClientRect().height;
-        const gap = 8;
-        const spaceBelow = window.innerHeight - triggerRect.bottom - gap;
-        const spaceAbove = triggerRect.top - gap;
-        const shouldOpenUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
-
-        setVoicePickerPlacement(shouldOpenUp ? "up" : "down");
-      });
-    };
-
-    updatePlacement();
-    window.addEventListener("resize", updatePlacement);
-    window.addEventListener("scroll", updatePlacement, true);
-
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => { if (event.key === "Escape") closeVoicePicker(); };
+    document.addEventListener("keydown", onKeyDown);
     return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("resize", updatePlacement);
-      window.removeEventListener("scroll", updatePlacement, true);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
     };
-  }, [voicePickerOpen, voiceSearch, voiceProfiles.length, predefinedVoices.length]);
+    // closeVoicePicker only touches stable setters/refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voicePickerOpen]);
 
   useEffect(() => () => {
     previewRequestRef.current?.abort();
@@ -273,9 +243,11 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
 
   const filteredVoiceOptions = useMemo(() => {
     const query = voiceSearch.trim().toLowerCase();
-    if (!query) return allVoiceOptions;
-    return allVoiceOptions.filter((voice) => voiceSearchText(voice).includes(query));
-  }, [allVoiceOptions, voiceSearch]);
+    return allVoiceOptions.filter((voice) => (
+      (voiceFilter === "all" || (voiceFilter === "clone" ? voice.source === "clone" : voice.source === "preset")) &&
+      (!query || voiceSearchText(voice).includes(query))
+    ));
+  }, [allVoiceOptions, voiceSearch, voiceFilter]);
 
   const filteredClones = filteredVoiceOptions.filter((voice) => voice.source === "clone");
   const filteredPresets = filteredVoiceOptions.filter((voice) => voice.source === "preset");
@@ -387,6 +359,13 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
     }
   }
 
+  function closeVoicePicker() {
+    stopPreview();
+    setVoicePickerOpen(false);
+    setVoiceSearch("");
+    setVoiceFilter("all");
+  }
+
   function selectVoice(voice) {
     stopPreview();
     setChoices((current) => ({
@@ -396,6 +375,7 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
     }));
     setVoicePickerOpen(false);
     setVoiceSearch("");
+    setVoiceFilter("all");
   }
 
   async function save() {
@@ -558,13 +538,13 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
           <p>Choose your own cloned voice or a predefined narrator. Search and preview without leaving this stage.</p>
         </div>
 
-        <div className="setup-voice-picker" ref={voicePickerRef}>
+        <div className="setup-voice-picker">
           <button
             type="button"
             className={"setup-voice-trigger " + (voicePickerOpen ? "is-open" : "")}
-            aria-haspopup="listbox"
+            aria-haspopup="dialog"
             aria-expanded={voicePickerOpen}
-            onClick={() => setVoicePickerOpen((open) => !open)}
+            onClick={() => setVoicePickerOpen(true)}
           >
             {selectedVoice ? (
               <span className="setup-voice-trigger__selected">
@@ -578,16 +558,24 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
             ) : (
               <span className="setup-voice-trigger__placeholder">Select a narration voice…</span>
             )}
-            <span className="setup-voice-trigger__chevron" aria-hidden="true">⌄</span>
+            <span className="setup-voice-trigger__chevron" aria-hidden="true">Change</span>
           </button>
 
-          {voicePickerOpen && (
+          {voicePickerOpen && createPortal(
+            <div className="setup-voice-modal" onMouseDown={(event) => { if (event.target === event.currentTarget) closeVoicePicker(); }}>
             <div
-              ref={voiceMenuRef}
-              className={"setup-voice-menu " + (voicePickerPlacement === "up" ? "is-up" : "is-down")}
+              className="setup-voice-menu"
               role="dialog"
+              aria-modal="true"
               aria-label="Select narration voice"
             >
+              <div className="setup-voice-menu__head">
+                <div>
+                  <h4>Choose a narrator</h4>
+                  <p>Preview a voice, then tap it to select.</p>
+                </div>
+                <button type="button" className="setup-voice-menu__close" onClick={closeVoicePicker} aria-label="Close voice picker">×</button>
+              </div>
               <div className="setup-voice-search">
                 <div className="setup-voice-search__field">
                   <span className="setup-voice-search__icon" aria-hidden="true">⌕</span>
@@ -602,7 +590,12 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
                   {!voiceSearch && <span className="setup-voice-search__hint">name · accent · tone</span>}
                   {voiceSearch && <button type="button" onClick={() => setVoiceSearch("")} aria-label="Clear voice search">×</button>}
                 </div>
-                <span className="setup-voice-search__count">{filteredVoiceOptions.length}/{allVoiceOptions.length}</span>
+              </div>
+
+              <div className="setup-voice-tabs" role="tablist" aria-label="Voice type">
+                {[["all", "All", allVoiceOptions.length], ["clone", "Your voices", voiceProfiles.length], ["preset", "Predefined", predefinedVoices.length]].map(([key, label, count]) => (
+                  <button key={key} type="button" role="tab" aria-selected={voiceFilter === key} className={voiceFilter === key ? "is-active" : ""} onClick={() => setVoiceFilter(key)}>{label}<span>{count}</span></button>
+                ))}
               </div>
 
               <div className="setup-voice-menu__body">
@@ -678,9 +671,11 @@ export default function SetupPanel({ projectId, onComplete, onDirtyChange }) {
 
               <div className="setup-voice-menu__footer">
                 <span>{allVoiceOptions.length} narration voices available</span>
-                {!voiceProfiles.length && <a href="/voice-profiles">Create your own cloned voice</a>}
+                {!voiceProfiles.length ? <a href="/voice-profiles">Create your own cloned voice</a> : <button type="button" className="btn btn-ghost" onClick={closeVoicePicker}>Close</button>}
               </div>
             </div>
+            </div>,
+            document.body
           )}
         </div>
       </section>
