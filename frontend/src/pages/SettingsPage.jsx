@@ -78,7 +78,7 @@ export default function SettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="settings-page">
+    <div className="settings-page platform-page-content">
       <header className="settings-page__head">
         <p className="eyebrow">Settings</p>
         <h1>Settings</h1>

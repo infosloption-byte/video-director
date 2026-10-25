@@ -18,3 +18,30 @@
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
+
+
+/*
+ * Shared inset for account/settings and billing.
+ * Match the My Research workspace gutters so pages align beneath the
+ * platform top bar at every responsive breakpoint. Keep the video editor's
+ * custom workspace layout untouched.
+ */
+.platform-content .platform-page-content {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 34px 80px 64px;
+}
+
+@media (max-width: 820px) {
+  .platform-content .platform-page-content {
+    padding: 34px 40px 64px;
+  }
+}
+
+@media (max-width: 520px) {
+  .platform-content .platform-page-content {
+    padding: 34px 20px 64px;
+  }
+}
