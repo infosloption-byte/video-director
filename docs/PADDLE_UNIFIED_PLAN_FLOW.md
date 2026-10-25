@@ -20,8 +20,16 @@ Set in server/.env on Lightsail (not frontend):
     PADDLE_WEBHOOK_SECRET=your_notification_secret
     PADDLE_PRICE_CREATOR=pri_your_monthly_creator_price_id
     PADDLE_PRICE_STUDIO=pri_your_monthly_studio_price_id
+    # Optional: defaults to AUTH_PUBLIC_URL + /checkout
+    PADDLE_CHECKOUT_URL=https://usevoxora.online/checkout
 
-Set Paddle > Checkout > Checkout configuration > Default payment link to https://usevoxora.online/checkout. The public /checkout page initializes Paddle.js and handles Paddle's _ptxn transaction query, including subscription payment-method updates. Sandbox domains do not require approval; live domains require website approval. Configure an active webhook destination at https://usevoxora.online/api/billing/webhook.
+IMPORTANT — SL Options shares one Paddle sandbox account with BuildHire. Paddle supports only ONE account-level Default payment link. KEEP the existing BuildHire default checkout link unchanged. Do not replace it with Voxora.
+
+For each Voxora payment, the backend explicitly supplies checkout.url = https://usevoxora.online/checkout in POST /transactions. Paddle supports a per-transaction override of the default link, allowing the two products to share one merchant account without redirecting Voxora transactions to BuildHire. The URL is derived from AUTH_PUBLIC_URL by default; optional server-only PADDLE_CHECKOUT_URL can override the path on the same origin. The public /checkout page initializes Paddle.js and handles Paddle's _ptxn transaction query.
+
+In Paddle > My account > Settings > Website approval, register usevoxora.online (sandbox websites approve automatically; live requires approval). Keep separate Voxora product prices, server credentials and webhook destination. The Paddle-hosted customer portal is used for payment-method updates and cancellations through subscription management URLs. Configure an active Voxora webhook destination at https://usevoxora.online/api/billing/webhook.
+
+Note: events are account-wide; both BuildHire and Voxora webhook implementations must correlate only their own transactions/subscriptions rather than blindly using customer email or custom_data.
 Enable subscription.created, subscription.updated, subscription.activated, subscription.trialing, subscription.canceled, subscription.paused, subscription.resumed, subscription.past_due, transaction.completed, transaction.payment_failed.
 Ensure the Paddle API key has permissions for creating transactions, reading subscriptions, previewing changes, and writing subscriptions. Use sandbox-only test payment methods.
 Confirm product prices match the provisional $19 / $49 catalog before charging anyone.
@@ -53,3 +61,9 @@ Do not merge/deploy until sandbox payment tests, price IDs, production domain se
 
 Source code changes and logic tests can be reviewed in GitHub, but real Paddle sandbox transactions and refunds cannot be validated without runtime credentials.
 Prices remain provisional; Paddle remains merchant of record. Credit reconciliation after failed background rendering, refunds, and chargebacks are separate operational work.
+
+## Paddle dashboard default checkout link limitation
+
+The account default is already set to BuildHire (e.g. `https://buildhire.sloptions.xyz/check...`). Paddle allows only one default URL in Checkout configuration. **Leave it unchanged.** Voxora's transaction-specific `checkout.url` is the correct supported override; customers paying Voxora use its own domain. Confirm actual returned `checkout.url` in a sandbox transaction (without sharing secrets or customer data).
+
+Paddle docs: https://developer.paddle.com/build/transactions/default-payment-link/ and https://developer.paddle.com/api-reference/transactions/create-transaction/.
