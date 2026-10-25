@@ -96,6 +96,20 @@ export default function PlanSelectPage() {
     return () => { active = false; window.clearInterval(timer); };
   }, [pending, retryCount, user?.id, navigate, refresh, isReturningCustomer]);
 
+  useEffect(() => {
+    if (!preview) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !busy) setPreview(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [preview, busy]);
+
   if (status === "loading") return null;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent("/choose-plan" + window.location.search)}`} replace />;
   if (!user.emailVerifiedAt) return <Navigate to="/verify-email" replace />;
@@ -254,7 +268,7 @@ export default function PlanSelectPage() {
           </div>
           <p className="plan-select__preview-note">Final taxes, credits and payment amounts are calculated by Paddle. This is a recurring subscription change.</p>
           <div className="plan-select__dialog-actions">
-            <button type="button" className="btn btn-ghost" disabled={Boolean(busy)} onClick={() => setPreview(null)}>Keep current plan</button>
+            <button type="button" autoFocus className="btn btn-ghost" disabled={Boolean(busy)} onClick={() => setPreview(null)}>Keep current plan</button>
             <button type="button" className="btn btn-cream" disabled={Boolean(busy)} onClick={confirmChange}>{busy ? "Updating…" : "Confirm plan change"}</button>
           </div>
         </section>
