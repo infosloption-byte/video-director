@@ -383,6 +383,7 @@ model User {
   termsVersion    String?           @map("terms_version") @db.VarChar(30)
   adultConfirmedAt DateTime?        @map("adult_confirmed_at")
   planSelectedAt  DateTime?         @map("plan_selected_at")
+  preferences     Json?
   displayName     String?           @map("display_name")
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
@@ -458,6 +459,7 @@ model AuthSession {
   expiresAt  DateTime @map("expires_at")
   createdAt  DateTime @default(now()) @map("created_at")
   lastSeenAt DateTime? @map("last_seen_at")
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])

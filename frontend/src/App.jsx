@@ -6,7 +6,8 @@ import ResearchConversationPage from "./pages/ResearchConversationPage";
 import StoryboardPage from "./pages/StoryboardPage";
 import ReviewPage from "./pages/ReviewPage";
 import MyResearchPage from "./pages/MyResearchPage";
-import AccountPage from "./pages/AccountPage";
+import SettingsPage from "./pages/SettingsPage";
+import PreferenceSync from "./components/PreferenceSync";
 import VoiceProfilesPage from "./pages/VoiceProfilesPage";
 import SignInPage from "./pages/SignInPage";
 import LandingPage from "./pages/LandingPage";
@@ -40,7 +41,7 @@ function LegacyEditorToolRedirect({ tool }) {
 }
 
 export default function App() {
-  return <AuthProvider><ProjectProvider><Routes>
+  return <AuthProvider><PreferenceSync /><ProjectProvider><Routes>
     <Route path="/" element={<LandingPage />} />
     <Route path="/signals" element={<ProtectedRoute><SignalsPage /></ProtectedRoute>} />
     <Route path="/pricing" element={<LandingPage />} />
@@ -52,7 +53,8 @@ export default function App() {
     <Route path="/choose-plan" element={<PlanSelectPage />} />
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
-    <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+    <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/account" element={<Navigate to="/settings?tab=account" replace />} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/voice-profiles" element={<ProtectedRoute><VoiceProfilesPage /></ProtectedRoute>}/>
     <Route path="/research/new" element={<ProtectedRoute><ResearchConversationStartPage /></ProtectedRoute>} />

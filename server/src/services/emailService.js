@@ -56,5 +56,11 @@ export function sendResetEmail(user, token) {
   return sendEmail({ to:user.email, subject:"Reset your password", title:"Reset your password", lead:"We received a request to reset the password for your Voxora account.", detail:"This link expires in 2 hours. If you did not request this, your password has not been changed.", link:publicUrl(`/reset-password?token=${encodeURIComponent(token)}`), action:"Reset password" });
 }
 export function sendSecurityEmail(user, kind) {
-  return sendEmail({ to:user.email, subject:kind === "password" ? "Your password was updated" : "Your email is verified", title:kind === "password" ? "Password changed" : "Email verified", lead:kind === "password" ? "Your Voxora password was changed. If this was not you, request a reset immediately." : "Your Voxora email address has been verified successfully.", detail:"You can manage your account securely in your Voxora workspace." });
+  const copy = {
+    password: ["Your password was updated", "Password changed", "Your Voxora password was changed. If this was not you, request a reset immediately."],
+    verified: ["Your email is verified", "Email verified", "Your Voxora email address has been verified successfully."],
+    sessions: ["Signed out of other devices", "Other devices signed out", "All other devices were signed out of your Voxora account. If this was not you, change your password immediately."],
+    deleted: ["Your Voxora account was deleted", "Account deleted", "Your Voxora account and its projects were permanently deleted. If this was not you, contact support right away."],
+  }[kind] || ["Account update", "Account update", "Your Voxora account was updated."];
+  return sendEmail({ to:user.email, subject:copy[0], title:copy[1], lead:copy[2], detail:"You can manage your account securely in your Voxora workspace." });
 }

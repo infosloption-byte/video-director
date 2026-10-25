@@ -18,7 +18,11 @@ export default function PlatformShell({ children }) {
   const { theme, toggleTheme } = useTheme();
   const { projects } = useProjects();
   const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem("helix.platform.sidebar") === "collapsed"; } catch { return false; }
+    try {
+      const saved = localStorage.getItem("helix.platform.sidebar");
+      if (saved) return saved === "collapsed";
+    } catch { /* storage is optional */ }
+    return Boolean(user?.preferences?.sidebarCollapsed);
   });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -137,7 +141,7 @@ export default function PlatformShell({ children }) {
           {accountMenuOpen && <div className="platform-account-menu" role="menu" aria-label="Account menu">
             <Link to="/my-research" className="platform-account-menu__item" role="menuitem" title="My Research" aria-label="My Research" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "My Research", icon: "My Research" })}</span><span>My Research</span></Link>
             <Link to="/voice-profiles" className="platform-account-menu__item" role="menuitem" title="Voice Profiles" aria-label="Voice Profiles" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Voice Profiles", icon: "Voice Profiles" })}</span><span>Voice Profiles</span></Link>
-            <Link to="/account" className="platform-account-menu__item" role="menuitem" title="Account settings" aria-label="Account settings" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Account settings", icon: "Account settings" })}</span><span>Account settings</span></Link>
+            <Link to="/settings" className="platform-account-menu__item" role="menuitem" title="Settings" aria-label="Settings" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Settings", icon: "Settings" })}</span><span>Settings</span></Link>
             <Link to="/billing" className="platform-account-menu__item" role="menuitem" title="Subscription & billing" aria-label="Subscription & billing" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Subscription & billing", icon: "Subscription & billing" })}</span><span>Subscription &amp; billing</span></Link>
             <Link to="/privacy" className="platform-account-menu__item" role="menuitem" title="Privacy & legal" aria-label="Privacy & legal" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Privacy & legal", icon: "Privacy & legal" })}</span><span>Privacy &amp; legal</span></Link>
             <div className="platform-account-menu__divider" />

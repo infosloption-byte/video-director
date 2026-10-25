@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from "../services/passwordService.js";
 import { authOptional, clearSessionCookie, setSessionCookie } from "../middleware/auth.js";
 import { emailReady, sendVerificationEmail, sendResetEmail, sendSecurityEmail } from "../services/emailService.js";
 import { CURRENT_LEGAL_VERSION } from "../services/legalConsent.js";
+import { resolvePreferences, alertsEnabled } from "../services/preferences.js";
 
 const router = Router();
 const SESSION_DAYS = 30;
@@ -39,6 +40,10 @@ function publicUser(user) {
     displayName: user.displayName,
     emailVerifiedAt: user.emailVerifiedAt,
     planSelectedAt: user.planSelectedAt || null,
+    preferences: resolvePreferences(user.preferences),
+    termsAcceptedAt: user.termsAcceptedAt || null,
+    termsVersion: user.termsVersion || null,
+    adultConfirmedAt: user.adultConfirmedAt || null,
     createdAt: user.createdAt,
   };
 }
@@ -85,13 +90,14 @@ function rateLimitByIp(req, key, limit, windowMs) {
   return existing.count <= limit;
 }
 
-async function createSession(userId) {
+async function createSession(userId, req) {
   const raw = randomToken();
   await prisma.authSession.create({
     data: {
       userId,
       tokenHash: hashToken(raw),
       expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000),
+      userAgent: String(req?.headers?.["user-agent"] || "").slice(0, 255) || null,
     },
   });
   return raw;
@@ -123,7 +129,7 @@ router.post("/signup", async (req, res, next) => {
     if (existing) return res.status(409).json({ error: "An account with that email already exists." });
 
     const user = await prisma.user.create({ data: { email, displayName: displayName || null, passwordHash: await hashPassword(password), termsAcceptedAt: new Date(), termsVersion: CURRENT_LEGAL_VERSION, adultConfirmedAt: new Date() } });
-    const sessionToken = await createSession(user.id);
+    const sessionToken = await createSession(user.id, req);
     setSessionCookie(res, sessionToken);
     let emailSent = false;
     try { emailSent = await issueVerification(user); } catch (error) { console.error("[auth] Signup verification email failed:", error.message); }
@@ -142,7 +148,7 @@ router.post("/signin", async (req, res, next) => {
     const user = await prisma.user.findUnique({ where: { email } });
     const valid = user?.passwordHash ? await verifyPassword(password, user.passwordHash) : false;
     if (!valid) return res.status(401).json({ error: "Email or password is incorrect." });
-    const sessionToken = await createSession(user.id);
+    const sessionToken = await createSession(user.id, req);
     setSessionCookie(res, sessionToken);
     return res.json({ user: publicUser(user) });
   } catch (error) {
@@ -236,7 +242,7 @@ router.post("/reset-password", async (req, res) => {
   await prisma.user.update({ where: { id: authToken.userId }, data: { passwordHash: await hashPassword(password) } });
   await prisma.authToken.delete({ where: { id: authToken.id } });
   await prisma.authSession.deleteMany({ where: { userId: authToken.userId } });
-  const sessionToken = await createSession(authToken.userId);
+  const sessionToken = await createSession(authToken.userId, req);
   setSessionCookie(res, sessionToken);
   const user = await prisma.user.findUnique({ where: { id: authToken.userId } });
   void sendSecurityEmail(user, "password").catch((error) => console.error("[mail] Password confirmation failed:", error.message));
@@ -263,7 +269,7 @@ router.post("/change-password", authOptional, requireUser, async (req, res, next
     if (!user?.passwordHash || !(await verifyPassword(currentPassword, user.passwordHash))) return res.status(401).json({ error: "Current password is incorrect." });
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(newPassword) } });
     await prisma.authSession.deleteMany({ where: { userId: user.id, id: { not: req.authSession?.id || undefined } } });
-    void sendSecurityEmail(user, "password").catch((error) => console.error("[mail] Password confirmation failed:", error.message));
+    if (alertsEnabled(user)) void sendSecurityEmail(user, "password").catch((error) => console.error("[mail] Password confirmation failed:", error.message));
     return res.json({ ok: true });
   } catch (error) {
     return next(error);

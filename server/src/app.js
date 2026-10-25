@@ -19,6 +19,7 @@ import renderRouter from "./routes/render.js";
 import editorRenderRouter from "./routes/editorRender.js";
 import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
+import { accountRouter } from "./routes/account.js";
 import { billingRouter, paddleWebhook } from "./routes/billing.js";
 import ttsRouter from "./routes/tts.js";
 import voiceProfilesRouter from "./routes/voiceProfiles.js";
@@ -62,6 +63,7 @@ app.get("/api/health/integrations", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/account", accountRouter);
 app.use("/api/billing", billingRouter);
 
 app.use("/api", (req, res, next) => {

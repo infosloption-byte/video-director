@@ -83,7 +83,7 @@ export default function Header({ right }) {
                       <Link role="menuitem" to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>
                       {editorMediaLink && <Link role="menuitem" to={editorMediaLink} onClick={() => setMenuOpen(false)}><span aria-hidden="true">▤</span> Media Library</Link>}
                       <Link role="menuitem" to="/voice-profiles" onClick={() => setMenuOpen(false)}>Voice Profiles</Link>
-                      <Link role="menuitem" to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
+                      <Link role="menuitem" to="/settings" onClick={() => setMenuOpen(false)}>Settings</Link>
                       <Link role="menuitem" to="/billing" onClick={() => setMenuOpen(false)}>Subscription & billing</Link>
                       <Link role="menuitem" to="/privacy" onClick={() => setMenuOpen(false)}>Privacy & legal</Link>
                       <button role="menuitem" type="button" onClick={handleSignOut}>Sign out</button>
@@ -117,7 +117,7 @@ export default function Header({ right }) {
               {editorMediaLink && <Link to={editorMediaLink} onClick={() => setMenuOpen(false)}><span aria-hidden="true">▤</span> Media Library</Link>}
               {showResearchLink && <Link to="/my-research" onClick={() => setMenuOpen(false)}><span aria-hidden="true">▦</span> My Research</Link>}
               <Link to="/voice-profiles" onClick={() => setMenuOpen(false)}>Voice Profiles</Link>
-              <Link to="/account" onClick={() => setMenuOpen(false)}>Account settings</Link>
+              <Link to="/settings" onClick={() => setMenuOpen(false)}>Settings</Link>
               <Link to="/billing" onClick={() => setMenuOpen(false)}>Subscription & billing</Link>
               <Link to="/privacy" onClick={() => setMenuOpen(false)}>Privacy & legal</Link>
               <div className="hx-header__mobile-actions">{right}</div>

@@ -20,6 +20,7 @@ function NavIcon({ name }) {
     pricing: <><path d="M12 4v16M16 8.5c0-1.7-1.8-2.5-4-2.5s-4 .9-4 2.6 1.6 2.2 4 2.8 4 1.1 4 2.8-1.8 2.8-4 2.8-4-.9-4-2.6" /></>,
     research: <><rect x="5" y="4" width="14" height="16" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
     voice: <><rect x="9" y="4" width="6" height="10" rx="3" /><path d="M6 11.5a6 6 0 0 0 12 0M12 18v2.5" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6" /></>,
     account: <><circle cx="12" cy="9" r="3.5" /><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" /></>,
     billing: <><rect x="3.5" y="6" width="17" height="12" rx="2" /><path d="M3.5 10.5h17" /></>,
     legal: <><path d="M12 4 5 7v5c0 4 2.8 6.6 7 8 4.2-1.4 7-4 7-8V7z" /></>,
@@ -128,7 +129,7 @@ export default function PublicHeader() {
                     <div className="ph__dropdown-user"><strong>{userLabel}</strong>{user?.email && user.email !== userLabel && <span>{user.email}</span>}</div>
                     <Link role="menuitem" to="/my-research"><NavIcon name="research" /> My Research</Link>
                     <Link role="menuitem" to="/voice-profiles"><NavIcon name="voice" /> Voice Profiles</Link>
-                    <Link role="menuitem" to="/account"><NavIcon name="account" /> Account settings</Link>
+                    <Link role="menuitem" to="/settings"><NavIcon name="settings" /> Settings</Link>
                     <Link role="menuitem" to="/billing"><NavIcon name="billing" /> Subscription &amp; billing</Link>
                     <Link role="menuitem" to="/privacy"><NavIcon name="legal" /> Privacy &amp; legal</Link>
                     <button role="menuitem" type="button" onClick={handleSignOut}><NavIcon name="out" /> Sign out</button>
@@ -160,7 +161,7 @@ export default function PublicHeader() {
             {authenticated && <>
               <Link to="/my-research"><NavIcon name="research" /><span>My Research</span></Link>
               <Link to="/voice-profiles"><NavIcon name="voice" /><span>Voice Profiles</span></Link>
-              <Link to="/account"><NavIcon name="account" /><span>Account settings</span></Link>
+              <Link to="/settings"><NavIcon name="settings" /><span>Settings</span></Link>
               <Link to="/billing"><NavIcon name="billing" /><span>Subscription &amp; billing</span></Link>
             </>}
           </nav>
