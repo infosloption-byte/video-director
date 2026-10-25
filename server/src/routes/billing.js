@@ -2,17 +2,21 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { checkoutEnabled, paddleFetch, PLANS, paidPlanIds, priceId, publicPlans, userBilling, verifyPaddleSignature } from "../services/billingService.js";
 import { sendEmail } from "../services/emailService.js";
+import { isPaidSubscriptionActive, planFromSubscriptionItems, planChangeRequest, successfulCheckout } from "../services/paddlePlanFlow.js";
 
 export const billingRouter = Router();
 billingRouter.get("/plans", (_req, res) => res.json({ plans: publicPlans(), billingReady: checkoutEnabled(), currency: "USD", provisionalPricing: true }));
 billingRouter.get("/me", async (req, res, next) => {
   try { if (!req.user?.id) return res.status(401).json({ error:"Sign in first." }); res.json(await userBilling(req.user.id)); } catch (error) { next(error); }
 });
-// Records that the person has finished the post-sign-up plan step (free plan chosen, or paid checkout completed).
+// Free-plan onboarding is explicit. Paid onboarding completes only from a signed Paddle webhook.
 billingRouter.post("/plan-selected", async (req, res, next) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
     if (!req.user.emailVerifiedAt) return res.status(403).json({ error: "Verify your email first." });
+    if (req.body?.plan !== "free") return res.status(400).json({ error: "Paid plans must be confirmed through Paddle." });
+    const billing = await userBilling(req.user.id);
+    if (isPaidSubscriptionActive(billing.subscription)) return res.status(409).json({ error: "Your paid subscription is already active." });
     const user = req.user.planSelectedAt ? req.user : await prisma.user.update({ where: { id: req.user.id }, data: { planSelectedAt: new Date() } });
     res.json({ ok: true, planSelectedAt: user.planSelectedAt });
   } catch (error) { next(error); }
@@ -25,7 +29,8 @@ billingRouter.post("/checkout", async (req, res, next) => {
     if (!paidPlanIds.includes(plan)) return res.status(400).json({error:"Unknown paid plan."});
     if(!checkoutEnabled()) return res.status(503).json({error:"Paddle checkout is not configured yet."});
     const current=await userBilling(req.user.id);
-    if(current.subscription && ["active","trialing"].includes(current.subscription.status)) return res.status(409).json({error:"Manage or change your existing subscription in the billing portal."});
+    if(isPaidSubscriptionActive(current.subscription)) return res.status(409).json({error:"Choose a plan change to update your existing subscription."});
+    if(current.subscription && !["canceled","paused"].includes(current.subscription.status)) return res.status(409).json({error:"Your existing Paddle subscription needs attention. Open Billing to resolve it before buying another plan."});
     const data=await paddleFetch("/transactions",{
       method:"POST",
       body:JSON.stringify({ items:[{price_id:priceId(plan),quantity:1}],collection_mode:"automatic",custom_data:{voxora_user_id:req.user.id,voxora_plan:plan} }),
@@ -35,6 +40,93 @@ billingRouter.post("/checkout", async (req, res, next) => {
     res.status(201).json({transactionId:data.id,clientToken:process.env.PADDLE_CLIENT_TOKEN,environment:process.env.PADDLE_ENV==="live"?"production":"sandbox"});
   } catch(error) { next(error); }
 });
+// The browser may report checkout completion before Paddle has provisioned the
+// subscription. Always verify against server-owned checkout and signed events.
+billingRouter.get("/checkout-status", async (req, res, next) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
+    const transactionId = String(req.query.transactionId || "");
+    if (!/^txn_[a-z0-9]{20,100}$/.test(transactionId)) return res.status(400).json({ error: "Invalid checkout." });
+    const checkout = await prisma.billingCheckout.findUnique({ where: { transactionId } });
+    if (!checkout || checkout.userId !== req.user.id) return res.status(404).json({ error: "Checkout not found." });
+    const subscription = await prisma.billingSubscription.findUnique({ where: { userId: req.user.id } });
+    const active = successfulCheckout(checkout, subscription);
+    res.set("Cache-Control", "no-store");
+    res.json({
+      confirmed: active,
+      plan: active ? subscription.plan : null,
+      status: active ? "active" : "pending",
+    });
+  } catch (error) { next(error); }
+});
+
+async function validatedPlanChange(userId, nextPlan) {
+  if (!paidPlanIds.includes(nextPlan) || !checkoutEnabled()) {
+    const error = new Error("This paid plan is unavailable.");
+    error.status = 400; throw error;
+  }
+  const local = await prisma.billingSubscription.findUnique({ where: { userId } });
+  if (!local || local.status !== "active" || local.cancelAtPeriodEnd) {
+    const error = new Error("Only active, renewing subscriptions can change plans. Manage any scheduled cancellation or payment issue first.");
+    error.status = 409; throw error;
+  }
+  const paddle = await paddleFetch(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}`);
+  const livePlan = planFromSubscriptionItems(paddle?.items, Object.fromEntries(paidPlanIds.map(id => [id, priceId(id)])));
+  if (paddle?.id !== local.paddleSubscriptionId || paddle?.status !== "active" || paddle?.scheduled_change || livePlan !== local.plan) {
+    const error = new Error("Paddle subscription state has changed. Refresh Billing and try again.");
+    error.status = 409; throw error;
+  }
+  const change = planChangeRequest(local.plan, nextPlan, priceId(nextPlan));
+  if (!change) {
+    const error = new Error("Select a different paid plan.");
+    error.status = 400; throw error;
+  }
+  return { local, change };
+}
+
+billingRouter.post("/change-preview", async (req, res, next) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
+    if (!req.user.emailVerifiedAt) return res.status(403).json({ error: "Verify your email first." });
+    const plan = String(req.body?.plan || "");
+    const { local, change } = await validatedPlanChange(req.user.id, plan);
+    const preview = await paddleFetch(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}/preview`, {
+      method: "PATCH", body: JSON.stringify(change),
+    });
+    res.set("Cache-Control", "no-store");
+    res.json({
+      fromPlan: local.plan, toPlan: plan,
+      mode: change.proration_billing_mode,
+      immediate: preview?.immediate_transaction?.details?.totals || null,
+      next: preview?.next_transaction?.details?.totals || null,
+      recurring: preview?.recurring_transaction_details?.totals || null,
+      currency: preview?.currency_code || preview?.immediate_transaction?.currency_code || "USD",
+    });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    next(error);
+  }
+});
+
+billingRouter.post("/change-plan", async (req, res, next) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
+    if (!req.user.emailVerifiedAt) return res.status(403).json({ error: "Verify your email first." });
+    const plan = String(req.body?.plan || "");
+    const { local, change } = await validatedPlanChange(req.user.id, plan);
+    const updated = await paddleFetch(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}`, {
+      method: "PATCH", body: JSON.stringify(change),
+    });
+    if (updated?.id !== local.paddleSubscriptionId) throw new Error("Paddle did not confirm the requested subscription.");
+    // Never grant increased quotas based on this response. The signed Paddle
+    // subscription.updated webhook is the only source of local entitlements.
+    res.status(202).json({ pending: true, plan, mode: change.proration_billing_mode });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    next(error);
+  }
+});
+
 billingRouter.get("/portal", async (req, res, next) => {
   try {
     if(!req.user?.id) return res.status(401).json({error:"Sign in first."});
@@ -51,9 +143,7 @@ billingRouter.get("/portal", async (req, res, next) => {
 
 const SUBSCRIPTION_EVENTS=new Set(["subscription.created","subscription.updated","subscription.activated","subscription.trialing","subscription.canceled","subscription.paused","subscription.resumed","subscription.past_due"]);
 function subscriptionPlan(data) {
-  const values=(data.items||[]).map(item=>item.price?.id||item.price_id);
-  const found=paidPlanIds.find(p=>values.includes(priceId(p)));
-  return found||null;
+  return planFromSubscriptionItems(data.items, Object.fromEntries(paidPlanIds.map(id => [id, priceId(id)])));
 }
 function emailForEvent(eventType, user, plan, info = {}) {
   const messages={
@@ -107,10 +197,28 @@ async function processWebhook(req,res) {
             cancelAtPeriodEnd:Boolean(data.scheduled_change?.action==="cancel"),
             lastEventAt:date,
           };
-          if(linked) {
-            if(date>=linked.lastEventAt) await tx.billingSubscription.update({where:{id:linked.id},data:payload});
+          const previousForUser = linked ? null : await tx.billingSubscription.findUnique({ where: { userId } });
+          if (previousForUser && previousForUser.paddleSubscriptionId !== data.id
+              && isPaidSubscriptionActive(previousForUser)) {
+            console.warn("[billing] Refusing to overwrite a separate active subscription", { userId, subscriptionId: data.id });
           } else {
-            await tx.billingSubscription.upsert({where:{userId},create:{userId,...payload},update:payload});
+            if (linked) {
+              if (date >= linked.lastEventAt) await tx.billingSubscription.update({ where: { id: linked.id }, data: payload });
+            } else {
+              // A canceled old subscription may be replaced by a new, verified checkout.
+              await tx.billingSubscription.upsert({ where: { userId }, create: { userId, ...payload }, update: payload });
+            }
+            if (checkout && checkout.userId === userId) {
+              await tx.billingCheckout.update({
+                where: { id: checkout.id }, data: { paddleSubscriptionId: data.id },
+              });
+            }
+            if (["active", "trialing"].includes(payload.status)) {
+              await tx.user.updateMany({
+                where: { id: userId, planSelectedAt: null },
+                data: { planSelectedAt: new Date() },
+              });
+            }
           }
           if(["subscription.created","subscription.activated","subscription.canceled","subscription.past_due"].includes(event.event_type)) notification={type:event.event_type,userId,plan,info:{periodEnd:payload.periodEnd?.toISOString()}};
         }
