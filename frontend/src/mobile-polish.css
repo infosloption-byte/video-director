@@ -32,3 +32,12 @@ h1, h2, h3, p, li, td, th, label, .btn { overflow-wrap: anywhere; }
 
 /* One consistent page-title style across platform pages (serif, full-ink). */
 .platform-content h1 { font-family: var(--font-serif); font-weight: 500; color: var(--ink); letter-spacing: -0.02em; }
+
+/* Readability: keep secondary text clearly legible in both themes. */
+.hx-tab:not(.is-active) { color: var(--body); }
+.hx-tab:not(.is-active) .hx-tab__n { color: var(--muted); }
+.hx-tab:not(.is-active):hover { color: var(--ink); }
+.research-report__hero-meta { font-size: 11px; color: var(--body); }
+html[data-theme="light"] .lv-claim .lv-pill { color: #7a5f12; }
+html[data-theme="light"] .lv-chips .ok { color: #1f6b3c; }
+html[data-theme="light"] .lv-chips .warn { color: #a73535; }
