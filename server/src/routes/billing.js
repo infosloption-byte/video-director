@@ -45,7 +45,25 @@ billingRouter.post("/checkout", async (req, res, next) => {
     if (current.subscription && !["canceled", "paused"].includes(current.subscription.status))
       return res.status(409).json({ error: "Resolve the existing subscription in Billing before starting another payment." });
 
-    const lock = await prisma.billingCheckoutLock.findUnique({ where: { userId: req.user.id } });
+    let lock = await prisma.billingCheckoutLock.findUnique({ where: { userId: req.user.id } });
+    if (!lock) {
+      // Preserve resumability for checkout records created before this
+      // migration. Do not open another paid checkout on top of legacy data.
+      const previous = await prisma.billingCheckout.findFirst({
+        where: { userId: req.user.id, status: { in: ["awaiting_payment", "processing", "failed"] } },
+        orderBy: { createdAt: "desc" },
+      });
+      if (previous) {
+        try {
+          lock = await prisma.billingCheckoutLock.create({
+            data: { userId: req.user.id, plan: previous.plan, status: "ready", transactionId: previous.transactionId },
+          });
+        } catch (error) {
+          if (error.code === "P2002") return res.status(409).json({ error: "A checkout is already being recovered. Refresh this page." });
+          throw error;
+        }
+      }
+    }
     if (lock && lock.status !== "finished") {
       if (lock.status === "ready" && lock.transactionId) {
         const existing = await prisma.billingCheckout.findUnique({ where: { transactionId: lock.transactionId } });
@@ -103,14 +121,18 @@ billingRouter.post("/checkout", async (req, res, next) => {
     } catch (error) {
       // Even a timeout may have created a transaction at Paddle. Never
       // silently unlock the user and allow another potentially billable one.
+      const uncertain = Boolean(data?.id) || isUncertainPaddleError(error);
       await prisma.billingCheckoutLock.updateMany({
         where: { userId: req.user.id, status: "creating" },
-        data: { status: "uncertain" },
+        data: { status: uncertain ? "uncertain" : "finished" },
       }).catch(() => {});
-      console.error("[billing] Paddle transaction creation needs reconciliation:", error.message);
-      return res.status(503).json({
+      console.error("[billing] Paddle checkout creation failed:", error.message);
+      return res.status(503).json(uncertain ? {
         code: "CHECKOUT_REVIEW_REQUIRED",
         error: "We could not confirm checkout creation. Do not retry payment yet; contact billing support.",
+      } : {
+        code: "CHECKOUT_UNAVAILABLE",
+        error: "Paddle rejected the checkout request. Please try again later or contact billing support.",
       });
     }
     res.status(201).json({
