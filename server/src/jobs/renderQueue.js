@@ -1,6 +1,7 @@
 import IORedis from "ioredis";
 import { Queue, Worker } from "bullmq";
 import { prisma } from "../db/client.js";
+import { releaseRender } from "../services/billingService.js";
 import { renderProject } from "../services/renderService.js";
 
 const QUEUE_NAME = "helix-render";
@@ -40,9 +41,9 @@ export function getRenderQueue() {
   return queue;
 }
 
-export async function enqueueRender(projectId) {
+export async function enqueueRender(projectId, credit = null) {
   const renderQueue = getRenderQueue();
-  return renderQueue.add("render-project", { projectId }, {
+  return renderQueue.add("render-project", { projectId, credit }, {
     jobId: projectId,
     removeOnComplete: { count: 20 },
     removeOnFail: { count: 50 },
@@ -114,6 +115,8 @@ export async function startRenderWorker() {
       return;
     }
     await prisma.project.update({ where: { id: job.data.projectId }, data: { status: "finalize" } }).catch(() => {});
+    const credit = job.data.credit;
+    if (credit?.userId && credit?.renderKey && credit?.month) await releaseRender(credit.userId, credit.renderKey, credit.month).catch((err) => console.error("[render] Failed to reconcile terminal credit:", err));
   });
   worker.on("stalled", (jobId) => console.warn(`[render] Job ${jobId} stalled; worker will attempt recovery.`));
   worker.on("error", (error) => console.error("[render] Worker error:", error));
