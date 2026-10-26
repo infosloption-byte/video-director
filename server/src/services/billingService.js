@@ -19,7 +19,7 @@ export async function userBilling(userId) {
   const plan = effectivePlan(subscription);
   const month = currentMonth();
   const usage = await prisma.monthlyRenderUsage.findUnique({ where: { userId_month: { userId, month } } });
-  return { plan, month, used: usage?.used || 0, remaining: Math.max(0, plan.rendersPerMonth - (usage?.used || 0)),
+  return { plan, month, resetAt: new Date(Date.UTC(Number(month.slice(0,4)), Number(month.slice(5,7)), 1)).toISOString(), used: usage?.used || 0, remaining: Math.max(0, plan.rendersPerMonth - (usage?.used || 0)),
     subscription: subscription ? { status:subscription.status, paddleSubscriptionId:subscription.paddleSubscriptionId, cancelAtPeriodEnd:subscription.cancelAtPeriodEnd, periodEnd:subscription.periodEnd } : null };
 }
 export class PlanLimitError extends Error { constructor(message) { super(message); this.code = "PLAN_LIMIT_REACHED"; this.status=402; } }
