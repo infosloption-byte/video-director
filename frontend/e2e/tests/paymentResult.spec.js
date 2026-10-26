@@ -60,7 +60,6 @@ test("a client completion hint remains processing until verified, then shows rea
 });
 
 test("countdown automatically continues to the workspace after enough reading time", async ({ page }) => {
-  await page.clock.install();
   const state = {
     activePlan:"studio",change:null,
     checkout:{transactionId,plan:"studio",status:"activated"},
@@ -68,10 +67,9 @@ test("countdown automatically continues to the workspace after enough reading ti
   await mockResultApi(page,state);
   await page.goto(`/payment-result?type=checkout&transactionId=${transactionId}`);
   await expect(page.getByRole("heading",{name:"Payment successful!"})).toBeVisible();
-  await page.clock.runFor(5000);
-  await expect(page.getByText("Redirecting to your workspace in 10 seconds")).toBeVisible();
-  await page.clock.runFor(10000);
-  await expect(page).toHaveURL(/\/signals$/);
+  await expect(page.getByText("Redirecting to your workspace in 15 seconds")).toBeVisible();
+  await expect(page.getByText("Redirecting to your workspace in 14 seconds")).toBeVisible();
+  await expect(page).toHaveURL(/\/signals$/, { timeout: 21000 });
 });
 
 test("a signed payment failure shows a recoverable explanation and plan link", async ({ page }) => {
