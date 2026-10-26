@@ -383,6 +383,7 @@ model User {
   termsVersion    String?           @map("terms_version") @db.VarChar(30)
   adultConfirmedAt DateTime?        @map("adult_confirmed_at")
   planSelectedAt  DateTime?         @map("plan_selected_at")
+  intendedPlan    String?           @map("intended_plan") @db.VarChar(20)
   preferences     Json?
   displayName     String?           @map("display_name")
   createdAt       DateTime          @default(now()) @map("created_at")
