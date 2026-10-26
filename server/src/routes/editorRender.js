@@ -102,11 +102,11 @@ router.post("/projects/:id/editor/render/cancel", async (req, res) => {
     const state = await job.getState();
     if (["waiting", "delayed", "prioritized"].includes(state)) {
       await job.remove();
-      await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "idle", renderError: null } });
       if (job.data.credit?.userId === req.user.id) {
         const { userId, renderKey: creditKey, month } = job.data.credit;
         if (creditKey && month) await releaseRender(userId, creditKey, month);
       }
+      await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "idle", renderError: null } });
       return res.json({ projectId: req.params.id, status: "cancelled", message: "Queued editor render cancelled." });
     }
     if (state === "active") {
