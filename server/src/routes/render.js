@@ -89,11 +89,11 @@ router.post("/projects/:id/render/cancel", async (req, res) => {
     const state = await job.getState();
     if (["waiting", "delayed", "prioritized"].includes(state)) {
       await job.remove();
-      await prisma.project.update({ where: { id: project.id }, data: { status: "finalize" } });
       if (job.data.credit?.userId === req.user.id) {
         const { userId, renderKey: creditKey, month } = job.data.credit;
         if (creditKey && month) await releaseRender(userId, creditKey, month);
       }
+      await prisma.project.update({ where: { id: project.id }, data: { status: "finalize" } });
       return res.json({ projectId: project.id, status: "cancelled", message: "Queued render cancelled." });
     }
     if (state === "active") {
