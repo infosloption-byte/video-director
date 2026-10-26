@@ -47,20 +47,51 @@ billingRouter.post("/checkout", async (req, res, next) => {
 
     let lock = await prisma.billingCheckoutLock.findUnique({ where: { userId: req.user.id } });
     if (!lock) {
-      // Preserve resumability for checkout records created before this
-      // migration. Do not open another paid checkout on top of legacy data.
-      const previous = await prisma.billingCheckout.findFirst({
+      // Old checkouts predate transaction state tracking. Reconcile with
+      // Paddle first: a previously PAID checkout is not an unpaid session.
+      const legacy = await prisma.billingCheckout.findMany({
         where: { userId: req.user.id, status: { in: ["awaiting_payment", "processing", "failed"] } },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "desc" }, take: 2,
       });
+      if (legacy.length > 1) return res.status(409).json({
+        code: "CHECKOUT_REVIEW_REQUIRED",
+        error: "Several earlier payments need reconciliation. Please contact billing support before paying again.",
+      });
+      const previous = legacy[0];
       if (previous) {
-        try {
-          lock = await prisma.billingCheckoutLock.create({
-            data: { userId: req.user.id, plan: previous.plan, status: "ready", transactionId: previous.transactionId },
+        let remote;
+        try { remote = await paddleFetch(`/transactions/${encodeURIComponent(previous.transactionId)}`); }
+        catch { return res.status(503).json({
+          code: "CHECKOUT_REVIEW_REQUIRED",
+          error: "An earlier checkout cannot be verified with Paddle. Do not start another payment.",
+        }); }
+        if (remote?.id !== previous.transactionId) return res.status(409).json({ error: "Previous checkout cannot be verified." });
+        if (["completed", "paid"].includes(remote.status)) {
+          const knownOldSubscription = previous.paddleSubscriptionId
+            && previous.paddleSubscriptionId === current.subscription?.paddleSubscriptionId;
+          if (!knownOldSubscription || !["canceled","paused"].includes(current.subscription?.status))
+            return res.status(409).json({
+              code: "CHECKOUT_REVIEW_REQUIRED",
+              error: "A previous payment was collected but its subscription needs review. Do not submit another payment.",
+            });
+          await prisma.billingCheckout.update({
+            where: { transactionId: previous.transactionId }, data: { status: "activated" },
           });
-        } catch (error) {
-          if (error.code === "P2002") return res.status(409).json({ error: "A checkout is already being recovered. Refresh this page." });
-          throw error;
+        } else if (remote.status === "canceled") {
+          await prisma.billingCheckout.update({
+            where: { transactionId: previous.transactionId }, data: { status: "canceled" },
+          });
+        } else if (["draft","ready","past_due"].includes(remote.status)) {
+          try {
+            lock = await prisma.billingCheckoutLock.create({
+              data: { userId: req.user.id, plan: previous.plan, status: "ready", transactionId: previous.transactionId },
+            });
+          } catch (error) {
+            if (error.code === "P2002") return res.status(409).json({ error: "A checkout is already being recovered. Refresh this page." });
+            throw error;
+          }
+        } else {
+          return res.status(409).json({ error: "Earlier Paddle transaction outcome is unknown. Contact billing support." });
         }
       }
     }
