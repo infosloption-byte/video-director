@@ -26,7 +26,7 @@ billingRouter.post("/plan-selected", async (req, res, next) => {
     if (req.body?.plan !== "free") return res.status(400).json({ error: "Paid plans must be confirmed through Paddle." });
     const billing = await userBilling(req.user.id);
     if (isPaidSubscriptionActive(billing.subscription)) return res.status(409).json({ error: "Your paid subscription is already active." });
-    const user = req.user.planSelectedAt ? req.user : await prisma.user.update({ where: { id: req.user.id }, data: { planSelectedAt: new Date() } });
+    const user = await prisma.user.update({ where: { id: req.user.id }, data: { planSelectedAt: req.user.planSelectedAt || new Date(), intendedPlan: null } });
     res.json({ ok: true, planSelectedAt: user.planSelectedAt });
   } catch (error) { next(error); }
 });
@@ -246,7 +246,7 @@ async function processWebhook(req,res) {
             if (["active", "trialing"].includes(payload.status)) {
               await tx.user.updateMany({
                 where: { id: userId, planSelectedAt: null },
-                data: { planSelectedAt: new Date() },
+                data: { planSelectedAt: new Date(), intendedPlan: null },
               });
             }
           }
