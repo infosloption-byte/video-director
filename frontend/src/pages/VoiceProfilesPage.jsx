@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -109,7 +109,7 @@ export default function VoiceProfilesPage() {
   const previewUrlsRef = useRef(new Map());
   const studioRef = useRef(null);
 
-  async function loadProfiles() {
+  const loadProfiles = useCallback(async () => {
     try {
       const response = await fetch("/api/voice-profiles", { credentials: "include", cache: "no-store" });
       const data = await response.json().catch(() => ({}));
@@ -121,7 +121,7 @@ export default function VoiceProfilesPage() {
     } catch (err) {
       setError(err.message || "Failed to load voice profiles.");
     }
-  }
+  }, []);
 
   // Schedule the first async fetch after effect setup, instead of cascading
   // state updates during the effect's synchronous execution.
@@ -136,7 +136,7 @@ export default function VoiceProfilesPage() {
       previewUrls.forEach((url) => URL.revokeObjectURL(url));
       previewUrls.clear();
     };
-  }, []);
+  }, [loadProfiles]);
 
   // The current draft may be created long after mount; using an empty-deps
   // cleanup would capture an old value and leak its Blob URL on unmount.
