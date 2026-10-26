@@ -55,7 +55,7 @@ npm run test:e2e
 ```
 
 New tests:
-- `server/test/billingDashboard.test.js`: ten cases for renewal and cancellation dates, valid Paddle plan mapping, amounts/invoices, tenant-safe invoice access, portal URL allowlist, cursor, activity, and sandbox Paddle request filtering.
+- `server/test/billingDashboard.test.js`: eleven cases for renewal and cancellation dates, valid Paddle plan mapping, amounts/invoices, tenant-safe invoice access, portal URL allowlist, cursor, activity, and sandbox Paddle request filtering.
 - `frontend/e2e/tests/billing.spec.js`: seven scenarios for desktop and mobile (14 new browser cases) covering complete dashboard, pagination and invoice, overdue payment recovery, scheduled cancellation, confirmation dialog, partial outages, and Free plan.
 - Previously **42 frontend browser tests** passing; expected browser suite total **56** after adding Billing.
 
@@ -86,3 +86,11 @@ sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lights
 Run the existing Paddle sandbox acceptance again after release. Invoice PDF and portal-link generation are additionally rate-limited to 12 authenticated requests per minute, per user/IP key.
 
 The implementation is not considered approved for merging until the unit, lint, build, browser and real Paddle sandbox checks pass.
+
+## Final security-review additions
+
+- Invoice PDFs for prior renewal transactions remain accessible only when server-side signed checkout records prove the user owned the historical subscription; unknown and BuildHire subscription IDs return 404.
+- Payment history and payment activity remain available after cancellation for users who have historical Voxora checkout records.
+- Both portal-link creation and invoice-PDF link generation are rate-limited per signed-in account across transaction IDs and forwarded-IP changes.
+- The portal's Overview action always opens a link scoped to the user's Voxora subscription. It does **not** intentionally fall back to a customer-wide merchant overview on the shared Paddle account.
+- The frontend shows a USD symbol for the standard paid plan price. Actual taxes and prorations remain separately represented in Paddle transaction totals.
