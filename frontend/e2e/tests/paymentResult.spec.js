@@ -54,7 +54,7 @@ test("a client completion hint remains processing until verified, then shows rea
   await expect(page.locator(".payment-result__summary")).toContainText("$19.00 / month");
   await expect(page.locator(".payment-result__summary")).toContainText("30");
   await expect(page.locator(".payment-result__summary")).toContainText("November 26, 2026");
-  await expect(page.getByText(/Redirecting to your workspace in \\d+ seconds/)).toBeVisible();
+  await expect(page.getByText(/Redirecting to your workspace in \d+ seconds/)).toBeVisible();
   await page.getByRole("button", { name:"Pause countdown" }).click();
   await expect(page.getByText("Automatic redirect paused")).toBeVisible();
   await page.getByRole("button", { name:"Resume countdown" }).click();
