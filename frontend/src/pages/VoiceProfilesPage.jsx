@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -159,10 +159,9 @@ export default function VoiceProfilesPage() {
     } catch (err) {
       setError(err.message || "Failed to load voice profiles.");
     }
-  }, []);
+  }
 
-  // Schedule the first async fetch after effect setup, instead of cascading
-  // state updates during the effect's synchronous execution.
+  // Keep the active recording editor in view as users continue a profile.
   useEffect(() => {
     if (!active?.id) return undefined;
     const timer = window.setTimeout(() => {
