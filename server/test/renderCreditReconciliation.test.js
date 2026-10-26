@@ -13,9 +13,9 @@ test("both queues persist the reservation month and user, never derive refund mo
   assert.match(storyboard, /\{ projectId, credit \}/);
   assert.match(editor, /\{ projectId, version, renderHash, credit \}/);
   for (const route of [storyboardRoute, editorRoute]) {
-    assert.match(route, /reservation\.fresh \? \{ userId: req\.user\.id, renderKey, month: reservation\.month \} : null/);
+    assert.match(route, /reservation\.fresh \? \{ userId: req\.user\.id, renderKey, month: reservation\.month, creditId: reservation\.creditId \} : null/);
     assert.match(route, /renderKey/);
-    assert.match(route, /releaseRender\(userId, creditKey, month\)/);
+    assert.match(route, /releaseRender\(userId, creditKey, month, creditId\)/);
     assert.match(route, /state === "failed"/);
     assert.match(route, /job\.data\.credit\?\.userId === req\.user\.id/);
   }
@@ -25,7 +25,7 @@ test("failed attempts are retried without refund until final terminal failure", 
   for (const file of ["../src/jobs/renderQueue.js", "../src/jobs/editorRenderQueue.js"]) {
     const code = await source(file);
     const guard = code.indexOf("if (attemptsMade < attempts)");
-    const refund = code.indexOf("await releaseRender(credit.userId, credit.renderKey, credit.month)");
+    const refund = code.indexOf("await releaseRender(credit.userId, credit.renderKey, credit.month, credit.creditId)");
     assert.ok(guard >= 0 && refund > guard, "refund must be downstream of the final-attempt check");
     assert.match(code, /if \(credit\?\.userId && credit\?\.renderKey && credit\?\.month\)/);
   }
@@ -37,4 +37,6 @@ test("monthly UTC reset and idempotent release are unchanged by retry or duplica
   assert.match(billing, /const deleted=await tx\.renderCredit\.deleteMany/);
   assert.match(billing, /if\(deleted\.count\) await tx\.monthlyRenderUsage\.updateMany/);
   assert.match(billing, /used:\{gt:0\}/);
+  assert.match(billing, /id:expectedCreditId/);
+  assert.match(billing, /creditId=credit.id/);
 });
