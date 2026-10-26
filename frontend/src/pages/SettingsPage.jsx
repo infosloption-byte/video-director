@@ -239,15 +239,16 @@ function SecurityTab({ prefs, savePref, savingKey, notify }) {
   const [busy, setBusy] = useState(false);
   const [sessions, setSessions] = useState(null);
   const [sessionBusy, setSessionBusy] = useState("");
+  const [sessionError, setSessionError] = useState("");
   const mismatch = confirmPassword && newPassword !== confirmPassword;
 
   async function loadSessions() {
-    try { const data = await api("/api/account/sessions"); setSessions(data.sessions); }
-    catch (error) { notify("error", error.message); setSessions([]); }
+    try { const data = await api("/api/account/sessions"); setSessions(data.sessions); setSessionError(""); }
+    catch (error) { setSessionError(error.message); notify("error", error.message); }
   }
   useEffect(() => {
     let active = true;
-    api("/api/account/sessions").then((data) => { if (active) setSessions(data.sessions); }).catch(() => { if (active) setSessions([]); });
+    api("/api/account/sessions").then((data) => { if (active) { setSessions(data.sessions); setSessionError(""); } }).catch((error) => { if (active) setSessionError(error.message); });
     return () => { active = false; };
   }, []);
 
@@ -292,7 +293,8 @@ function SecurityTab({ prefs, savePref, savingKey, notify }) {
       </Card>
 
       <Card title="Signed-in devices" description="Devices that are currently signed in to your account.">
-        {sessions === null && <p className="settings-muted">Loading devices…</p>}
+        {sessionError && <p className="settings-field-error" role="alert">Could not load devices: {sessionError} <button type="button" className="settings-link" onClick={() => void loadSessions()}>Retry</button></p>}
+        {sessions === null && !sessionError && <p className="settings-muted">Loading devices…</p>}
         {sessions && sessions.length === 0 && <p className="settings-muted">No active devices found.</p>}
         {sessions && sessions.length > 0 && (
           <ul className="settings-sessions">
@@ -370,6 +372,7 @@ function PrivacyTab({ user, prefs, savePref, savingKey, notify, onDeleted }) {
 }
 
 function DeleteDialog({ onClose, onDeleted }) {
+  const dialogRef = useRef(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -377,10 +380,23 @@ function DeleteDialog({ onClose, onDeleted }) {
 
   useEffect(() => {
     const previous = document.body.style.overflow;
+    const restoreFocus = document.activeElement;
     document.body.style.overflow = "hidden";
-    const onKey = (event) => { if (event.key === "Escape" && !busy) onClose(); };
+    dialogRef.current?.querySelector("input")?.focus();
+    const onKey = (event) => {
+      if (event.key === "Escape" && !busy) { event.preventDefault(); onClose(); }
+      if (event.key !== "Tab") return;
+      const nodes = [...(dialogRef.current?.querySelectorAll("input:not(:disabled),button:not(:disabled)") || [])];
+      if (!nodes.length) return;
+      if (event.shiftKey && document.activeElement === nodes[0]) { event.preventDefault(); nodes.at(-1).focus(); }
+      else if (!event.shiftKey && document.activeElement === nodes.at(-1)) { event.preventDefault(); nodes[0].focus(); }
+    };
     document.addEventListener("keydown", onKey);
-    return () => { document.body.style.overflow = previous; document.removeEventListener("keydown", onKey); };
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", onKey);
+      restoreFocus?.focus?.();
+    };
   }, [busy, onClose]);
 
   async function submit(event) {
@@ -394,7 +410,7 @@ function DeleteDialog({ onClose, onDeleted }) {
 
   return createPortal(
     <div className="settings-modal" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <form className="settings-modal__card" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" onSubmit={submit}>
+      <form ref={dialogRef} className="settings-modal__card" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" onSubmit={submit}>
         <h2 id="delete-title">Delete your account?</h2>
         <p>This deletes your Voxora account and associated application records. Stored media and cloned voices are removed where supported. Backups or external providers may retain some information according to their retention policies. This action cannot be reversed through Voxora.</p>
         {error && <div className="settings-modal__error" role="alert">{error}</div>}
