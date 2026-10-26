@@ -46,6 +46,6 @@ With test accounts and a test Redis/MySQL/Paddle sandbox, verify:
 8. Open all render entry points on desktop/mobile, verify the Upgrade plan path when the API responds `PLAN_LIMIT_REACHED`.
 
 ## Deployment
-No Prisma migration. **Deploy the API and both render workers together** before deploying the frontend; the worker must understand the job's reservation metadata. Do not deploy only the frontend or only one queue worker. Preserve database and Redis volumes and backup the database first. Older queued jobs without metadata require assessment. Do not automatically merge before MySQL + Redis integration acceptance.
+No Prisma migration. On the current Lightsail Compose configuration, **both render workers run inside the API container** (`RENDER_WORKER_IN_API=true`, `EDITOR_RENDER_WORKER_IN_API=true`). Rebuild/recreate `api` and `frontend` together after validation. Do not deploy only the frontend; the API's embedded workers must understand the new reservation metadata. Preserve database and Redis volumes and backup the database first. Older queued jobs without metadata require assessment. Do not automatically merge before MySQL + Redis integration acceptance.
 
 This PR does not change TTS, Paddle webhook behavior, billing entitlements, or existing Settings implementation.
