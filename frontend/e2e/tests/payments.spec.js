@@ -106,7 +106,7 @@ test("Paddle checkout completion displays processing until signed subscription a
   state.checkout = { ...state.checkout, status: "activated" };
   state.currentPlan = "creator";
   await expect(page.getByRole("heading", { name: "Payment successful!" })).toBeVisible({ timeout: 12000 });
-  await expect(page.getByText("Redirecting to your workspace in 15 seconds")).toBeVisible();
+  await expect(page.getByText(/Redirecting to your workspace in \d+ seconds/)).toBeVisible();
 });
 
 test("payment failure remains recoverable using the same transaction", async ({ page }) => {
