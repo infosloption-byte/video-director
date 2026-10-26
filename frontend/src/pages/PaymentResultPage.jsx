@@ -47,6 +47,7 @@ export default function PaymentResultPage() {
   const [retry, setRetry] = useState(0);
   const [seconds, setSeconds] = useState(PAYMENT_REDIRECT_SECONDS);
   const redirecting = useRef(false);
+  const lastPhase = useRef("loading");
 
   useEffect(() => {
     if (status !== "ready" || !user?.emailVerifiedAt || !valid) return undefined;
@@ -66,9 +67,15 @@ export default function PaymentResultPage() {
         const outcome = resolvePaymentOutcome({
           type, transactionId, plan: requestedPlan, payment, billing, issue,
         });
+        if (lastPhase.current !== outcome.phase) {
+          lastPhase.current = outcome.phase;
+          setSeconds(PAYMENT_REDIRECT_SECONDS);
+        }
         setResult({ ...outcome, billing, catalog });
         setApiError("");
-        if (["success", "failed", "canceled", "issue"].includes(outcome.phase))
+        // SDK errors are not payment proof. Keep listening for a later signed
+        // activation even while offering an early return to the plan page.
+        if (["success", "failed", "canceled"].includes(outcome.phase))
           window.clearInterval(pollingTimer);
       } catch (error) {
         if (active) setApiError(error.message || "Unable to confirm payment status.");
@@ -118,12 +125,13 @@ export default function PaymentResultPage() {
     : phase === "failed" ? "Your payment wasn't successful."
     : phase === "canceled" ? "Payment canceled."
     : phase === "issue" ? "Checkout could not finish."
-    : "Checking your payment…";
+    : phase === "unknown" ? "Payment status needs verification." : "Checking your payment…";
   const resultText = isSuccess
     ? `Your ${planName} subscription is confirmed and active. You're ready to create with Voxora.`
     : phase === "failed" ? "Paddle could not complete this payment. No new plan has been activated. Review your payment details and resume checkout or review a fresh upgrade quote."
     : phase === "canceled" ? "Your checkout was canceled. You can return to the plan selection page to choose how to continue."
     : phase === "issue" ? "The checkout encountered an issue, and we haven't confirmed a successful payment. Return to your plan page to resume the saved transaction. Don't start another charge while a payment is processing."
+    : phase === "unknown" ? "We couldn't match this link to a saved Voxora transaction yet. Check again or return to your plan page. Never start another charge while a payment outcome is uncertain."
     : "Paddle may have received your payment. Voxora is checking the signed subscription confirmation before updating your plan. Please do not submit another payment.";
 
   return <div className="payment-result">
@@ -172,13 +180,14 @@ export default function PaymentResultPage() {
         </div>}
 
         <div className="payment-result__actions">
-          {isTerminal && valid
-            ? <button className="btn btn-cream" type="button" onClick={() => void continueNow()}>
-                {isSuccess ? "Go to workspace →" : "Back to plans and retry →"}
-              </button>
-            : <button type="button" className="btn btn-cream" onClick={() => setRetry(n => n + 1)}>
-                Check payment status
-              </button>}
+          {!valid ? <Link className="btn btn-cream" to="/choose-plan">Back to plans →</Link>
+            : isTerminal
+              ? <button className="btn btn-cream" type="button" onClick={() => void continueNow()}>
+                  {isSuccess ? "Go to workspace →" : "Back to plans and retry →"}
+                </button>
+              : <button type="button" className="btn btn-cream" onClick={() => setRetry(n => n + 1)}>
+                  Check payment status
+                </button>}
           <Link className="btn btn-ghost" to={isSuccess ? "/billing" : backPath}>
             {isSuccess ? "View subscription & billing" : "View plan options"}
           </Link>
