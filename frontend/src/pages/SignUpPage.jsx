@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import PublicHeader from "../components/PublicHeader";
 import LegalFooter from "../components/LegalFooter";
@@ -20,9 +20,10 @@ export default function SignUpPage() {
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState("");
+  const signupCompleted = useRef(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || signupCompleted.current) return;
     navigate(user.emailVerifiedAt
       ? unfinishedPlanDestination(user, next)
       : verificationPath(unfinishedPlanDestination(user, next)), { replace: true });
@@ -37,6 +38,7 @@ export default function SignUpPage() {
       const response = await fetch("/api/auth/signup", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, displayName, password, adultConfirmed, termsAccepted, intendedPlan }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Account creation failed.");
+      signupCompleted.current = true;
       await refresh();
       navigate(verificationPath(next) + (data.emailSent === false ? "&delivery=failed" : ""), { replace: true, state: { fresh: Boolean(data.emailSent), deliveryFailed: data.emailSent === false } });
     } catch (err) { setError(err.message || "Account creation failed."); }
