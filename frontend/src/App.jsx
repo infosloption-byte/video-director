@@ -1,5 +1,18 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import PreferenceSync from "./components/PreferenceSync";
+import SignInPage from "./pages/SignInPage";
+import SignUpPage from "./pages/SignUpPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import PlanSelectPage from "./pages/PlanSelectPage";
+import PlatformShell from "./components/PlatformShell";
+import SessionGate from "./components/SessionGate";
+import { onboardingDestination } from "./lib/onboarding";
+import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
+import { ProjectProvider } from "./context/ProjectProvider.jsx";
+
 const SignalsPage = lazy(() => import("./pages/SignalsPage"));
 const ResearchPage = lazy(() => import("./pages/ResearchPage"));
 const ResearchConversationStartPage = lazy(() => import("./pages/ResearchConversationStartPage"));
@@ -8,25 +21,13 @@ const StoryboardPage = lazy(() => import("./pages/StoryboardPage"));
 const ReviewPage = lazy(() => import("./pages/ReviewPage"));
 const MyResearchPage = lazy(() => import("./pages/MyResearchPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-import PreferenceSync from "./components/PreferenceSync";
 const VoiceProfilesPage = lazy(() => import("./pages/VoiceProfilesPage"));
-import SignInPage from "./pages/SignInPage";
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
-import SignUpPage from "./pages/SignUpPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import VerifyEmailPage from "./pages/VerifyEmailPage";
-import PlanSelectPage from "./pages/PlanSelectPage";
 const PaddlePaymentLinkPage = lazy(() => import("./pages/PaddlePaymentLinkPage"));
 const PaymentResultPage = lazy(() => import("./pages/PaymentResultPage"));
-import PlatformShell from "./components/PlatformShell";
 const EditorWorkspace = lazy(() => import("./components/EditorWorkspace"));
-import SessionGate from "./components/SessionGate";
-import { onboardingDestination } from "./lib/onboarding";
-import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
-import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
 function ProtectedRoute({ children }) {
   const location = useLocation();
