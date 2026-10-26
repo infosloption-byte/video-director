@@ -7,7 +7,7 @@ Free: 3 renders / UTC month, Creator: 30, Studio: 150. All plans currently permi
 The shared `RenderQuota` indicator reads `GET /api/billing/me` with `cache: no-store`, shows actual used / remaining / allowance, the next midnight UTC monthly reset, and warning states at >=80% and 100%. A `PLAN_LIMIT_REACHED` response offers an Upgrade plan action. It is integrated into storyboard Preview, advanced Editor render modal, and the legacy editor render page. Usage refreshes after render submission, terminal polling, and when users return focus to the app after a plan change, and every 30 seconds while the render screen is visible so signed webhook changes do not require navigation. Failures are visible rather than assumed to be zero credits.
 
 ## Failure and cancellation reconciliation
-- Each new BullMQ render job stores the original server-side `{userId, renderKey, month}` reservation metadata.
+- Each queued BullMQ job stores its original server-side `{userId, renderKey, month}` metadata **only if a fresh credit was reserved**. Renders reusing a prior reservation must never refund the original successful render's allowance if they subsequently fail.
 - A retried attempt **does not** refund credits. Only final exhausted worker failures call `releaseRender`, after the terminal state is recorded.
 - Safely removed *waiting, delayed or prioritized* jobs refund credits when the cancel API succeeds; active jobs remain non-cancellable and not refunded.
 - Status polling for a terminal failed job provides a second reconciliation path if the worker's async failure listener was interrupted.
