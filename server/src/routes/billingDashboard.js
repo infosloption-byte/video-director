@@ -191,7 +191,7 @@ billingDashboardRouter.get("/dashboard/manage", expensiveOperationRateLimit, asy
         const item = session?.urls?.subscriptions?.find(entry => entry.id === remote.id);
         url = action === "cancel" ? item?.cancel_subscription
           : action === "payment" || action === "retry" ? item?.update_subscription_payment_method
-          : item?.view_subscription || session?.urls?.general?.overview;
+          : item?.view_subscription;
       } catch {
         // Use Paddle-issued subscription management links below.
       }
