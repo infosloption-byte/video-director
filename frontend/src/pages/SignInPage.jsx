@@ -3,20 +3,21 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import PublicHeader from "../components/PublicHeader";
 import LegalFooter from "../components/LegalFooter";
 import { useAuth } from "../context/AuthContext";
+import { authPath, destinationFromSearch, unfinishedPlanDestination, verificationPath } from "../lib/onboarding";
 import "./AuthPage.css";
 
 export default function SignInPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, refresh } = useAuth();
-  const next = new URLSearchParams(location.search).get("next") || "/my-research";
+  const next = destinationFromSearch(location.search, "/my-research");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (user) navigate(user.emailVerifiedAt ? next : "/verify-email", { replace: true });
+    if (user) navigate(user.emailVerifiedAt ? unfinishedPlanDestination(user, next) : verificationPath(unfinishedPlanDestination(user, next)), { replace: true });
   }, [user, next, navigate]);
 
   async function submit(event) {
@@ -25,7 +26,9 @@ export default function SignInPage() {
       const response = await fetch("/api/auth/signin", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Sign in failed.");
-      await refresh(); navigate(data.user?.emailVerifiedAt ? next : "/verify-email", { replace: true });
+      await refresh();
+      const destination = unfinishedPlanDestination(data.user, next);
+      navigate(data.user?.emailVerifiedAt ? destination : verificationPath(destination), { replace: true });
     } catch (err) { setError(err.message || "Sign in failed."); }
     finally { setBusy(false); }
   }
@@ -46,10 +49,10 @@ export default function SignInPage() {
             {error && <div className="auth-card__error" role="alert">{error}</div>}
             <form className="auth-card__form" onSubmit={submit}>
               <label><span>Email address</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" required /></label>
-              <div className="auth-field-group"><label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="Your password" required /></label><Link className="auth-card__forgot" to={`/forgot-password${next !== "/my-research" ? `?next=${encodeURIComponent(next)}` : ""}`}>Forgot password?</Link></div>
+              <div className="auth-field-group"><label><span>Password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="Your password" required /></label><Link className="auth-card__forgot" to={authPath("/forgot-password", next)}>Forgot password?</Link></div>
               <button className="btn btn-cream auth-card__submit" disabled={busy}>{busy ? "Signing in…" : "Sign in →"}</button>
             </form>
-            <div className="auth-card__switch"><span>New to Voxora?</span><Link to={`/signup${next !== "/my-research" ? `?next=${encodeURIComponent(next)}` : ""}`}>Create a free account</Link></div>
+            <div className="auth-card__switch"><span>New to Voxora?</span><Link to={authPath("/signup", next)}>Create account</Link></div>
           </section>
         </div>
       </main>
