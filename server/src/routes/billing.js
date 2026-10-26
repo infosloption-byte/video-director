@@ -201,9 +201,13 @@ billingRouter.get("/payment-state", async (req, res, next) => {
       prisma.billingPlanChange.findUnique({ where: { userId: req.user.id } }),
       prisma.billingSubscription.findUnique({ where: { userId: req.user.id } }),
     ]);
-    const checkout = lock?.transactionId
+    const previousCheckout = lock?.transactionId
       ? await prisma.billingCheckout.findUnique({ where: { transactionId: lock.transactionId } })
       : null;
+    // An old paid transaction is not a new unpaid checkout merely because
+    // its associated subscription has since been canceled or become past due.
+    const checkout = previousCheckout?.status === "activated" && !isPaidSubscriptionActive(subscription)
+      ? null : previousCheckout;
     res.set("Cache-Control", "no-store");
     res.json({
       checkout: publicCheckoutStatus(checkout, subscription),
