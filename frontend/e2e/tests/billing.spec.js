@@ -133,7 +133,7 @@ test("overdue subscription offers safe payment recovery without a second checkou
   };
   const actions = await mockBilling(page, state);
   await page.goto("/billing");
-  await expect(page.getByRole("alert", { name: "" })).toContainText("Payment needs attention");
+  await expect(page.locator(".billing-past-due")).toContainText("Payment needs attention");
   await expect(page.getByRole("button", { name: "Resolve payment in Paddle" })).toBeVisible();
   await page.getByRole("button", { name: "Resolve payment in Paddle" }).click();
   await expect(page).toHaveURL(/buyer-portal.paddle.com.*retry/);
@@ -161,6 +161,9 @@ test("cancellation confirmation keeps subscription unless customer explicitly co
   await page.getByRole("button", { name: "Cancel subscription" }).click();
   await expect(page.getByRole("dialog", { name: "Cancel your Studio plan?" })).toBeVisible();
   await expect(page.getByRole("dialog")).toContainText("Nov 26, 2026");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel subscription" }).click();
   await page.getByRole("button", { name: "Keep subscription" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(actions).not.toContain("cancel");
