@@ -115,6 +115,7 @@ export default function VoiceProfilesPage() {
   useEffect(() => {
     const controller = new AbortController();
     const previewUrls = previewUrlsRef.current;
+    const currentDraft = draftUrlResource.current;
     async function loadInitialProfiles() {
       try {
         const response = await fetch("/api/voice-profiles", {
@@ -136,7 +137,7 @@ export default function VoiceProfilesPage() {
       controller.abort();
       streamRef.current?.getTracks().forEach(track => track.stop());
       window.clearInterval(recordingTimerRef.current);
-      if (draftUrlResource.current.url) URL.revokeObjectURL(draftUrlResource.current.url);
+      if (currentDraft.url) URL.revokeObjectURL(currentDraft.url);
       playbackRef.current?.pause();
       previewUrls.forEach(url => URL.revokeObjectURL(url));
       previewUrls.clear();
