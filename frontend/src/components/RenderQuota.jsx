@@ -43,7 +43,7 @@ export default function RenderQuota({ quota, quotaError, loading, refresh, compa
       <p><strong>{remaining}</strong> remaining of {allowance} · {used} used</p>
       <div className="render-quota__track" role="progressbar" aria-label="Monthly render credits used" aria-valuemin={0} aria-valuemax={allowance || 1} aria-valuenow={Math.min(used, allowance || 1)}><span style={{ width: `${fraction}%` }}/></div>
       <small>Resets {resetLabel} at 00:00 UTC</small>
-      {exhausted && <p className="render-quota__warning" role="alert">Your monthly render credits are exhausted. <Link to="/choose-plan?mode=upgrade">Upgrade plan</Link> or wait for the UTC reset.</p>}
+      {exhausted && <p className="render-quota__warning" role="alert">{remaining <= 0 ? "Your monthly render credits are exhausted." : "Your plan limit was reached for this render."} <Link to="/choose-plan?mode=upgrade">Upgrade plan</Link> or wait for the UTC reset.</p>}
       {warning && <p className="render-quota__warning" role="status">You have used {fraction}% of this month's renders. <Link to="/choose-plan?mode=upgrade">Upgrade plan</Link> for more credits.</p>}
     </> : <p role="status">{loading ? "Loading render allowance…" : "Render allowance unavailable. Refresh to try again."}</p>}
     {quotaError && <p className="render-quota__warning" role="alert">{quotaError}</p>}
