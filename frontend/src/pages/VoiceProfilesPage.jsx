@@ -123,17 +123,27 @@ export default function VoiceProfilesPage() {
     }
   }
 
+  // Schedule the first async fetch after effect setup, instead of cascading
+  // state updates during the effect's synchronous execution.
   useEffect(() => {
-    void loadProfiles();
+    const timer = window.setTimeout(() => { void loadProfiles(); }, 0);
+    const previewUrls = previewUrlsRef.current;
     return () => {
+      window.clearTimeout(timer);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       window.clearInterval(recordingTimerRef.current);
-      if (draftRecording?.url) URL.revokeObjectURL(draftRecording.url);
       playbackRef.current?.pause();
-      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      previewUrlsRef.current.clear();
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+      previewUrls.clear();
     };
   }, []);
+
+  // The current draft may be created long after mount; using an empty-deps
+  // cleanup would capture an old value and leak its Blob URL on unmount.
+  useEffect(() => {
+    const url = draftRecording?.url;
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [draftRecording?.url]);
 
   useEffect(() => {
     if (!active?.id) return undefined;
@@ -154,7 +164,7 @@ export default function VoiceProfilesPage() {
   }
 
   function releaseDraftRecording() {
-    if (draftRecording?.url) URL.revokeObjectURL(draftRecording.url);
+    // The draft-url effect revokes its Blob URL after this state is released.
     setDraftRecording(null);
   }
 
