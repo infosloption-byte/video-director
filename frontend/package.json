@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "npm --prefix e2e run test",
+    "test:e2e:install": "npm --prefix e2e install --no-audit --no-fund",
+    "test:e2e:browsers": "npm --prefix e2e exec playwright install chromium"
   },
   "dependencies": {
     "react": "^19.2.8",
