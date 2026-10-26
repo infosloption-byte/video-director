@@ -38,7 +38,7 @@ export default function SignUpPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Account creation failed.");
       await refresh();
-      navigate(verificationPath(next), { replace: true, state: { fresh: Boolean(data.emailSent), deliveryFailed: data.emailSent === false } });
+      navigate(verificationPath(next) + (data.emailSent === false ? "&delivery=failed" : ""), { replace: true, state: { fresh: Boolean(data.emailSent), deliveryFailed: data.emailSent === false } });
     } catch (err) { setError(err.message || "Account creation failed."); }
     finally { setBusy(false); }
   }
