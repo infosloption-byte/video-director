@@ -174,8 +174,9 @@ billingDashboardRouter.get("/dashboard/manage", async (req, res, next) => {
     if (action === "retry" && remote.status !== "past_due")
       return res.status(409).json({ error: "There is no overdue subscription payment to recover." });
     let url = null;
-    // Prefer a fresh login-free portal session; older restricted Paddle API keys
-    // may lack customer_portal_session.write, so use trusted management URLs then.
+    // Prefer a fresh login-free portal session; fall back to Paddle-provided
+    // management URLs if the session request fails. Paddle's portal session
+    // write permission is needed for these authenticated management links.
     if (remote.customer_id) {
       try {
         const session = await paddleFetch(`/customers/${encodeURIComponent(remote.customer_id)}/portal-sessions`, {
