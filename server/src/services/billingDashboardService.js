@@ -174,6 +174,20 @@ export function invoiceBelongsToUser(transaction, local, checkout, userId, owned
   return true;
 }
 
+// Invoice URLs are temporary, provider-issued links. Keep navigation limited to
+// Paddle's own domains and its documented invoice-PDF S3 buckets.
+export function safePaddleInvoiceUrl(raw) {
+  if (typeof raw !== "string") return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    const host = url.hostname.toLowerCase();
+    const paddleHost = /^(?:[a-z0-9-]+\.)*paddle\.com$/.test(host);
+    const invoiceBucket = /^paddle-(?:production|sandbox)-invoice-service-pdfs\.s3\.amazonaws\.com$/.test(host);
+    return paddleHost || invoiceBucket ? url.href : null;
+  } catch { return null; }
+}
+
 export function paymentManagementUrl(remote, action) {
   if (!MANAGEMENT_ACTIONS.includes(action)) return null;
   const links = remote?.management_urls || {};
