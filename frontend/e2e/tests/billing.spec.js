@@ -149,7 +149,7 @@ test("scheduled cancellation shows effective date and retains access without a s
   });
   await page.goto("/billing");
   await expect(page.getByText("Cancellation scheduled").first()).toBeVisible();
-  await expect(page.getByText("Access continues until")).toBeVisible();
+  await expect(page.getByText("Access continues until", { exact: true })).toBeVisible();
   await expect(page.getByText("Nov 26, 2026").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Cancel subscription" })).toHaveCount(0);
   await expect(page.getByText("Your Studio plan will stop", { exact: false })).toBeVisible();
