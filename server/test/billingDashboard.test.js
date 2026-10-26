@@ -97,6 +97,14 @@ test("invoice access requires user-owned subscription or a precisely matching hi
   assert.equal(invoiceBelongsToUser({ ...receipt, subscription_id: "sub_buildhire" }, local, checkout, "owner-1"), false);
   assert.equal(invoiceBelongsToUser({ ...receipt, subscription_id: null }, null, checkout, "owner-1"), true);
   assert.equal(invoiceBelongsToUser({ ...receipt, id: "txn_another_transaction" }, null, checkout, "owner-1"), false);
+  // The user re-subscribed later. Their previous subscription is no longer
+  // current, but a signed checkout still proves its ownership.
+  const oldSub = "sub_01j99999999999999999999999";
+  const renewal = { id: "txn_01j99999999999999999999999", subscription_id: oldSub };
+  assert.equal(invoiceBelongsToUser(renewal, local, null, "owner-1", [oldSub]), true);
+  assert.equal(invoiceBelongsToUser(renewal, local, null, "owner-1", []), false);
+  assert.equal(invoiceBelongsToUser({ ...renewal, subscription_id: "sub_buildhire_foreign" },
+    local, null, "owner-1", [oldSub]), false);
 });
 
 test("Paddle portal URLs are allowlisted and never use caller-provided links", () => {
