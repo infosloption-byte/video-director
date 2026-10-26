@@ -19,7 +19,7 @@ export async function userBilling(userId) {
   const plan = effectivePlan(subscription);
   const month = currentMonth();
   const usage = await prisma.monthlyRenderUsage.findUnique({ where: { userId_month: { userId, month } } });
-  return { plan, month, used: usage?.used || 0, remaining: Math.max(0, plan.rendersPerMonth - (usage?.used || 0)),
+  return { plan, month, resetAt: new Date(Date.UTC(Number(month.slice(0,4)), Number(month.slice(5,7)), 1)).toISOString(), used: usage?.used || 0, remaining: Math.max(0, plan.rendersPerMonth - (usage?.used || 0)),
     subscription: subscription ? { status:subscription.status, paddleSubscriptionId:subscription.paddleSubscriptionId, cancelAtPeriodEnd:subscription.cancelAtPeriodEnd, periodEnd:subscription.periodEnd } : null };
 }
 export class PlanLimitError extends Error { constructor(message) { super(message); this.code = "PLAN_LIMIT_REACHED"; this.status=402; } }
@@ -31,6 +31,7 @@ export async function reserveRender(user, renderKey, durationSeconds) {
   if (Number.isFinite(durationSeconds) && durationSeconds > plan.maxSeconds + 0.01) throw new PlanLimitError(`Your plan supports videos up to ${plan.maxSeconds} seconds.`);
   if (typeof renderKey !== "string" || !renderKey || renderKey.length > 255) throw new Error("Invalid render credit key.");
   let fresh=false;
+  let creditId=null;
   try {
     fresh=await prisma.$transaction(async (tx)=>{
       const key={ userId:user.id, renderKey, month };
@@ -39,7 +40,8 @@ export async function reserveRender(user, renderKey, durationSeconds) {
       await tx.monthlyRenderUsage.upsert({where:{userId_month:{userId:user.id,month}},create:{userId:user.id,month,used:0},update:{}});
       const updated=await tx.monthlyRenderUsage.updateMany({where:{userId:user.id,month,used:{lt:plan.rendersPerMonth}},data:{used:{increment:1}}});
       if(updated.count!==1) throw new PlanLimitError(`Monthly render limit reached for ${plan.name}. Upgrade to render more videos.`);
-      await tx.renderCredit.create({data:{...key}});
+      const credit = await tx.renderCredit.create({data:{...key}});
+      creditId=credit.id;
       return true;
     });
   } catch(error) {
@@ -49,11 +51,11 @@ export async function reserveRender(user, renderKey, durationSeconds) {
     }
     throw error;
   }
-  return {fresh,month};
+  return {fresh,month,creditId};
 }
-export async function releaseRender(userId, renderKey, month) {
+export async function releaseRender(userId, renderKey, month, expectedCreditId = null) {
   await prisma.$transaction(async tx=>{
-    const deleted=await tx.renderCredit.deleteMany({where:{userId,renderKey,month}});
+    const deleted=await tx.renderCredit.deleteMany({where:{userId,renderKey,month,...(expectedCreditId ? {id:expectedCreditId} : {})}});
     if(deleted.count) await tx.monthlyRenderUsage.updateMany({where:{userId,month,used:{gt:0}},data:{used:{decrement:1}}});
   });
 }

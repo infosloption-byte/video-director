@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
+import RenderQuota, { useRenderQuota } from "../components/RenderQuota";
 import PhonePreview from "../components/PhonePreview";
 import StepCard from "../components/StepCard";
 import SetupPanel from "../components/SetupPanel";
@@ -68,6 +69,8 @@ export default function StoryboardPage() {
   const [sceneRetry, setSceneRetry] = useState(0);
   const [persisting, setPersisting] = useState(false);
   const [voiceError, setVoiceError] = useState("");
+  const { quota, quotaError, loading: quotaLoading, refresh: refreshQuota } = useRenderQuota();
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [renderLoading, setRenderLoading] = useState(false);
   const [renderError, setRenderError] = useState("");
   const [renderStatus, setRenderStatus] = useState(null);
@@ -383,9 +386,14 @@ export default function StoryboardPage() {
       const saved = await persistSelections();
       if (!saved) throw new Error("Save visual selections before rendering.");
 
-      const response = await fetch(`/api/projects/${id}/render`, { method: "POST" });
+      const response = await fetch(`/api/projects/${id}/render`, { method: "POST", credentials: "include" });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to queue render.");
+      if (!response.ok) {
+        if (data.code === "PLAN_LIMIT_REACHED") setQuotaBlocked(true);
+        throw new Error(data.error || "Failed to queue render.");
+      }
+      setQuotaBlocked(false);
+      await refreshQuota();
       setRenderStatus(data);
 
       if (data.status === "completed" && data.renderUrl) return;
@@ -396,12 +404,13 @@ export default function StoryboardPage() {
         const statusData = await statusResponse.json().catch(() => ({}));
         if (!statusResponse.ok) throw new Error(statusData.error || "Failed to read render status.");
         setRenderStatus(statusData);
-        if (statusData.status === "completed") break;
-        if (statusData.status === "failed") throw new Error(statusData.error || "Render failed.");
+        if (statusData.status === "completed") { await refreshQuota(); break; }
+        if (statusData.status === "failed") { await refreshQuota(); throw new Error(statusData.error || "Render failed."); }
       }
     } catch (error) {
       setRenderError(error.message || "Failed to render project.");
     } finally {
+      await refreshQuota();
       setRenderLoading(false);
     }
   }
@@ -545,6 +554,8 @@ export default function StoryboardPage() {
           )}
 
           {tab === "Preview" && (
+            <>
+            <RenderQuota quota={quota} quotaError={quotaError} loading={quotaLoading} refresh={refreshQuota} limitReached={quotaBlocked} />
             <FinalizePanel
               projectId={id}
               project={project}
@@ -555,6 +566,7 @@ export default function StoryboardPage() {
               onRender={renderProject}
               onBack={() => changeTab("Storyboard")}
             />
+            </>
           )}
         </main>
       </div>

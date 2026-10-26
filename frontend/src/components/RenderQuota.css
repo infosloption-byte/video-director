@@ -1,0 +1,12 @@
+.render-quota { padding: 14px 16px; margin: 12px 0; border: 1px solid var(--border, #555); border-radius: 14px; background: var(--card, #191919); color: var(--body, inherit); }
+.render-quota__top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.render-quota__top strong { color: var(--ink, inherit); font-size: 14px; }
+.render-quota__refresh { color: var(--ink-dim, inherit); border: 0; background: transparent; text-decoration: underline; cursor: pointer; padding: 6px; }
+.render-quota p { margin: 8px 0; font-size: 13px; }
+.render-quota p strong { color: var(--ink, inherit); }
+.render-quota small { display: block; margin-top: 7px; font-size: 12px; color: var(--muted, inherit); }
+.render-quota__track { width: 100%; height: 9px; background: var(--surface-soft, #3b3b3b); overflow: hidden; border-radius: 999px; }
+.render-quota__track span { display: block; height: 100%; background: var(--accent-green-text, #9acba9); border-radius: inherit; transition: width .2s ease; }
+.render-quota__warning { color: var(--ink, inherit); background: var(--surface-soft, #333); padding: 9px 11px; border-radius: 10px; }
+.render-quota__warning a { color: inherit; text-decoration: underline; font-weight: 700; }
+.render-quota__refresh:focus-visible, .render-quota a:focus-visible { outline: 2px solid var(--ink, #fff); outline-offset: 3px; }

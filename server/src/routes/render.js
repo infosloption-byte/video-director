@@ -70,11 +70,11 @@ router.post("/projects/:id/render", async (req, res) => {
     const effectiveSeconds = Math.max(sceneSeconds, Number(project.scriptLengthSeconds || 0), Number(project.durationSeconds || 0));
     reservation = await reserveRender(req.user, renderKey, effectiveSeconds);
     await prisma.project.update({ where: { id: project.id }, data: { status: "rendering" } });
-    const job = await enqueueRender(project.id);
+    const job = await enqueueRender(project.id, reservation.fresh ? { userId: req.user.id, renderKey, month: reservation.month, creditId: reservation.creditId } : null);
     const timing = buildTiming(job, 0);
     res.status(202).json({ projectId: project.id, jobId: job.id, status: "queued", progress: 0, stage: "queued", stageProgress: 0, message: "Waiting for the render worker to start.", ...timing });
   } catch (error) {
-    if (reservation?.fresh) await releaseRender(req.user.id, renderKey, reservation.month).catch(() => {});
+    if (reservation?.fresh) await releaseRender(req.user.id, renderKey, reservation.month, reservation.creditId).catch(() => {});
     console.error(`POST /api/projects/${req.params.id}/render failed:`, error);
     res.status(error.status || 503).json({ error: error.message || "Render queue is unavailable.", code: error.code || undefined });
   }
@@ -89,6 +89,10 @@ router.post("/projects/:id/render/cancel", async (req, res) => {
     const state = await job.getState();
     if (["waiting", "delayed", "prioritized"].includes(state)) {
       await job.remove();
+      if (job.data.credit?.userId === req.user.id) {
+        const { userId, renderKey: creditKey, month, creditId } = job.data.credit;
+        if (creditKey && month) await releaseRender(userId, creditKey, month, creditId);
+      }
       await prisma.project.update({ where: { id: project.id }, data: { status: "finalize" } });
       return res.json({ projectId: project.id, status: "cancelled", message: "Queued render cancelled." });
     }
@@ -110,6 +114,10 @@ router.get("/projects/:id/render-status", async (req, res) => {
     const job = await getRenderQueue().getJob(project.id);
     if (!job) return res.json({ projectId: project.id, status: project.renderUrl ? "completed" : "idle", progress: project.renderUrl ? 100 : 0, renderUrl: normalizeRenderUrl(project.renderUrl) || null });
     const state = await job.getState();
+    if (state === "failed" && job.data.credit?.userId === req.user.id) {
+      const { userId, renderKey, month, creditId } = job.data.credit;
+      if (renderKey && month) await releaseRender(userId, renderKey, month, creditId);
+    }
     const storedProgress = job.progress;
     const progressState = storedProgress && typeof storedProgress === "object" ? storedProgress : { progress: Number(storedProgress || 0) };
     const progress = Number(progressState.progress || 0);

@@ -245,7 +245,7 @@ export default function BillingPage() {
 
       {account && <section className="billing-usage" aria-label="Monthly usage">
         <div className="billing-usage__heading">
-          <div><span className="eyebrow">RENDER ALLOWANCE</span><h2>Usage this month</h2><p>Usage resets monthly in UTC, separately from your Paddle renewal date.</p></div>
+          <div><span className="eyebrow">RENDER ALLOWANCE</span><h2>Usage this month</h2><p>Usage resets {account.resetAt ? new Date(account.resetAt).toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" }) : "on the first of next month"} at 00:00 UTC, separately from your Paddle renewal date.</p></div>
           <div className="billing-usage__numbers"><strong>{account.used ?? 0}<small> / {currentPlan?.rendersPerMonth || 0}</small></strong><span>{account.remaining ?? 0} remaining</span></div>
         </div>
         <div className="billing-usage__track" role="progressbar" aria-label="Monthly video renders used" aria-valuemin={0} aria-valuemax={currentPlan?.rendersPerMonth || 1} aria-valuenow={Math.min(account.used || 0, currentPlan?.rendersPerMonth || 1)}><span style={{ width: `${creditsPercent}%` }} /></div>
