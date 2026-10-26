@@ -70,7 +70,7 @@ router.post("/projects/:id/render", async (req, res) => {
     const effectiveSeconds = Math.max(sceneSeconds, Number(project.scriptLengthSeconds || 0), Number(project.durationSeconds || 0));
     reservation = await reserveRender(req.user, renderKey, effectiveSeconds);
     await prisma.project.update({ where: { id: project.id }, data: { status: "rendering" } });
-    const job = await enqueueRender(project.id);
+    const job = await enqueueRender(project.id, { userId: req.user.id, renderKey, month: reservation.month });
     const timing = buildTiming(job, 0);
     res.status(202).json({ projectId: project.id, jobId: job.id, status: "queued", progress: 0, stage: "queued", stageProgress: 0, message: "Waiting for the render worker to start.", ...timing });
   } catch (error) {
@@ -90,6 +90,10 @@ router.post("/projects/:id/render/cancel", async (req, res) => {
     if (["waiting", "delayed", "prioritized"].includes(state)) {
       await job.remove();
       await prisma.project.update({ where: { id: project.id }, data: { status: "finalize" } });
+      if (job.data.credit?.userId === req.user.id) {
+        const { userId, renderKey: creditKey, month } = job.data.credit;
+        if (creditKey && month) await releaseRender(userId, creditKey, month);
+      }
       return res.json({ projectId: project.id, status: "cancelled", message: "Queued render cancelled." });
     }
     if (state === "active") {
