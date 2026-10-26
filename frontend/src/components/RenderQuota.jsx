@@ -20,9 +20,19 @@ export function useRenderQuota() {
       return null;
     } finally { setLoading(false); }
   }, []);
-  useEffect(() => { void refresh(); const onFocus = () => { void refresh(); };
+  useEffect(() => {
+    void refresh();
+    const onFocus = () => { void refresh(); };
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    // Signed Paddle webhooks may change a plan while the page remains open.
+    const interval = window.setInterval(onVisible, 30_000);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [refresh]);
   return { quota, quotaError, loading, refresh };
 }
