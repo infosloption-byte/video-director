@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "./RenderQuota.css";
+import { quotaView } from "../lib/renderQuota";
 
 export function useRenderQuota() {
   const [quota, setQuota] = useState(null);
@@ -27,13 +28,10 @@ export function useRenderQuota() {
 }
 
 export default function RenderQuota({ quota, quotaError, loading, refresh, compact = false, limitReached = false }) {
-  const allowance = Number(quota?.plan?.rendersPerMonth || 0);
-  const used = Number(quota?.used || 0);
-  const remaining = Number(quota?.remaining ?? Math.max(0, allowance - used));
-  const fraction = allowance ? Math.min(100, Math.max(0, Math.round(used / allowance * 100))) : 0;
-  const exhausted = limitReached || (quota && remaining <= 0);
-  const warning = fraction >= 80 && !exhausted;
-  const resetAt = quota?.resetAt || (quota?.month ? new Date(Date.UTC(Number(quota.month.slice(0, 4)), Number(quota.month.slice(5, 7)), 1)).toISOString() : null);
+  const view = quotaView(quota, limitReached);
+  const { limit: allowance, used, remaining, percent: fraction, approaching: warning } = view;
+  const exhausted = view.exhausted || view.blocked;
+  const resetAt = quota?.resetAt || view.resetAt;
   const resetLabel = resetAt && !Number.isNaN(Date.parse(resetAt))
     ? new Date(resetAt).toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" })
     : "the next UTC month";
@@ -44,7 +42,7 @@ export default function RenderQuota({ quota, quotaError, loading, refresh, compa
       <div className="render-quota__track" role="progressbar" aria-label="Monthly render credits used" aria-valuemin={0} aria-valuemax={allowance || 1} aria-valuenow={Math.min(used, allowance || 1)}><span style={{ width: `${fraction}%` }}/></div>
       <small>Resets {resetLabel} at 00:00 UTC</small>
       {exhausted && <p className="render-quota__warning" role="alert">{remaining <= 0 ? "Your monthly render credits are exhausted." : "Your plan limit was reached for this render."} <Link to="/choose-plan?mode=upgrade">Upgrade plan</Link> or wait for the UTC reset.</p>}
-      {warning && <p className="render-quota__warning" role="status">You have used {fraction}% of this month's renders. <Link to="/choose-plan?mode=upgrade">Upgrade plan</Link> for more credits.</p>}
+      {warning && !exhausted && <p className="render-quota__warning" role="status">You have used {fraction}% of this month's renders. <Link to="/choose-plan?mode=upgrade">Upgrade plan</Link> for more credits.</p>}
     </> : <p role="status">{loading ? "Loading render allowance…" : "Render allowance unavailable. Refresh to try again."}</p>}
     {quotaError && <p className="render-quota__warning" role="alert">{quotaError}</p>}
     {limitReached && !quota && <Link to="/choose-plan?mode=upgrade">Upgrade plan</Link>}
