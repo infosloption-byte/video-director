@@ -54,7 +54,10 @@ test("a client completion hint remains processing until verified, then shows rea
   await expect(page.locator(".payment-result__summary")).toContainText("$19.00 / month");
   await expect(page.locator(".payment-result__summary")).toContainText("30");
   await expect(page.locator(".payment-result__summary")).toContainText("November 26, 2026");
-  await expect(page.getByText("Redirecting to your workspace in 15 seconds")).toBeVisible();
+  await expect(page.getByText(/Redirecting to your workspace in \\d+ seconds/)).toBeVisible();
+  await page.getByRole("button", { name:"Pause countdown" }).click();
+  await expect(page.getByText("Automatic redirect paused")).toBeVisible();
+  await page.getByRole("button", { name:"Resume countdown" }).click();
   await page.getByRole("button", { name:"Go to workspace" }).click();
   await expect(page).toHaveURL(/\/signals$/);
 });
@@ -121,7 +124,7 @@ test("invalid or foreign transaction cannot display a payment success result", a
   };
   await mockResultApi(page,state);
   await page.goto("/payment-result?type=checkout&transactionId=txn_invalidforeign012345678901");
-  await expect(page.getByRole("heading",{name:"Checking your payment…"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Payment status needs verification."})).toBeVisible();
   await expect(page.getByText("Payment successful!")).toHaveCount(0);
-  await page.getByRole("link",{name:"View plan options"}).toBeVisible();
+  await expect(page.getByRole("link",{name:"View plan options"})).toBeVisible();
 });
