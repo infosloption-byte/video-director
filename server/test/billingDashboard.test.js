@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { expensiveOperationRateLimit } from "../src/middleware/rateLimit.js";
 import {
   billingActivity, cleanTransaction, cursorFromMeta, invoiceBelongsToUser, paddleList,
   paddlePlanMismatch, paymentManagementUrl, subscriptionSnapshot,
@@ -144,4 +145,27 @@ test("Paddle transaction API uses sandbox endpoint, exact filter and bearer auth
     if (oldKey === undefined) delete process.env.PADDLE_API_KEY; else process.env.PADDLE_API_KEY = oldKey;
     if (oldEnv === undefined) delete process.env.PADDLE_ENV; else process.env.PADDLE_ENV = oldEnv;
   }
+});
+
+test("invoice and portal link generation is throttled by authenticated user", () => {
+  let calls = 0;
+  const req = {
+    user: { id: "billing-rate-limit-test-user" },
+    headers: {}, method: "GET", path: "/dashboard/manage", ip: "127.0.0.1",
+  };
+  const res = {
+    statusCode: 200, setHeader() {},
+    status(value) { this.statusCode = value; return this; },
+    json(value) { this.body = value; return this; },
+  };
+  for (let index = 0; index < 12; index += 1) {
+    expensiveOperationRateLimit(req, res, () => { calls += 1; });
+  }
+  assert.equal(calls, 12);
+  expensiveOperationRateLimit(req, res, () => { calls += 1; });
+  assert.equal(res.statusCode, 429);
+  assert.equal(calls, 12);
+  res.statusCode = 200;
+  expensiveOperationRateLimit({ ...req, user: { id: "another-billing-test-user" } }, res, () => { calls += 1; });
+  assert.equal(calls, 13);
 });
