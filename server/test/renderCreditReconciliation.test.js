@@ -13,7 +13,7 @@ test("both queues persist the reservation month and user, never derive refund mo
   assert.match(storyboard, /\{ projectId, credit \}/);
   assert.match(editor, /\{ projectId, version, renderHash, credit \}/);
   for (const route of [storyboardRoute, editorRoute]) {
-    assert.match(route, /month: reservation\.month/);
+    assert.match(route, /reservation\.fresh \? \{ userId: req\.user\.id, renderKey, month: reservation\.month \} : null/);
     assert.match(route, /renderKey/);
     assert.match(route, /releaseRender\(userId, creditKey, month\)/);
     assert.match(route, /state === "failed"/);
