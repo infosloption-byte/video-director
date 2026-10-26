@@ -55,7 +55,7 @@ npm run test:e2e
 ```
 
 New tests:
-- `server/test/billingDashboard.test.js`: nine cases for renewal and cancellation dates, valid Paddle plan mapping, amounts/invoices, tenant-safe invoice access, portal URL allowlist, cursor, activity, and sandbox Paddle request filtering.
+- `server/test/billingDashboard.test.js`: ten cases for renewal and cancellation dates, valid Paddle plan mapping, amounts/invoices, tenant-safe invoice access, portal URL allowlist, cursor, activity, and sandbox Paddle request filtering.
 - `frontend/e2e/tests/billing.spec.js`: seven scenarios for desktop and mobile (14 new browser cases) covering complete dashboard, pagination and invoice, overdue payment recovery, scheduled cancellation, confirmation dialog, partial outages, and Free plan.
 - Previously **42 frontend browser tests** passing; expected browser suite total **56** after adding Billing.
 
@@ -83,4 +83,6 @@ sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lights
 sudo docker compose -p voxora --env-file .env.lightsail -f docker-compose.lightsail.yml ps
 ```
 
-Run the existing Paddle sandbox acceptance again after release. The implementation is not considered approved for merging until the unit, lint, build, browser and real Paddle sandbox checks pass.
+Run the existing Paddle sandbox acceptance again after release. Invoice PDF and portal-link generation are additionally rate-limited to 12 authenticated requests per minute, per user/IP key.
+
+The implementation is not considered approved for merging until the unit, lint, build, browser and real Paddle sandbox checks pass.
