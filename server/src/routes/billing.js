@@ -332,6 +332,9 @@ billingRouter.get("/portal", async (req, res, next) => {
 
 const SUBSCRIPTION_EVENTS=new Set(["subscription.created","subscription.updated","subscription.activated","subscription.trialing","subscription.canceled","subscription.paused","subscription.resumed","subscription.past_due"]);
 function subscriptionPlan(data) {
+  // Voxora sells exactly one base monthly plan per subscription. Mixed catalog
+  // items or custom quantities must be reconciled manually, not provisioned.
+  if (!Array.isArray(data.items) || data.items.length !== 1 || data.items[0]?.quantity !== 1) return null;
   return planFromSubscriptionItems(data.items, Object.fromEntries(paidPlanIds.map(id => [id, priceId(id)])));
 }
 function emailForEvent(eventType, user, plan, info = {}) {
