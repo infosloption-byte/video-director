@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
+import RenderQuota, { useRenderQuota } from "../components/RenderQuota";
 import { useAuth } from "../context/AuthContext";
 import "../components/ui.css";
 import "./EditorRenderPage.css";
@@ -10,6 +11,8 @@ export default function EditorRenderPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const timerRef = useRef(null);
+  const { quota, quotaError, loading: quotaLoading, refresh: refreshQuota } = useRenderQuota();
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [status, setStatus] = useState("idle");
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState("idle");
@@ -48,10 +51,12 @@ export default function EditorRenderPage() {
         timerRef.current = window.setTimeout(() => { void poll(); }, 1200);
       } else {
         setBusy(false);
+        void refreshQuota();
       }
     } catch (pollError) {
       setError(pollError.message || "Unable to read render status.");
       setBusy(false);
+      void refreshQuota();
     }
   }
 
@@ -73,8 +78,10 @@ export default function EditorRenderPage() {
         headers: { "Content-Type": "application/json" },
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Unable to start editor render.");
+      if (!response.ok) { if (data.code === "PLAN_LIMIT_REACHED") setQuotaBlocked(true); throw new Error(data.error || "Unable to start editor render."); }
+      setQuotaBlocked(false);
       applyStatus(data);
+      void refreshQuota();
       if (timerRef.current) window.clearTimeout(timerRef.current);
       timerRef.current = window.setTimeout(() => { void poll(); }, 300);
     } catch (renderError) {
@@ -82,6 +89,7 @@ export default function EditorRenderPage() {
       setError(renderError.message || "Unable to start editor render.");
       setMessage("The render could not be started.");
       setBusy(false);
+      void refreshQuota();
     }
   };
 
@@ -113,6 +121,7 @@ export default function EditorRenderPage() {
           </div>
         </header>
 
+        <RenderQuota quota={quota} quotaError={quotaError} loading={quotaLoading} refresh={refreshQuota} limitReached={quotaBlocked} />
         <section className="editor-render-card">
           <div className="editor-render-card__status">
             <span className={`editor-render-card__badge is-${status}`}>{status}</span>
