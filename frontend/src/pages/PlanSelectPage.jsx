@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { openPaddleCheckout } from "../lib/paddle";
+import { paymentResultPath } from "../lib/paymentResult";
 import { verificationPath } from "../lib/onboarding";
 import "./PlanSelectPage.css";
 
 const WORKSPACE = "/signals";
-const WAIT_INTERVAL_MS = 2500;
-const MAX_CHECKS = 50;
 
 async function api(url, options = {}) {
   const response = await fetch(url, {
@@ -29,7 +28,7 @@ function money(minor, currency = "USD") {
 export default function PlanSelectPage() {
   const { user, status, refresh, signOut } = useAuth();
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const [catalog, setCatalog] = useState(null);
   const [billing, setBilling] = useState(null);
   const [paymentState, setPaymentState] = useState(null);
@@ -43,8 +42,6 @@ export default function PlanSelectPage() {
     const id = params.get("transactionId");
     return id && /^txn_[a-z0-9]{20,100}$/.test(id) ? { type: "checkout", id } : null;
   });
-  const [verificationDelayed, setVerificationDelayed] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const completedTransaction = useRef("");
   const selectedPlan = params.get("plan") || (!user?.planSelectedAt ? user?.intendedPlan : null);
   const isReturningCustomer = Boolean(user?.planSelectedAt || ["active", "trialing"].includes(billing?.subscription?.status)) && params.get("onboarding") !== "1";
@@ -61,55 +58,25 @@ export default function PlanSelectPage() {
         setPaymentState(payment);
         const checkout = payment.checkout;
         const change = payment.change;
-        if (checkout?.status === "processing") setPending({ type: "checkout", id: checkout.transactionId });
-        else if (change && ["processing", "uncertain"].includes(change.status)) setPending({ type: "change", plan: change.plan });
+        if (checkout?.status === "processing") {
+          navigate(paymentResultPath({ type: "checkout", transactionId: checkout.transactionId, onboarding: !user?.planSelectedAt }), { replace: true });
+        } else if (change && ["processing", "uncertain"].includes(change.status)) {
+          navigate(paymentResultPath({ type: "change", plan: change.plan }), { replace: true });
+        }
       })
       .catch((e) => { if (active) setError(e.message); });
     return () => { active = false; };
-  }, [status, user?.id, user?.emailVerifiedAt]);
+  }, [status, user?.id, user?.emailVerifiedAt, user?.planSelectedAt, navigate]);
 
 
+  // Legacy /choose-plan?transactionId=... links now land on the single
+  // result screen instead of fast-forwarding to Billing or the workspace.
   useEffect(() => {
-    if (!pending || !user?.id) return undefined;
-    let active = true;
-    let inFlight = false;
-    let checks = 0;
-    const verify = async () => {
-      if (!active || inFlight) return;
-      inFlight = true;
-      checks += 1;
-      try {
-        // All payment states are read from server-owned records maintained
-        // by signed Paddle webhooks, not browser completion callbacks.
-        const state = await api("/api/billing/payment-state");
-        if (!active) return;
-        setPaymentState(state);
-        const entry = pending.type === "checkout" ? state.checkout : state.change;
-        if (entry?.status === "activated" && (pending.type !== "checkout" || entry.transactionId === pending.id)) {
-          const destination = isReturningCustomer ? "/billing?updated=1" : WORKSPACE;
-          await refresh();
-          // Refresh can update user.planSelectedAt, replaying the polling effect.
-          // Do not lose the already-confirmed navigation during its cleanup.
-          if (active || window.location.pathname === "/choose-plan") navigate(destination, { replace: true });
-          return;
-        }
-        if (entry?.status === "failed" || entry?.status === "canceled") {
-          setPending(null);
-          setVerificationDelayed(false);
-          setError(entry.status === "failed"
-            ? "Paddle could not complete this payment. Your current plan is unchanged. Review the payment details before trying again."
-            : "This transaction was cancelled. You can choose a new plan.");
-          return;
-        }
-        if (checks >= MAX_CHECKS) setVerificationDelayed(true);
-      } catch {
-        if (active) setMessage("We cannot verify the payment right now. Do not start another charge.");
-      } finally { inFlight = false; }
-    };
-    void verify();
-    const timer = window.setInterval(() => { if (checks < MAX_CHECKS) void verify(); }, WAIT_INTERVAL_MS);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [pending, retryCount, user?.id, navigate, refresh, isReturningCustomer]);
+    if (!pending || !user?.id) return;
+    navigate(pending.type === "checkout"
+      ? paymentResultPath({ type: "checkout", transactionId: pending.id, onboarding: !user?.planSelectedAt })
+      : paymentResultPath({ type: "change", plan: pending.plan }), { replace: true });
+  }, [pending, user?.id, user?.planSelectedAt, navigate]);
 
   useEffect(() => {
     if (!preview && !cancelConfirm) return undefined;
@@ -163,15 +130,13 @@ export default function PlanSelectPage() {
         clientToken: data.clientToken,
         environment: data.environment,
         customerEmail: user.email,
-        successUrl: `${window.location.origin}/choose-plan?transactionId=${encodeURIComponent(data.transactionId)}${isReturningCustomer ? "" : "&onboarding=1"}`,
+        successUrl: `${window.location.origin}${paymentResultPath({ type: "checkout", transactionId: data.transactionId, onboarding: !isReturningCustomer })}`,
         onCompleted: () => {
           completedTransaction.current = data.transactionId;
-          setParams(isReturningCustomer ? { transactionId: data.transactionId } : { transactionId: data.transactionId, onboarding: "1" }, { replace: true });
-          setVerificationDelayed(false);
-          setPending({ type: "checkout", id: data.transactionId });
-          setPaymentState(old => ({ ...(old || {}), checkout: { transactionId: data.transactionId, plan, status: "processing", resumable: false } }));
-          setMessage("Paddle received the payment. Activating your plan securely…");
           window.Paddle?.Checkout?.close?.();
+          navigate(paymentResultPath({
+            type: "checkout", transactionId: data.transactionId, onboarding: !isReturningCustomer,
+          }), { replace: true });
         },
         onClosed: () => {
           if (completedTransaction.current !== data.transactionId) {
@@ -179,7 +144,9 @@ export default function PlanSelectPage() {
             setMessage("Checkout closed. Your original Paddle transaction is saved—resume it whenever you're ready.");
           }
         },
-        onError: () => setError("Paddle reported a checkout issue. Check your payment details or retry."),
+        onError: () => navigate(paymentResultPath({
+          type: "checkout", transactionId: data.transactionId, onboarding: !isReturningCustomer, issue: true,
+        }), { replace: true }),
       });
     } catch (e) { setError(e.message); }
     finally { setBusy(""); }
@@ -190,15 +157,13 @@ export default function PlanSelectPage() {
     try {
       const state = await api("/api/billing/payment-state");
       setPaymentState(state);
-      if (state.checkout?.status === "activated" || state.change?.status === "activated") {
-        await refresh();
-        navigate(isReturningCustomer ? "/billing?updated=1" : WORKSPACE, { replace: true });
+      if (state.checkout?.status === "activated" || state.checkout?.status === "processing") {
+        navigate(paymentResultPath({ type: "checkout", transactionId: state.checkout.transactionId, onboarding: !user?.planSelectedAt }), { replace: true });
         return;
       }
-      if (state.checkout?.status === "processing") {
-        setPending({ type: "checkout", id: state.checkout.transactionId });
-      } else if (state.change && ["processing","uncertain"].includes(state.change.status)) {
-        setPending({ type: "change", plan: state.change.plan });
+      if (state.change && ["activated","processing","uncertain"].includes(state.change.status)) {
+        navigate(paymentResultPath({ type: "change", plan: state.change.plan }), { replace: true });
+        return;
       } else {
         setMessage("Your payment status is up to date.");
       }
@@ -238,11 +203,10 @@ export default function PlanSelectPage() {
     try {
       await api("/api/billing/change-plan", { method: "POST", body: JSON.stringify({ plan }) });
       setPreview(null);
-      setVerificationDelayed(false);
-      setPending({ type: "change", plan });
-      setPaymentState(old => ({ ...(old || {}), change: { plan, status: "processing" } }));
-      setMessage("Paddle is applying your change. Your current plan stays active until we receive confirmation.");
-    } catch (e) { setError(e.message); }
+      navigate(paymentResultPath({ type: "change", plan }), { replace: true });
+    } catch {
+      navigate(paymentResultPath({ type: "change", plan, issue: true }), { replace: true });
+    }
     finally { setBusy(""); }
   }
 
@@ -329,16 +293,6 @@ export default function PlanSelectPage() {
           Review and retry →
         </button>
       </section>}
-      {pending && <section className="plan-select__verification" aria-live="polite">
-        <span className="plan-select__loading-dot" aria-hidden="true" />
-        <div><h2>{verificationDelayed ? "Confirmation is taking longer than expected" : pending.type === "change" ? "Processing your plan change…" : "Confirming your payment…"}</h2>
-          <p>{verificationDelayed
-            ? "Don't pay a second time. Paddle may still be delivering the subscription event. You can check again or contact billing support."
-            : "Paddle verifies the payment and Voxora waits for the signed subscription update. This page will advance automatically when confirmed."}</p>
-        </div>
-        {verificationDelayed && <button type="button" className="btn btn-ghost" onClick={() => { setVerificationDelayed(false); setRetryCount((x) => x + 1); setMessage("Checking again…"); }}>Check again</button>}
-      </section>}
-
       <div className="plan-select__grid">
         {!catalog && !error && <div className="plan-select__loading">Loading plans…</div>}
         {plans.map((plan) => {
