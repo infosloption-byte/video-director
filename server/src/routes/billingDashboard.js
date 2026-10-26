@@ -140,12 +140,16 @@ billingDashboardRouter.get("/dashboard/invoice/:id", expensiveOperationRateLimit
       ownedSubscription(req.user.id),
       prisma.billingCheckout.findUnique({ where: { transactionId: id } }),
     ]);
-    if (!local && ownedCheckout?.userId !== req.user.id)
+    // History may include renewals from previous Voxora subscriptions. Those
+    // subscription IDs are resolved from this user's OWN server-held checkout
+    // records, so invoice URLs remain inaccessible to BuildHire customers.
+    const ownedIds = await ownedSubscriptionIds(req.user.id, local);
+    if (!ownedIds.length && ownedCheckout?.userId !== req.user.id)
       return res.status(404).json({ error: "Invoice not found." });
     let transaction;
     try { transaction = await paddleFetch(`/transactions/${encodeURIComponent(id)}`); }
     catch (error) { return unavailable(res, error, "The invoice is temporarily unavailable."); }
-    if (transaction?.id !== id || !invoiceBelongsToUser(transaction, local, ownedCheckout, req.user.id))
+    if (transaction?.id !== id || !invoiceBelongsToUser(transaction, local, ownedCheckout, req.user.id, ownedIds))
       return res.status(404).json({ error: "Invoice not found." });
     if (transaction.status !== "completed" || !(Number(transaction.details?.totals?.total) > 0))
       return res.status(409).json({ error: "Paddle has not generated a paid invoice for this transaction." });
