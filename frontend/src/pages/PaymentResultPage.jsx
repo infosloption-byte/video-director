@@ -46,6 +46,7 @@ export default function PaymentResultPage() {
   const [apiError, setApiError] = useState("");
   const [retry, setRetry] = useState(0);
   const [seconds, setSeconds] = useState(PAYMENT_REDIRECT_SECONDS);
+  const [countdownPaused, setCountdownPaused] = useState(false);
   const redirecting = useRef(false);
   const lastPhase = useRef("loading");
 
@@ -107,10 +108,10 @@ export default function PaymentResultPage() {
   }, [isSuccess, refresh, navigate, nextDestination]);
 
   useEffect(() => {
-    if (!isTerminal) return undefined;
+    if (!isTerminal || countdownPaused) return undefined;
     const timer = window.setInterval(() => setSeconds(value => Math.max(0, value - 1)), 1000);
     return () => window.clearInterval(timer);
-  }, [isTerminal]);
+  }, [isTerminal, countdownPaused]);
 
   useEffect(() => {
     if (isTerminal && seconds === 0) void continueNow();
@@ -174,8 +175,11 @@ export default function PaymentResultPage() {
 
         {isTerminal && valid && <div className="payment-result__countdown" role="status" aria-live="off">
           <div className="payment-result__timer" aria-hidden="true">{seconds}</div>
-          <div><strong>Redirecting to {isSuccess ? "your workspace" : "plan selection"} in {seconds} seconds</strong>
-            <p>You can continue now using the button below.</p>
+          <div><strong>{countdownPaused ? "Automatic redirect paused" : `Redirecting to ${isSuccess ? "your workspace" : "plan selection"} in ${seconds} seconds`}</strong>
+            <p>You can continue now, or take more time to read the details.</p>
+            <button className="payment-result__pause" type="button" onClick={() => setCountdownPaused(value => !value)}>
+              {countdownPaused ? "Resume countdown" : "Pause countdown"}
+            </button>
           </div>
         </div>}
 
