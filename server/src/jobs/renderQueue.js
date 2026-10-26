@@ -116,7 +116,7 @@ export async function startRenderWorker() {
     }
     await prisma.project.update({ where: { id: job.data.projectId }, data: { status: "finalize" } }).catch(() => {});
     const credit = job.data.credit;
-    if (credit?.userId && credit?.renderKey && credit?.month) await releaseRender(credit.userId, credit.renderKey, credit.month).catch((err) => console.error("[render] Failed to reconcile terminal credit:", err));
+    if (credit?.userId && credit?.renderKey && credit?.month) await releaseRender(credit.userId, credit.renderKey, credit.month, credit.creditId).catch((err) => console.error("[render] Failed to reconcile terminal credit:", err));
   });
   worker.on("stalled", (jobId) => console.warn(`[render] Job ${jobId} stalled; worker will attempt recovery.`));
   worker.on("error", (error) => console.error("[render] Worker error:", error));
