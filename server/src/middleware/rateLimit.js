@@ -15,7 +15,7 @@ function policyFor(req) {
   const method = String(req.method || "GET").toUpperCase();
 
   if (method === "GET" && (path === "/dashboard/manage"
-    || /^\\/dashboard\\/invoice\\/txn_[a-z0-9]{20,100}$/.test(path))) {
+    || /^\/dashboard\/invoice\/txn_[a-z0-9]{20,100}$/.test(path))) {
     return { windowMs: 60 * 1000, max: 12 };
   }
   if (path === "/search" && method === "GET") {
