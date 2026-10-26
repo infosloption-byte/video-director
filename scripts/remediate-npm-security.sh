@@ -28,7 +28,7 @@ done
 (
   cd "$ROOT/frontend"
   npm install --save-dev --save-exact vite@8.3.5 --ignore-scripts --no-fund --no-audit
-  npm audit fix --ignore-scripts --no-fund
+  npm audit fix --ignore-scripts --no-fund || echo '[security] npm audit fix found advisories needing manual review; continuing verification.'
 )
 (
   cd "$ROOT/server"
@@ -63,4 +63,5 @@ for app in frontend server; do
 done
 
 echo "Run frontend Playwright tests separately before merging."
+echo "IMPORTANT: Residual vulnerabilities require manual remediation; this script does not claim a clean audit."
 echo "Review tracked package manifests and lockfiles with git diff."
