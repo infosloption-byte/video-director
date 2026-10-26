@@ -2,6 +2,8 @@
 ALTER TABLE `billing_checkouts`
   ADD COLUMN `status` VARCHAR(30) NOT NULL DEFAULT 'awaiting_payment',
   ADD COLUMN `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3);
+-- Existing checkouts are backfilled; Prisma @updatedAt maintains new rows.
+ALTER TABLE `billing_checkouts` ALTER COLUMN `updated_at` DROP DEFAULT;
 
 CREATE TABLE `billing_plan_changes` (
   `id` VARCHAR(191) NOT NULL,
@@ -12,7 +14,7 @@ CREATE TABLE `billing_plan_changes` (
   `status` VARCHAR(30) NOT NULL DEFAULT 'processing',
   `last_error` VARCHAR(255) NULL,
   `requested_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL,
   UNIQUE INDEX `billing_plan_changes_user_id_key`(`user_id`),
   PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -28,7 +30,7 @@ CREATE TABLE `billing_checkout_locks` (
   `status` VARCHAR(30) NOT NULL DEFAULT 'creating',
   `transaction_id` VARCHAR(100) NULL,
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL,
   PRIMARY KEY (`user_id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
