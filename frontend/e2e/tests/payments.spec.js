@@ -87,6 +87,28 @@ test("closed checkout resumes the original Paddle transaction, not a second purc
   await expect(page.getByRole("button", { name: "Resume checkout" })).toBeVisible();
 });
 
+test("Paddle checkout completion displays processing until signed subscription activation", async ({ page }) => {
+  const state = {
+    currentPlan: "free", change: null,
+    checkout: { transactionId, plan: "creator", status: "awaiting_payment", resumable: true },
+  };
+  await mockedPaymentApi(page, state);
+  await page.goto("/choose-plan");
+  await page.getByRole("button", { name: "Resume checkout" }).click();
+  await expect.poll(() => page.evaluate(() => window.__lastPaddleOpen?.transactionId)).toBe(transactionId);
+  await page.evaluate(id => window.Paddle.eventCallback({
+    name: "checkout.completed", data: { transaction_id: id },
+  }), transactionId);
+  await expect(page).toHaveURL(/\/payment-result\?type=checkout/);
+  await expect(page.getByRole("heading", { name: "Checking your payment…" })).toBeVisible();
+  await expect(page.getByText("Payment successful!")).toHaveCount(0);
+
+  state.checkout = { ...state.checkout, status: "activated" };
+  state.currentPlan = "creator";
+  await expect(page.getByRole("heading", { name: "Payment successful!" })).toBeVisible({ timeout: 12000 });
+  await expect(page.getByText("Redirecting to your workspace in 15 seconds")).toBeVisible();
+});
+
 test("payment failure remains recoverable using the same transaction", async ({ page }) => {
   const state = {
     currentPlan: "free", change: null,
