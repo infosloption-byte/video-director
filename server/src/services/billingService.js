@@ -31,6 +31,7 @@ export async function reserveRender(user, renderKey, durationSeconds) {
   if (Number.isFinite(durationSeconds) && durationSeconds > plan.maxSeconds + 0.01) throw new PlanLimitError(`Your plan supports videos up to ${plan.maxSeconds} seconds.`);
   if (typeof renderKey !== "string" || !renderKey || renderKey.length > 255) throw new Error("Invalid render credit key.");
   let fresh=false;
+  let creditId=null;
   try {
     fresh=await prisma.$transaction(async (tx)=>{
       const key={ userId:user.id, renderKey, month };
@@ -39,7 +40,8 @@ export async function reserveRender(user, renderKey, durationSeconds) {
       await tx.monthlyRenderUsage.upsert({where:{userId_month:{userId:user.id,month}},create:{userId:user.id,month,used:0},update:{}});
       const updated=await tx.monthlyRenderUsage.updateMany({where:{userId:user.id,month,used:{lt:plan.rendersPerMonth}},data:{used:{increment:1}}});
       if(updated.count!==1) throw new PlanLimitError(`Monthly render limit reached for ${plan.name}. Upgrade to render more videos.`);
-      await tx.renderCredit.create({data:{...key}});
+      const credit = await tx.renderCredit.create({data:{...key}});
+      creditId=credit.id;
       return true;
     });
   } catch(error) {
@@ -49,11 +51,11 @@ export async function reserveRender(user, renderKey, durationSeconds) {
     }
     throw error;
   }
-  return {fresh,month};
+  return {fresh,month,creditId};
 }
-export async function releaseRender(userId, renderKey, month) {
+export async function releaseRender(userId, renderKey, month, expectedCreditId = null) {
   await prisma.$transaction(async tx=>{
-    const deleted=await tx.renderCredit.deleteMany({where:{userId,renderKey,month}});
+    const deleted=await tx.renderCredit.deleteMany({where:{userId,renderKey,month,...(expectedCreditId ? {id:expectedCreditId} : {})}});
     if(deleted.count) await tx.monthlyRenderUsage.updateMany({where:{userId,month,used:{gt:0}},data:{used:{decrement:1}}});
   });
 }
