@@ -21,6 +21,7 @@ import exportRouter from "./routes/export.js";
 import authRouter from "./routes/auth.js";
 import { accountRouter } from "./routes/account.js";
 import { billingRouter, paddleWebhook } from "./routes/billing.js";
+import { billingDashboardRouter } from "./routes/billingDashboard.js";
 import ttsRouter from "./routes/tts.js";
 import voiceProfilesRouter from "./routes/voiceProfiles.js";
 import voicePresetsRouter from "./routes/voicePresets.js";
@@ -65,6 +66,7 @@ app.get("/api/health/integrations", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/account", accountRouter);
 app.use("/api/billing", billingRouter);
+app.use("/api/billing", billingDashboardRouter);
 
 app.use("/api", (req, res, next) => {
   // Production write access to generation routes requires verified ownership
