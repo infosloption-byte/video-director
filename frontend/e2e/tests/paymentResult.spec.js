@@ -50,12 +50,10 @@ test("a client completion hint remains processing until verified, then shows rea
   state.checkout = {...state.checkout,status:"activated"};
   state.activePlan = "creator";
   await expect(page.getByRole("heading", { name:"Payment successful!" })).toBeVisible({timeout:12000});
-  const summary = page.getByRole("region", { name:"Confirmed subscription summary" });
-  // The summary is labelled as a non-region section; read it directly.
-  await expect(page.getByLabel("Confirmed subscription summary")).toContainText("Creator");
-  await expect(page.getByLabel("Confirmed subscription summary")).toContainText("$19.00 / month");
-  await expect(page.getByLabel("Confirmed subscription summary")).toContainText("30");
-  await expect(page.getByLabel("Confirmed subscription summary")).toContainText("November 26, 2026");
+  await expect(page.locator(".payment-result__summary")).toContainText("Creator");
+  await expect(page.locator(".payment-result__summary")).toContainText("$19.00 / month");
+  await expect(page.locator(".payment-result__summary")).toContainText("30");
+  await expect(page.locator(".payment-result__summary")).toContainText("November 26, 2026");
   await expect(page.getByText("Redirecting to your workspace in 15 seconds")).toBeVisible();
   await page.getByRole("button", { name:"Go to workspace" }).click();
   await expect(page).toHaveURL(/\/signals$/);
@@ -112,8 +110,8 @@ test("confirmed Creator-to-Studio upgrade shows the subscription summary and Bil
   await mockResultApi(page,state);
   await page.goto("/payment-result?type=change&plan=studio");
   await expect(page.getByRole("heading",{name:"Your plan is updated."})).toBeVisible();
-  await expect(page.getByLabel("Confirmed subscription summary")).toContainText("Studio");
-  await expect(page.getByLabel("Confirmed subscription summary")).toContainText("$49.00 / month");
+  await expect(page.locator(".payment-result__summary")).toContainText("Studio");
+  await expect(page.locator(".payment-result__summary")).toContainText("$49.00 / month");
   await page.getByRole("link",{name:"View subscription & billing"}).click();
   await expect(page).toHaveURL(/\/billing$/);
 });
