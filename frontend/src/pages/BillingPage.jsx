@@ -28,7 +28,7 @@ function money(minor, currency) {
 }
 function statusLabel(value) {
   return ({
-    active: "Active", trialing: "Trial", canceled: "Canceled", past_due: "Past due",
+    free: "Free", active: "Active", trialing: "Trial", canceled: "Canceled", past_due: "Past due",
     paused: "Paused", completed: "Paid", paid: "Processing", ready: "Ready",
     billed: "Billed", draft: "Draft", failed: "Failed", processing: "Processing",
   })[value] || (value ? value.replaceAll("_", " ") : "Free");
@@ -173,8 +173,12 @@ export default function BillingPage() {
   const account = overview?.account;
   const subscription = overview?.subscription;
   const currentPlan = account?.plan;
-  const subscribedPlan = catalog.find(plan => plan.id === subscription?.plan) || currentPlan;
   const hasPaid = Boolean(subscription);
+  const subscribedPlan = catalog.find(plan => plan.id === subscription?.plan)
+    || (hasPaid ? {
+      name: subscription.plan === "studio" ? "Studio" : subscription.plan === "creator" ? "Creator" : "Paid",
+      monthlyUsd: subscription.standardMonthlyUsd,
+    } : currentPlan);
   const isPastDue = subscription?.status === "past_due";
   const isScheduled = Boolean(subscription?.cancellationScheduled);
   const isActive = ["active","trialing"].includes(subscription?.status);
@@ -239,7 +243,7 @@ export default function BillingPage() {
           <div><span className="eyebrow">RENDER ALLOWANCE</span><h2>Usage this month</h2><p>Usage resets monthly in UTC, separately from your Paddle renewal date.</p></div>
           <div className="billing-usage__numbers"><strong>{account.used ?? 0}<small> / {currentPlan?.rendersPerMonth || 0}</small></strong><span>{account.remaining ?? 0} remaining</span></div>
         </div>
-        <div className="billing-usage__track" role="progressbar" aria-label="Monthly video renders used" aria-valuemin={0} aria-valuemax={currentPlan?.rendersPerMonth || 1} aria-valuenow={account.used || 0}><span style={{ width: `${creditsPercent}%` }} /></div>
+        <div className="billing-usage__track" role="progressbar" aria-label="Monthly video renders used" aria-valuemin={0} aria-valuemax={currentPlan?.rendersPerMonth || 1} aria-valuenow={Math.min(account.used || 0, currentPlan?.rendersPerMonth || 1)}><span style={{ width: `${creditsPercent}%` }} /></div>
       </section>}
 
       {hasPaid && <section className="billing-manage-card" aria-label="Payment and cancellation management">
