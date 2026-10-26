@@ -22,7 +22,7 @@ export function publicCheckoutStatus(checkout, subscription) {
   return {
     transactionId: checkout.transactionId,
     plan: checkout.plan,
-    status: confirmed ? "activated" : checkout.status,
+    status: confirmed ? "activated" : checkout.status === "activated" ? "canceled" : checkout.status,
     resumable: !confirmed && ["awaiting_payment", "failed"].includes(checkout.status),
     createdAt: checkout.createdAt,
   };
@@ -46,7 +46,7 @@ export function publicPlanChange(change, subscription) {
     && ["active","trialing"].includes(subscription?.status);
   return {
     plan: change.toPlan, fromPlan: change.fromPlan,
-    status: confirmed ? "activated" : change.status,
+    status: confirmed ? "activated" : change.status === "activated" ? "canceled" : change.status,
     requestedAt: change.requestedAt,
     // Deliberately never send Paddle API error payloads to browsers.
     retryAllowed: !confirmed && change.status === "failed",
