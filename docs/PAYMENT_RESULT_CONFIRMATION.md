@@ -15,7 +15,7 @@ Previously, successful Paddle purchases and prorated Creator → Studio changes 
 3. Before the signed Paddle webhook matches an active subscription, the page says **Checking your payment…**, with **Check payment status** and **View plan options** actions. It does not claim payment success based on `checkout.completed` or URL parameters.
 4. Once the server reports the matching checkout or plan-change operation **activated** AND Billing reports the matching **active/trialing plan**, the page displays a large confirmation.
 5. A readable summary includes the subscribed plan, its standard monthly catalog price, monthly render allowance, per-video duration, billing period end, and a checkout transaction reference when present. The summary explicitly distinguishes **standard plan pricing** from the actual Paddle amount, which may include proration/tax.
-6. The user has **15 seconds** to read the result. A clear countdown is displayed, plus **Go to workspace** (immediate) and **View subscription & billing** actions. When the countdown ends, the app refreshes account entitlements and navigates to `/signals`.
+6. The user has **15 seconds** to read the result. A clear countdown is displayed, with **Pause countdown / Resume countdown** controls for customers who need more reading time, plus **Go to workspace** (immediate) and **View subscription & billing** actions. When the countdown ends, the app refreshes account entitlements and navigates to `/signals`.
 7. For an existing subscriber changing plans, the same page shows **Your plan is updated**, without a fleeting jump through Billing.
 
 ### Failed or canceled payment
