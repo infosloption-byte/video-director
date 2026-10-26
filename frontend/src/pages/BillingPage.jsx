@@ -211,6 +211,7 @@ export default function BillingPage() {
       {error && <div className="billing-alert" role="alert">{error} <button type="button" onClick={() => void loadBilling()}>Retry</button></div>}
       {loading && !overview && <div className="billing-placeholder" role="status">Loading your subscription and recent payments…</div>}
       {overview?.warnings?.map((warning, index) => <div className="billing-warning" role="status" key={index}>{warning}</div>)}
+      {overview?.subscription && overview.subscription.status !== overview.subscription.entitlementStatus && <div className="billing-warning" role="status">Paddle billing and Voxora access status are synchronizing. Paid access changes only after a verified subscription event.</div>}
 
       {account && <section className="billing-overview" aria-label="Subscription overview">
         <div className="billing-overview__hero">
