@@ -134,7 +134,9 @@ function SceneCustomizeDraft({
   const [tone, setTone] = useState(saved.tone || customSetup?.tone || "Conversational");
   const [audience, setAudience] = useState(saved.audienceLevel || customSetup?.audienceLevel || "General public");
   const [narration, setNarration] = useState(scene.spokenText || "");
-  const [selectedVoiceKey, setSelectedVoiceKey] = useState(() => voiceKey(activeVoice));
+  // Follow asynchronously loaded default voices until the user explicitly chooses one.
+  const [voiceSelectionOverride, setVoiceSelectionOverride] = useState(null);
+  const selectedVoiceKey = voiceSelectionOverride ?? voiceKey(activeVoice);
   const [playingNarration, setPlayingNarration] = useState(false);
   const [voiceGenerating, setVoiceGenerating] = useState(false);
   const [selectedVisualIndex, setSelectedVisualIndex] = useState(selectedAssetIndex);
@@ -186,7 +188,7 @@ function SceneCustomizeDraft({
   }
 
   function selectSceneVoice(voice) {
-    if (voice) setSelectedVoiceKey(voiceKey(voice));
+    if (voice) setVoiceSelectionOverride(voiceKey(voice));
   }
 
   async function playAudioUrl(audioUrl) {
