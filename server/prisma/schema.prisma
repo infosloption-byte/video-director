@@ -597,6 +597,7 @@ model BillingCheckout {
   paddleSubscriptionId String? @map("paddle_subscription_id") @db.VarChar(100)
   plan        String    @db.VarChar(30)
   status      String    @default("awaiting_payment") @db.VarChar(30)
+  lastEventAt DateTime? @map("last_event_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
