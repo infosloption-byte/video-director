@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from "../services/passwordService.js";
 import { authOptional, clearSessionCookie, setSessionCookie } from "../middleware/auth.js";
 import { emailReady, sendVerificationEmail, sendResetEmail, sendSecurityEmail } from "../services/emailService.js";
 import { CURRENT_LEGAL_VERSION } from "../services/legalConsent.js";
+import { normalizeIntendedPlan } from "../services/onboardingPlan.js";
 import { resolvePreferences, alertsEnabled } from "../services/preferences.js";
 
 const router = Router();
@@ -40,6 +41,7 @@ function publicUser(user) {
     displayName: user.displayName,
     emailVerifiedAt: user.emailVerifiedAt,
     planSelectedAt: user.planSelectedAt || null,
+    intendedPlan: user.planSelectedAt ? null : normalizeIntendedPlan(user.intendedPlan),
     preferences: resolvePreferences(user.preferences),
     termsAcceptedAt: user.termsAcceptedAt || null,
     termsVersion: user.termsVersion || null,
@@ -60,18 +62,29 @@ function codeHash(userId, code) {
   return hashToken(`${userId}:${code}`);
 }
 
-// Replaces any outstanding verification link/code with a fresh pair and emails them.
+// Issue a new link and code without revoking a previously delivered code if
+// Gmail fails. No resend cooldown is imposed unless the message was accepted.
 async function issueVerification(user) {
   const linkToken = randomToken();
   const code = generateCode();
-  await prisma.authToken.deleteMany({ where: { userId: user.id, kind: { in: ["email_verification", "email_code"] } } });
+  const newHashes = [hashToken(linkToken), codeHash(user.id, code)];
   await prisma.authToken.createMany({ data: [
-    { userId: user.id, kind: "email_verification", tokenHash: hashToken(linkToken), expiresAt: new Date(Date.now() + EMAIL_TOKEN_HOURS * 3600000) },
-    { userId: user.id, kind: "email_code", tokenHash: codeHash(user.id, code), expiresAt: new Date(Date.now() + CODE_MINUTES * 60000) },
+    { userId: user.id, kind: "email_verification", tokenHash: newHashes[0], expiresAt: new Date(Date.now() + EMAIL_TOKEN_HOURS * 3600000) },
+    { userId: user.id, kind: "email_code", tokenHash: newHashes[1], expiresAt: new Date(Date.now() + CODE_MINUTES * 60000) },
   ] });
+  try {
+    const sent = await sendVerificationEmail(user, linkToken, code);
+    if (!sent) throw new Error("Email delivery is unavailable.");
+  } catch (error) {
+    await prisma.authToken.deleteMany({ where: { userId: user.id, tokenHash: { in: newHashes } } }).catch(() => {});
+    throw error;
+  }
+  await prisma.authToken.deleteMany({
+    where: { userId: user.id, kind: { in: ["email_verification", "email_code"] }, tokenHash: { notIn: newHashes } },
+  });
   codeAttempts.delete(user.id);
   resendAt.set(user.id, Date.now());
-  return sendVerificationEmail(user, linkToken, code);
+  return true;
 }
 
 function randomToken() {
@@ -120,6 +133,8 @@ router.post("/signup", async (req, res, next) => {
     const email = normalizeEmail(req.body?.email);
     const displayName = String(req.body?.displayName || "").trim().slice(0, 120);
     const password = req.body?.password;
+    const intendedPlan = normalizeIntendedPlan(req.body?.intendedPlan);
+    if (req.body?.intendedPlan != null && !intendedPlan) return res.status(400).json({ error: "Invalid subscription plan selection." });
     if (!validEmail(email)) return res.status(400).json({ error: "Enter a valid email address." });
     if (!validPassword(password)) return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` });
     if (req.body?.adultConfirmed !== true) return res.status(400).json({ error: "You must be at least 18 to create a Voxora account." });
@@ -128,12 +143,12 @@ router.post("/signup", async (req, res, next) => {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return res.status(409).json({ error: "An account with that email already exists." });
 
-    const user = await prisma.user.create({ data: { email, displayName: displayName || null, passwordHash: await hashPassword(password), termsAcceptedAt: new Date(), termsVersion: CURRENT_LEGAL_VERSION, adultConfirmedAt: new Date() } });
+    const user = await prisma.user.create({ data: { email, displayName: displayName || null, passwordHash: await hashPassword(password), termsAcceptedAt: new Date(), termsVersion: CURRENT_LEGAL_VERSION, adultConfirmedAt: new Date(), intendedPlan } });
     const sessionToken = await createSession(user.id, req);
     setSessionCookie(res, sessionToken);
     let emailSent = false;
     try { emailSent = await issueVerification(user); } catch (error) { console.error("[auth] Signup verification email failed:", error.message); }
-    return res.status(201).json({ user: publicUser(user), emailVerificationRequired: true, emailSent, message: emailSent ? "We emailed you a 6-digit code." : "Account created, but we could not send the code. Use Resend on the next page." });
+    return res.status(201).json({ user: publicUser(user), emailVerificationRequired: true, emailSent, message: emailSent ? "We emailed you a 6-digit code." : "Account created, but delivery failed. Request a new code from the verification page." });
   } catch (error) {
     return next(error);
   }
