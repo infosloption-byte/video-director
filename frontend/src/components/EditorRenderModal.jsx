@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import RenderQuota, { useRenderQuota } from "./RenderQuota";
+import RenderQuota from "./RenderQuota";
+import { useRenderQuota } from "../hooks/useRenderQuota";
 
 async function api(url, options = {}) {
   const response = await fetch(url, { credentials: "include", cache: "no-store", ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
