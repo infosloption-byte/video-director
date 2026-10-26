@@ -109,18 +109,18 @@ export default function PlanSelectPage() {
   }, [pending, retryCount, user?.id, navigate, refresh, isReturningCustomer]);
 
   useEffect(() => {
-    if (!preview) return undefined;
+    if (!preview && !cancelConfirm) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKeyDown = (event) => {
-      if (event.key === "Escape" && !busy) setPreview(null);
+      if (event.key === "Escape" && !busy) { setPreview(null); setCancelConfirm(false); }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [preview, busy]);
+  }, [preview, cancelConfirm, busy]);
 
   if (status === "loading") return null;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent("/choose-plan" + window.location.search)}`} replace />;
@@ -285,7 +285,13 @@ export default function PlanSelectPage() {
         ? `You're currently on ${billing?.plan?.name || "your current"} plan. Compare the available options and select your next plan.`
         : "Start with Free or choose a paid plan. Paddle securely collects payment; Voxora activates the paid plan after confirmation."}</p>
 
-      {error && <div role="alert" className="plan-select__alert">{error}</div>}
+      {paymentState?.checkout?.status === "activated" && <div role="status" className="plan-select__notice">
+        Payment activated. Your paid subscription is confirmed. <Link to="/billing">View Billing</Link>.
+      </div>}
+      {paymentState?.checkout?.status === "canceled" && <div role="status" className="plan-select__notice">
+        Your previous unpaid checkout was canceled. You may select a different plan.
+      </div>}
+            {error && <div role="alert" className="plan-select__alert">{error}</div>}
       {message && <div role="status" className="plan-select__notice">{message}</div>}
 
       {paymentState?.creating && <div className="plan-select__notice" role="status">
