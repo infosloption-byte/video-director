@@ -137,6 +137,10 @@ router.get("/projects/:id/editor/render-status", async (req, res) => {
     }
 
     const state = await job.getState();
+    if (state === "failed" && job.data.credit?.userId === req.user.id) {
+      const { userId, renderKey, month } = job.data.credit;
+      if (renderKey && month) await releaseRender(userId, renderKey, month);
+    }
     const progress = progressPayload(job);
     const progressValue = Number(progress.progress || 0);
     const timing = buildTiming(job, progressValue);
