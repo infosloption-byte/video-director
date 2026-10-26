@@ -33,5 +33,9 @@ export function authPath(path, next) {
   return `${path}?next=${encodeURIComponent(safeInternalPath(next) || "/choose-plan")}`;
 }
 export function unfinishedPlanDestination(user, fallback = "/choose-plan") {
-  return user && !user.planSelectedAt ? onboardingDestination(user.intendedPlan) : fallback;
+  if (!user || user.planSelectedAt) return safeInternalPath(fallback) || "/my-research";
+  const stored = validPlan(user.intendedPlan);
+  if (stored) return onboardingDestination(stored);
+  const linkPlan = selectedPlanFromDestination(fallback);
+  return onboardingDestination(linkPlan);
 }
