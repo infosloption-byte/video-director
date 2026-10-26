@@ -38,3 +38,7 @@
  .payment-result__actions { flex-direction:column; align-items:stretch; }
  .payment-result__actions .btn { width:100%; }
 }
+
+.payment-result__pause { display:inline-block; margin-top:7px; padding:3px 0; background:transparent; border:0; color:var(--ink); font:500 12px var(--font-sans); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.payment-result__pause:hover { color:var(--ink-dim); }
+.payment-result__pause:focus-visible { outline:2px solid var(--ink); outline-offset:3px; border-radius:3px; }
