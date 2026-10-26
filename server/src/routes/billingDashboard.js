@@ -110,24 +110,24 @@ billingDashboardRouter.get("/dashboard/activity", async (req, res, next) => {
   try {
     const local = await ownedSubscription(req.user.id);
     const ownedIds = await ownedSubscriptionIds(req.user.id, local);
-    if (!local || !ownedIds.length) return res.json({ items: [], warnings: [] });
+    if (!ownedIds.length) return res.json({ items: [], warnings: [] });
     const warnings = [];
     const [historyResult, transactionsResult, change] = await Promise.all([
-      paddleList(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}/history`, new URLSearchParams({ per_page: "30" }))
+      local ? paddleList(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}/history`, new URLSearchParams({ per_page: "30" }))
         .catch(error => { warnings.push(error.status === 403
           ? "Paddle subscription-history permission is not enabled; showing available payment activity."
-          : "Subscription activity from Paddle is temporarily unavailable."); return null; }),
+          : "Subscription activity from Paddle is temporarily unavailable."); return null; }) : Promise.resolve(null),
       paddleList("/transactions", transactionQuery(ownedIds, null, 30))
         .catch(() => { warnings.push("Recent Paddle payment activity is temporarily unavailable."); return null; }),
       prisma.billingPlanChange.findUnique({ where: { userId: req.user.id } }),
     ]);
     const history = arrayData(historyResult)
-      .filter(row => row.subscription_id === local.paddleSubscriptionId);
+      .filter(row => local && row.subscription_id === local.paddleSubscriptionId);
     const allowed = new Set(ownedIds);
     const transactions = arrayData(transactionsResult)
       .filter(row => allowed.has(row.subscription_id))
       .map(cleanTransaction);
-    const localChange = change?.paddleSubscriptionId === local.paddleSubscriptionId ? change : null;
+    const localChange = change && ownedIds.includes(change.paddleSubscriptionId) ? change : null;
     return res.json({ items: billingActivity({ history, transactions, localChange }), warnings });
   } catch (error) { next(error); }
 });
