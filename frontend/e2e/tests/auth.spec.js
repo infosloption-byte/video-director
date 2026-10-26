@@ -72,7 +72,8 @@ test("preserves Studio intent through registration, Gmail failure, resend and co
   await mockAccountApi(page, { emailSent: false, resendFailures: 1 });
   await page.goto("/choose-plan?plan=studio");
   await expect(page).toHaveURL(/\/signin\?next=/);
-  await page.getByRole("link", { name: "Create account" }).click();
+  // Use the form-specific signup link; the public header also has a CTA.
+  await page.locator(".auth-card__switch").getByRole("link", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/signup\?next=/);
   await page.getByLabel("Email address").fill("browser-test@example.test");
   await page.getByLabel("Password", { exact: true }).fill("Astrong-password-123");
@@ -89,6 +90,20 @@ test("preserves Studio intent through registration, Gmail failure, resend and co
   await page.getByRole("textbox", { name: "6-digit verification code" }).fill("123456");
   await expect(page).toHaveURL(/\/choose-plan\?plan=studio/);
   await expect(page.locator(".plan-select__card.is-highlighted").getByRole("heading", { name: "Studio" })).toBeVisible();
+});
+
+test("desktop and mobile header signup links keep the chosen Studio plan", async ({ page }) => {
+  await mockAccountApi(page);
+  await page.goto("/signin?next=%2Fchoose-plan%3Fplan%3Dstudio");
+
+  if (page.viewportSize().width <= 960) {
+    await page.getByRole("button", { name: "Open navigation menu" }).click();
+    await page.locator(".ph__panel-actions").getByRole("link", { name: "Create account" }).click();
+  } else {
+    await page.locator(".ph__actions").getByRole("link", { name: "Create account" }).click();
+  }
+  await expect(page).toHaveURL(/\/signup\?next=/);
+  await expect(page).toHaveURL(/plan%3Dstudio/);
 });
 
 test("sign-in resumes paid onboarding rather than dropping the intended Creator plan", async ({ page }) => {
