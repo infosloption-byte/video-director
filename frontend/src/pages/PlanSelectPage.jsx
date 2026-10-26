@@ -86,8 +86,11 @@ export default function PlanSelectPage() {
         setPaymentState(state);
         const entry = pending.type === "checkout" ? state.checkout : state.change;
         if (entry?.status === "activated" && (pending.type !== "checkout" || entry.transactionId === pending.id)) {
+          const destination = isReturningCustomer ? "/billing?updated=1" : WORKSPACE;
           await refresh();
-          if (active) navigate(isReturningCustomer ? "/billing?updated=1" : WORKSPACE, { replace: true });
+          // Refresh can update user.planSelectedAt, replaying the polling effect.
+          // Do not lose the already-confirmed navigation during its cleanup.
+          if (active || window.location.pathname === "/choose-plan") navigate(destination, { replace: true });
           return;
         }
         if (entry?.status === "failed" || entry?.status === "canceled") {
