@@ -4,7 +4,7 @@
 Free: 3 renders / UTC month, Creator: 30, Studio: 150. All plans currently permit 60-second videos. The backend continues to enforce the authenticated user's effective plan and an atomic MySQL reservation. This feature does not change the catalog or subscription security.
 
 ## Frontend
-The shared `RenderQuota` indicator reads `GET /api/billing/me` with `cache: no-store`, shows actual used / remaining / allowance, the next midnight UTC monthly reset, and warning states at >=80% and 100%. A `PLAN_LIMIT_REACHED` response offers an Upgrade plan action. It is integrated into storyboard Preview, advanced Editor render modal, and the legacy editor render page. Usage refreshes after render submission, terminal polling, and when users return focus to the app after a plan change. Failures are visible rather than assumed to be zero credits.
+The shared `RenderQuota` indicator reads `GET /api/billing/me` with `cache: no-store`, shows actual used / remaining / allowance, the next midnight UTC monthly reset, and warning states at >=80% and 100%. A `PLAN_LIMIT_REACHED` response offers an Upgrade plan action. It is integrated into storyboard Preview, advanced Editor render modal, and the legacy editor render page. Usage refreshes after render submission, terminal polling, and when users return focus to the app after a plan change, and every 30 seconds while the render screen is visible so signed webhook changes do not require navigation. Failures are visible rather than assumed to be zero credits.
 
 ## Failure and cancellation reconciliation
 - Each new BullMQ render job stores the original server-side `{userId, renderKey, month}` reservation metadata.
