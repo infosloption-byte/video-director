@@ -146,7 +146,7 @@ function CodeVerification() {
           <p className="eyebrow">Step 2 of 3 · Verify email</p>
           <h1 id="verify-title">{done ? "Email verified." : "Check your email."}</h1>
           <p className="auth-verify__lead">{done ? "Taking you to plan selection…" : <>Enter the 6-digit code for <strong>{user.email}</strong>. If it has not arrived, request a new code below.</>}</p>
-          {location.state?.deliveryFailed && !notice && !done && <div className="auth-card__error" role="alert">Your account was created, but Gmail did not accept the verification email. Select Resend code to try again. You can return to this page later.</div>}
+          {(location.state?.deliveryFailed || new URLSearchParams(location.search).get("delivery") === "failed") && !notice && !done && <div className="auth-card__error" role="alert">Your account was created, but Gmail did not accept the verification email. Select Resend code to try again. You can return to this page later.</div>}
           {error && <div className="auth-card__error" role="alert">{error}</div>}
           {notice && <div className="auth-card__notice" role="status">{notice}</div>}
           {!done && (
