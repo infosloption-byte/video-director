@@ -81,7 +81,7 @@ router.post("/projects/:id/editor/render", async (req, res) => {
     renderKey = `editor:${req.params.id}:${editor.version}:${renderHash.slice(0, 40)}`;
     reservation = await reserveRender(req.user, renderKey, Number(editor.timeline?.duration || 0));
     await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "queued", renderVersion: editor.version, renderHash, renderError: null } });
-    const job = await enqueueEditorRender(req.params.id, editor.version, renderHash, { userId: req.user.id, renderKey, month: reservation.month });
+    const job = await enqueueEditorRender(req.params.id, editor.version, renderHash, reservation.fresh ? { userId: req.user.id, renderKey, month: reservation.month } : null);
     const timing = buildTiming(job, 0);
     res.status(202).json({ projectId: req.params.id, jobId: job.id, status: "queued", version: editor.version, renderHash, progress: 0, stage: "queued", stageProgress: 0, message: "Waiting for the editor render worker to start.", ...timing });
   } catch (error) {
