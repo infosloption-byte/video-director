@@ -73,3 +73,11 @@
 @media (max-width: 640px) { .auth-page .auth-page__main { padding-top: 20px; } .auth-page .auth-pitch__steps { margin-top: 18px; } }
 .auth-page .auth-shell { max-width: calc(1320px - 2 * clamp(16px, 4vw, 56px)); }
 .auth-page .auth-card h1 { margin: 8px 0 10px; color: var(--ink); font-family: var(--font-serif); font-weight: 500; font-size: clamp(1.9rem, 3vw, 2.5rem); line-height: 1.05; letter-spacing: -.02em; }
+
+/* Recovery and verification states share the same themed action treatment. */
+.auth-page .auth-card--recovery { width: min(100%, 480px); max-width: 480px; margin-inline: auto; justify-self: center; }
+.auth-recovery-links { display: grid; justify-items: start; gap: 14px; margin-top: 20px; }
+.auth-recovery-links .btn { text-align: center; }
+.auth-recovery-links a:not(.btn) { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; font-size: .9rem; }
+.auth-recovery-links p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.6; }
+@media (max-width: 560px) { .auth-recovery-links .btn { width: 100%; justify-content: center; } }
