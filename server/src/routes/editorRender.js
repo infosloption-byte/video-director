@@ -81,11 +81,11 @@ router.post("/projects/:id/editor/render", async (req, res) => {
     renderKey = `editor:${req.params.id}:${editor.version}:${renderHash.slice(0, 40)}`;
     reservation = await reserveRender(req.user, renderKey, Number(editor.timeline?.duration || 0));
     await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "queued", renderVersion: editor.version, renderHash, renderError: null } });
-    const job = await enqueueEditorRender(req.params.id, editor.version, renderHash, reservation.fresh ? { userId: req.user.id, renderKey, month: reservation.month } : null);
+    const job = await enqueueEditorRender(req.params.id, editor.version, renderHash, reservation.fresh ? { userId: req.user.id, renderKey, month: reservation.month, creditId: reservation.creditId } : null);
     const timing = buildTiming(job, 0);
     res.status(202).json({ projectId: req.params.id, jobId: job.id, status: "queued", version: editor.version, renderHash, progress: 0, stage: "queued", stageProgress: 0, message: "Waiting for the editor render worker to start.", ...timing });
   } catch (error) {
-    if (reservation?.fresh && renderKey) await releaseRender(req.user.id, renderKey, reservation.month).catch(() => {});
+    if (reservation?.fresh && renderKey) await releaseRender(req.user.id, renderKey, reservation.month, reservation.creditId).catch(() => {});
     console.error(`POST /api/projects/${req.params.id}/editor/render failed:`, error);
     res.status(error.status || 503).json({ error: error.message || "Editor render queue is unavailable.", code: error.code || undefined });
   }
@@ -103,8 +103,8 @@ router.post("/projects/:id/editor/render/cancel", async (req, res) => {
     if (["waiting", "delayed", "prioritized"].includes(state)) {
       await job.remove();
       if (job.data.credit?.userId === req.user.id) {
-        const { userId, renderKey: creditKey, month } = job.data.credit;
-        if (creditKey && month) await releaseRender(userId, creditKey, month);
+        const { userId, renderKey: creditKey, month, creditId } = job.data.credit;
+        if (creditKey && month) await releaseRender(userId, creditKey, month, creditId);
       }
       await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "idle", renderError: null } });
       return res.json({ projectId: req.params.id, status: "cancelled", message: "Queued editor render cancelled." });
@@ -138,8 +138,8 @@ router.get("/projects/:id/editor/render-status", async (req, res) => {
 
     const state = await job.getState();
     if (state === "failed" && job.data.credit?.userId === req.user.id) {
-      const { userId, renderKey, month } = job.data.credit;
-      if (renderKey && month) await releaseRender(userId, renderKey, month);
+      const { userId, renderKey, month, creditId } = job.data.credit;
+      if (renderKey && month) await releaseRender(userId, renderKey, month, creditId);
     }
     const progress = progressPayload(job);
     const progressValue = Number(progress.progress || 0);
