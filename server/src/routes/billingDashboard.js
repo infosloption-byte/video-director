@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db/client.js";
+import { expensiveOperationRateLimit } from "../middleware/rateLimit.js";
 import { paddleFetch, userBilling } from "../services/billingService.js";
 import {
   billingActivity, cleanTransaction, cursorFromMeta, invoiceBelongsToUser, MANAGEMENT_ACTIONS,
@@ -131,7 +132,7 @@ billingDashboardRouter.get("/dashboard/activity", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-billingDashboardRouter.get("/dashboard/invoice/:id", async (req, res, next) => {
+billingDashboardRouter.get("/dashboard/invoice/:id", expensiveOperationRateLimit, async (req, res, next) => {
   try {
     const id = String(req.params.id || "");
     if (!TRANSACTION_ID.test(id)) return res.status(400).json({ error: "Invalid transaction ID." });
@@ -158,7 +159,7 @@ billingDashboardRouter.get("/dashboard/invoice/:id", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-billingDashboardRouter.get("/dashboard/manage", async (req, res, next) => {
+billingDashboardRouter.get("/dashboard/manage", expensiveOperationRateLimit, async (req, res, next) => {
   try {
     const action = String(req.query.action || "overview");
     if (!MANAGEMENT_ACTIONS.includes(action))
