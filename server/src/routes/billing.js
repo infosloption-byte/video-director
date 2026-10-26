@@ -352,11 +352,13 @@ async function processWebhook(req,res) {
     if(SUBSCRIPTION_EVENTS.has(event.event_type) && data.id) {
       let checkout=data.transaction_id ? await tx.billingCheckout.findUnique({where:{transactionId:data.transaction_id}}) : null;
       let linked=await tx.billingSubscription.findUnique({where:{paddleSubscriptionId:data.id}});
-      let userId=linked?.userId||checkout?.userId;
+      const userId=linked?.userId||checkout?.userId;
+      if (linked && checkout && checkout.userId !== linked.userId) throw new Error("Paddle subscription and checkout owner mismatch.");
       // Reject untrusted custom_data for provisioning: the server-created transaction record is the source of truth.
-      if(userId) {
-        const plan=subscriptionPlan(data)||checkout?.plan||linked?.plan;
-        if(plan) {
+      const plan=subscriptionPlan(data);
+      // Shared Paddle merchant account: reject BuildHire subscriptions and
+      // modified prices even when the event signature is valid.
+      if (userId && belongsToVoxora({ linkedSubscription: linked, linkedCheckout: checkout, paddlePlan: plan, checkoutPlan: checkout?.plan })) {
           const payload={
             paddleSubscriptionId:data.id,paddleCustomerId:data.customer_id||linked?.paddleCustomerId||null,
             plan,status:String(data.status||"inactive"),
@@ -365,36 +367,85 @@ async function processWebhook(req,res) {
             lastEventAt:date,
           };
           const previousForUser = linked ? null : await tx.billingSubscription.findUnique({ where: { userId } });
-          if (previousForUser && previousForUser.paddleSubscriptionId !== data.id
-              && isPaidSubscriptionActive(previousForUser)) {
-            console.warn("[billing] Refusing to overwrite a separate active subscription", { userId, subscriptionId: data.id });
+          const replacingOther = previousForUser && previousForUser.paddleSubscriptionId !== data.id;
+          if (replacingOther && (isPaidSubscriptionActive(previousForUser) || !checkout)) {
+            console.warn("[billing] Ignored foreign or outdated subscription event", event.event_type);
+          } else if (linked && date < linked.lastEventAt) {
+            // Out-of-order event: never roll back a newer confirmed price/status.
           } else {
             if (linked) {
-              if (date >= linked.lastEventAt) await tx.billingSubscription.update({ where: { id: linked.id }, data: payload });
+              await tx.billingSubscription.update({ where: { id: linked.id }, data: payload });
             } else {
-              // A canceled old subscription may be replaced by a new, verified checkout.
               await tx.billingSubscription.upsert({ where: { userId }, create: { userId, ...payload }, update: payload });
             }
-            if (checkout && checkout.userId === userId) {
+            if (checkout?.userId === userId && checkout.plan === plan) {
               await tx.billingCheckout.update({
-                where: { id: checkout.id }, data: { paddleSubscriptionId: data.id },
+                where: { id: checkout.id },
+                data: {
+                  paddleSubscriptionId: data.id,
+                  ...(isPaidSubscriptionActive(payload) ? { status: "activated", lastEventAt: date } : {}),
+                },
               });
+              if (isPaidSubscriptionActive(payload)) {
+                await tx.billingCheckoutLock.updateMany({
+                  where: { userId, transactionId: checkout.transactionId },
+                  data: { status: "finished" },
+                });
+              }
             }
-            if (["active", "trialing"].includes(payload.status)) {
+            if (isPaidSubscriptionActive(payload)) {
               await tx.user.updateMany({
                 where: { id: userId, planSelectedAt: null },
                 data: { planSelectedAt: new Date(), intendedPlan: null },
               });
+              await tx.billingPlanChange.updateMany({
+                where: {
+                  userId, paddleSubscriptionId: data.id, toPlan: plan,
+                  status: { in: ["processing", "uncertain"] },
+                  requestedAt: { lte: date },
+                },
+                data: { status: "activated", lastError: null },
+              });
             }
+            if (["subscription.created","subscription.activated","subscription.canceled","subscription.past_due"].includes(event.event_type))
+              notification = { type:event.event_type, userId, plan, info:{ periodEnd: payload.periodEnd?.toISOString() } };
           }
-          if(["subscription.created","subscription.activated","subscription.canceled","subscription.past_due"].includes(event.event_type)) notification={type:event.event_type,userId,plan,info:{periodEnd:payload.periodEnd?.toISOString()}};
+      } else {
+        console.warn("[billing] Ignoring unowned or non-Voxora subscription event", event.event_type);
+      }
+    } else if (["transaction.completed","transaction.payment_failed","transaction.canceled","transaction.past_due"].includes(event.event_type)) {
+      const checkout = data.id ? await tx.billingCheckout.findUnique({ where: { transactionId: data.id } }) : null;
+      const subscription = data.subscription_id
+        ? await tx.billingSubscription.findUnique({ where: { paddleSubscriptionId: data.subscription_id } }) : null;
+      // No checkout or previously-owned subscription => another product on
+      // SL Options' shared Paddle account. Do not notify or mutate anything.
+      const userId = checkout?.userId || subscription?.userId;
+      if (checkout && (!checkout.lastEventAt || date >= checkout.lastEventAt)) {
+        const nextStatus = checkoutEventStatus(event.event_type, checkout.status);
+        await tx.billingCheckout.update({
+          where: { id: checkout.id },
+          data: { status: nextStatus, lastEventAt: date },
+        });
+        if (nextStatus === "canceled") {
+          await tx.billingCheckoutLock.updateMany({
+            where: { userId: checkout.userId, transactionId: checkout.transactionId },
+            data: { status: "finished" },
+          });
         }
-      } else console.warn("[billing] Ignoring unlinked subscription event:",event.event_type,data.id);
-    } else if(["transaction.completed","transaction.payment_failed"].includes(event.event_type)) {
-      const checkout=data.id?await tx.billingCheckout.findUnique({where:{transactionId:data.id}}):null;
-      const subscription=data.subscription_id?await tx.billingSubscription.findUnique({where:{paddleSubscriptionId:data.subscription_id}}):null;
-      const userId=checkout?.userId||subscription?.userId;
-      if(userId) notification={type:event.event_type,userId,plan:checkout?.plan||subscription?.plan,info:{amountMinor:data.details?.totals?.total,currency:data.currency_code,transactionId:data.id,invoiceNumber:data.invoice_number}};
+      }
+      if (subscription && event.event_type === "transaction.payment_failed"
+          && data.origin === "subscription_update") {
+        await tx.billingPlanChange.updateMany({
+          where: {
+            userId: subscription.userId, paddleSubscriptionId: subscription.paddleSubscriptionId,
+            status: { in: ["processing", "uncertain"] }, requestedAt: { lte: date },
+          },
+          data: { status: "failed", lastError: "Paddle declined the prorated payment. Your original plan remains active." },
+        });
+      }
+      if (userId && ["transaction.completed","transaction.payment_failed"].includes(event.event_type))
+        notification = {type:event.event_type,userId,plan:checkout?.plan||subscription?.plan,
+          info:{amountMinor:data.details?.totals?.total,currency:data.currency_code,transactionId:data.id,invoiceNumber:data.invoice_number}};
     }
     await tx.billingWebhookEvent.create({data:{eventId:event.event_id,eventType:event.event_type,occurredAt:date}});
   });
