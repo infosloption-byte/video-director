@@ -28,11 +28,11 @@ done
 (
   cd "$ROOT/frontend"
   npm install --save-dev --save-exact vite@8.3.5 --ignore-scripts --no-fund --no-audit
-  npm audit fix --ignore-scripts --no-fund --no-audit
+  npm audit fix --ignore-scripts --no-fund
 )
 (
   cd "$ROOT/server"
-  npm audit fix --ignore-scripts --no-fund --no-audit
+  npm audit fix --ignore-scripts --no-fund
 )
 
 # Preserve machine-readable residual advisories for manual triage.
