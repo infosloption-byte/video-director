@@ -143,6 +143,56 @@ billingRouter.post("/checkout", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// Browser close is NOT payment cancellation. This route cancels a known
+// uncharged transaction with Paddle first, before unlocking plan selection.
+billingRouter.post("/checkout/cancel", async (req, res, next) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
+    const transactionId = String(req.body?.transactionId || "");
+    if (!/^txn_[a-z0-9]{20,100}$/.test(transactionId))
+      return res.status(400).json({ error: "Invalid checkout." });
+    const [checkout, lock] = await Promise.all([
+      prisma.billingCheckout.findUnique({ where: { transactionId } }),
+      prisma.billingCheckoutLock.findUnique({ where: { userId: req.user.id } }),
+    ]);
+    if (!checkout || checkout.userId !== req.user.id || lock?.transactionId !== transactionId)
+      return res.status(404).json({ error: "Checkout not found." });
+    if (!["awaiting_payment","failed"].includes(checkout.status))
+      return res.status(409).json({ error: "This checkout is already processing and cannot safely be cancelled." });
+
+    let remote;
+    try { remote = await paddleFetch(`/transactions/${encodeURIComponent(transactionId)}`); }
+    catch {
+      return res.status(503).json({ error: "Cannot verify the Paddle transaction. Do not start another payment." });
+    }
+    if (remote?.id !== transactionId || remote?.collection_mode !== "automatic" || remote?.origin !== "api")
+      return res.status(409).json({ error: "Paddle checkout requires support to cancel safely." });
+    if (!["draft","ready","canceled"].includes(remote.status))
+      return res.status(409).json({ error: "Paddle has begun processing this payment. Wait for confirmation before taking another action." });
+
+    if (remote.status !== "canceled") {
+      let canceled;
+      try {
+        canceled = await paddleFetch(`/transactions/${encodeURIComponent(transactionId)}`, {
+          method: "PATCH", body: JSON.stringify({ status: "canceled" }), timeoutMs: 25000,
+        });
+      } catch {
+        return res.status(503).json({ error: "Cancellation is not confirmed. Do not submit another payment yet." });
+      }
+      if (canceled?.id !== transactionId || canceled.status !== "canceled")
+        return res.status(503).json({ error: "Paddle has not confirmed cancellation." });
+    }
+    await prisma.$transaction(async tx => {
+      await tx.billingCheckout.update({ where: { transactionId }, data: { status: "canceled" } });
+      await tx.billingCheckoutLock.updateMany({
+        where: { userId: req.user.id, transactionId, status: "ready" },
+        data: { status: "finished" },
+      });
+    });
+    res.json({ canceled: true, status: "canceled" });
+  } catch (error) { next(error); }
+});
+
 billingRouter.get("/payment-state", async (req, res, next) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
