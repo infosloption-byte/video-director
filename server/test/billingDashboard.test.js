@@ -177,3 +177,27 @@ test("invoice and portal link generation is throttled by authenticated user", ()
   expensiveOperationRateLimit({ ...req, user: { id: "another-billing-test-user" } }, res, () => { calls += 1; });
   assert.equal(calls, 13);
 });
+
+test("invoice rate limit cannot be bypassed by changing transaction IDs or forwarded IPs", () => {
+  const base = {
+    user: { id: "billing-invoice-limit-regression" },
+    headers: {}, method: "GET", ip: "127.0.0.1",
+  };
+  let permitted = 0;
+  const res = {
+    code: 200, setHeader() {},
+    status(value) { this.code = value; return this; },
+    json(value) { this.body = value; return this; },
+  };
+  for (let i = 0; i < 13; i += 1) {
+    const suffix = String(i).padStart(23, "0");
+    const req = {
+      ...base,
+      headers: { "x-forwarded-for": `203.0.113.${i + 1}` },
+      path: `/dashboard/invoice/txn_${suffix}`,
+    };
+    expensiveOperationRateLimit(req, res, () => { permitted += 1; });
+  }
+  assert.equal(permitted, 12);
+  assert.equal(res.code, 429);
+});
