@@ -23,8 +23,12 @@ function money(minor, currency) {
   if (minor === null || minor === undefined) return "—";
   const amount = Number(minor);
   if (!Number.isFinite(amount)) return "—";
-  try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD" }).format(amount / 100); }
-  catch { return `${(amount / 100).toFixed(2)} ${currency || "USD"}`; }
+  try {
+    const format = new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD" });
+    // Paddle uses the smallest unit of each currency, not always hundredths.
+    const fractionDigits = format.resolvedOptions().maximumFractionDigits;
+    return format.format(amount / (10 ** fractionDigits));
+  } catch { return `${(amount / 100).toFixed(2)} ${currency || "USD"}`; }
 }
 function statusLabel(value) {
   return ({
