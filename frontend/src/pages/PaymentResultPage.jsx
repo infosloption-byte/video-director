@@ -145,7 +145,7 @@ export default function PaymentResultPage() {
         <div className={`payment-result__symbol payment-result__symbol--${isSuccess ? "success" : isFailure ? "failed" : "pending"}`} aria-hidden="true">
           {isSuccess ? "✓" : isFailure ? "!" : "···"}
         </div>
-        <p className="eyebrow">{isSuccess ? "PAYMENT CONFIRMED" : isFailure ? "PAYMENT NEEDS ATTENTION" : "SECURE PAYMENT VERIFICATION"}</p>
+        <p className="eyebrow">{isSuccess ? (type === "change" ? "SUBSCRIPTION UPDATED" : "PAYMENT CONFIRMED") : isFailure ? "PAYMENT NEEDS ATTENTION" : "SECURE PAYMENT VERIFICATION"}</p>
         <h1 id="payment-result-title">{valid ? resultTitle : "Payment link is incomplete."}</h1>
         <p className="payment-result__lead">{valid ? resultText : "We couldn't identify this payment. Your plan details remain available from Voxora Billing."}</p>
 
