@@ -81,7 +81,7 @@ router.post("/projects/:id/editor/render", async (req, res) => {
     renderKey = `editor:${req.params.id}:${editor.version}:${renderHash.slice(0, 40)}`;
     reservation = await reserveRender(req.user, renderKey, Number(editor.timeline?.duration || 0));
     await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "queued", renderVersion: editor.version, renderHash, renderError: null } });
-    const job = await enqueueEditorRender(req.params.id, editor.version, renderHash);
+    const job = await enqueueEditorRender(req.params.id, editor.version, renderHash, { userId: req.user.id, renderKey, month: reservation.month });
     const timing = buildTiming(job, 0);
     res.status(202).json({ projectId: req.params.id, jobId: job.id, status: "queued", version: editor.version, renderHash, progress: 0, stage: "queued", stageProgress: 0, message: "Waiting for the editor render worker to start.", ...timing });
   } catch (error) {
@@ -103,6 +103,10 @@ router.post("/projects/:id/editor/render/cancel", async (req, res) => {
     if (["waiting", "delayed", "prioritized"].includes(state)) {
       await job.remove();
       await prisma.projectEditor.update({ where: { projectId: req.params.id }, data: { renderStatus: "idle", renderError: null } });
+      if (job.data.credit?.userId === req.user.id) {
+        const { userId, renderKey: creditKey, month } = job.data.credit;
+        if (creditKey && month) await releaseRender(userId, creditKey, month);
+      }
       return res.json({ projectId: req.params.id, status: "cancelled", message: "Queued editor render cancelled." });
     }
     if (state === "active") {
