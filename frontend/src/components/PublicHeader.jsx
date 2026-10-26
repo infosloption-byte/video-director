@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext.jsx";
+import { authPath, destinationFromSearch } from "../lib/onboarding";
 import "./ui.css";
 import "./PublicHeader.css";
 
@@ -94,7 +95,12 @@ export default function PublicHeader() {
     return location.pathname === (path || "/") && location.hash === `#${hash}`;
   };
 
-  const primaryTo = authenticated ? "/my-research" : "/signup";
+  // Retain the selected Creator/Studio plan in both desktop and mobile
+  // header actions when users are already in an authentication flow.
+  const inAuthFlow = ["/signin", "/signup", "/verify-email", "/forgot-password", "/reset-password"].includes(location.pathname);
+  const afterAuth = inAuthFlow ? destinationFromSearch(location.search, "/choose-plan") : null;
+  const primaryTo = authenticated ? "/my-research" : (inAuthFlow ? authPath("/signup", afterAuth) : "/signup");
+  const signInTo = inAuthFlow ? authPath("/signin", afterAuth) : "/signin";
   const primaryLabel = authenticated ? "Open workspace" : "Create account";
 
   return (
@@ -139,7 +145,7 @@ export default function PublicHeader() {
             </>
           ) : (
             <>
-              <Link to="/signin" className="ph__signin">Sign in</Link>
+              <Link to={signInTo} className="ph__signin">Sign in</Link>
               <Link to={primaryTo} className="btn btn-cream ph__cta">{primaryLabel}</Link>
             </>
           )}
@@ -174,7 +180,7 @@ export default function PublicHeader() {
               </>
             ) : (
               <>
-                <Link to="/signin" className="btn btn-ghost">Sign in</Link>
+                <Link to={signInTo} className="btn btn-ghost">Sign in</Link>
                 <Link to={primaryTo} className="btn btn-cream">{primaryLabel}</Link>
               </>
             )}
