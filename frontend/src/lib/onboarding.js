@@ -2,7 +2,13 @@
 export const planIds = Object.freeze(["free", "creator", "studio"]);
 export function validPlan(value) { return planIds.includes(value) ? value : null; }
 export function safeInternalPath(value) {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\x00-\x1f\x7f]/.test(value)) return null;
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return null;
+  // Backslashes and control characters can change URL parsing semantics.
+  // Check character codes without an intentionally flagged control-code regex.
+  if ([...value].some(character => {
+    const code = character.charCodeAt(0);
+    return character === "\\" || code <= 31 || code === 127;
+  })) return null;
   try {
     const url = new URL(value, "https://usevoxora.online");
     if (url.origin !== "https://usevoxora.online") return null;
