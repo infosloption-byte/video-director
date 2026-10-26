@@ -17,7 +17,7 @@ This module extends **Billing**, not the already sandbox-validated **Payments** 
 
 `/api/billing/dashboard` — signed-in only, returns `account`, `subscription`, `warnings`. If Paddle subscription reads are unavailable or mismatch the known Voxora item, the last signed local state remains visible with actions disabled and an explicit warning.
 
-`/api/billing/dashboard/transactions` — signed-in, user-owned subscription IDs only, strict Paddle pagination cursor, returns `items` and `nextCursor`. No card/bank details.
+`/api/billing/dashboard/transactions` — signed-in, user-owned subscription IDs only, strict Paddle pagination cursor, returns `items` and `nextCursor`. No card/bank details. Users can also retrieve paid renewal invoices associated with older Voxora subscriptions proved by their previous signed checkout records.
 
 `/api/billing/dashboard/activity` — signed-in, user-owned history and transaction events. Requires Paddle `subscription_history.read` permission for subscription change history; otherwise displays available payments and a warning.
 
@@ -31,7 +31,7 @@ This module extends **Billing**, not the already sandbox-validated **Payments** 
 - `transaction.read` — **required** for invoices, transaction history and paid transaction lookup.
 - `subscription_history.read` — **recommended** for full activity (otherwise graceful partial history with warning).
 - `customer_portal_session.write` — **required for authenticated portal links and Paddle `management_urls`.** The code falls back from portal-session creation to subscription management URLs only when Paddle has returned them. Without this key permission, those links may also be absent.
-- Paddle hosted cancellation and payment method changes are preferred to new local writes. No API key or webhook secret is exposed to Vite.
+- Paddle hosted cancellation and payment method changes are preferred to new local writes. The dashboard retains transaction activity after a user fully cancels the subscription. No API key or webhook secret is exposed to Vite.
 
 ### Shared Paddle account isolation
 
@@ -61,7 +61,7 @@ New tests:
 
 ## Sandbox acceptance checklist
 
-1. Log in to the test account with the active Studio plan. Billing shows actual Paddle renewal date, current billing period, allowance and subscription status.
+1. Log in to the test account with the active Studio plan. Confirm that the plan price includes its USD currency symbol and is explicitly labeled standard plan price. Billing shows actual Paddle renewal date, current billing period, allowance and subscription status.
 2. Check a completed Creator payment and prorated Studio upgrade against Paddle Dashboard: gross amounts, currencies, invoice numbers and PDF links should match Paddle's records. A zero-total payment-method change should not show a PDF.
 3. Download a real Paddle-issued invoice, then try to access a foreign BuildHire transaction's invoice ID using Voxora—must return 404 without leaking a PDF.
 4. Simulate past-due renewal: account stays safely protected, Billing presents payment recovery in Paddle, and **does not** open a new plan checkout.
