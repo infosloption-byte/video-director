@@ -100,31 +100,22 @@ function getSceneVoice(scene, setup, voices) {
   return voices.find((voice) => voice.source === setup?.voice?.source && voice.id === setup?.voice?.id) || null;
 }
 
-// Remount the local editing draft when the actual scene source changes.
-// This avoids copying props into multiple local states synchronously inside
-// an effect (and avoids one extra, potentially stale render).
+// Re-create the local editing draft when the underlying scene or its saved
+// customization actually changes, rather than cascading setState calls in an
+// effect on every new voices array reference.
 export default function SceneCustomizePanel(props) {
-  const { scene, selectedAssetIndex = 0, customSetup, voices = [] } = props;
+  const { scene, customSetup, selectedAssetIndex = 0 } = props;
   const saved = scene.customization || {};
-  const sourceKey = JSON.stringify({
-    sceneId: scene.id,
-    narration: scene.spokenText,
-    framework: saved.framework,
-    tone: saved.tone,
-    audience: saved.audienceLevel,
-    voice: saved.voice?.id,
-    voiceSource: saved.voice?.source,
-    fallbackFramework: customSetup?.framework,
-    fallbackTone: customSetup?.tone,
-    fallbackAudience: customSetup?.audienceLevel,
-    fallbackVoice: customSetup?.voice?.id,
-    assetIndex: selectedAssetIndex,
-    availableVoices: voices.map(voiceKey),
-  });
-  return <SceneCustomizePanelContent key={sourceKey} {...props} />;
+  const revisionKey = JSON.stringify([
+    scene.id, scene.spokenText, saved.framework, saved.tone,
+    saved.audienceLevel, saved.voice?.id, saved.voice?.source,
+    customSetup?.framework, customSetup?.tone, customSetup?.audienceLevel,
+    customSetup?.voice?.id, customSetup?.voice?.source, selectedAssetIndex,
+  ]);
+  return <SceneCustomizeDraft key={revisionKey} {...props} />;
 }
 
-function SceneCustomizePanelContent({
+function SceneCustomizeDraft({
   scene,
   selectedAssetIndex = 0,
   customSetup,
@@ -143,7 +134,9 @@ function SceneCustomizePanelContent({
   const [tone, setTone] = useState(saved.tone || customSetup?.tone || "Conversational");
   const [audience, setAudience] = useState(saved.audienceLevel || customSetup?.audienceLevel || "General public");
   const [narration, setNarration] = useState(scene.spokenText || "");
-  const [selectedVoiceKey, setSelectedVoiceKey] = useState(() => voiceKey(activeVoice));
+  // Follow asynchronously loaded default voices until the user explicitly chooses one.
+  const [voiceSelectionOverride, setVoiceSelectionOverride] = useState(null);
+  const selectedVoiceKey = voiceSelectionOverride ?? voiceKey(activeVoice);
   const [playingNarration, setPlayingNarration] = useState(false);
   const [voiceGenerating, setVoiceGenerating] = useState(false);
   const [selectedVisualIndex, setSelectedVisualIndex] = useState(selectedAssetIndex);
@@ -152,6 +145,14 @@ function SceneCustomizePanelContent({
 
   const selectedVoice = voices.find((voice) => voiceKey(voice) === selectedVoiceKey) || activeVoice;
   const voiceChanged = selectedVoiceKey !== voiceKey(activeVoice);
+
+  useEffect(() => {
+    const audio = narrationAudioRef;
+    return () => {
+      audio.current?.pause();
+      audio.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -187,7 +188,7 @@ function SceneCustomizePanelContent({
   }
 
   function selectSceneVoice(voice) {
-    if (voice) setSelectedVoiceKey(voiceKey(voice));
+    if (voice) setVoiceSelectionOverride(voiceKey(voice));
   }
 
   async function playAudioUrl(audioUrl) {

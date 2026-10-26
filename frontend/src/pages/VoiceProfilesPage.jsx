@@ -109,7 +109,45 @@ export default function VoiceProfilesPage() {
   const previewUrlsRef = useRef(new Map());
   const studioRef = useRef(null);
 
-  const loadProfiles = useCallback(async () => {
+  // Keep resource handles in stable containers so cleanup always revokes the
+  // latest microphone URL, not a stale initial render's draftRecording.
+  const draftUrlResource = useRef({ url: null });
+  useEffect(() => {
+    const controller = new AbortController();
+    const previewUrls = previewUrlsRef.current;
+    const currentDraft = draftUrlResource.current;
+    async function loadInitialProfiles() {
+      try {
+        const response = await fetch("/api/voice-profiles", {
+          credentials: "include", cache: "no-store", signal: controller.signal,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Failed to load voice profiles.");
+        if (controller.signal.aborted) return;
+        setProfiles(data.profiles || []);
+        setPrompts(data.prompts?.length ? data.prompts : FALLBACK_PROMPTS);
+        setMinSamples(Number(data.minSamples || 2));
+        setMaxSamples(Number(data.maxSamples || 6));
+      } catch (err) {
+        if (!controller.signal.aborted) setError(err.message || "Failed to load voice profiles.");
+      }
+    }
+    void loadInitialProfiles();
+    return () => {
+      controller.abort();
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      window.clearInterval(recordingTimerRef.current);
+      if (currentDraft.url) URL.revokeObjectURL(currentDraft.url);
+      playbackRef.current?.pause();
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      previewUrls.clear();
+    };
+  }, []);
+
+
+  // Also used after cloning a profile; unlike initial mount loading, this
+  // refresh is initiated by the user's clone action.
+  async function loadProfiles() {
     try {
       const response = await fetch("/api/voice-profiles", { credentials: "include", cache: "no-store" });
       const data = await response.json().catch(() => ({}));
@@ -125,26 +163,6 @@ export default function VoiceProfilesPage() {
 
   // Schedule the first async fetch after effect setup, instead of cascading
   // state updates during the effect's synchronous execution.
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void loadProfiles(); }, 0);
-    const previewUrls = previewUrlsRef.current;
-    return () => {
-      window.clearTimeout(timer);
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      window.clearInterval(recordingTimerRef.current);
-      playbackRef.current?.pause();
-      previewUrls.forEach((url) => URL.revokeObjectURL(url));
-      previewUrls.clear();
-    };
-  }, [loadProfiles]);
-
-  // The current draft may be created long after mount; using an empty-deps
-  // cleanup would capture an old value and leak its Blob URL on unmount.
-  useEffect(() => {
-    const url = draftRecording?.url;
-    return () => { if (url) URL.revokeObjectURL(url); };
-  }, [draftRecording?.url]);
-
   useEffect(() => {
     if (!active?.id) return undefined;
     const timer = window.setTimeout(() => {
@@ -164,7 +182,8 @@ export default function VoiceProfilesPage() {
   }
 
   function releaseDraftRecording() {
-    // The draft-url effect revokes its Blob URL after this state is released.
+    if (draftUrlResource.current.url) URL.revokeObjectURL(draftUrlResource.current.url);
+    draftUrlResource.current.url = null;
     setDraftRecording(null);
   }
 
@@ -281,10 +300,10 @@ export default function VoiceProfilesPage() {
           setError("No audio was captured. Please try recording again.");
           return;
         }
+        const url = URL.createObjectURL(blob);
+        draftUrlResource.current.url = url;
         setDraftRecording({
-          blob,
-          url: URL.createObjectURL(blob),
-          mimeType,
+          blob, url, mimeType,
           durationSeconds: Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
         });
         setMessage("Take recorded. Listen once, then keep it or retake it.");
