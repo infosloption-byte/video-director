@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -51,6 +51,24 @@ export default function SettingsPage() {
   const prefs = user?.preferences || {};
   const [toast, setToast] = useState(null);
   const [savingKey, setSavingKey] = useState("");
+  const tabRefs = useRef({});
+  const savingRef = useRef(false);
+
+  function selectTab(id, focus = false) {
+    setParams({ tab: id }, { replace: true });
+    if (focus) window.requestAnimationFrame(() => tabRefs.current[id]?.focus());
+  }
+
+  function handleTabKey(event, index) {
+    let next;
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") next = (index + 1) % TABS.length;
+    else if (event.key === "ArrowUp" || event.key === "ArrowLeft") next = (index + TABS.length - 1) % TABS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = TABS.length - 1;
+    else return;
+    event.preventDefault();
+    selectTab(TABS[next].id, true);
+  }
 
   function notify(kind, text) {
     setToast({ kind, text, id: Date.now() });
@@ -62,15 +80,20 @@ export default function SettingsPage() {
   }, [toast]);
 
   async function savePref(key, value, { silent } = {}) {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSavingKey(key);
     try {
-      await api("/api/account/preferences", { method: "PATCH", body: JSON.stringify({ [key]: value }) });
+      const saved = await api("/api/account/preferences", { method: "PATCH", body: JSON.stringify({ [key]: value }) });
+      if (saved.preferences?.[key] !== value) throw new Error("Setting was not confirmed by the server. Please try again.");
       if (key === "sidebarCollapsed") { try { localStorage.setItem("helix.platform.sidebar", value ? "collapsed" : "expanded"); } catch { /* optional */ } }
-      await refresh();
+      const result = await refresh();
+      if (!result.user) throw new Error("Setting saved, but account synchronization failed. Sign in again to verify.");
       if (!silent) notify("ok", "Setting saved.");
     } catch (error) {
       notify("error", error.message);
     } finally {
+      savingRef.current = false;
       setSavingKey("");
     }
   }
@@ -86,15 +109,15 @@ export default function SettingsPage() {
       </header>
 
       <div className="settings-layout">
-        <nav className="settings-tabs" role="tablist" aria-label="Settings sections">
+        <nav className="settings-tabs" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
           {TABS.map((item) => (
-            <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "is-active" : ""} onClick={() => setParams({ tab: item.id }, { replace: true })}>
+            <button key={item.id} type="button" role="tab" id={`settings-tab-${item.id}`} aria-controls="settings-active-panel" aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} ref={(node) => { tabRefs.current[item.id] = node; }} onKeyDown={(event) => handleTabKey(event, TABS.indexOf(item))} className={tab === item.id ? "is-active" : ""} onClick={() => selectTab(item.id)}>
               <span>{item.label}</span><small>{item.hint}</small>
             </button>
           ))}
         </nav>
 
-        <div className="settings-panel" role="tabpanel">
+        <div id="settings-active-panel" className="settings-panel" role="tabpanel" aria-labelledby={`settings-tab-${tab}`} tabIndex={0}>
           {tab === "general" && <GeneralTab prefs={prefs} theme={theme} setTheme={setTheme} savePref={savePref} savingKey={savingKey} />}
           {tab === "account" && <AccountTab user={user} refresh={refresh} notify={notify} />}
           {tab === "security" && <SecurityTab prefs={prefs} savePref={savePref} savingKey={savingKey} notify={notify} />}
@@ -136,12 +159,38 @@ function AccountTab({ user, refresh, notify }) {
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [billing, setBilling] = useState(null);
+  const [billingError, setBillingError] = useState("");
+  const [billingLoading, setBillingLoading] = useState(true);
   const dirty = displayName.trim() !== (user.displayName || "");
 
   useEffect(() => {
     let active = true;
-    fetch("/api/billing/me", { credentials: "include" }).then((r) => r.ok ? r.json() : null).then((data) => { if (active) setBilling(data); }).catch(() => {});
-    return () => { active = false; };
+    let controller = null;
+    async function loadBilling() {
+      controller?.abort();
+      controller = new AbortController();
+      setBillingLoading(true);
+      setBillingError("");
+      try {
+        const response = await fetch("/api/billing/me", { credentials: "include", cache: "no-store", signal: controller.signal });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Could not refresh plan and usage.");
+        if (active) setBilling(data);
+      } catch (error) {
+        if (active && error.name !== "AbortError") setBillingError(error.message || "Could not refresh plan and usage.");
+      } finally { if (active && !controller?.signal.aborted) setBillingLoading(false); }
+    }
+    const onReturn = () => { if (document.visibilityState === "visible") void loadBilling(); };
+    const onFocus = () => { void loadBilling(); };
+    void loadBilling();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onReturn);
+    return () => {
+      active = false;
+      controller?.abort();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onReturn);
+    };
   }, []);
 
   async function saveProfile(event) {
@@ -173,9 +222,10 @@ function AccountTab({ user, refresh, notify }) {
         </form>
       </Card>
       <Card title="Plan & usage" description="Your subscription and monthly render allowance.">
-        <Row title={billing?.plan?.name ? `${billing.plan.name} plan` : "Current plan"} description={billing ? `${billing.used ?? 0} of ${billing.plan?.rendersPerMonth ?? "—"} renders used this month.` : "Loading your plan…"}>
+        <Row title={billing?.plan?.name ? `${billing.plan.name} plan` : "Current plan"} description={billing ? `${billing.used ?? 0} of ${billing.plan?.rendersPerMonth ?? "—"} renders used this month.` : billingLoading ? "Loading your plan…" : "Plan details unavailable."}>
           <Link className="btn btn-ghost" to="/choose-plan?mode=upgrade">Change plan →</Link>
         </Row>
+        {billingError && <p className="settings-field-error" role="alert">{billingError} Return to this tab or focus the window to retry.</p>}
         <Row title="Member since"><span className="settings-value">{dateFmt(user.createdAt)}</span></Row>
       </Card>
     </>
@@ -308,8 +358,8 @@ function PrivacyTab({ user, prefs, savePref, savingKey, notify, onDeleted }) {
         </Row>
       </Card>
 
-      <Card title="Delete account" description="Permanently remove your account and everything in it." tone="danger">
-        <Row title="Delete my account" description="Deletes your projects, generated media, cloned voices and settings. This cannot be undone. Active subscriptions must be cancelled first.">
+      <Card title="Delete account" description="Request deletion of your Voxora account and associated application data." tone="danger">
+        <Row title="Delete my account" description="Deletion removes your account and associated application records and attempts to remove stored project media and cloned voices. Backups and external services may retain information under their own retention schedules. Cancel active subscriptions first.">
           <button type="button" className="btn settings-danger-btn" onClick={() => setDeleteOpen(true)}>Delete account…</button>
         </Row>
       </Card>
@@ -346,7 +396,7 @@ function DeleteDialog({ onClose, onDeleted }) {
     <div className="settings-modal" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
       <form className="settings-modal__card" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" onSubmit={submit}>
         <h2 id="delete-title">Delete your account?</h2>
-        <p>This permanently deletes your projects, generated media, cloned voices and settings. It cannot be undone.</p>
+        <p>This deletes your Voxora account and associated application records. Stored media and cloned voices are removed where supported. Backups or external providers may retain some information according to their retention policies. This action cannot be reversed through Voxora.</p>
         {error && <div className="settings-modal__error" role="alert">{error}</div>}
         <label><span>Your password</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required autoFocus /></label>
         <label><span>Type <b>DELETE</b> to confirm</span><input value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" placeholder="DELETE" required /></label>
