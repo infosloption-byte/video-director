@@ -1,7 +1,8 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const isBrowserTest = process.env.VOXORA_E2E_MODE === "1";
+// Keep the fixture middleware and proxy toggle behind the SAME flag.
+const isBrowserTest = process.env.VOXORA_E2E_MOCK_API === "true";
 
 // Browser tests intentionally mock authentication/Paddle via Playwright.
 // When a test navigates into the workspace, incidental background GETs can
@@ -45,7 +46,7 @@ export default defineConfig({
     // Mocked Playwright journeys have their own API fixture layer.
     // Never forward stray post-navigation background calls to an absent
     // localhost:4000 server and create misleading ECONNREFUSED noise.
-    proxy: process.env.VOXORA_E2E_MOCK_API === "true" ? undefined : {
+    proxy: isBrowserTest ? undefined : {
       "/api": {
         target: "http://localhost:4000",
         changeOrigin: true,
