@@ -1,0 +1,51 @@
+name: Frontend authentication browser tests
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-auth-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auth-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Install Playwright test runner
+        working-directory: frontend/e2e
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium dependencies
+        working-directory: frontend/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Unit tests
+        working-directory: frontend
+        run: npm run test:unit
+      - name: Frontend lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build
+      - name: Auth browser journeys (desktop + mobile)
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Attach failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-auth-test-results
+          path: frontend/e2e/test-results/
+          if-no-files-found: ignore
