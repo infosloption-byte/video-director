@@ -1,31 +1,33 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-import SignalsPage from "./pages/SignalsPage";
-import ResearchPage from "./pages/ResearchPage";
-import ResearchConversationStartPage from "./pages/ResearchConversationStartPage";
-import ResearchConversationPage from "./pages/ResearchConversationPage";
-import StoryboardPage from "./pages/StoryboardPage";
-import ReviewPage from "./pages/ReviewPage";
-import MyResearchPage from "./pages/MyResearchPage";
-import SettingsPage from "./pages/SettingsPage";
 import PreferenceSync from "./components/PreferenceSync";
-import VoiceProfilesPage from "./pages/VoiceProfilesPage";
 import SignInPage from "./pages/SignInPage";
-import LandingPage from "./pages/LandingPage";
-import LegalPage from "./pages/LegalPage";
-import BillingPage from "./pages/BillingPage";
 import SignUpPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlanSelectPage from "./pages/PlanSelectPage";
-import PaddlePaymentLinkPage from "./pages/PaddlePaymentLinkPage";
-import PaymentResultPage from "./pages/PaymentResultPage";
 import PlatformShell from "./components/PlatformShell";
-import EditorWorkspace from "./components/EditorWorkspace";
 import SessionGate from "./components/SessionGate";
 import { onboardingDestination } from "./lib/onboarding";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 import { ProjectProvider } from "./context/ProjectProvider.jsx";
+
+const SignalsPage = lazy(() => import("./pages/SignalsPage"));
+const ResearchPage = lazy(() => import("./pages/ResearchPage"));
+const ResearchConversationStartPage = lazy(() => import("./pages/ResearchConversationStartPage"));
+const ResearchConversationPage = lazy(() => import("./pages/ResearchConversationPage"));
+const StoryboardPage = lazy(() => import("./pages/StoryboardPage"));
+const ReviewPage = lazy(() => import("./pages/ReviewPage"));
+const MyResearchPage = lazy(() => import("./pages/MyResearchPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const VoiceProfilesPage = lazy(() => import("./pages/VoiceProfilesPage"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const BillingPage = lazy(() => import("./pages/BillingPage"));
+const PaddlePaymentLinkPage = lazy(() => import("./pages/PaddlePaymentLinkPage"));
+const PaymentResultPage = lazy(() => import("./pages/PaymentResultPage"));
+const EditorWorkspace = lazy(() => import("./components/EditorWorkspace"));
 
 function ProtectedRoute({ children }) {
   const location = useLocation();
@@ -44,7 +46,7 @@ function LegacyEditorToolRedirect({ tool }) {
 }
 
 export default function App() {
-  return <AuthProvider><PreferenceSync /><ProjectProvider><Routes>
+  return <AuthProvider><PreferenceSync /><ProjectProvider><Suspense fallback={<SessionGate label="Loading Voxora…" />}><Routes>
     <Route path="/" element={<LandingPage />} />
     <Route path="/signals" element={<ProtectedRoute><SignalsPage /></ProtectedRoute>} />
     <Route path="/pricing" element={<LandingPage />} />
@@ -73,5 +75,5 @@ export default function App() {
     <Route path="/editor/:id/productivity" element={<LegacyEditorToolRedirect tool="productivity" />} />
     <Route path="/media/:id" element={<LegacyEditorToolRedirect tool="media" />} />
     <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes></ProjectProvider></AuthProvider>;
+  </Routes></Suspense></ProjectProvider></AuthProvider>;
 }

@@ -2,7 +2,10 @@
 export const planIds = Object.freeze(["free", "creator", "studio"]);
 export function validPlan(value) { return planIds.includes(value) ? value : null; }
 export function safeInternalPath(value) {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\x00-\x1f\x7f]/.test(value)) return null;
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return null;
+  // Avoid raw control characters and backslashes in navigation URLs; the
+  // Disallow all backslashes and ASCII control characters.
+  if (Array.from(value).some(char => char.charCodeAt(0) === 92 || char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) return null;
   try {
     const url = new URL(value, "https://usevoxora.online");
     if (url.origin !== "https://usevoxora.online") return null;

@@ -109,6 +109,44 @@ export default function VoiceProfilesPage() {
   const previewUrlsRef = useRef(new Map());
   const studioRef = useRef(null);
 
+  // Keep resource handles in stable containers so cleanup always revokes the
+  // latest microphone URL, not a stale initial render's draftRecording.
+  const draftUrlResource = useRef({ url: null });
+  useEffect(() => {
+    const controller = new AbortController();
+    const previewUrls = previewUrlsRef.current;
+    const currentDraft = draftUrlResource.current;
+    async function loadInitialProfiles() {
+      try {
+        const response = await fetch("/api/voice-profiles", {
+          credentials: "include", cache: "no-store", signal: controller.signal,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Failed to load voice profiles.");
+        if (controller.signal.aborted) return;
+        setProfiles(data.profiles || []);
+        setPrompts(data.prompts?.length ? data.prompts : FALLBACK_PROMPTS);
+        setMinSamples(Number(data.minSamples || 2));
+        setMaxSamples(Number(data.maxSamples || 6));
+      } catch (err) {
+        if (!controller.signal.aborted) setError(err.message || "Failed to load voice profiles.");
+      }
+    }
+    void loadInitialProfiles();
+    return () => {
+      controller.abort();
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      window.clearInterval(recordingTimerRef.current);
+      if (currentDraft.url) URL.revokeObjectURL(currentDraft.url);
+      playbackRef.current?.pause();
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      previewUrls.clear();
+    };
+  }, []);
+
+
+  // Also used after cloning a profile; unlike initial mount loading, this
+  // refresh is initiated by the user's clone action.
   async function loadProfiles() {
     try {
       const response = await fetch("/api/voice-profiles", { credentials: "include", cache: "no-store" });
@@ -122,18 +160,6 @@ export default function VoiceProfilesPage() {
       setError(err.message || "Failed to load voice profiles.");
     }
   }
-
-  useEffect(() => {
-    void loadProfiles();
-    return () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      window.clearInterval(recordingTimerRef.current);
-      if (draftRecording?.url) URL.revokeObjectURL(draftRecording.url);
-      playbackRef.current?.pause();
-      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      previewUrlsRef.current.clear();
-    };
-  }, []);
 
   useEffect(() => {
     if (!active?.id) return undefined;
@@ -154,7 +180,8 @@ export default function VoiceProfilesPage() {
   }
 
   function releaseDraftRecording() {
-    if (draftRecording?.url) URL.revokeObjectURL(draftRecording.url);
+    if (draftUrlResource.current.url) URL.revokeObjectURL(draftUrlResource.current.url);
+    draftUrlResource.current.url = null;
     setDraftRecording(null);
   }
 
@@ -271,10 +298,10 @@ export default function VoiceProfilesPage() {
           setError("No audio was captured. Please try recording again.");
           return;
         }
+        const url = URL.createObjectURL(blob);
+        draftUrlResource.current.url = url;
         setDraftRecording({
-          blob,
-          url: URL.createObjectURL(blob),
-          mimeType,
+          blob, url, mimeType,
           durationSeconds: Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
         });
         setMessage("Take recorded. Listen once, then keep it or retake it.");
