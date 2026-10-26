@@ -261,7 +261,7 @@ export default function PlanSelectPage() {
   const currentPlan = billing?.plan?.id || "free";
   const subscription = billing?.subscription;
   const activeSubscription = ["active", "trialing"].includes(subscription?.status);
-  const blockedSubscription = subscription && !activeSubscription && !["canceled", "paused"].includes(subscription.status);
+  const blockedSubscription = subscription && !activeSubscription && subscription.status !== "canceled";
   const plans = catalog?.plans || [];
 
   return <div className="plan-select">
