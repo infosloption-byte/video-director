@@ -390,6 +390,7 @@ model User {
   updatedAt       DateTime          @updatedAt @map("updated_at")
   subscription    BillingSubscription?
   pendingCheckouts BillingCheckout[]
+  pendingPlanChange BillingPlanChange?
   monthlyUsage    MonthlyRenderUsage[]
   renderCredits   RenderCredit[]
   sessions        AuthSession[]
@@ -594,10 +595,26 @@ model BillingCheckout {
   transactionId String  @unique @map("transaction_id") @db.VarChar(100)
   paddleSubscriptionId String? @map("paddle_subscription_id") @db.VarChar(100)
   plan        String    @db.VarChar(30)
+  status      String    @default("awaiting_payment") @db.VarChar(30)
+  updatedAt   DateTime  @updatedAt @map("updated_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, createdAt])
   @@map("billing_checkouts")
+}
+
+model BillingPlanChange {
+  id                   String   @id @default(uuid())
+  userId               String   @unique @map("user_id")
+  paddleSubscriptionId String   @map("paddle_subscription_id") @db.VarChar(100)
+  fromPlan             String   @map("from_plan") @db.VarChar(30)
+  toPlan               String   @map("to_plan") @db.VarChar(30)
+  status               String   @default("processing") @db.VarChar(30)
+  lastError            String?  @map("last_error") @db.VarChar(255)
+  requestedAt          DateTime @default(now()) @map("requested_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("billing_plan_changes")
 }
 
 model BillingWebhookEvent {
