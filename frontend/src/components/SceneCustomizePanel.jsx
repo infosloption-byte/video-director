@@ -100,7 +100,31 @@ function getSceneVoice(scene, setup, voices) {
   return voices.find((voice) => voice.source === setup?.voice?.source && voice.id === setup?.voice?.id) || null;
 }
 
-export default function SceneCustomizePanel({
+// Remount the local editing draft when the actual scene source changes.
+// This avoids copying props into multiple local states synchronously inside
+// an effect (and avoids one extra, potentially stale render).
+export default function SceneCustomizePanel(props) {
+  const { scene, selectedAssetIndex = 0, customSetup, voices = [] } = props;
+  const saved = scene.customization || {};
+  const sourceKey = JSON.stringify({
+    sceneId: scene.id,
+    narration: scene.spokenText,
+    framework: saved.framework,
+    tone: saved.tone,
+    audience: saved.audienceLevel,
+    voice: saved.voice?.id,
+    voiceSource: saved.voice?.source,
+    fallbackFramework: customSetup?.framework,
+    fallbackTone: customSetup?.tone,
+    fallbackAudience: customSetup?.audienceLevel,
+    fallbackVoice: customSetup?.voice?.id,
+    assetIndex: selectedAssetIndex,
+    availableVoices: voices.map(voiceKey),
+  });
+  return <SceneCustomizePanelContent key={sourceKey} {...props} />;
+}
+
+function SceneCustomizePanelContent({
   scene,
   selectedAssetIndex = 0,
   customSetup,
@@ -128,30 +152,6 @@ export default function SceneCustomizePanel({
 
   const selectedVoice = voices.find((voice) => voiceKey(voice) === selectedVoiceKey) || activeVoice;
   const voiceChanged = selectedVoiceKey !== voiceKey(activeVoice);
-
-  useEffect(() => {
-    setFramework(saved.framework || customSetup?.framework || "how-it-works");
-    setTone(saved.tone || customSetup?.tone || "Conversational");
-    setAudience(saved.audienceLevel || customSetup?.audienceLevel || "General public");
-    setNarration(scene.spokenText || "");
-    setSelectedVoiceKey(voiceKey(getSceneVoice(scene, customSetup, voices)));
-    setSelectedVisualIndex(selectedAssetIndex);
-    narrationAudioRef.current?.pause();
-    narrationAudioRef.current = null;
-    setPlayingNarration(false);
-  }, [
-    scene.id,
-    scene.spokenText,
-    saved.framework,
-    saved.tone,
-    saved.audienceLevel,
-    activeVoice,
-    voices,
-    customSetup?.framework,
-    customSetup?.tone,
-    customSetup?.audienceLevel,
-    selectedAssetIndex,
-  ]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
