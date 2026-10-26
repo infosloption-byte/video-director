@@ -7,8 +7,6 @@ import { verificationPath } from "../lib/onboarding";
 import "./PlanSelectPage.css";
 
 const WORKSPACE = "/signals";
-const WAIT_INTERVAL_MS = 2500;
-const MAX_CHECKS = 50;
 
 async function api(url, options = {}) {
   const response = await fetch(url, {
@@ -44,8 +42,6 @@ export default function PlanSelectPage() {
     const id = params.get("transactionId");
     return id && /^txn_[a-z0-9]{20,100}$/.test(id) ? { type: "checkout", id } : null;
   });
-  const [verificationDelayed, setVerificationDelayed] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const completedTransaction = useRef("");
   const selectedPlan = params.get("plan") || (!user?.planSelectedAt ? user?.intendedPlan : null);
   const isReturningCustomer = Boolean(user?.planSelectedAt || ["active", "trialing"].includes(billing?.subscription?.status)) && params.get("onboarding") !== "1";
@@ -207,7 +203,6 @@ export default function PlanSelectPage() {
     try {
       await api("/api/billing/change-plan", { method: "POST", body: JSON.stringify({ plan }) });
       setPreview(null);
-      setVerificationDelayed(false);
       navigate(paymentResultPath({ type: "change", plan }), { replace: true });
     } catch {
       navigate(paymentResultPath({ type: "change", plan, issue: true }), { replace: true });
@@ -298,16 +293,6 @@ export default function PlanSelectPage() {
           Review and retry →
         </button>
       </section>}
-      {pending && <section className="plan-select__verification" aria-live="polite">
-        <span className="plan-select__loading-dot" aria-hidden="true" />
-        <div><h2>{verificationDelayed ? "Confirmation is taking longer than expected" : pending.type === "change" ? "Processing your plan change…" : "Confirming your payment…"}</h2>
-          <p>{verificationDelayed
-            ? "Don't pay a second time. Paddle may still be delivering the subscription event. You can check again or contact billing support."
-            : "Paddle verifies the payment and Voxora waits for the signed subscription update. This page will advance automatically when confirmed."}</p>
-        </div>
-        {verificationDelayed && <button type="button" className="btn btn-ghost" onClick={() => { setVerificationDelayed(false); setRetryCount((x) => x + 1); setMessage("Checking again…"); }}>Check again</button>}
-      </section>}
-
       <div className="plan-select__grid">
         {!catalog && !error && <div className="plan-select__loading">Loading plans…</div>}
         {plans.map((plan) => {
