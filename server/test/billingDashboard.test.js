@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { expensiveOperationRateLimit } from "../src/middleware/rateLimit.js";
 import {
   billingActivity, cleanTransaction, cursorFromMeta, invoiceBelongsToUser, paddleList,
-  paddlePlanMismatch, paymentManagementUrl, subscriptionSnapshot,
+  paddlePlanMismatch, paymentManagementUrl, safePaddleInvoiceUrl, subscriptionSnapshot,
 } from "../src/services/billingDashboardService.js";
 
 const local = {
@@ -113,6 +113,15 @@ test("Paddle portal URLs are allowlisted and never use caller-provided links", (
   assert.equal(paymentManagementUrl(remote, "delete"), null);
   assert.equal(paymentManagementUrl({ ...remote, management_urls: { cancel: "https://phishing.example/steal" } }, "cancel"), null);
   assert.equal(paymentManagementUrl({ ...remote, management_urls: { cancel: "javascript:alert(1)" } }, "cancel"), null);
+});
+
+test("invoice URLs accept Paddle PDFs but reject external HTTPS links", () => {
+  assert.match(safePaddleInvoiceUrl("https://paddle-production-invoice-service-pdfs.s3.amazonaws.com/invoices/example.pdf"), /^https:/);
+  assert.match(safePaddleInvoiceUrl("https://paddle-sandbox-invoice-service-pdfs.s3.amazonaws.com/invoices/example.pdf"), /^https:/);
+  assert.equal(safePaddleInvoiceUrl("https://example.com/invoice.pdf"), null);
+  assert.equal(safePaddleInvoiceUrl("https://paddle.com.evil.example/invoice.pdf"), null);
+  assert.equal(safePaddleInvoiceUrl("http://paddle-production-invoice-service-pdfs.s3.amazonaws.com/a.pdf"), null);
+  assert.equal(safePaddleInvoiceUrl("javascript:alert(1)"), null);
 });
 
 test("newest-first Paddle transactions preserve safe server pagination cursor", () => {

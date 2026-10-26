@@ -4,7 +4,7 @@ import { expensiveOperationRateLimit } from "../middleware/rateLimit.js";
 import { paddleFetch, userBilling } from "../services/billingService.js";
 import {
   billingActivity, cleanTransaction, cursorFromMeta, invoiceBelongsToUser, MANAGEMENT_ACTIONS,
-  paddleList, paddlePlanMismatch, paymentManagementUrl, subscriptionSnapshot,
+  paddleList, paddlePlanMismatch, paymentManagementUrl, safePaddleInvoiceUrl, subscriptionSnapshot,
   SUBSCRIPTION_ID, TRANSACTION_ID,
 } from "../services/billingDashboardService.js";
 
@@ -156,10 +156,11 @@ billingDashboardRouter.get("/dashboard/invoice/:id", expensiveOperationRateLimit
     let invoice;
     try { invoice = await paddleFetch(`/transactions/${encodeURIComponent(id)}/invoice?disposition=inline`); }
     catch (error) { return unavailable(res, error, "Paddle could not generate this invoice PDF."); }
-    if (typeof invoice?.url !== "string" || !invoice.url.startsWith("https://"))
+    const invoiceUrl = safePaddleInvoiceUrl(invoice?.url);
+    if (!invoiceUrl)
       return res.status(503).json({ error: "Paddle did not return a secure invoice link." });
     // The presigned URL expires after about one hour, so never persist/cache it.
-    return res.json({ url: invoice.url });
+    return res.json({ url: invoiceUrl });
   } catch (error) { next(error); }
 });
 
