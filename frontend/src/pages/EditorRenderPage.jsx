@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
-import RenderQuota, { useRenderQuota } from "../components/RenderQuota";
+import RenderQuota from "../components/RenderQuota";
+import { useRenderQuota } from "../hooks/useRenderQuota";
 import { useAuth } from "../context/AuthContext";
 import "../components/ui.css";
 import "./EditorRenderPage.css";

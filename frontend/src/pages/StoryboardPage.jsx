@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
-import RenderQuota, { useRenderQuota } from "../components/RenderQuota";
+import RenderQuota from "../components/RenderQuota";
+import { useRenderQuota } from "../hooks/useRenderQuota";
 import PhonePreview from "../components/PhonePreview";
 import StepCard from "../components/StepCard";
 import SetupPanel from "../components/SetupPanel";
