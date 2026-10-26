@@ -145,6 +145,22 @@ export default function VoiceProfilesPage() {
   }, []);
 
 
+  // Also used after cloning a profile; unlike initial mount loading, this
+  // refresh is initiated by the user's clone action.
+  async function loadProfiles() {
+    try {
+      const response = await fetch("/api/voice-profiles", { credentials: "include", cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to load voice profiles.");
+      setProfiles(data.profiles || []);
+      setPrompts(data.prompts?.length ? data.prompts : FALLBACK_PROMPTS);
+      setMinSamples(Number(data.minSamples || 2));
+      setMaxSamples(Number(data.maxSamples || 6));
+    } catch (err) {
+      setError(err.message || "Failed to load voice profiles.");
+    }
+  }
+
   useEffect(() => {
     if (!active?.id) return undefined;
     const timer = window.setTimeout(() => {
