@@ -67,3 +67,20 @@
 .plan-select__dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-top:20px}
 @media(max-width:580px){.plan-select__verification{flex-wrap:wrap}.plan-select__dialog{padding:20px}.plan-select__dialog-actions .btn{flex:1}}
 @media(prefers-reduced-motion:reduce){.plan-select__loading-dot{animation:none}}
+
+/* Payment-state recovery: consistent with the existing Black Gold cards. */
+.plan-select__recovery { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; margin: 0 0 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.plan-select__recovery > div { min-width: 0; flex: 1; }
+.plan-select__recovery .eyebrow { margin: 0 0 7px; }
+.plan-select__recovery h2 { font: 500 clamp(21px, 3vw, 27px)/1.2 var(--font-serif); color: var(--ink); margin: 0 0 9px; }
+.plan-select__recovery p:not(.eyebrow) { font-size: 13px; line-height: 1.65; color: var(--body); margin: 0; }
+.plan-select__recovery > button { flex: none; }
+@media(max-width: 640px) { .plan-select__recovery { flex-direction: column; align-items: stretch; padding: 18px; } .plan-select__recovery > button { width: 100%; } }
+
+.plan-select__recovery-actions { display: flex; flex: 0 0 auto; flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; min-width: 170px; }
+.plan-select__recovery-actions > .btn { width: 100%; justify-content: center; }
+.plan-select__text-action { padding: 5px; background: none; border: 0; color: var(--body); font: 500 12px var(--font-sans); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.plan-select__text-action:hover { color: var(--ink); }
+.plan-select__text-action:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.plan-select__text-action:disabled { opacity: .5; cursor: not-allowed; }
+@media(max-width: 640px) { .plan-select__recovery-actions { width: 100%; min-width: 0; } }

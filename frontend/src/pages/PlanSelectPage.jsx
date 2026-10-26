@@ -32,6 +32,9 @@ export default function PlanSelectPage() {
   const [params, setParams] = useSearchParams();
   const [catalog, setCatalog] = useState(null);
   const [billing, setBilling] = useState(null);
+  const [paymentState, setPaymentState] = useState(null);
+  const [checkoutClosed, setCheckoutClosed] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -50,8 +53,17 @@ export default function PlanSelectPage() {
   useEffect(() => {
     if (status !== "ready" || !user?.emailVerifiedAt) return undefined;
     let active = true;
-    Promise.all([api("/api/billing/plans"), api("/api/billing/me")])
-      .then(([plans, account]) => { if (active) { setCatalog(plans); setBilling(account); } })
+    Promise.all([api("/api/billing/plans"), api("/api/billing/me"), api("/api/billing/payment-state")])
+      .then(([plans, account, payment]) => {
+        if (!active) return;
+        setCatalog(plans);
+        setBilling(account);
+        setPaymentState(payment);
+        const checkout = payment.checkout;
+        const change = payment.change;
+        if (checkout?.status === "processing") setPending({ type: "checkout", id: checkout.transactionId });
+        else if (change && ["processing", "uncertain"].includes(change.status)) setPending({ type: "change", plan: change.plan });
+      })
       .catch((e) => { if (active) setError(e.message); });
     return () => { active = false; };
   }, [status, user?.id, user?.emailVerifiedAt]);
@@ -63,28 +75,36 @@ export default function PlanSelectPage() {
     let inFlight = false;
     let checks = 0;
     const verify = async () => {
-      if (inFlight || !active) return;
+      if (!active || inFlight) return;
       inFlight = true;
       checks += 1;
       try {
-        const result = pending.type === "checkout"
-          ? await api(`/api/billing/checkout-status?transactionId=${encodeURIComponent(pending.id)}`)
-          : await api("/api/billing/me");
-        const confirmed = pending.type === "checkout"
-          ? result.confirmed
-          : result.plan?.id === pending.plan && ["active", "trialing"].includes(result.subscription?.status);
-        if (confirmed && active) {
+        // All payment states are read from server-owned records maintained
+        // by signed Paddle webhooks, not browser completion callbacks.
+        const state = await api("/api/billing/payment-state");
+        if (!active) return;
+        setPaymentState(state);
+        const entry = pending.type === "checkout" ? state.checkout : state.change;
+        if (entry?.status === "activated" && (pending.type !== "checkout" || entry.transactionId === pending.id)) {
+          const destination = isReturningCustomer ? "/billing?updated=1" : WORKSPACE;
           await refresh();
-          if (!active) return;
-          navigate(isReturningCustomer ? "/billing?updated=1" : WORKSPACE, { replace: true });
+          // Refresh can update user.planSelectedAt, replaying the polling effect.
+          // Do not lose the already-confirmed navigation during its cleanup.
+          if (active || window.location.pathname === "/choose-plan") navigate(destination, { replace: true });
           return;
         }
-        if (checks >= MAX_CHECKS && active) setVerificationDelayed(true);
-      } catch (e) {
-        if (active) { setMessage("We're checking with Paddle. Your payment may still be processing."); }
-      } finally {
-        inFlight = false;
-      }
+        if (entry?.status === "failed" || entry?.status === "canceled") {
+          setPending(null);
+          setVerificationDelayed(false);
+          setError(entry.status === "failed"
+            ? "Paddle could not complete this payment. Your current plan is unchanged. Review the payment details before trying again."
+            : "This transaction was cancelled. You can choose a new plan.");
+          return;
+        }
+        if (checks >= MAX_CHECKS) setVerificationDelayed(true);
+      } catch {
+        if (active) setMessage("We cannot verify the payment right now. Do not start another charge.");
+      } finally { inFlight = false; }
     };
     void verify();
     const timer = window.setInterval(() => { if (checks < MAX_CHECKS) void verify(); }, WAIT_INTERVAL_MS);
@@ -92,18 +112,18 @@ export default function PlanSelectPage() {
   }, [pending, retryCount, user?.id, navigate, refresh, isReturningCustomer]);
 
   useEffect(() => {
-    if (!preview) return undefined;
+    if (!preview && !cancelConfirm) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKeyDown = (event) => {
-      if (event.key === "Escape" && !busy) setPreview(null);
+      if (event.key === "Escape" && !busy) { setPreview(null); setCancelConfirm(false); }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [preview, busy]);
+  }, [preview, cancelConfirm, busy]);
 
   if (status === "loading") return null;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent("/choose-plan" + window.location.search)}`} replace />;
@@ -128,6 +148,16 @@ export default function PlanSelectPage() {
     try {
       const data = await api("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan }) });
       completedTransaction.current = "";
+      setCheckoutClosed(false);
+      setPaymentState(old => ({
+        ...(old || {}),
+        checkout: {
+          transactionId: data.transactionId,
+          plan: data.plan || plan,
+          status: data.status || "awaiting_payment",
+          resumable: true,
+        },
+      }));
       await openPaddleCheckout({
         transactionId: data.transactionId,
         clientToken: data.clientToken,
@@ -139,15 +169,56 @@ export default function PlanSelectPage() {
           setParams(isReturningCustomer ? { transactionId: data.transactionId } : { transactionId: data.transactionId, onboarding: "1" }, { replace: true });
           setVerificationDelayed(false);
           setPending({ type: "checkout", id: data.transactionId });
+          setPaymentState(old => ({ ...(old || {}), checkout: { transactionId: data.transactionId, plan, status: "processing", resumable: false } }));
           setMessage("Paddle received the payment. Activating your plan securely…");
           window.Paddle?.Checkout?.close?.();
         },
         onClosed: () => {
-          if (completedTransaction.current !== data.transactionId) setMessage("Checkout closed without a confirmed payment. You can reopen checkout.");
+          if (completedTransaction.current !== data.transactionId) {
+            setCheckoutClosed(true);
+            setMessage("Checkout closed. Your original Paddle transaction is saved—resume it whenever you're ready.");
+          }
         },
         onError: () => setError("Paddle reported a checkout issue. Check your payment details or retry."),
       });
     } catch (e) { setError(e.message); }
+    finally { setBusy(""); }
+  }
+
+  async function checkPaymentStatus() {
+    setBusy("status"); setError("");
+    try {
+      const state = await api("/api/billing/payment-state");
+      setPaymentState(state);
+      if (state.checkout?.status === "activated" || state.change?.status === "activated") {
+        await refresh();
+        navigate(isReturningCustomer ? "/billing?updated=1" : WORKSPACE, { replace: true });
+        return;
+      }
+      if (state.checkout?.status === "processing") {
+        setPending({ type: "checkout", id: state.checkout.transactionId });
+      } else if (state.change && ["processing","uncertain"].includes(state.change.status)) {
+        setPending({ type: "change", plan: state.change.plan });
+      } else {
+        setMessage("Your payment status is up to date.");
+      }
+    } catch (e) { setError(e.message); }
+    finally { setBusy(""); }
+  }
+
+  async function cancelUnpaidCheckout() {
+    if (!activeCheckout?.transactionId) return;
+    setBusy("cancel"); setError("");
+    try {
+      await api("/api/billing/checkout/cancel", {
+        method: "POST",
+        body: JSON.stringify({ transactionId: activeCheckout.transactionId }),
+      });
+      setPaymentState(old => ({ ...old, checkout: { ...activeCheckout, status: "canceled", resumable: false } }));
+      setPending(null);
+      setCancelConfirm(false);
+      setMessage("The unpaid transaction was canceled at Paddle. You can choose a different plan.");
+    } catch (e) { setError(e.message); setCancelConfirm(false); }
     finally { setBusy(""); }
   }
 
@@ -169,6 +240,7 @@ export default function PlanSelectPage() {
       setPreview(null);
       setVerificationDelayed(false);
       setPending({ type: "change", plan });
+      setPaymentState(old => ({ ...(old || {}), change: { plan, status: "processing" } }));
       setMessage("Paddle is applying your change. Your current plan stays active until we receive confirmation.");
     } catch (e) { setError(e.message); }
     finally { setBusy(""); }
@@ -180,10 +252,16 @@ export default function PlanSelectPage() {
     return void newPaidCheckout(plan);
   }
 
+  const activeCheckout = paymentState?.checkout;
+  const activeChange = paymentState?.change;
+  const checkoutNeedsAttention = activeCheckout && ["awaiting_payment", "failed"].includes(activeCheckout.status);
+  const changeNeedsAttention = activeChange && activeChange.status === "failed";
+  const paymentBlocked = Boolean(paymentState?.creating || (activeCheckout && ["awaiting_payment", "processing", "failed"].includes(activeCheckout.status))
+    || (activeChange && ["processing", "uncertain"].includes(activeChange.status)));
   const currentPlan = billing?.plan?.id || "free";
   const subscription = billing?.subscription;
   const activeSubscription = ["active", "trialing"].includes(subscription?.status);
-  const blockedSubscription = subscription && !activeSubscription && !["canceled", "paused"].includes(subscription.status);
+  const blockedSubscription = subscription && !activeSubscription && subscription.status !== "canceled";
   const plans = catalog?.plans || [];
 
   return <div className="plan-select">
@@ -210,12 +288,50 @@ export default function PlanSelectPage() {
         ? `You're currently on ${billing?.plan?.name || "your current"} plan. Compare the available options and select your next plan.`
         : "Start with Free or choose a paid plan. Paddle securely collects payment; Voxora activates the paid plan after confirmation."}</p>
 
-      {error && <div role="alert" className="plan-select__alert">{error}</div>}
+      {paymentState?.checkout?.status === "activated" && <div role="status" className="plan-select__notice">
+        Payment activated. Your paid subscription is confirmed. <Link to="/billing">View Billing</Link>.
+      </div>}
+      {paymentState?.checkout?.status === "canceled" && <div role="status" className="plan-select__notice">
+        Your previous unpaid checkout was canceled. You may select a different plan.
+      </div>}
+            {error && <div role="alert" className="plan-select__alert">{error}</div>}
       {message && <div role="status" className="plan-select__notice">{message}</div>}
 
+      {paymentState?.creating && <div className="plan-select__notice" role="status">
+        A previous checkout request is awaiting reconciliation. Please do not start another payment. Contact billing support if this remains unresolved.
+      </div>}
+      {checkoutNeedsAttention && !pending && <section className="plan-select__recovery" aria-live="polite">
+        <div>
+          <p className="eyebrow">{activeCheckout.status === "failed" ? "PAYMENT NOT COMPLETED" : checkoutClosed ? "CHECKOUT CLOSED" : "PAYMENT AWAITING"}</p>
+          <h2>{activeCheckout.plan === "studio" ? "Studio" : "Creator"} checkout is still available</h2>
+          <p>{activeCheckout.status === "failed"
+            ? "Paddle reported an unsuccessful payment attempt. You can reopen the same transaction to update payment details without creating another charge."
+            : "Your checkout has not been confirmed. Resume the existing transaction instead of creating a second one."}</p>
+        </div>
+        <div className="plan-select__recovery-actions">
+          <button type="button" className="btn btn-cream" disabled={Boolean(busy)} onClick={() => newPaidCheckout(activeCheckout.plan)}>
+            {busy ? "Opening…" : "Resume checkout →"}
+          </button>
+          <button type="button" className="btn btn-ghost" disabled={Boolean(busy)} onClick={checkPaymentStatus}>
+            Check payment status
+          </button>
+          <button type="button" className="plan-select__text-action" disabled={Boolean(busy)} onClick={() => setCancelConfirm(true)}>
+            Cancel unpaid checkout
+          </button>
+        </div>
+      </section>}
+      {changeNeedsAttention && !pending && <section className="plan-select__recovery" aria-live="polite">
+        <div><p className="eyebrow">PLAN CHANGE FAILED</p>
+          <h2>Your current plan is unchanged</h2>
+          <p>The prorated payment was not completed. Review a fresh Paddle quote before trying again.</p>
+        </div>
+        <button type="button" className="btn btn-cream" disabled={Boolean(busy)} onClick={() => previewChange(activeChange.plan)}>
+          Review and retry →
+        </button>
+      </section>}
       {pending && <section className="plan-select__verification" aria-live="polite">
         <span className="plan-select__loading-dot" aria-hidden="true" />
-        <div><h2>{verificationDelayed ? "Activation is taking longer than expected" : "Confirming your subscription…"}</h2>
+        <div><h2>{verificationDelayed ? "Confirmation is taking longer than expected" : pending.type === "change" ? "Processing your plan change…" : "Confirming your payment…"}</h2>
           <p>{verificationDelayed
             ? "Don't pay a second time. Paddle may still be delivering the subscription event. You can check again or contact billing support."
             : "Paddle verifies the payment and Voxora waits for the signed subscription update. This page will advance automatically when confirmed."}</p>
@@ -246,7 +362,7 @@ export default function PlanSelectPage() {
               <li>{free ? "Start without payment details" : "Research, storyboard, editing and exports"}</li>
             </ul>
             <button type="button" className={free ? "btn btn-ghost" : "btn btn-cream"}
-              disabled={isDisabled || (same && isReturningCustomer)}
+              disabled={isDisabled || paymentBlocked || (same && isReturningCustomer)}
               onClick={() => choosePlan(plan.id)}>
               {busy === plan.id ? "Working…" : cta}
             </button>
@@ -257,6 +373,17 @@ export default function PlanSelectPage() {
       {blockedSubscription && <p className="plan-select__foot">Your existing subscription needs attention before selecting another. <Link to="/billing">Manage payment details in Billing</Link>.</p>}
       {subscription?.cancelAtPeriodEnd && <p className="plan-select__foot">Your subscription has a scheduled cancellation. Manage that in <Link to="/billing">Billing</Link> before changing plans.</p>}
 
+      {cancelConfirm && <div className="plan-select__dialog-backdrop">
+        <section role="dialog" aria-modal="true" aria-labelledby="cancel-checkout-title" className="plan-select__dialog">
+          <span className="eyebrow">STOP UNPAID CHECKOUT</span>
+          <h2 id="cancel-checkout-title">Cancel this unpaid transaction?</h2>
+          <p>We will ask Paddle to cancel the saved transaction. If Paddle has already begun processing payment, we will keep it pending instead. This never cancels an active subscription.</p>
+          <div className="plan-select__dialog-actions">
+            <button type="button" className="btn btn-ghost" autoFocus disabled={Boolean(busy)} onClick={() => setCancelConfirm(false)}>Keep checkout</button>
+            <button type="button" className="btn btn-cream" disabled={Boolean(busy)} onClick={cancelUnpaidCheckout}>{busy ? "Confirming…" : "Cancel unpaid transaction"}</button>
+          </div>
+        </section>
+      </div>}
       {preview && <div className="plan-select__dialog-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) setPreview(null); }}>
         <section role="dialog" aria-modal="true" aria-labelledby="plan-change-title" className="plan-select__dialog">
           <span className="eyebrow">Review with Paddle</span>
