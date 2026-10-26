@@ -2,7 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db/client.js";
 import { paddleFetch, userBilling } from "../services/billingService.js";
 import {
-  billingActivity, cleanTransaction, cursorFromMeta, MANAGEMENT_ACTIONS,
+  billingActivity, cleanTransaction, cursorFromMeta, invoiceBelongsToUser, MANAGEMENT_ACTIONS,
   paddleList, paddlePlanMismatch, paymentManagementUrl, subscriptionSnapshot,
   SUBSCRIPTION_ID, TRANSACTION_ID,
 } from "../services/billingDashboardService.js";
@@ -122,21 +122,13 @@ billingDashboardRouter.get("/dashboard/invoice/:id", async (req, res, next) => {
       ownedSubscription(req.user.id),
       prisma.billingCheckout.findUnique({ where: { transactionId: id } }),
     ]);
-    const isOwnedCheckout = ownedCheckout?.userId === req.user.id;
-    if (!local && !isOwnedCheckout) return res.status(404).json({ error: "Invoice not found." });
+    if (!local && ownedCheckout?.userId !== req.user.id)
+      return res.status(404).json({ error: "Invoice not found." });
     let transaction;
     try { transaction = await paddleFetch(`/transactions/${encodeURIComponent(id)}`); }
     catch (error) { return unavailable(res, error, "The invoice is temporarily unavailable."); }
-    const isOwnedSubscription = Boolean(local && transaction?.subscription_id === local.paddleSubscriptionId);
-    if (transaction?.id !== id || (!isOwnedCheckout && !isOwnedSubscription)) {
+    if (transaction?.id !== id || !invoiceBelongsToUser(transaction, local, ownedCheckout, req.user.id))
       return res.status(404).json({ error: "Invoice not found." });
-    }
-    // An owned checkout's associated subscription must not belong to someone else.
-    if (isOwnedCheckout && transaction.subscription_id && !isOwnedSubscription) {
-      const matching = await prisma.billingCheckout.findUnique({ where: { transactionId: id } });
-      if (matching?.paddleSubscriptionId !== transaction.subscription_id)
-        return res.status(404).json({ error: "Invoice not found." });
-    }
     if (transaction.status !== "completed" || !(Number(transaction.details?.totals?.total) > 0))
       return res.status(409).json({ error: "Paddle has not generated a paid invoice for this transaction." });
     let invoice;
