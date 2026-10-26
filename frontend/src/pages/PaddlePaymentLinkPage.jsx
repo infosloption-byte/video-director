@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { loadPaddle } from "../lib/paddle";
+import { paymentResultPath } from "../lib/paymentResult";
 import "./PaddlePaymentLinkPage.css";
 
 // Paddle's account-wide default payment link resolves to /checkout?_ptxn=... .
@@ -8,6 +9,7 @@ import "./PaddlePaymentLinkPage.css";
 // payment details through an official Paddle subscription management email.
 export default function PaddlePaymentLinkPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const transactionId = new URLSearchParams(location.search).get("_ptxn");
   const validTransaction = /^txn_[a-z0-9]{20,100}$/.test(transactionId || "");
   const [paddle, setPaddle] = useState(null);
@@ -30,8 +32,11 @@ export default function PaddlePaymentLinkPage() {
           eventCallback: (event) => {
             if (!live) return;
             if (event.name === "checkout.completed") {
-              setState("complete");
-              setMessage("Payment details were submitted. Your subscription status will be updated after Paddle confirms the transaction.");
+              // This is not proof of payment. The result page waits for
+              // signed Paddle webhooks and the matching Voxora subscription.
+              navigate(paymentResultPath({ type: "checkout", transactionId }), { replace: true });
+            } else if (event.name === "checkout.error" || event.name === "checkout.payment.failed") {
+              navigate(paymentResultPath({ type: "checkout", transactionId, issue: true }), { replace: true });
             } else if (event.name === "checkout.closed") {
               setState("ready");
               setMessage("Checkout was closed. You can reopen the secure payment screen.");
@@ -50,7 +55,7 @@ export default function PaddlePaymentLinkPage() {
       }
     })();
     return () => { live = false; };
-  }, [validTransaction, transactionId]);
+  }, [validTransaction, transactionId, navigate]);
 
   function reopen() {
     if (!paddle || !validTransaction) return;
