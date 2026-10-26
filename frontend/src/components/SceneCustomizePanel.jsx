@@ -100,7 +100,22 @@ function getSceneVoice(scene, setup, voices) {
   return voices.find((voice) => voice.source === setup?.voice?.source && voice.id === setup?.voice?.id) || null;
 }
 
-export default function SceneCustomizePanel({
+// Re-create the local editing draft when the underlying scene or its saved
+// customization actually changes, rather than cascading setState calls in an
+// effect on every new voices array reference.
+export default function SceneCustomizePanel(props) {
+  const { scene, customSetup, selectedAssetIndex = 0 } = props;
+  const saved = scene.customization || {};
+  const revisionKey = JSON.stringify([
+    scene.id, scene.spokenText, saved.framework, saved.tone,
+    saved.audienceLevel, saved.voice?.id, saved.voice?.source,
+    customSetup?.framework, customSetup?.tone, customSetup?.audienceLevel,
+    customSetup?.voice?.id, customSetup?.voice?.source, selectedAssetIndex,
+  ]);
+  return <SceneCustomizeDraft key={revisionKey} {...props} />;
+}
+
+function SceneCustomizeDraft({
   scene,
   selectedAssetIndex = 0,
   customSetup,
@@ -130,28 +145,12 @@ export default function SceneCustomizePanel({
   const voiceChanged = selectedVoiceKey !== voiceKey(activeVoice);
 
   useEffect(() => {
-    setFramework(saved.framework || customSetup?.framework || "how-it-works");
-    setTone(saved.tone || customSetup?.tone || "Conversational");
-    setAudience(saved.audienceLevel || customSetup?.audienceLevel || "General public");
-    setNarration(scene.spokenText || "");
-    setSelectedVoiceKey(voiceKey(getSceneVoice(scene, customSetup, voices)));
-    setSelectedVisualIndex(selectedAssetIndex);
-    narrationAudioRef.current?.pause();
-    narrationAudioRef.current = null;
-    setPlayingNarration(false);
-  }, [
-    scene.id,
-    scene.spokenText,
-    saved.framework,
-    saved.tone,
-    saved.audienceLevel,
-    activeVoice,
-    voices,
-    customSetup?.framework,
-    customSetup?.tone,
-    customSetup?.audienceLevel,
-    selectedAssetIndex,
-  ]);
+    const audio = narrationAudioRef;
+    return () => {
+      audio.current?.pause();
+      audio.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event) => {
