@@ -94,3 +94,62 @@ The implementation is not considered approved for merging until the unit, lint, 
 - Both portal-link creation and invoice-PDF link generation are rate-limited per signed-in account across transaction IDs and forwarded-IP changes.
 - The portal's Overview action always opens a link scoped to the user's Voxora subscription. It does **not** intentionally fall back to a customer-wide merchant overview on the shared Paddle account.
 - The frontend shows a USD symbol for the standard paid plan price. Actual taxes and prorations remain separately represented in Paddle transaction totals.
+
+## Test failures reported on Lightsail — October 26, 2026
+
+The frontend logs reported **8/8 unit tests passed**, **0 lint errors/warnings**,
+a **successful Vite build**, and **54/56 Playwright browser tests passed**.
+Both remaining browser failures were identical strict-mode locator collisions in
+the scheduled-cancellation test on desktop and mobile. The Billing test now
+uses `getByText("Access continues until", { exact: true })` to target the
+specific label instead of also matching its paragraph.
+
+The backend log showed **91 passed / 8 failed**, but five of the failures
+were test modules failing *before assertions* because locally installed
+`node_modules` lacked packages already declared in `server/package.json`:
+`nodemailer`, `@prisma/client`, and `@remotion/bundler`.
+The other three failures were an **obsolete ElevenLabs/Qwen fallback test suite**
+that is incompatible with the current self-hosted TTS gateway; it is explicitly
+out of scope for non-GPU core tests. The previous `npm test` accidentally ran
+all `*.test.js` files including the obsolete suite, plus recursively discovered
+`scripts/test-core.js`. `npm test` now delegates directly to the
+maintained `scripts/test-core.js`, which runs 29 applicable test files and
+does not recursively rediscover itself. The obsolete suite remains available
+through `npm run test:legacy-tts` for future migration rather than being
+silently deleted.
+
+On the **feature branch** and **only after reviewing any local changes**:
+
+```bash
+cd /opt/apps/voxora
+git status --short
+git fetch origin
+git switch feature/billing-dashboard-invoices-activity-20261026
+git pull --ff-only origin feature/billing-dashboard-invoices-activity-20261026
+
+cd /opt/apps/voxora/server
+npm ci
+npx prisma generate
+npm test
+node --check src/routes/billingDashboard.js
+node --check src/services/billingDashboardService.js
+
+cd /opt/apps/voxora/frontend
+npm ci
+npm run test:unit
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+Do **not** delete a modified lockfile or run `npm ci` over locally
+uncommitted dependency work before saving it. `npm ci` replaces
+`node_modules` with exactly what the committed lockfile specifies and is the
+appropriate fix for these missing-package errors; the host must have access
+to npm registry and enough disk space. No GPU/TTS service is required for
+the Billing test fixture suite.
+
+**Verification boundary:** The corrections are committed in GitHub but their
+full runtime execution and Paddle sandbox acceptance must be confirmed on
+Lightsail before the PR can be merged/deployed.
+
