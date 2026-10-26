@@ -113,7 +113,7 @@ export async function startEditorRenderWorker() {
     }
     await prisma.projectEditor.update({ where: { projectId: job.data.projectId }, data: { renderStatus: "failed", renderVersion: Number(job.data.version), renderHash: String(job.data.renderHash), renderError: error.message || "Editor render failed." } }).catch(() => {});
     const credit = job.data.credit;
-    if (credit?.userId && credit?.renderKey && credit?.month) await releaseRender(credit.userId, credit.renderKey, credit.month).catch((err) => console.error("[editor-render] Failed to reconcile terminal credit:", err));
+    if (credit?.userId && credit?.renderKey && credit?.month) await releaseRender(credit.userId, credit.renderKey, credit.month, credit.creditId).catch((err) => console.error("[editor-render] Failed to reconcile terminal credit:", err));
   });
   worker.on("stalled", (jobId) => console.warn(`[editor-render] Job ${jobId} stalled; worker will attempt recovery.`));
   worker.on("error", (error) => console.error("[editor-render] Worker error:", error));
