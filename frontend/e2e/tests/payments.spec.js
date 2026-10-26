@@ -14,6 +14,7 @@ const user = { id: "qa-1", email: "qa@example.test", displayName: "QA",
 async function mockedPaymentApi(page, state) {
   let checkoutCalls = 0;
   let changeCalls = 0;
+  let cancelCalls = 0;
   await page.route("https://cdn.paddle.com/paddle/v2/paddle.js", route => route.fulfill({
     status: 200, contentType: "application/javascript",
     body: `window.Paddle = { Initialized: false,
@@ -47,6 +48,11 @@ async function mockedPaymentApi(page, state) {
         environment: "sandbox", clientToken: "test_qa_client",
       });
     }
+    if (path === "/api/billing/checkout/cancel") {
+      cancelCalls += 1;
+      state.checkout = { ...state.checkout, status: "canceled", resumable: false };
+      return send({ canceled: true, status: "canceled" });
+    }
     if (path === "/api/billing/change-preview") {
       return send({
         fromPlan: "creator", toPlan: "studio", mode: "prorated_immediately",
@@ -61,7 +67,7 @@ async function mockedPaymentApi(page, state) {
     }
     return send({});
   });
-  return { checkoutCalls: () => checkoutCalls, changeCalls: () => changeCalls };
+  return { checkoutCalls: () => checkoutCalls, changeCalls: () => changeCalls, cancelCalls: () => cancelCalls };
 }
 
 test("closed checkout resumes the original Paddle transaction, not a second purchase", async ({ page }) => {
@@ -90,6 +96,36 @@ test("payment failure remains recoverable using the same transaction", async ({ 
   await page.goto("/choose-plan");
   await expect(page.getByText("Paddle reported an unsuccessful payment attempt", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Resume checkout" })).toBeEnabled();
+});
+
+test("cancel an unpaid checkout at Paddle before choosing a different plan", async ({ page }) => {
+  const state = {
+    currentPlan: "free", change: null,
+    checkout: { transactionId, plan: "creator", status: "awaiting_payment", resumable: true },
+  };
+  const stats = await mockedPaymentApi(page, state);
+  await page.goto("/choose-plan");
+  await page.getByRole("button", { name: "Cancel unpaid checkout" }).click();
+  await expect(page.getByRole("dialog", { name: /Cancel this unpaid transaction/ })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel unpaid transaction" }).click();
+  await expect(page.getByText("The unpaid transaction was canceled at Paddle", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pay for Studio" })).toBeEnabled();
+  expect(stats.cancelCalls()).toBe(1);
+  expect(stats.checkoutCalls()).toBe(0);
+});
+
+test("unknown pending payment blocks a second checkout after reload", async ({ page }) => {
+  const state = { currentPlan: "free", checkout: null, change: null };
+  await mockedPaymentApi(page, state);
+  await page.route("**/api/billing/payment-state", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ creating: true, checkout: null, change: null }),
+  }));
+  await page.goto("/choose-plan");
+  await expect(page.getByText("A previous checkout request is awaiting reconciliation", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pay for Creator" })).toBeDisabled();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Pay for Studio" })).toBeDisabled();
 });
 
 test("plan change survives reload and a failed proration can be reviewed again", async ({ page }) => {
