@@ -223,28 +223,70 @@ billingRouter.post("/change-plan", async (req, res, next) => {
     if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
     if (!req.user.emailVerifiedAt) return res.status(403).json({ error: "Verify your email first." });
     const plan = String(req.body?.plan || "");
+    const prior = await prisma.billingPlanChange.findUnique({ where: { userId: req.user.id } });
+    if (prior && CHANGE_ACTIVE.includes(prior.status))
+      return res.status(409).json({
+        code: "PLAN_CHANGE_PENDING",
+        error: "An earlier plan change is being verified. Refresh its status before requesting another charge.",
+      });
     const { local, change } = await validatedPlanChange(req.user.id, plan);
+    // Reserve a durable user-scoped operation before calling Paddle. Two
+    // clicks/tabs cannot send two prorated subscription updates.
+    try {
+      if (prior) {
+        const claimed = await prisma.billingPlanChange.updateMany({
+          where: { userId: req.user.id, status: { in: ["activated", "failed", "canceled"] } },
+          data: {
+            paddleSubscriptionId: local.paddleSubscriptionId, fromPlan: local.plan,
+            toPlan: plan, status: "processing", lastError: null, requestedAt: new Date(),
+          },
+        });
+        if (claimed.count !== 1) return res.status(409).json({ code: "PLAN_CHANGE_PENDING", error: "Your plan change is already in progress." });
+      } else {
+        await prisma.billingPlanChange.create({
+          data: { userId: req.user.id, paddleSubscriptionId: local.paddleSubscriptionId, fromPlan: local.plan, toPlan: plan },
+        });
+      }
+    } catch (error) {
+      if (error.code === "P2002") return res.status(409).json({ code: "PLAN_CHANGE_PENDING", error: "Your plan change is already in progress." });
+      throw error;
+    }
     let updated;
     try {
-      // Prorated immediate charges can take longer than ordinary Paddle reads.
       updated = await paddleFetch(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}`, {
         method: "PATCH", body: JSON.stringify(change), timeoutMs: 45000,
       });
     } catch (error) {
-      // Unknown network outcomes must not encourage a second charge. The
-      // client waits for Paddle's signed update, rather than trusting a retry.
-      if (error.name === "TimeoutError" || error.name === "AbortError" ||
-          error instanceof TypeError || /Paddle request failed \(HTTP 5\d\d\)/.test(error.message || "")) {
+      if (isUncertainPaddleError(error)) {
+        await prisma.billingPlanChange.updateMany({
+          where: { userId: req.user.id, status: "processing" },
+          data: { status: "uncertain" },
+        });
         return res.status(202).json({
           pending: true, plan, confirmationDelayed: true,
-          message: "Paddle is still confirming this change. Please do not submit another request.",
+          message: "Paddle has not confirmed the outcome. Do not request another charge while we verify it.",
         });
       }
-      throw error;
+      // A definitive 4xx rejection is not a successful change. Existing
+      // subscriptions retain their plan (on_payment_failure: prevent_change).
+      await prisma.billingPlanChange.updateMany({
+        where: { userId: req.user.id, status: "processing" },
+        data: { status: "failed", lastError: "Paddle could not apply the plan change." },
+      });
+      return res.status(409).json({
+        code: "PLAN_CHANGE_FAILED",
+        error: "Paddle could not apply the plan change. Your previous plan is unchanged. You can review a fresh quote before retrying.",
+      });
     }
-    if (updated?.id !== local.paddleSubscriptionId) throw new Error("Paddle did not confirm the requested subscription.");
-    // Never grant increased quotas based on this response. The signed Paddle
-    // subscription.updated webhook is the only source of local entitlements.
+    if (updated?.id !== local.paddleSubscriptionId) {
+      await prisma.billingPlanChange.updateMany({
+        where: { userId: req.user.id, status: "processing" },
+        data: { status: "uncertain" },
+      });
+      return res.status(202).json({ pending: true, plan, confirmationDelayed: true });
+    }
+    // A valid Paddle response is not yet a local entitlement. Only the
+    // signed subscription.updated webhook can activate the new plan.
     res.status(202).json({ pending: true, plan, mode: change.proration_billing_mode });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
