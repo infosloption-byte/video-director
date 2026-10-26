@@ -1,15 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import PublicHeader from "../components/PublicHeader";
 import LegalFooter from "../components/LegalFooter";
 import { useAuth } from "../context/AuthContext";
+import { authPath, destinationFromSearch, selectedPlanFromDestination, unfinishedPlanDestination, verificationPath } from "../lib/onboarding";
 import "./AuthPage.css";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, refresh } = useAuth();
-  const next = new URLSearchParams(location.search).get("next") || "/my-research";
+  const next = destinationFromSearch(location.search, "/choose-plan");
+  const intendedPlan = selectedPlanFromDestination(next);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -18,9 +20,13 @@ export default function SignUpPage() {
   const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState("");
+  const signupCompleted = useRef(false);
 
   useEffect(() => {
-    if (user) navigate(user.emailVerifiedAt ? next : "/verify-email", { replace: true });
+    if (!user || signupCompleted.current) return;
+    navigate(user.emailVerifiedAt
+      ? unfinishedPlanDestination(user, next)
+      : verificationPath(unfinishedPlanDestination(user, next)), { replace: true });
   }, [user, next, navigate]);
 
   async function submit(event) {
@@ -29,11 +35,12 @@ export default function SignUpPage() {
     if (!adultConfirmed || !termsAccepted) { setError("Confirm your age and accept the Terms & Conditions to create an account."); return; }
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/auth/signup", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, displayName, password, adultConfirmed, termsAccepted }) });
+      const response = await fetch("/api/auth/signup", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, displayName, password, adultConfirmed, termsAccepted, intendedPlan }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Account creation failed.");
+      signupCompleted.current = true;
       await refresh();
-      navigate("/verify-email", { replace: true, state: { fresh: true } });
+      navigate(verificationPath(next) + (data.emailSent === false ? "&delivery=failed" : ""), { replace: true, state: { fresh: Boolean(data.emailSent), deliveryFailed: data.emailSent === false } });
     } catch (err) { setError(err.message || "Account creation failed."); }
     finally { setBusy(false); }
   }
@@ -62,9 +69,9 @@ export default function SignUpPage() {
                 <label className="auth-consent-option"><input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} /><span>I agree to the <Link to="/terms" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</Link> and acknowledge the <Link to="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>, including the separate rules for voice cloning.</span></label>
               </div>
               <p className="auth-card__hint">Voice cloning is optional and requires additional consent in the voice-profile workflow.</p>
-              <button className="btn btn-cream auth-card__submit" disabled={busy}>{busy ? "Creating account…" : "Create free account →"}</button>
+              <button className="btn btn-cream auth-card__submit" disabled={busy}>{busy ? "Creating account…" : "Create account →"}</button>
             </form>
-            <div className="auth-card__switch"><span>Already have an account?</span><Link to={`/signin${next !== "/my-research" ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in</Link></div>
+            <div className="auth-card__switch"><span>Already have an account?</span><Link to={authPath("/signin", next)}>Sign in</Link></div>
           </section>
         </div>
       </main>

@@ -4,6 +4,7 @@ import PublicHeader from "../components/PublicHeader";
 import LegalFooter from "../components/LegalFooter";
 import SessionGate from "../components/SessionGate";
 import { useAuth } from "../context/AuthContext";
+import { authPath, destinationFromSearch, unfinishedPlanDestination, verificationPath } from "../lib/onboarding";
 import "./AuthPage.css";
 
 // React StrictMode replays effects; reuse the in-flight request for single-use tokens.
@@ -22,9 +23,9 @@ function verifyTokenOnce(token) {
 }
 
 /** Legacy path: the "Verify email" button inside the email carries a one-time token. */
-function LinkVerification({ token }) {
+function LinkVerification({ token, next }) {
   const navigate = useNavigate();
-  const { refresh } = useAuth();
+  const { user, refresh } = useAuth();
   const [status, setStatus] = useState("working");
   const [message, setMessage] = useState("");
 
@@ -32,19 +33,20 @@ function LinkVerification({ token }) {
     let cancelled = false;
     (async () => {
       try {
-        await verifyTokenOnce(token);
+        const result = await verifyTokenOnce(token);
         if (cancelled) return;
         await refresh();
         if (cancelled) return;
         setStatus("done");
-        setMessage("Your email is verified. Redirecting to your workspace…");
-        window.setTimeout(() => navigate("/choose-plan", { replace: true }), 900);
+        setMessage("Your email is verified. Taking you to plan selection…");
+        const destination = unfinishedPlanDestination(result.user, next);
+        window.setTimeout(() => navigate(destination, { replace: true }), 900);
       } catch (err) {
         if (!cancelled) { setStatus("error"); setMessage(err.message || "Verification failed."); }
       }
     })();
     return () => { cancelled = true; };
-  }, [navigate, refresh, token]);
+  }, [navigate, refresh, token, next]);
 
   return (
     <div className="hx-page auth-page">
@@ -54,7 +56,10 @@ function LinkVerification({ token }) {
           <p className="eyebrow">Email verification</p>
           <h1>{status === "working" ? "Verifying your email…" : status === "done" ? "Email verified." : "Verification failed."}</h1>
           <p>{message}</p>
-          {status === "error" && <Link className="btn btn-cream" to="/verify-email">Enter a code instead</Link>}
+          {status === "error" && <div className="auth-recovery-links">
+            {user ? <Link className="btn btn-cream" to={verificationPath(next)}>Request a new code →</Link> : <Link className="btn btn-cream" to={authPath("/signin", verificationPath(next))}>Sign in to request a new code →</Link>}
+            <p>The link may have expired or already been used. Your account remains available.</p>
+          </div>}
         </section>
       </main>
       <LegalFooter />
@@ -67,7 +72,7 @@ function CodeVerification() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, status, refresh, signOut } = useAuth();
-  const next = new URLSearchParams(location.search).get("next") || "/choose-plan";
+  const next = destinationFromSearch(location.search, "/choose-plan");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -84,8 +89,8 @@ function CodeVerification() {
   }, [cooldown]);
 
   if (status === "loading") return <SessionGate />;
-  if (!user) return <Navigate to={`/signin?next=${encodeURIComponent("/verify-email")}`} replace />;
-  if (user.emailVerifiedAt && !done) return <Navigate to={next} replace />;
+  if (!user) return <Navigate to={authPath("/signin", verificationPath(next))} replace />;
+  if (user.emailVerifiedAt && !done) return <Navigate to={unfinishedPlanDestination(user, next)} replace />;
 
   async function verify(value) {
     if (busy || done) return;
@@ -96,7 +101,7 @@ function CodeVerification() {
       if (!response.ok) throw new Error(data.error || "Verification failed.");
       setDone(true);
       await refresh();
-      window.setTimeout(() => navigate(next, { replace: true }), 700);
+      window.setTimeout(() => navigate(unfinishedPlanDestination(data.user, next), { replace: true }), 700);
     } catch (err) {
       setError(err.message || "Verification failed.");
       setCode("");
@@ -129,7 +134,7 @@ function CodeVerification() {
 
   async function useDifferentEmail() {
     await signOut();
-    navigate("/signup", { replace: true });
+    navigate(authPath("/signup", next), { replace: true });
   }
 
   return (
@@ -138,9 +143,10 @@ function CodeVerification() {
       <main className="auth-page__main">
         <section className="auth-card auth-card--verify" aria-labelledby="verify-title">
           <div className="auth-verify__icon" aria-hidden="true">✉</div>
-          <p className="eyebrow">Step 2 of 2 · Verify email</p>
+          <p className="eyebrow">Step 2 of 3 · Verify email</p>
           <h1 id="verify-title">{done ? "Email verified." : "Check your email."}</h1>
-          <p className="auth-verify__lead">{done ? "Taking you to your workspace…" : <>We sent a 6-digit code to <strong>{user.email}</strong>. Enter it below to unlock Voxora.</>}</p>
+          <p className="auth-verify__lead">{done ? "Taking you to plan selection…" : <>Enter the 6-digit code for <strong>{user.email}</strong>. If it has not arrived, request a new code below.</>}</p>
+          {(location.state?.deliveryFailed || new URLSearchParams(location.search).get("delivery") === "failed") && !notice && !done && <div className="auth-card__error" role="alert">Your account was created, but Gmail did not accept the verification email. Select Resend code to try again. You can return to this page later.</div>}
           {error && <div className="auth-card__error" role="alert">{error}</div>}
           {notice && <div className="auth-card__notice" role="status">{notice}</div>}
           {!done && (
@@ -167,6 +173,8 @@ function CodeVerification() {
 }
 
 export default function VerifyEmailPage() {
-  const token = new URLSearchParams(useLocation().search).get("token") || "";
-  return token ? <LinkVerification token={token} /> : <CodeVerification />;
+  const location = useLocation();
+  const token = new URLSearchParams(location.search).get("token") || "";
+  const next = destinationFromSearch(location.search, "/choose-plan");
+  return token ? <LinkVerification token={token} next={next} /> : <CodeVerification />;
 }

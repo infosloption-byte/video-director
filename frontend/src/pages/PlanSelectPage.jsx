@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { openPaddleCheckout } from "../lib/paddle";
+import { verificationPath } from "../lib/onboarding";
 import "./PlanSelectPage.css";
 
 const WORKSPACE = "/signals";
@@ -42,7 +43,7 @@ export default function PlanSelectPage() {
   const [verificationDelayed, setVerificationDelayed] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const completedTransaction = useRef("");
-  const selectedPlan = params.get("plan");
+  const selectedPlan = params.get("plan") || (!user?.planSelectedAt ? user?.intendedPlan : null);
   const isReturningCustomer = Boolean(user?.planSelectedAt || ["active", "trialing"].includes(billing?.subscription?.status)) && params.get("onboarding") !== "1";
 
 
@@ -106,7 +107,7 @@ export default function PlanSelectPage() {
 
   if (status === "loading") return null;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent("/choose-plan" + window.location.search)}`} replace />;
-  if (!user.emailVerifiedAt) return <Navigate to="/verify-email" replace />;
+  if (!user.emailVerifiedAt) return <Navigate to={verificationPath("/choose-plan" + window.location.search)} replace />;
 
   async function chooseFree() {
     setBusy("free"); setError("");
