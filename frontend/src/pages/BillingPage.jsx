@@ -96,13 +96,14 @@ export default function BillingPage() {
 
   useEffect(() => {
     mounted.current = true;
-    void loadBilling();
-    return () => { mounted.current = false; };
+    const start = window.setTimeout(() => { void loadBilling(); }, 0);
+    return () => { mounted.current = false; window.clearTimeout(start); };
   }, [loadBilling]);
 
   useEffect(() => {
     if (!cancelOpen) return undefined;
     const oldOverflow = document.body.style.overflow;
+    const restoreFocus = cancelButton.current;
     document.body.style.overflow = "hidden";
     closeButton.current?.focus();
     function onKey(event) {
@@ -119,7 +120,7 @@ export default function BillingPage() {
     return () => {
       document.body.style.overflow = oldOverflow;
       document.removeEventListener("keydown", onKey);
-      cancelButton.current?.focus();
+      restoreFocus?.focus();
     };
   }, [cancelOpen]);
 
