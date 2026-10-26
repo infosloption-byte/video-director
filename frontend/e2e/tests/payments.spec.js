@@ -128,25 +128,32 @@ test("unknown pending payment blocks a second checkout after reload", async ({ p
   await expect(page.getByRole("button", { name: "Pay for Studio" })).toBeDisabled();
 });
 
-test("plan change survives reload and a failed proration can be reviewed again", async ({ page }) => {
+test("pending upgrade gets one readable result page, failure retry and signed activation", async ({ page }) => {
   const state = {
     currentPlan: "creator", checkout: null,
     change: { plan: "studio", fromPlan: "creator", status: "processing" },
   };
   const stats = await mockedPaymentApi(page, state);
   await page.goto("/choose-plan?mode=upgrade");
-  await expect(page.getByRole("heading", { name: "Processing your plan change…" })).toBeVisible();
+  await expect(page).toHaveURL(/\/payment-result\?type=change/);
+  await expect(page.getByRole("heading", { name: "Checking your payment…" })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Processing your plan change…" })).toBeVisible();
+  await expect(page).toHaveURL(/\/payment-result\?type=change/);
+
   state.change = { ...state.change, status: "failed" };
-  await expect(page.getByRole("button", { name: "Review and retry" })).toBeVisible({ timeout: 12000 });
+  await expect(page.getByRole("heading", { name: "Your payment wasn't successful." })).toBeVisible({ timeout: 12000 });
+  await page.getByRole("button", { name: "Back to plans and retry" }).click();
+  await expect(page.getByRole("button", { name: "Review and retry" })).toBeVisible();
   await page.getByRole("button", { name: "Review and retry" }).click();
   await expect(page.getByRole("dialog", { name: /Change from Creator to Studio/ })).toBeVisible();
   await page.getByRole("button", { name: "Confirm plan change" }).click();
-  await expect(page.getByRole("heading", { name: "Processing your plan change…" })).toBeVisible();
+  await expect(page).toHaveURL(/\/payment-result\?type=change/);
   expect(stats.changeCalls()).toBe(1);
-  // Only a server-confirmed event may activate Studio.
+
   state.change = { ...state.change, status: "activated" };
   state.currentPlan = "studio";
-  await expect(page).toHaveURL(/\/billing\?updated=1/, { timeout: 12000 });
+  await expect(page.getByRole("heading", { name: "Your plan is updated." })).toBeVisible({ timeout: 12000 });
+  await expect(page.getByText("Redirecting to your workspace in", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Go to workspace" }).click();
+  await expect(page).toHaveURL(/\/signals$/);
 });
