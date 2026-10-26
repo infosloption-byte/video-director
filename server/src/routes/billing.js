@@ -152,11 +152,14 @@ billingRouter.get("/checkout-status", async (req, res, next) => {
     if (!checkout || checkout.userId !== req.user.id) return res.status(404).json({ error: "Checkout not found." });
     const subscription = await prisma.billingSubscription.findUnique({ where: { userId: req.user.id } });
     const active = successfulCheckout(checkout, subscription);
+    const state = publicCheckoutStatus(checkout, subscription);
     res.set("Cache-Control", "no-store");
     res.json({
       confirmed: active,
       plan: active ? subscription.plan : null,
-      status: active ? "active" : "pending",
+      status: state.status,
+      resumable: state.resumable,
+      transactionId: checkout.transactionId,
     });
   } catch (error) { next(error); }
 });
