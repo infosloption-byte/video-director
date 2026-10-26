@@ -42,7 +42,7 @@ billingRouter.post("/checkout", async (req, res, next) => {
     if (!checkoutEnabled()) return res.status(503).json({ error: "Paddle checkout is not configured yet." });
     const current = await userBilling(req.user.id);
     if (isPaidSubscriptionActive(current.subscription)) return res.status(409).json({ error: "You already have a paid plan. Choose a subscription change instead." });
-    if (current.subscription && !["canceled", "paused"].includes(current.subscription.status))
+    if (current.subscription && current.subscription.status !== "canceled")
       return res.status(409).json({ error: "Resolve the existing subscription in Billing before starting another payment." });
 
     let lock = await prisma.billingCheckoutLock.findUnique({ where: { userId: req.user.id } });
@@ -69,7 +69,7 @@ billingRouter.post("/checkout", async (req, res, next) => {
         if (["completed", "paid"].includes(remote.status)) {
           const knownOldSubscription = previous.paddleSubscriptionId
             && previous.paddleSubscriptionId === current.subscription?.paddleSubscriptionId;
-          if (!knownOldSubscription || !["canceled","paused"].includes(current.subscription?.status))
+          if (!knownOldSubscription || current.subscription?.status !== "canceled")
             return res.status(409).json({
               code: "CHECKOUT_REVIEW_REQUIRED",
               error: "A previous payment was collected but its subscription needs review. Do not submit another payment.",
