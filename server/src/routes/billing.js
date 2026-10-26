@@ -3,6 +3,7 @@ import { prisma } from "../db/client.js";
 import { checkoutEnabled, paddleFetch, PLANS, paidPlanIds, priceId, publicPlans, userBilling, verifyPaddleSignature } from "../services/billingService.js";
 import { sendEmail } from "../services/emailService.js";
 import { isPaidSubscriptionActive, planFromSubscriptionItems, planChangeRequest, successfulCheckout, voxoraCheckoutUrl } from "../services/paddlePlanFlow.js";
+import { CHECKOUT_ACTIVE, CHANGE_ACTIVE, checkoutEventStatus, publicCheckoutStatus, publicPlanChange, belongsToVoxora, isUncertainPaddleError } from "../services/paymentState.js";
 
 export const billingRouter = Router();
 billingRouter.get("/plans", (_req, res) => res.json({ plans: publicPlans(), billingReady: checkoutEnabled(), currency: "USD", provisionalPricing: true }));
@@ -30,25 +31,116 @@ billingRouter.post("/plan-selected", async (req, res, next) => {
     res.json({ ok: true, planSelectedAt: user.planSelectedAt });
   } catch (error) { next(error); }
 });
+// Reserve the per-user checkout BEFORE calling Paddle. Reuse an existing
+// transaction rather than charging via a second checkout after a browser close.
 billingRouter.post("/checkout", async (req, res, next) => {
   try {
-    if (!req.user?.id) return res.status(401).json({error:"Sign in to continue."});
-    if (!req.user.emailVerifiedAt) return res.status(403).json({error:"Verify your email before subscribing."});
-    const plan=String(req.body?.plan||"");
-    if (!paidPlanIds.includes(plan)) return res.status(400).json({error:"Unknown paid plan."});
-    if(!checkoutEnabled()) return res.status(503).json({error:"Paddle checkout is not configured yet."});
-    const current=await userBilling(req.user.id);
-    if(isPaidSubscriptionActive(current.subscription)) return res.status(409).json({error:"Choose a plan change to update your existing subscription."});
-    if(current.subscription && !["canceled","paused"].includes(current.subscription.status)) return res.status(409).json({error:"Your existing Paddle subscription needs attention. Open Billing to resolve it before buying another plan."});
-    const data=await paddleFetch("/transactions",{
-      method:"POST",
-      body:JSON.stringify({ items:[{price_id:priceId(plan),quantity:1}],collection_mode:"automatic",checkout:{url:voxoraCheckoutUrl(process.env.AUTH_PUBLIC_URL,process.env.PADDLE_CHECKOUT_URL,process.env.PADDLE_ENV||"sandbox")},custom_data:{voxora_user_id:req.user.id,voxora_plan:plan} }),
+    if (!req.user?.id) return res.status(401).json({ error: "Sign in to continue." });
+    if (!req.user.emailVerifiedAt) return res.status(403).json({ error: "Verify your email before subscribing." });
+    const plan = String(req.body?.plan || "");
+    if (!paidPlanIds.includes(plan)) return res.status(400).json({ error: "Unknown paid plan." });
+    if (!checkoutEnabled()) return res.status(503).json({ error: "Paddle checkout is not configured yet." });
+    const current = await userBilling(req.user.id);
+    if (isPaidSubscriptionActive(current.subscription)) return res.status(409).json({ error: "You already have a paid plan. Choose a subscription change instead." });
+    if (current.subscription && !["canceled", "paused"].includes(current.subscription.status))
+      return res.status(409).json({ error: "Resolve the existing subscription in Billing before starting another payment." });
+
+    const lock = await prisma.billingCheckoutLock.findUnique({ where: { userId: req.user.id } });
+    if (lock && lock.status !== "finished") {
+      if (lock.status === "ready" && lock.transactionId) {
+        const existing = await prisma.billingCheckout.findUnique({ where: { transactionId: lock.transactionId } });
+        if (!existing) return res.status(409).json({ code: "CHECKOUT_REVIEW_REQUIRED", error: "Payment recovery needs support. Please do not submit another payment." });
+        if (lock.plan !== plan && CHECKOUT_ACTIVE.includes(existing.status))
+          return res.status(409).json({ code: "CHECKOUT_ALREADY_PENDING", error: "Resume your existing checkout before choosing another plan.", plan: existing.plan });
+        if (CHECKOUT_ACTIVE.includes(existing.status)) {
+          return res.json({
+            transactionId: existing.transactionId, plan: existing.plan, resumed: true,
+            status: existing.status, clientToken: process.env.PADDLE_CLIENT_TOKEN,
+            environment: process.env.PADDLE_ENV === "live" ? "production" : "sandbox",
+          });
+        }
+        if (existing.status !== "canceled") return res.status(409).json({ code: "CHECKOUT_REVIEW_REQUIRED", error: "Your payment outcome is being reviewed. Please do not pay again." });
+      } else {
+        return res.status(409).json({
+          code: "CHECKOUT_REVIEW_REQUIRED",
+          error: "An earlier checkout request is still being processed. Please wait or contact billing support; do not start a second payment.",
+        });
+      }
+    }
+    // A unique userId lock means concurrent requests cannot create two Paddle
+    // transactions. A canceled checkout is explicitly finished first.
+    try {
+      if (lock) {
+        const updated = await prisma.billingCheckoutLock.updateMany({
+          where: { userId: req.user.id, status: { in: ["finished", "ready"] } },
+          data: { plan, status: "creating", transactionId: null },
+        });
+        if (updated.count !== 1) return res.status(409).json({ error: "Checkout already in progress." });
+      } else {
+        await prisma.billingCheckoutLock.create({ data: { userId: req.user.id, plan } });
+      }
+    } catch (error) {
+      if (error.code === "P2002") return res.status(409).json({ error: "Checkout already in progress. Reload the plan page." });
+      throw error;
+    }
+
+    let data;
+    try {
+      data = await paddleFetch("/transactions", {
+        method: "POST",
+        body: JSON.stringify({
+          items: [{ price_id: priceId(plan), quantity: 1 }],
+          collection_mode: "automatic",
+          checkout: { url: voxoraCheckoutUrl(process.env.AUTH_PUBLIC_URL, process.env.PADDLE_CHECKOUT_URL, process.env.PADDLE_ENV || "sandbox") },
+          custom_data: { voxora_user_id: req.user.id, voxora_plan: plan },
+        }),
+      });
+      if (!/^txn_[a-z0-9]{20,100}$/.test(data?.id || "")) throw new Error("Unexpected Paddle transaction response.");
+      await prisma.$transaction(async tx => {
+        await tx.billingCheckout.create({ data: { userId: req.user.id, plan, transactionId: data.id } });
+        await tx.billingCheckoutLock.update({ where: { userId: req.user.id }, data: { status: "ready", transactionId: data.id } });
+      });
+    } catch (error) {
+      // Even a timeout may have created a transaction at Paddle. Never
+      // silently unlock the user and allow another potentially billable one.
+      await prisma.billingCheckoutLock.updateMany({
+        where: { userId: req.user.id, status: "creating" },
+        data: { status: "uncertain" },
+      }).catch(() => {});
+      console.error("[billing] Paddle transaction creation needs reconciliation:", error.message);
+      return res.status(503).json({
+        code: "CHECKOUT_REVIEW_REQUIRED",
+        error: "We could not confirm checkout creation. Do not retry payment yet; contact billing support.",
+      });
+    }
+    res.status(201).json({
+      transactionId: data.id, plan, resumed: false, status: "awaiting_payment",
+      clientToken: process.env.PADDLE_CLIENT_TOKEN,
+      environment: process.env.PADDLE_ENV === "live" ? "production" : "sandbox",
     });
-    if(!data?.id || !String(data.id).startsWith("txn_")) throw new Error("Paddle did not return a transaction.");
-    await prisma.billingCheckout.create({data:{userId:req.user.id,plan,transactionId:data.id}});
-    res.status(201).json({transactionId:data.id,clientToken:process.env.PADDLE_CLIENT_TOKEN,environment:process.env.PADDLE_ENV==="live"?"production":"sandbox"});
-  } catch(error) { next(error); }
+  } catch (error) { next(error); }
 });
+
+billingRouter.get("/payment-state", async (req, res, next) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: "Sign in first." });
+    const [lock, change, subscription] = await Promise.all([
+      prisma.billingCheckoutLock.findUnique({ where: { userId: req.user.id } }),
+      prisma.billingPlanChange.findUnique({ where: { userId: req.user.id } }),
+      prisma.billingSubscription.findUnique({ where: { userId: req.user.id } }),
+    ]);
+    const checkout = lock?.transactionId
+      ? await prisma.billingCheckout.findUnique({ where: { transactionId: lock.transactionId } })
+      : null;
+    res.set("Cache-Control", "no-store");
+    res.json({
+      checkout: publicCheckoutStatus(checkout, subscription),
+      change: publicPlanChange(change, subscription),
+      creating: Boolean(lock && ["creating", "uncertain"].includes(lock.status)),
+    });
+  } catch (error) { next(error); }
+});
+
 // The browser may report checkout completion before Paddle has provisioned the
 // subscription. Always verify against server-owned checkout and signed events.
 billingRouter.get("/checkout-status", async (req, res, next) => {
