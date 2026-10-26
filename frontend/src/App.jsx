@@ -22,6 +22,7 @@ import PaddlePaymentLinkPage from "./pages/PaddlePaymentLinkPage";
 import PlatformShell from "./components/PlatformShell";
 import EditorWorkspace from "./components/EditorWorkspace";
 import SessionGate from "./components/SessionGate";
+import { onboardingDestination } from "./lib/onboarding";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
@@ -32,7 +33,7 @@ function ProtectedRoute({ children }) {
   if (status === "loading") return <SessionGate />;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`} replace />;
   if (!user.emailVerifiedAt) return <Navigate to="/verify-email" replace />;
-  if (!user.planSelectedAt) return <Navigate to="/choose-plan" replace />;
+  if (!user.planSelectedAt) return <Navigate to={onboardingDestination(user.intendedPlan)} replace />;
   return <PlatformShell>{children}</PlatformShell>;
 }
 
