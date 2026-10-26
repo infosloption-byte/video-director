@@ -114,6 +114,10 @@ router.get("/projects/:id/render-status", async (req, res) => {
     const job = await getRenderQueue().getJob(project.id);
     if (!job) return res.json({ projectId: project.id, status: project.renderUrl ? "completed" : "idle", progress: project.renderUrl ? 100 : 0, renderUrl: normalizeRenderUrl(project.renderUrl) || null });
     const state = await job.getState();
+    if (state === "failed" && job.data.credit?.userId === req.user.id) {
+      const { userId, renderKey, month } = job.data.credit;
+      if (renderKey && month) await releaseRender(userId, renderKey, month);
+    }
     const storedProgress = job.progress;
     const progressState = storedProgress && typeof storedProgress === "object" ? storedProgress : { progress: Number(storedProgress || 0) };
     const progress = Number(progressState.progress || 0);
