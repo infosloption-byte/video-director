@@ -156,6 +156,20 @@ export function billingActivity({ history = [], transactions = [], localChange =
     .slice(0, 25);
 }
 
+export function invoiceBelongsToUser(transaction, local, checkout, userId) {
+  if (!transaction?.id || !TRANSACTION_ID.test(transaction.id)) return false;
+  const sameSub = Boolean(local && local.userId === userId
+    && transaction.subscription_id === local.paddleSubscriptionId);
+  const sameCheckout = Boolean(checkout && checkout.userId === userId
+    && checkout.transactionId === transaction.id);
+  if (!sameSub && !sameCheckout) return false;
+  // An old checkout may be linked to a previous subscription, but must not
+  // unlock unrelated Paddle invoices on the shared BuildHire merchant account.
+  if (sameCheckout && transaction.subscription_id && !sameSub)
+    return checkout.paddleSubscriptionId === transaction.subscription_id;
+  return true;
+}
+
 export function paymentManagementUrl(remote, action) {
   if (!MANAGEMENT_ACTIONS.includes(action)) return null;
   const links = remote?.management_urls || {};
