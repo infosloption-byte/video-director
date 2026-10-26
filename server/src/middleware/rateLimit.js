@@ -14,6 +14,10 @@ function policyFor(req) {
   const path = String(req.path || "");
   const method = String(req.method || "GET").toUpperCase();
 
+  if (method === "GET" && (path === "/dashboard/manage"
+    || /^\\/dashboard\\/invoice\\/txn_[a-z0-9]{20,100}$/.test(path))) {
+    return { windowMs: 60 * 1000, max: 12 };
+  }
   if (path === "/search" && method === "GET") {
     return { windowMs: numberEnv("SIGNAL_SEARCH_RATE_WINDOW_MS", 5 * 60 * 1000), max: numberEnv("SIGNAL_SEARCH_RATE_LIMIT", 30) };
   }
