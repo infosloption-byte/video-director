@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
-import { useAuth } from "../context/AuthContext";
 import "./BillingPage.css";
 
 async function request(url) {
@@ -45,15 +44,14 @@ const FILTERS = [
   { value: "past_due", label: "Payment issues" },
   { value: "other", label: "Other" },
 ];
-function SectionHeading({ eyebrow, title, description, action }) {
+function SectionHeading({ eyebrow, title, description, action, id }) {
   return <div className="billing-section-heading">
-    <div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2>{description && <p>{description}</p>}</div>
+    <div><p className="eyebrow">{eyebrow}</p><h2 id={id}>{title}</h2>{description && <p>{description}</p>}</div>
     {action}
   </div>;
 }
 
 export default function BillingPage() {
-  const { user } = useAuth();
   const [params] = useSearchParams();
   const [overview, setOverview] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -174,6 +172,7 @@ export default function BillingPage() {
   const account = overview?.account;
   const subscription = overview?.subscription;
   const currentPlan = account?.plan;
+  const subscribedPlan = catalog.find(plan => plan.id === subscription?.plan) || currentPlan;
   const hasPaid = Boolean(subscription);
   const isPastDue = subscription?.status === "past_due";
   const isScheduled = Boolean(subscription?.cancellationScheduled);
@@ -207,11 +206,11 @@ export default function BillingPage() {
       {account && <section className="billing-overview" aria-label="Subscription overview">
         <div className="billing-overview__hero">
           <div className="billing-overview__hero-head">
-            <div><span className="eyebrow">YOUR CURRENT PLAN</span><h2>{currentPlan?.name || "Free"}</h2></div>
+            <div><span className="eyebrow">YOUR CURRENT PLAN</span><h2>{subscribedPlan?.name || "Free"}</h2></div>
             <StatusPill value={subscription?.status || "free"} />
           </div>
           <p className="billing-overview__price">
-            {currentPlan?.monthlyUsd ? `$${Number(currentPlan.monthlyUsd).toFixed(2)}` : "$0.00"}<small> / month standard plan price</small>
+            {subscribedPlan?.monthlyUsd ? `${Number(subscribedPlan.monthlyUsd).toFixed(2)}` : "$0.00"}<small> / month standard plan price</small>
           </p>
           <p className="billing-overview__note">{isScheduled
             ? "Your subscription is scheduled to end. You retain paid access until the cancellation takes effect."
@@ -251,7 +250,7 @@ export default function BillingPage() {
         </div>}
         {isScheduled && <div className="billing-cancellation">
           <strong>Cancellation scheduled</strong>
-          <p>Your {currentPlan?.name} plan will stop on <strong>{dateLabel(subscription.cancelEffectiveAt)}</strong>. Paid access continues until Paddle confirms the cancellation has taken effect. You won't be billed for another renewal after cancellation.</p>
+          <p>Your {subscribedPlan?.name} plan will stop on <strong>{dateLabel(subscription.cancelEffectiveAt)}</strong>. Paid access continues until Paddle confirms the cancellation has taken effect. You won't be billed for another renewal after cancellation.</p>
         </div>}
         <div className="billing-management-actions">
           <div><h3>Payment method</h3><p>Update your saved card or billing information through Paddle's secure portal.</p>
@@ -266,7 +265,7 @@ export default function BillingPage() {
       </section>}
 
       <section className="billing-history" aria-labelledby="billing-history-title">
-        <SectionHeading eyebrow="PAYMENT RECORDS" title="Invoices & transactions" description="All amounts below are actual Paddle transaction totals, including any applied taxes and proration."
+        <SectionHeading eyebrow="PAYMENT RECORDS" id="billing-history-title" title="Invoices & transactions" description="All amounts below are actual Paddle transaction totals, including any applied taxes and proration."
           action={<button type="button" className="billing-text-button" disabled={Boolean(busy || loading)} onClick={() => void loadBilling()}>Refresh history ↻</button>} />
         <div className="billing-filters" role="group" aria-label="Transaction status filter">
           {FILTERS.map(option => <button key={option.value} type="button" className={filter === option.value ? "is-active" : ""} aria-pressed={filter === option.value} onClick={() => setFilter(option.value)}>{option.label}</button>)}
@@ -292,7 +291,7 @@ export default function BillingPage() {
       </section>
 
       <section className="billing-activity" aria-labelledby="billing-activity-title">
-        <SectionHeading eyebrow="SUBSCRIPTION TIMELINE" title="Billing activity" description="Recent subscription changes, renewals and payment events recorded by Paddle." />
+        <SectionHeading eyebrow="SUBSCRIPTION TIMELINE" id="billing-activity-title" title="Billing activity" description="Recent subscription changes, renewals and payment events recorded by Paddle." />
         {sections.activity && <div className="billing-warning" role="status">{sections.activity}</div>}
         {activity.length ? <ol className="billing-timeline">
           {activity.map(item => <li key={item.id}>
@@ -309,10 +308,10 @@ export default function BillingPage() {
     {cancelOpen && <div className="billing-dialog-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !busy) setCancelOpen(false); }}>
       <section className="billing-dialog" role="dialog" aria-modal="true" aria-labelledby="billing-cancel-title" aria-describedby="billing-cancel-description">
         <span className="eyebrow">SUBSCRIPTION CANCELLATION</span>
-        <h2 id="billing-cancel-title">Cancel your {currentPlan?.name} plan?</h2>
+        <h2 id="billing-cancel-title">Cancel your {subscribedPlan?.name} plan?</h2>
         <p id="billing-cancel-description">You'll be taken to Paddle to confirm your request. Voxora will not cancel your plan just by opening this dialog.</p>
         <div className="billing-dialog__details">
-          <div><span>Subscription</span><strong>{currentPlan?.name}</strong></div>
+          <div><span>Subscription</span><strong>{subscribedPlan?.name}</strong></div>
           <div><span>Expected end of access</span><strong>{dateLabel(subscription?.billingPeriodEnd)}</strong></div>
           <div><span>Until then</span><strong>Your confirmed paid features remain available</strong></div>
         </div>
