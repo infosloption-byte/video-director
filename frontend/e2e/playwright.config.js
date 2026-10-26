@@ -1,6 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.VOXORA_E2E_URL || "http://127.0.0.1:5179";
+// Payment tests use fake accounts and must never target live customer data.
+const hostname = new URL(baseURL).hostname;
+if (!["127.0.0.1", "localhost", "[::1]"].includes(hostname)) {
+  throw new Error("Voxora browser tests must target a local Vite server.");
+}
 export default defineConfig({
   testDir: "./tests",
   timeout: 30000,
@@ -17,6 +22,7 @@ export default defineConfig({
     env: { VITE_AUTH_REQUIRED: "true", VOXORA_E2E_MODE: "1" },
     url: baseURL,
     timeout: 45000,
-    reuseExistingServer: !process.env.CI,
+    // Reusing an arbitrary dev server could accidentally re-enable the real API proxy.
+    reuseExistingServer: false,
   },
 });
