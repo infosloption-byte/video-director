@@ -220,7 +220,7 @@ export default function BillingPage() {
             <StatusPill value={subscription?.status || "free"} />
           </div>
           <p className="billing-overview__price">
-            {subscribedPlan?.monthlyUsd ? `${Number(subscribedPlan.monthlyUsd).toFixed(2)}` : "$0.00"}<small> / month standard plan price</small>
+            {subscribedPlan?.monthlyUsd ? `$${Number(subscribedPlan.monthlyUsd).toFixed(2)}` : "$0.00"}<small> / month standard plan price</small>
           </p>
           <p className="billing-overview__note">{isScheduled
             ? "Your subscription is scheduled to end. You retain paid access until the cancellation takes effect."
