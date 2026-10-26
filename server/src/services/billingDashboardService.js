@@ -156,15 +156,19 @@ export function billingActivity({ history = [], transactions = [], localChange =
     .slice(0, 25);
 }
 
-export function invoiceBelongsToUser(transaction, local, checkout, userId) {
+export function invoiceBelongsToUser(transaction, local, checkout, userId, ownedSubscriptionIds = []) {
   if (!transaction?.id || !TRANSACTION_ID.test(transaction.id)) return false;
-  const sameSub = Boolean(local && local.userId === userId
-    && transaction.subscription_id === local.paddleSubscriptionId);
-  const sameCheckout = Boolean(checkout && checkout.userId === userId
+  // These IDs must be supplied only by the server from user-owned, signed
+  // checkout/subscription records. Never accept this array from the request.
+  const sameSub = Boolean(transaction.subscription_id && (
+    (local?.userId === userId && transaction.subscription_id === local.paddleSubscriptionId)
+    || ownedSubscriptionIds.includes(transaction.subscription_id)
+  ));
+  const sameCheckout = Boolean(checkout?.userId === userId
     && checkout.transactionId === transaction.id);
   if (!sameSub && !sameCheckout) return false;
-  // An old checkout may be linked to a previous subscription, but must not
-  // unlock unrelated Paddle invoices on the shared BuildHire merchant account.
+  // A checkout associated with a DIFFERENT subscription cannot unlock a
+  // foreign receipt even if its transaction ID looks familiar.
   if (sameCheckout && transaction.subscription_id && !sameSub)
     return checkout.paddleSubscriptionId === transaction.subscription_id;
   return true;
