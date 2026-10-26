@@ -19,6 +19,19 @@ billingDashboardRouter.use((_req, res, next) => { res.set("Cache-Control", "no-s
 async function ownedSubscription(userId) {
   return prisma.billingSubscription.findUnique({ where: { userId } });
 }
+// Retain paid history after a user cancels and later subscribes again.
+// These IDs originate in Voxora's own signed checkout/subscription records,
+// never from a browser parameter or a shared Paddle customer's other apps.
+async function ownedSubscriptionIds(userId, local) {
+  const checkouts = await prisma.billingCheckout.findMany({
+    where: { userId, paddleSubscriptionId: { not: null } },
+    select: { paddleSubscriptionId: true },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  return [...new Set([local?.paddleSubscriptionId, ...checkouts.map(item => item.paddleSubscriptionId)]
+    .filter(value => SUBSCRIPTION_ID.test(value || "")))];
+}
 async function liveSubscription(local) {
   if (!local || !SUBSCRIPTION_ID.test(local.paddleSubscriptionId)) return null;
   const remote = await paddleFetch(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}`);
@@ -38,9 +51,9 @@ function unavailable(res, error, message = "Paddle billing records are temporari
   return res.status(503).json({ error: message });
 }
 function arrayData(payload) { return Array.isArray(payload?.data) ? payload.data : []; }
-function transactionQuery(local, cursor, perPage = 20) {
+function transactionQuery(ownedIds, cursor, perPage = 20) {
   const params = new URLSearchParams({
-    subscription_id: local.paddleSubscriptionId,
+    subscription_id: ownedIds.join(","),
     per_page: String(perPage),
   });
   if (cursor) params.set("after", cursor);
@@ -77,11 +90,13 @@ billingDashboardRouter.get("/dashboard/transactions", async (req, res, next) => 
     if (cursor && !TRANSACTION_ID.test(cursor))
       return res.status(400).json({ error: "Invalid transaction history cursor." });
     const local = await ownedSubscription(req.user.id);
-    if (!local) return res.json({ items: [], nextCursor: null });
+    const ownedIds = await ownedSubscriptionIds(req.user.id, local);
+    if (!ownedIds.length) return res.json({ items: [], nextCursor: null });
     let result;
-    try { result = await paddleList("/transactions", transactionQuery(local, cursor)); }
+    try { result = await paddleList("/transactions", transactionQuery(ownedIds, cursor)); }
     catch (error) { return unavailable(res, error, "Transaction history is unavailable. Your subscription has not been changed."); }
-    const rows = arrayData(result).filter(row => row.subscription_id === local.paddleSubscriptionId);
+    const allowed = new Set(ownedIds);
+    const rows = arrayData(result).filter(row => allowed.has(row.subscription_id));
     const nextCursor = cursorFromMeta(result.meta);
     return res.json({
       items: rows.map(cleanTransaction),
@@ -93,21 +108,23 @@ billingDashboardRouter.get("/dashboard/transactions", async (req, res, next) => 
 billingDashboardRouter.get("/dashboard/activity", async (req, res, next) => {
   try {
     const local = await ownedSubscription(req.user.id);
-    if (!local) return res.json({ items: [], warnings: [] });
+    const ownedIds = await ownedSubscriptionIds(req.user.id, local);
+    if (!local || !ownedIds.length) return res.json({ items: [], warnings: [] });
     const warnings = [];
     const [historyResult, transactionsResult, change] = await Promise.all([
       paddleList(`/subscriptions/${encodeURIComponent(local.paddleSubscriptionId)}/history`, new URLSearchParams({ per_page: "30" }))
         .catch(error => { warnings.push(error.status === 403
           ? "Paddle subscription-history permission is not enabled; showing available payment activity."
           : "Subscription activity from Paddle is temporarily unavailable."); return null; }),
-      paddleList("/transactions", transactionQuery(local, null, 30))
+      paddleList("/transactions", transactionQuery(ownedIds, null, 30))
         .catch(() => { warnings.push("Recent Paddle payment activity is temporarily unavailable."); return null; }),
       prisma.billingPlanChange.findUnique({ where: { userId: req.user.id } }),
     ]);
     const history = arrayData(historyResult)
       .filter(row => row.subscription_id === local.paddleSubscriptionId);
+    const allowed = new Set(ownedIds);
     const transactions = arrayData(transactionsResult)
-      .filter(row => row.subscription_id === local.paddleSubscriptionId)
+      .filter(row => allowed.has(row.subscription_id))
       .map(cleanTransaction);
     const localChange = change?.paddleSubscriptionId === local.paddleSubscriptionId ? change : null;
     return res.json({ items: billingActivity({ history, transactions, localChange }), warnings });
