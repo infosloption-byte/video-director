@@ -14,6 +14,10 @@ function policyFor(req) {
   const path = String(req.path || "");
   const method = String(req.method || "GET").toUpperCase();
 
+  if (method === "GET" && (path === "/dashboard/manage"
+    || /^\/dashboard\/invoice\/txn_[a-z0-9]{20,100}$/.test(path))) {
+    return { windowMs: 60 * 1000, max: 12 };
+  }
   if (path === "/search" && method === "GET") {
     return { windowMs: numberEnv("SIGNAL_SEARCH_RATE_WINDOW_MS", 5 * 60 * 1000), max: numberEnv("SIGNAL_SEARCH_RATE_LIMIT", 30) };
   }
@@ -43,7 +47,17 @@ export function expensiveOperationRateLimit(req, res, next) {
   if (!policy) return next();
 
   const now = Date.now();
-  const key = `${clientKey(req)}:${req.method}:${req.path}`;
+  const isBillingLink = req.path === "/dashboard/manage"
+    || /^\/dashboard\/invoice\/txn_[a-z0-9]{20,100}$/.test(req.path);
+  // Invoice IDs and X-Forwarded-For are not independent budgets. Apply one
+  // account-scoped cap to all invoice PDFs, one cap to portal sessions.
+  const scope = isBillingLink && req.user?.id
+    ? `billing:user:${req.user.id}`
+    : clientKey(req);
+  const routeKey = isBillingLink
+    ? req.path === "/dashboard/manage" ? "/dashboard/manage" : "/dashboard/invoice"
+    : req.path;
+  const key = `${scope}:${req.method}:${routeKey}`;
   const existing = buckets.get(key);
   const bucket = existing && now - existing.startedAt < policy.windowMs ? existing : { startedAt: now, count: 0 };
   bucket.count += 1;
