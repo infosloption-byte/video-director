@@ -129,7 +129,8 @@ export default function AdminModelPoolPage() {
     {error && <p className="mp-error" role="alert">{error}</p>}
     {notice && <p className="mp-success" role="status">{notice}</p>}
     {loading && <p role="status">Loading model pool…</p>}
-    {data && !formOpen && <div className="mp-summary"><span>{data.models.length} registered models</span><span>{data.models.reduce((sum, m) => sum + m.verifiedCapabilities.length, 0)} passing stage capabilities</span><span>Host allowlist: {data.hostedOriginConfigured ? "configured" : "not configured"}</span></div>}
+    {data && !data.encryptionReady && <div className="mp-banner"><strong>Encrypted credential storage is not configured.</strong> Set AI_POOL_ENCRYPTION_KEY on the API server before entering cloud API keys in Admin. Existing provider environment variables can be used without storing a key here.</div>}
+    {data && !formOpen && <div className="mp-summary"><span>{data.models.length} registered models</span><span>{data.models.reduce((sum, m) => sum + m.verifiedCapabilities.length, 0)} passing stage capabilities</span><span>Host allowlist: {data.hostedOriginConfigured ? "configured" : "not configured"}</span><span>Encrypted key storage: {data.encryptionReady ? "configured" : "setup required"}</span></div>}
     {formOpen ? <Form key={(editing?.id || "new") + (editing?.revision || "")} existing={editing} saved={saved} cancel={() => setFormOpen(false)}/> : data && <div className="mp-models">
       {data.models.length ? data.models.map(model => <ModelCard key={model.id} model={model} edit={startEdit} run={runTest} busy={busy === model.id + "research" || busy === model.id + "storyboard"}/>) :
         <section className="mp-empty"><h2>No AI models registered</h2><p>Add an OpenAI, Gemini, xAI Grok or self-hosted inference model. Then verify its capabilities before choosing it in a draft pipeline.</p></section>}

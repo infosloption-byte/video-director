@@ -44,7 +44,8 @@ export async function listPool(db = prisma) {
     include: { tests: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100 } },
   });
   return { models: models.map(safePoolModel), capabilities: CAPABILITIES, liveTestable: TESTABLE_CAPABILITIES,
-    hostedOriginConfigured: Boolean(String(process.env.AI_POOL_ALLOWED_ORIGINS || "").trim()) };
+    hostedOriginConfigured: Boolean(String(process.env.AI_POOL_ALLOWED_ORIGINS || "").trim()),
+    encryptionReady: Boolean(String(process.env.AI_POOL_ENCRYPTION_KEY || "").trim()) };
 }
 export async function getEligiblePoolModels(db = prisma) {
   return (await listPool(db)).models.map(model => ({
