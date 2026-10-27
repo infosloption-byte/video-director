@@ -112,3 +112,7 @@
   .platform-content { padding: 24px 18px 48px; }
   .platform-account-menu { left: 0; right: 0; }
 }
+
+/* Read-only platform announcement supplied by the administrator. */
+.platform-announcement{margin:16px 24px 0;padding:13px 17px;border-radius:11px;border:1px solid var(--accent-green-border);background:var(--accent-green-bg);color:var(--accent-green-text);font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+@media(max-width:650px){.platform-announcement{margin:12px 14px 0}}

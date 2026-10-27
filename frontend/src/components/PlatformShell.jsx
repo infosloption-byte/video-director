@@ -28,10 +28,21 @@ export default function PlatformShell({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
   const accountMenuRef = useRef(null);
   const projectId = useMemo(() => location.pathname.match(/^(?:\/research|\/research-conversation|\/storyboard|\/media)\/([^/]+)/)?.[1] || location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "", [location.pathname]);
   const userLabel = user?.displayName || user?.email || "Account";
   const recentProjects = useMemo(() => projects.slice(0, 5), [projects]);
+
+  useEffect(() => {
+    if (!user) { return undefined; }
+    const controller = new AbortController();
+    fetch("/api/platform-config", { credentials: "include", cache: "no-store", signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted) setAnnouncement(String(data?.announcement || "").slice(0, 240)); })
+      .catch(() => { if (!controller.signal.aborted) setAnnouncement(""); });
+    return () => controller.abort();
+  }, [user]);
 
   useEffect(() => {
     try { localStorage.setItem("helix.platform.sidebar", collapsed ? "collapsed" : "expanded"); } catch { /* storage is optional */ }
@@ -156,6 +167,7 @@ export default function PlatformShell({ children }) {
     {mobileOpen && <button type="button" className="platform-mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
     <div className="platform-main">
       <header className="platform-topbar"><button type="button" className="platform-mobile-menu" onClick={() => setMobileOpen((value) => !value)} aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen}><span /><span /><span /></button><div className="platform-breadcrumb"><span className="platform-breadcrumb__product">Voxora</span>{projectId && <><span>/</span><span>{location.pathname.includes("/editor") ? "Editor" : "Project"}</span></>}</div><div className="platform-topbar__actions"><button type="button" onClick={toggleTheme} aria-label="Toggle theme" title="Toggle theme">{theme === "dark" ? "☼" : "☾"}</button></div></header>
+      {announcement && <div className="platform-announcement" role="status">{announcement}</div>}
       <main className="platform-content">{children}</main>
     </div>
   </div>;
