@@ -33,7 +33,7 @@ export function validateModelInput(input, env = process.env) {
   if (name.length < 3 || name.length > 120) bad("Model name must be 3 to 120 characters.");
   const provider = String(input.provider || "");
   const hostingType = String(input.hostingType || "");
-  if (!PROVIDERS[provider] || PROVIDERS[provider].hostingType !== hostingType) bad("Invalid hosting type or provider.");
+  if (!Object.hasOwn(PROVIDERS, provider) || PROVIDERS[provider].hostingType !== hostingType) bad("Invalid hosting type or provider.");
   const modelIdentifier = String(input.modelIdentifier || "").trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9._:\/-]{1,119}$/.test(modelIdentifier)) bad("Invalid model identifier.");
   if (!Array.isArray(input.declaredCapabilities) || input.declaredCapabilities.length === 0 ||

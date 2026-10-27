@@ -1,5 +1,5 @@
 import { prisma } from "../db/client.js";
-import { ModelPoolError, CAPABILITIES, TESTABLE_CAPABILITIES, validateModelInput } from "./modelPoolValidation.js";
+import { ModelPoolError, CAPABILITIES, TESTABLE_CAPABILITIES, validateModelInput, allowedHostedOrigin } from "./modelPoolValidation.js";
 import { encryptCredential, configuredCredential } from "./modelPoolCredentials.js";
 import { probeModelCapability } from "./modelPoolProbe.js";
 
@@ -20,7 +20,12 @@ function recentResults(model) {
 }
 export function safePoolModel(model) {
   const tests = recentResults(model);
-  const verifiedCapabilities = model.enabled
+  let connectionReady = configuredCredential(model);
+  if (model.hostingType === "hosted") {
+    try { allowedHostedOrigin(model.baseUrl); connectionReady = true; }
+    catch { connectionReady = false; }
+  }
+  const verifiedCapabilities = model.enabled && connectionReady
     ? tests.filter(test => test.current && test.passed).map(test => test.capability)
     : [];
   return {
@@ -28,7 +33,7 @@ export function safePoolModel(model) {
     provider: model.provider, modelIdentifier: model.modelIdentifier,
     baseUrl: model.baseUrl, declaredCapabilities: model.declaredCapabilities,
     enabled: model.enabled, revision: model.revision,
-    credentialConfigured: configuredCredential(model),
+    credentialConfigured: connectionReady,
     hasStoredCredential: Boolean(model.encryptedCredential),
     verifiedCapabilities, tests, createdAt: model.createdAt, updatedAt: model.updatedAt,
   };

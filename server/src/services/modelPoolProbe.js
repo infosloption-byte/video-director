@@ -50,7 +50,8 @@ export async function probeModelCapability(model, capability, dependencies = {})
   else if (credential) headers.Authorization = "Bearer " + credential;
   const body = gemini
     ? { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0, maxOutputTokens: 240 } }
-    : { model: model.modelIdentifier, messages: [{ role: "user", content: prompt }], max_tokens: 240 };
+    : { model: model.modelIdentifier, messages: [{ role: "user", content: prompt }],
+        ...(model.provider === "openai" ? { max_completion_tokens: 240 } : { max_tokens: 240 }) };
   const fetchFn = dependencies.fetchFn || fetch;
   const started = Date.now();
   try {
