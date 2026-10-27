@@ -3,7 +3,7 @@
 This adds `/admin/model-pool` and the admin model selection view inside `/admin/pipelines`. It does **not** change the customer workspace execution flow. Production still uses **Voxora Classic**, and `PIPELINE_WORKSPACE_ROLLOUT` must remain unset.
 
 ## Admin functions
-- Register cloud models: **Google Gemini**, **OpenAI API** (for GPT / ChatGPT-family models), and **xAI Grok**. Model ID is supplied by the administrator; availability depends on the provider account.
+- Register cloud models: **Google Gemini**, **OpenAI API** (for GPT / ChatGPT-family models), **xAI Grok**, and **OpenRouter** (access to supported third-party model slugs through one API). Model ID is supplied by the administrator; availability depends on the provider account.
 - Register **self-hosted OpenAI-compatible chat API** models, with an explicit origin allowed by the server operator. GPU inference gateways with other protocols require future provider adapters.
 - Declare capabilities independently: research, storyboard, visuals/video, speech.
 - Configure provider key or token through Admin; credentials are encrypted at rest with AES-256-GCM. Admin endpoints never return the plaintext or ciphertext.
@@ -26,7 +26,7 @@ openssl rand -hex 32
 **Do not store this key in Git, paste it into chat, or expose it through a frontend environment variable.** Keep it backed up in an appropriate secret manager. Losing or changing this key without re-encrypting records renders stored provider credentials unusable.
 
 Existing environment keys are supported when a stored key is absent:
-`GEMINI_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`.
+`GEMINI_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`.
 The Model Pool does **not** modify the application's existing Gemini environment setting. There is no global provider switch yet.
 
 For self-hosted models, the operator must explicitly allow the service origin in `server/.env`:
@@ -43,7 +43,8 @@ The API does not return model responses, tokens, provider error bodies, or secre
 
 - **research**: structured JSON response with a non-empty `summary`.
 - **storyboard**: structured JSON response with a `scenes[]` array containing narration and visual prompts.
-- Providers: OpenAI and xAI use chat-completion-compatible endpoints; Google uses Gemini `generateContent`; self-hosted must expose an OpenAI-compatible `/v1/chat/completions` API.
+- Providers: OpenAI, xAI and **OpenRouter** use chat-completion-compatible endpoints; Google uses Gemini `generateContent`; self-hosted must expose an OpenAI-compatible `/v1/chat/completions` API.
+- OpenRouter uses the fixed endpoint `https://openrouter.ai/api/v1/chat/completions`. Register it as **Cloud API → OpenRouter**, enter a model slug such as `openai/gpt-4o-mini`, and provide a separately encrypted OpenRouter API key or set `OPENROUTER_API_KEY` in `server/.env`. Model selection does **not** guarantee OpenRouter account eligibility or a successful capability test.
 - These tests validate basic connectivity and response shape, **not** real-source fact checking, research depth, production performance, copyright, consent, voice quality, GPU capacity, video duration, or provider cost commitments.
 
 ## Database and API
@@ -81,3 +82,14 @@ After backing up MySQL, deploy to staging and verify:
 10. Confirm AI Model Pool API key ciphertext is never exposed via GET, and database backups are access restricted.
 
 **No normal workspace behavior should change as part of this release.**
+
+## OpenRouter verification after deployment
+
+1. Sign in to `/admin/model-pool`, choose **Add AI model → Cloud API → OpenRouter**.
+2. Name the model and enter its exact OpenRouter model identifier (for example, `openai/gpt-4o-mini`); choose research and storyboard capabilities.
+3. Supply an OpenRouter API key in the encrypted credential field, or keep the field empty if `OPENROUTER_API_KEY` is already configured in `server/.env`.
+4. Run each live capability test explicitly (provider billing may apply). Confirm the tested capability appears in the matching `/admin/pipelines` draft selector.
+5. Verify invalid API keys fail safely, credential values are never returned in API responses, and non-admin users receive 403.
+6. Keep Voxora Classic active and `PIPELINE_WORKSPACE_ROLLOUT` disabled. Model Pool choices remain admin-only until execution adapters are ready.
+
+No Prisma migration is needed for this provider: the existing model pool stores providers as a string identifier.

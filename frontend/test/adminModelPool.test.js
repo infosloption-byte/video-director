@@ -20,3 +20,9 @@ test("pipeline draft has capability-verified pool model choices without publishi
   assert.match(builder, /verifiedCapabilities\.includes\(stage\.key\)/);
   assert.match(builder, /Model Pool assignments remain draft-only/);
 });
+
+test("OpenRouter cloud provider and model slug guidance are present in the registration form", () => {
+  assert.match(pool, /id: "openrouter", label: "OpenRouter", type: "cloud"/);
+  assert.match(pool, /provider === "openrouter"/);
+  assert.match(pool, /OPENROUTER_API_KEY/);
+});

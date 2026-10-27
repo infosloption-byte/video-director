@@ -44,6 +44,7 @@ export async function probeModelCapability(model, capability, dependencies = {})
     ? "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model.modelIdentifier) + ":generateContent"
     : model.provider === "xai" ? "https://api.x.ai/v1/chat/completions"
     : model.provider === "openai" ? "https://api.openai.com/v1/chat/completions"
+    : model.provider === "openrouter" ? "https://openrouter.ai/api/v1/chat/completions"
     : hostedOrigin + "/v1/chat/completions";
   const headers = { "Content-Type": "application/json" };
   if (gemini) headers["x-goog-api-key"] = credential;

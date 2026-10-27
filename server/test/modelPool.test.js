@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { validateModelInput, allowedHostedOrigin, ModelPoolError } from "../src/services/modelPoolValidation.js";
-import { encryptCredential, decryptCredential } from "../src/services/modelPoolCredentials.js";
+import { encryptCredential, decryptCredential, configuredCredential, resolveModelCredential } from "../src/services/modelPoolCredentials.js";
 import { safePoolModel } from "../src/services/modelPoolService.js";
 import { probeModelCapability } from "../src/services/modelPoolProbe.js";
 import { validatePipelineDefinition, CLASSIC_PIPELINE_DEFINITION } from "../src/services/pipelineRegistry.js";
@@ -10,11 +10,32 @@ import { validatePipelineDefinition, CLASSIC_PIPELINE_DEFINITION } from "../src/
 test("strict provider types and capability allowlist", () => {
   const sample = { name: "Cloud Model", hostingType: "cloud", provider: "openai", modelIdentifier: "gpt-4.1-mini", declaredCapabilities: ["research","storyboard"] };
   assert.equal(validateModelInput(sample).provider, "openai");
+  assert.equal(validateModelInput({ ...sample, provider: "openrouter", modelIdentifier: "openai/gpt-4o-mini" }).provider, "openrouter");
+  assert.throws(() => validateModelInput({ ...sample, provider: "openrouter", hostingType: "hosted" }), ModelPoolError);
+  assert.throws(() => validateModelInput({ ...sample, provider: "openrouter", baseUrl: "https://example.com" }), ModelPoolError);
   assert.throws(() => validateModelInput({ ...sample, provider: "invalid" }), ModelPoolError);
   assert.throws(() => validateModelInput({ ...sample, provider: "xai", hostingType: "hosted" }), ModelPoolError);
   assert.throws(() => validateModelInput({ ...sample, declaredCapabilities: ["admin"] }), ModelPoolError);
   assert.throws(() => validateModelInput({ ...sample, apiKey: "token", secret: "leak" }), ModelPoolError);
 });
+test("OpenRouter can use its server-side environment credential without storing an admin key", () => {
+  const previous = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = "example-openrouter-token-private";
+  try {
+    const model = { provider: "openrouter", hostingType: "cloud", encryptedCredential: null };
+    assert.equal(configuredCredential(model), true);
+    assert.equal(resolveModelCredential(model), "example-openrouter-token-private");
+    const poolView = safePoolModel({ ...model, id: "or-1", name: "OpenRouter test",
+      modelIdentifier: "openai/gpt-4o-mini", declaredCapabilities: ["research"],
+      enabled: true, revision: 1, tests: [] });
+    assert.equal(poolView.credentialConfigured, true);
+    assert.ok(!JSON.stringify(poolView).includes("example-openrouter-token-private"));
+  } finally {
+    if (previous === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = previous;
+  }
+});
+
 test("self-hosted inference requires operator-approved endpoint, without URL credentials", () => {
   const config = { AI_POOL_ALLOWED_ORIGINS: "https://gpu.example.net", AI_POOL_ALLOW_INSECURE_HTTP: "false" };
   assert.equal(allowedHostedOrigin("https://gpu.example.net", config), "https://gpu.example.net");
@@ -77,6 +98,55 @@ test("live research probe verifies actual structured JSON but never returns the 
     await assert.rejects(() => probeModelCapability(model, "speech"), ModelPoolError);
   } finally { if (previous === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previous; }
 });
+test("OpenRouter research and storyboard probes use the fixed OpenRouter endpoint and credential", async () => {
+  const previous = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = "test-openrouter-key-not-real";
+  try {
+    const model = {
+      provider: "openrouter",
+      hostingType: "cloud",
+      modelIdentifier: "openai/gpt-4o-mini",
+    };
+    for (const capability of ["research", "storyboard"]) {
+      const output = capability === "research"
+        ? { summary: "Photosynthesis converts sunlight and carbon dioxide into chemical energy." }
+        : { scenes: [{ narration: "Plants capture sunlight in their leaves.", visualPrompt: "Green leaves illuminated by sunlight." }] };
+      const result = await probeModelCapability(model, capability, {
+        fetchFn: async (url, options) => {
+          assert.equal(url, "https://openrouter.ai/api/v1/chat/completions");
+          assert.equal(options.method, "POST");
+          assert.equal(options.redirect, "error");
+          assert.equal(options.headers.Authorization, "Bearer test-openrouter-key-not-real");
+          assert.equal(options.headers["Content-Type"], "application/json");
+          const body = JSON.parse(options.body);
+          assert.equal(body.model, "openai/gpt-4o-mini");
+          assert.equal(body.messages[0].role, "user");
+          return new Response(JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(output) } }],
+          }), { status: 200 });
+        },
+      });
+      assert.equal(result.passed, true);
+      assert.equal(result.result.code, "PASS");
+      assert.ok(!JSON.stringify(result).includes("Photosynthesis converts"));
+      assert.ok(!JSON.stringify(result).includes("Plants capture"));
+      assert.ok(!JSON.stringify(result).includes("test-openrouter-key"));
+    }
+    const denied = await probeModelCapability(model, "research", {
+      fetchFn: async () => new Response(JSON.stringify({
+        error: { message: "Sensitive upstream error content" },
+      }), { status: 401 }),
+    });
+    assert.equal(denied.passed, false);
+    assert.equal(denied.result.code, "UPSTREAM_HTTP");
+    assert.equal(denied.result.httpStatus, 401);
+    assert.ok(!JSON.stringify(denied).includes("Sensitive upstream error"));
+  } finally {
+    if (previous === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = previous;
+  }
+});
+
 test("verified models are selectable in drafts but blocked from publishing", () => {
   const example = structuredClone(CLASSIC_PIPELINE_DEFINITION);
   example.stages.find(s => s.key === "research").modelId = "pool-m1";

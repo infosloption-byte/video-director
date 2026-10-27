@@ -4,6 +4,7 @@ export const PROVIDERS = Object.freeze({
   openai: { hostingType: "cloud", env: "OPENAI_API_KEY" },
   xai: { hostingType: "cloud", env: "XAI_API_KEY" },
   gemini: { hostingType: "cloud", env: "GEMINI_API_KEY" },
+  openrouter: { hostingType: "cloud", env: "OPENROUTER_API_KEY" },
   openai_compatible: { hostingType: "hosted", env: null },
 });
 export const STAGE_CAPABILITY = Object.freeze({
