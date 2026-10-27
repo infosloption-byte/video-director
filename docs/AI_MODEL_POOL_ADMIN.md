@@ -93,3 +93,24 @@ After backing up MySQL, deploy to staging and verify:
 6. Keep Voxora Classic active and `PIPELINE_WORKSPACE_ROLLOUT` disabled. Model Pool choices remain admin-only until execution adapters are ready.
 
 No Prisma migration is needed for this provider: the existing model pool stores providers as a string identifier.
+
+## Per-model API endpoint URLs
+
+Each AI Model Pool record now stores an explicit `endpointUrl` (full HTTPS request URL, including the path), separately from its `modelIdentifier` and encrypted credentials. The admin form automatically fills the existing supported provider endpoint when the provider is selected. You can view/edit it on the model and see the saved value on its card.
+
+Current approved cloud endpoints for the implemented **research/storyboard** capability probes:
+
+| Provider | Full endpoint URL |
+| --- | --- |
+| OpenRouter | `https://openrouter.ai/api/v1/chat/completions` |
+| OpenAI | `https://api.openai.com/v1/chat/completions` |
+| xAI / Grok (legacy chat-completions integration) | `https://api.x.ai/v1/chat/completions` |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/models/{encodedModelId}:generateContent` |
+
+Cloud URLs are visible and editable in the form, **but the server accepts only the provider-approved endpoint for the selected provider and model**. This is intentional: arbitrary destination URLs would leak provider API keys. Future support for provider-specific Responses, image, TTS, video or streaming APIs must add corresponding request/response adapters and allowlisted endpoints. Adding a URL alone does not make such APIs compatible.
+
+Self-hosted OpenAI-compatible models accept a full custom endpoint path, such as `https://gpu.example.net/custom/api/chat/completions`, if its origin is in the operator-managed `AI_POOL_ALLOWED_ORIGINS` allowlist. The validated origin continues to be stored in the existing `base_url` column for backward compatibility. URL passwords, query strings, fragments, unexpected origins and unsafe protocols are rejected; redirects remain disabled.
+
+**Migration**: `20261028000100_ai_pool_model_endpoints` adds nullable `endpoint_url` to `ai_pool_models` and backfills known endpoints for existing model rows. New and edited models save the full validated URL. Existing test history and encryption settings are preserved. Editing endpoint configuration increases the model revision and invalidates prior passing tests until a new capability probe passes.
+
+**Deployment**: Back up MySQL before applying the additive migration. Keep `PIPELINE_WORKSPACE_ROLLOUT` disabled, and verify the legacy Voxora Classic pipeline is still active. After rebuilding API/frontend, register/edit OpenRouter with a known chat endpoint and verify a live, explicitly approved capability test uses the saved URL. Do not add API keys to URL query parameters.
