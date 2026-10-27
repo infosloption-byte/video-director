@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
 import { prisma } from "../db/client.js";
-import { PIPELINE_ADAPTERS, PIPELINE_STAGES, validatePipelineDefinition } from "./pipelineRegistry.js";
+import { PIPELINE_ADAPTERS, PIPELINE_STAGES, validatePipelineDefinition, definitionHash } from "./pipelineRegistry.js";
 import { PipelineProblem } from "./pipelineService.js";
 
 // This harness exercises a safe, deterministic fixture for every stage.
@@ -18,17 +17,6 @@ const FIXTURES = Object.freeze({
   export: { input: ["renderManifest"], output: ["exportManifest"] },
 });
 const adapterById = new Map(PIPELINE_ADAPTERS.map(adapter => [adapter.id, adapter]));
-
-function stableObject(value) {
-  if (Array.isArray(value)) return value.map(stableObject);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableObject(value[key])]));
-  }
-  return value;
-}
-export function definitionHash(definition) {
-  return createHash("sha256").update(JSON.stringify(stableObject(definition))).digest("hex");
-}
 
 export function simulatePipeline(definition) {
   const validation = validatePipelineDefinition(definition);

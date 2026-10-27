@@ -1,5 +1,5 @@
 import { prisma } from "../db/client.js";
-import { definitionHash } from "./pipelineSandboxService.js";
+import { definitionHash } from "./pipelineRegistry.js";
 import { CLASSIC_PIPELINE_DEFINITION, validatePipelineDefinition } from "./pipelineRegistry.js";
 
 export class PipelineProblem extends Error {

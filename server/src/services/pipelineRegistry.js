@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 /**
  * Capability registry for the FIRST pipeline batch.
  * "ready" means an adapter is already wired in the existing Voxora application.
@@ -76,4 +77,15 @@ export function validatePipelineDefinition(definition, { allowPlanned = false } 
 }
 export function pipelineCatalog() {
   return { workspaceRolloutEnabled: process.env.PIPELINE_WORKSPACE_ROLLOUT === "enabled", stages: PIPELINE_STAGES, adapters: PIPELINE_ADAPTERS.map(({ env, ...adapter }) => ({ ...adapter, configured: !env || Boolean(String(process.env[env] || "").trim()) })) };
+}
+
+function stableDefinitionValue(value) {
+  if (Array.isArray(value)) return value.map(stableDefinitionValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableDefinitionValue(value[key])]));
+  }
+  return value;
+}
+export function definitionHash(definition) {
+  return createHash("sha256").update(JSON.stringify(stableDefinitionValue(definition))).digest("hex");
 }
