@@ -2,6 +2,8 @@ import cors from "cors";
 import express from "express";
 import path from "node:path";
 import signalsRouter from "./routes/signals.js";
+import platformAdminRouter from "./routes/platformAdmin.js";
+import { requirePlatformAdmin } from "./middleware/platformAdmin.js";
 import projectsRouter from "./routes/projects.js";
 import researchRouter from "./routes/research.js";
 import researchControlRouter from "./routes/researchControl.js";
@@ -65,6 +67,8 @@ app.get("/api/health/integrations", (_req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/account", accountRouter);
+// Admin API is always role-guarded on the server, independent of frontend route protection.
+app.use("/api/platform-admin", requireAuth, requirePlatformAdmin, platformAdminRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/billing", billingDashboardRouter);
 

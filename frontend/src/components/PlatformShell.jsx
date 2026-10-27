@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useProjects } from "../context/useProjects.js";
+import { isPlatformAdminUser } from "../lib/platformAdmin.js";
 import "./PlatformShell.css";
 
 const NAV = [
@@ -106,7 +107,10 @@ export default function PlatformShell({ children }) {
     <span className="platform-nav__icon">{renderNavIcon(item)}</span><span className="platform-nav__label">{item.label}</span>
   </Link>;
 
-  const visibleNav = NAV.filter((item) => !item.authOnly || Boolean(user));
+  const visibleNav = [
+    ...NAV.filter((item) => !item.authOnly || Boolean(user)),
+    ...(isPlatformAdminUser(user) ? [{ label: "Platform Admin", icon: "Settings", path: "/platform-admin" }] : []),
+  ];
 
   return <div className={`platform-shell ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}>
     <aside className="platform-sidebar" aria-label="Platform navigation">
@@ -147,7 +151,7 @@ export default function PlatformShell({ children }) {
             <div className="platform-account-menu__divider" />
             <button type="button" className="platform-account-menu__item platform-account-menu__item--danger" onClick={handleSignOut} disabled={signingOut} role="menuitem" title="Sign out" aria-label="Sign out"><span className={signingOut ? "platform-signout__spinner" : "platform-account-menu__icon"} aria-hidden="true">{signingOut ? "" : "↪"}</span><span>{signingOut ? "Signing out…" : "Sign out"}</span></button>
           </div>}
-          <button type="button" className={`platform-user ${accountMenuOpen ? "is-open" : ""}`} onClick={() => setAccountMenuOpen((value) => !value)} title={collapsed ? userLabel : undefined} disabled={signingOut} aria-expanded={accountMenuOpen} aria-haspopup="menu"><span className="platform-user__avatar">{String(userLabel).charAt(0).toUpperCase()}</span><span className="platform-user__copy"><strong>{userLabel}</strong><small>Account</small></span><span className="platform-user__chevron" aria-hidden="true">⌃</span></button>
+          <button type="button" className={`platform-user ${accountMenuOpen ? "is-open" : ""}`} onClick={() => setAccountMenuOpen((value) => !value)} title={collapsed ? userLabel : undefined} disabled={signingOut} aria-expanded={accountMenuOpen} aria-haspopup="menu"><span className="platform-user__avatar">{String(userLabel).charAt(0).toUpperCase()}</span><span className="platform-user__copy"><strong>{userLabel}</strong><small>{isPlatformAdminUser(user) ? "Platform admin" : "Account"}</small></span><span className="platform-user__chevron" aria-hidden="true">⌃</span></button>
         </div> : <div className="platform-auth-actions"><Link to="/signin" className="platform-auth-action platform-auth-actions__primary"><span className="platform-auth-action__icon">→</span><span>Sign in</span></Link><Link to="/signup" className="platform-auth-action platform-auth-actions__secondary"><span className="platform-auth-action__icon">+</span><span>Sign up</span></Link></div>}
       </div>
     </aside>

@@ -37,6 +37,7 @@ function publicUser(user) {
   if (!user) return null;
   return {
     id: user.id,
+    role: user.role === "platform_admin" ? "platform_admin" : "user",
     email: user.email,
     displayName: user.displayName,
     emailVerifiedAt: user.emailVerifiedAt,
