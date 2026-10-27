@@ -48,7 +48,7 @@ export const CLASSIC_PIPELINE_DEFINITION = Object.freeze({
 });
 const adapterMap = new Map(PIPELINE_ADAPTERS.map(adapter => [adapter.id, adapter]));
 
-export function validatePipelineDefinition(definition, { allowPlanned = false } = {}) {
+export function validatePipelineDefinition(definition, { allowPlanned = false, modelPool = [] } = {}) {
   const errors = [];
   if (!definition || Array.isArray(definition) || typeof definition !== "object") return { valid: false, errors: ["Pipeline definition must be an object."], warnings: [] };
   if (Object.keys(definition).sort().join(",") !== "schemaVersion,stages" || definition.schemaVersion !== 1 || !Array.isArray(definition.stages)) {
@@ -59,7 +59,15 @@ export function validatePipelineDefinition(definition, { allowPlanned = false } 
     const expected = PIPELINE_STAGES[i];
     const stage = definition.stages[i];
     if (!stage || Array.isArray(stage) || typeof stage !== "object") { errors.push("Stage " + expected.key + " is missing."); continue; }
-    if (Object.keys(stage).sort().join(",") !== "adapterId,key") errors.push("Unsupported configuration keys in stage " + expected.key + ".");
+    const keys = Object.keys(stage).sort().join(",");
+    if (keys !== "adapterId,key" && keys !== "adapterId,key,modelId") errors.push("Unsupported configuration keys in stage " + expected.key + ".");
+    if (Object.hasOwn(stage, "modelId")) {
+      if (!allowPlanned) errors.push("Model Pool assignments cannot be published until pipeline execution adapters are integrated.");
+      const capability = { research: "research", storyboard: "storyboard", visuals: "visuals", speech: "speech" }[expected.key];
+      const selected = modelPool.find(model => model.id === stage.modelId);
+      if (!capability || !selected || !selected.enabled || !selected.verifiedCapabilities.includes(capability))
+        errors.push("Stage " + expected.key + " needs an enabled Model Pool model with a current passing " + (capability || "supported") + " capability test.");
+    }
     if (stage.key !== expected.key) errors.push("Stage order must remain fixed: expected " + expected.key + ".");
     const adapter = adapterMap.get(stage.adapterId);
     if (!adapter || adapter.capability !== expected.key) errors.push("Unsupported adapter for " + expected.key + ".");
@@ -70,13 +78,14 @@ export function validatePipelineDefinition(definition, { allowPlanned = false } 
   for (const stage of definition.stages) {
     const draftAdapter = adapterMap.get(stage?.adapterId);
     if (allowPlanned && draftAdapter && !draftAdapter.available) warnings.push(draftAdapter.label + " is planned only: it cannot run or be published.");
+    if (stage?.modelId) warnings.push("Model Pool assignments are admin-preview only. The production pipeline executor is not connected.");
     const adapter = adapterMap.get(stage?.adapterId);
     if (adapter?.env && !String(process.env[adapter.env] || "").trim()) warnings.push(adapter.label + " needs " + adapter.env + " configured on the API server.");
   }
   return { valid: errors.length === 0, errors, warnings: [...new Set(warnings)] };
 }
-export function pipelineCatalog() {
-  return { workspaceRolloutEnabled: process.env.PIPELINE_WORKSPACE_ROLLOUT === "enabled", stages: PIPELINE_STAGES, adapters: PIPELINE_ADAPTERS.map(({ env, ...adapter }) => ({ ...adapter, configured: !env || Boolean(String(process.env[env] || "").trim()) })) };
+export function pipelineCatalog(modelPool = []) {
+  return { modelPool, workspaceRolloutEnabled: process.env.PIPELINE_WORKSPACE_ROLLOUT === "enabled", stages: PIPELINE_STAGES, adapters: PIPELINE_ADAPTERS.map(({ env, ...adapter }) => ({ ...adapter, configured: !env || Boolean(String(process.env[env] || "").trim()) })) };
 }
 
 function stableDefinitionValue(value) {

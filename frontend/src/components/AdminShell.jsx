@@ -16,6 +16,7 @@ const MENU = [
     { path: "/admin/master-data", label: "Master Data", icon: "database" },
     { path: "/admin/settings", label: "Platform Settings", icon: "settings" },
     { path: "/admin/integrations", label: "AI Integrations", icon: "cpu" },
+    { path: "/admin/model-pool", label: "AI Model Pool", icon: "cpu" },
     { path: "/admin/pipelines", label: "AI Pipelines", icon: "activity" },
   ] },
   { section: "Security", links: [
@@ -46,6 +47,14 @@ export default function AdminShell({ children }) {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobile, setMobile] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return window.localStorage.getItem("voxora-admin-sidebar-collapsed") === "true"; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("voxora-admin-sidebar-collapsed", String(collapsed)); }
+    catch { /* Persisting the preference is optional. */ }
+  }, [collapsed]);
   useEffect(() => { setMobile(false); }, [pathname]);
   useEffect(() => {
     if (!mobile) return undefined;
@@ -58,17 +67,21 @@ export default function AdminShell({ children }) {
     navigate("/signin", { replace: true });
   }
   const display = user?.displayName || user?.email || "Administrator";
-  return <div className="va-shell">
+  return <div className={"va-shell " + (collapsed ? "is-collapsed" : "")}>
     {mobile && <button className="va-backdrop" type="button" onClick={() => setMobile(false)} aria-label="Close admin navigation"/>}
-    <aside className={`va-sidebar ${mobile ? "is-open" : ""}`} aria-label="Administration navigation">
+    <aside className={`va-sidebar ${mobile ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`} aria-label="Administration navigation">
       <Link className="va-brand" to="/admin"><span className="va-brand-icon">V</span><span><strong>Voxora</strong><small>Administration</small></span></Link>
+      <button type="button" className="va-collapse-btn" aria-label={collapsed ? "Expand admin sidebar" : "Collapse admin sidebar"} aria-expanded={!collapsed}
+        title={collapsed ? "Expand navigation" : "Minimize navigation"} onClick={() => setCollapsed(v => !v)}>
+        <span aria-hidden="true">{collapsed ? "»" : "«"}</span><span className="va-collapse-label">{collapsed ? "Expand menu" : "Minimize menu"}</span>
+      </button>
       <nav className="va-navigation" aria-label="Admin sections">
         {MENU.map(group => <div className="va-group" key={group.section}><span className="va-group-label">{group.section}</span>{group.links.map(link =>
-          <Link key={link.path} to={link.path} aria-current={pathname === link.path ? "page" : undefined} className={`va-navlink ${pathname === link.path ? "active" : ""}`}><SideIcon name={link.icon}/><span>{link.label}</span></Link>
+          <Link key={link.path} title={link.label} aria-label={link.label} to={link.path} aria-current={pathname === link.path ? "page" : undefined} className={`va-navlink ${pathname === link.path ? "active" : ""}`}><SideIcon name={link.icon}/><span>{link.label}</span></Link>
         )}</div>)}
       </nav>
       <div className="va-sidebar-bottom">
-        <Link className="va-workspace-link" to="/signals"><span aria-hidden="true">↗</span> Return to Workspace</Link>
+        <Link className="va-workspace-link" to="/signals" title="Return to Workspace" aria-label="Return to Workspace"><span aria-hidden="true">↗</span><span className="va-workspace-label">Return to Workspace</span></Link>
         <div className="va-identity"><span className="va-avatar">{display.charAt(0).toUpperCase()}</span><span><strong>{display}</strong><small>Platform administrator</small></span></div>
       </div>
     </aside>

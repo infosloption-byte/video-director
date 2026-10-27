@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./AdminPipelinesPage.css";
 
@@ -14,7 +15,9 @@ async function request(path = "", method = "GET", data) {
 function Status({ value }) {
   return <span className={"ap-status ap-status--" + value}>{value}</span>;
 }
-function Stage({ stage, adapters, value, onChange, locked }) {
+function Stage({ stage, adapters, models, value, modelId, onChange, onModelChange, locked }) {
+  const approvedModels = (models || []).filter(model =>
+    model.enabled && model.verifiedCapabilities.includes(stage.key));
   const candidates = adapters.filter(adapter => adapter.capability === stage.key);
   return <section className="ap-stage" aria-label={stage.label}>
     <div className="ap-stage-heading"><div><h3>{stage.label}</h3><p>{stage.description}</p></div>{locked && <span className="ap-locked">Required</span>}</div>
@@ -28,6 +31,20 @@ function Stage({ stage, adapters, value, onChange, locked }) {
         <span className="ap-provider">{adapter.provider} · {adapter.available ? (adapter.configured ? "Connected adapter" : "Needs credentials") : "Planned / unavailable"}</span>
       </button>)}
     </div>
+    {!stage.locked && ["research", "storyboard", "visuals", "speech"].includes(stage.key) && <div className="ap-pool-selection">
+      <div className="ap-stage-heading"><div><h3>AI Model Pool selection</h3><p>Verified models from Admin Model Pool, shown for this stage's capabilities. Draft preview only; executable routing is not connected.</p></div><Link to="/admin/model-pool">Manage pool</Link></div>
+      <div className="ap-models" role="group" aria-label={stage.label + " model pool"}>
+        <button type="button" className={"ap-model " + (!modelId ? "selected" : "")} disabled={locked || !onModelChange}
+          aria-pressed={!modelId} onClick={() => onModelChange?.(null)}><span className="ap-model-main"><span className="ap-radio"/>Default existing adapter</span></button>
+        {approvedModels.map(model => <button type="button" key={model.id} className={"ap-model " + (model.id === modelId ? "selected" : "")}
+          disabled={locked || !onModelChange} aria-pressed={model.id === modelId} onClick={() => onModelChange?.(model.id)}>
+          <span className="ap-model-main"><span className="ap-radio"/><strong>{model.name}</strong></span>
+          <span className="ap-provider">{model.hostingType} · {model.provider} · verified {stage.key}</span>
+        </button>)}
+      </div>
+      {!approvedModels.length && <p className="ap-pool-empty">No verified pool models yet. Add a model and pass its {stage.key} capability test first.</p>}
+      {modelId && <p className="ap-warning">Pool model assignments remain draft-only. Publishing this pipeline is blocked until a runtime adapter is integrated.</p>}
+    </div>}
   </section>;
 }
 export default function AdminPipelinesPage() {
@@ -94,6 +111,14 @@ export default function AdminPipelinesPage() {
   const selectedTest = (testHistory?.tests || []).find(test => test.id === selectedTestId);
   const editable = version?.status === "draft";
   const active = snapshot?.activeVersionId === version?.id;
+  function changeModel(stageKey, modelId) {
+    setDefinition(before => ({
+      ...before,
+      stages: before.stages.map(stage => stage.key !== stageKey ? stage :
+        modelId ? { ...stage, modelId } : Object.fromEntries(Object.entries(stage).filter(([key]) => key !== "modelId"))),
+    }));
+    setValidation(null);
+  }
   function changeAdapter(stageKey, adapterId) {
     setDefinition(before => ({
       ...before, stages: before.stages.map(stage => stage.key === stageKey ? { ...stage, adapterId } : stage),
@@ -187,7 +212,7 @@ export default function AdminPipelinesPage() {
               <div className="ap-actions">
                 <button type="button" className="ap-outline" disabled={busy} onClick={validate}>Validate</button>
                 <button type="button" className="ap-outline" disabled={busy || unsaved} onClick={sandbox}>Run admin sandbox</button>
-                {editable && <><button type="button" className="ap-outline" disabled={busy} onClick={save}>Save draft</button><button type="button" className="ap-primary" disabled={busy || !latestPass || unsaved} onClick={publish} title={!latestPass ? "A passing sandbox run is required" : "Publish this tested version"}>Publish</button></>}
+                {editable && <><button type="button" className="ap-outline" disabled={busy} onClick={save}>Save draft</button><button type="button" className="ap-primary" disabled={busy || !latestPass || unsaved || definition?.stages?.some(stage => stage.modelId)} onClick={publish} title={!latestPass ? "A passing sandbox run is required" : "Publish this tested version"}>Publish</button></>}
                 {version.status === "published" && <><button type="button" className="ap-outline" disabled={busy} onClick={makeDraft}>New draft</button><button type="button" className="ap-primary" disabled={busy || active || (!catalog.workspaceRolloutEnabled && version.id !== "voxora-legacy-v1")} onClick={activate}>{active ? "Active" : !catalog.workspaceRolloutEnabled ? "Workspace rollout locked" : "Activate globally"}</button></>}
               </div>
             </div>
@@ -223,8 +248,10 @@ export default function AdminPipelinesPage() {
               {(catalog.stages || []).map((stage, i) =>
                 <div key={stage.key} className="ap-stage-wrap">
                   <span className="ap-order">Stage {String(i + 1).padStart(2, "0")}</span>
-                  <Stage stage={stage} adapters={catalog.adapters} locked={stage.locked || !editable}
+                  <Stage stage={stage} adapters={catalog.adapters} models={catalog.modelPool} locked={stage.locked || !editable}
                     value={definition?.stages?.find(entry => entry.key === stage.key)?.adapterId}
+                    modelId={definition?.stages?.find(entry => entry.key === stage.key)?.modelId}
+                    onModelChange={editable && !stage.locked ? modelId => changeModel(stage.key, modelId) : undefined}
                     onChange={editable && !stage.locked ? adapterId => changeAdapter(stage.key, adapterId) : undefined}/>
                 </div>)}
             </div>

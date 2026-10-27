@@ -1,5 +1,6 @@
 import { prisma } from "../db/client.js";
 import { definitionHash } from "./pipelineRegistry.js";
+import { getEligiblePoolModels } from "./modelPoolService.js";
 import { CLASSIC_PIPELINE_DEFINITION, validatePipelineDefinition } from "./pipelineRegistry.js";
 
 export class PipelineProblem extends Error {
@@ -66,7 +67,8 @@ export async function createDraft(pipelineId, actorId, db = prisma) {
   });
 }
 export async function updateDraft(versionId, pipelineId, definition, actorId, db = prisma) {
-  const validation = validDefinition(definition, { allowPlanned: true });
+  const models = definition?.stages?.some(stage => stage?.modelId) ? await getEligiblePoolModels(db) : [];
+  const validation = validDefinition(definition, { allowPlanned: true, modelPool: models });
   const record = await db.$transaction(async tx => {
     const before = await tx.aiPipelineVersion.findUnique({ where: { id: versionId } });
     if (!before || before.pipelineId !== pipelineId) fail(404, "Version not found.");

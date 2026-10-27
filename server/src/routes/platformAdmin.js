@@ -1,5 +1,6 @@
 import { Router } from "express";
 import pipelineAdminRouter from "./adminPipelines.js";
+import modelPoolRouter from "./adminModelPool.js";
 import { prisma } from "../db/client.js";
 import { currentMonth, PLANS, configuredPlans } from "../services/billingService.js";
 import { getPublicPlatformConfig } from "../services/platformConfigService.js";
@@ -9,6 +10,7 @@ import { getEditorRenderQueue } from "../jobs/editorRenderQueue.js";
 
 const router = Router();
 router.use("/pipelines", pipelineAdminRouter);
+router.use("/model-pool", modelPoolRouter);
 router.use((_req, res, next) => {
   res.set("Cache-Control", "no-store, private");
   res.set("X-Content-Type-Options", "nosniff");

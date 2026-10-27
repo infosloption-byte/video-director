@@ -760,3 +760,37 @@ model AiPipelineSandboxTest {
   @@index([pipelineVersionId, createdAt])
   @@map("ai_pipeline_sandbox_tests")
 }
+
+model AiPoolModel {
+  id                   String                @id @default(uuid()) @db.VarChar(64)
+  name                 String                @db.VarChar(120)
+  modelIdentifier      String                @map("model_identifier") @db.VarChar(120)
+  hostingType          String                @map("hosting_type") @db.VarChar(12)
+  provider             String                @db.VarChar(30)
+  baseUrl              String?               @map("base_url") @db.VarChar(512)
+  encryptedCredential  String?               @map("encrypted_credential") @db.Text
+  declaredCapabilities Json                  @map("declared_capabilities")
+  enabled              Boolean               @default(true)
+  revision             Int                   @default(1)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  tests                AiPoolCapabilityTest[]
+
+  @@index([hostingType, provider])
+  @@map("ai_pool_models")
+}
+
+model AiPoolCapabilityTest {
+  id             String      @id @default(uuid()) @db.VarChar(64)
+  modelId        String      @map("model_id") @db.VarChar(64)
+  capability     String      @db.VarChar(30)
+  modelRevision  Int         @map("model_revision")
+  passed         Boolean
+  latencyMs      Int         @map("latency_ms")
+  result         Json
+  createdAt      DateTime    @default(now()) @map("created_at")
+  model          AiPoolModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId, capability, createdAt])
+  @@map("ai_pool_capability_tests")
+}
