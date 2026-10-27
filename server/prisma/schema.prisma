@@ -102,7 +102,10 @@ model Project {
   voiceProfile           VoiceProfile?      @relation(fields: [voiceProfileId], references: [id], onDelete: SetNull)
   voiceProfileId         String?             @map("voice_profile_id")
   voicePresetId          String?             @map("voice_preset_id") @db.VarChar(80)
+  pipelineVersionId      String?             @map("pipeline_version_id") @db.VarChar(64)
+  pipelineVersion        AiPipelineVersion?  @relation(fields: [pipelineVersionId], references: [id], onDelete: SetNull)
 
+  @@index([pipelineVersionId])
   @@map("projects")
 }
 
@@ -704,4 +707,41 @@ model PlatformMasterItem {
   @@unique([category, code])
   @@index([category, active, sortOrder])
   @@map("platform_master_items")
+}
+
+model AiPipeline {
+  id          String              @id @default(uuid()) @db.VarChar(64)
+  name        String              @db.VarChar(120)
+  description String?             @db.VarChar(500)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  versions    AiPipelineVersion[]
+
+  @@map("ai_pipelines")
+}
+
+model AiPipelineVersion {
+  id          String              @id @default(uuid()) @db.VarChar(64)
+  pipelineId  String              @map("pipeline_id") @db.VarChar(64)
+  version     Int
+  status      String              @default("draft") @db.VarChar(20)
+  definition  Json
+  createdAt   DateTime            @default(now()) @map("created_at")
+  publishedAt DateTime?           @map("published_at")
+  pipeline    AiPipeline          @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  activeFor   ActiveAiPipeline[]
+  projects    Project[]
+
+  @@unique([pipelineId, version])
+  @@index([status])
+  @@map("ai_pipeline_versions")
+}
+
+model ActiveAiPipeline {
+  id        String            @id @default("global") @db.VarChar(20)
+  versionId String            @map("version_id") @db.VarChar(64)
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  version   AiPipelineVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+
+  @@map("active_ai_pipeline")
 }

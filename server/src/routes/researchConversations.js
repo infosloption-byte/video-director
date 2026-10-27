@@ -1,6 +1,7 @@
 import { Router } from "express";
 import crypto from "node:crypto";
 import { prisma } from "../db/client.js";
+import { getActivePipelineVersion } from "../services/pipelineService.js";
 import { researchSignal } from "../services/researchService.js";
 import { persistResearchGraph } from "../services/researchGraphService.js";
 import { answerResearchConversation } from "../services/researchConversationService.js";
@@ -255,7 +256,7 @@ router.post("/", async (req, res) => {
     if (!signal) {
       signal = await prisma.signal.create({ data: { id: crypto.randomUUID(), origin: "search", sourceType: "brave", sourceReliability: "general_web", searchQuery: topic, category: "TECHNOLOGY", title: topic, description: `User-directed research topic: ${topic}`, whyReasoning: "Started directly by the user from Research with Voxora.", status: "used" } });
     }
-    const project = await prisma.project.create({ data: { id: crypto.randomUUID(), userId: req.user.id, signalId: signal.id, title: topic, status: "researching" } });
+    const pipelineVersion = await getActivePipelineVersion(); const project = await prisma.project.create({ data: { id: crypto.randomUUID(), userId: req.user.id, signalId: signal.id, title: topic, status: "researching", pipelineVersionId: pipelineVersion.id } });
     jobs.set(project.id, { status: "conversation", progress: 0, detail: "Conversation is ready. Explore the topic before building the research brief.", messageId: null, question: topic, conversationThinking: false, activity: [], discoveredSources: [] });
     res.status(202).json({ project: projectView(project), messages: [{ id: `topic-${project.id}`, role: "user", content: topic }], activity: jobSnapshot(project.id) });
   } catch (error) {
