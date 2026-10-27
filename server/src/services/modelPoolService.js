@@ -1,5 +1,5 @@
 import { prisma } from "../db/client.js";
-import { ModelPoolError, CAPABILITIES, TESTABLE_CAPABILITIES, validateModelInput, allowedHostedOrigin, resolveModelEndpoint } from "./modelPoolValidation.js";
+import { ModelPoolError, CAPABILITIES, TESTABLE_CAPABILITIES, validateModelInput, allowedHostedOrigin, resolveModelEndpoint, defaultModelEndpoint } from "./modelPoolValidation.js";
 import { encryptCredential, configuredCredential } from "./modelPoolCredentials.js";
 import { probeModelCapability } from "./modelPoolProbe.js";
 
@@ -31,7 +31,7 @@ export function safePoolModel(model) {
   return {
     id: model.id, name: model.name, hostingType: model.hostingType,
     provider: model.provider, modelIdentifier: model.modelIdentifier,
-    baseUrl: model.baseUrl, endpointUrl: model.endpointUrl || null, declaredCapabilities: model.declaredCapabilities,
+    baseUrl: model.baseUrl, endpointUrl: model.endpointUrl || defaultModelEndpoint(model.provider, model.modelIdentifier, model.baseUrl), declaredCapabilities: model.declaredCapabilities,
     enabled: model.enabled, revision: model.revision,
     credentialConfigured: connectionReady,
     hasStoredCredential: Boolean(model.encryptedCredential),
