@@ -26,3 +26,13 @@ test("OpenRouter cloud provider and model slug guidance are present in the regis
   assert.match(pool, /provider === "openrouter"/);
   assert.match(pool, /OPENROUTER_API_KEY/);
 });
+
+test("per-model endpoint is auto-suggested, edited and sent to the backend", () => {
+  assert.match(pool, /function recommendedEndpoint\(provider, modelId/);
+  assert.match(pool, /provider === "openrouter"/);
+  assert.match(pool, /setEndpointUrl\(recommendedEndpoint\(value, modelIdentifier\)\)/);
+  assert.match(pool, /Model API endpoint URL/);
+  assert.match(pool, /modelIdentifier, endpointUrl/);
+  assert.match(pool, /model\.endpointUrl/);
+  assert.doesNotMatch(pool, /Endpoint origin<input/);
+});
