@@ -8,12 +8,14 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlanSelectPage from "./pages/PlanSelectPage";
 import PlatformShell from "./components/PlatformShell";
+import { isPlatformAdminUser } from "./lib/platformAdmin.js";
 import SessionGate from "./components/SessionGate";
 import { onboardingDestination } from "./lib/onboarding";
 import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
 const SignalsPage = lazy(() => import("./pages/SignalsPage"));
+const PlatformAdminPage = lazy(() => import("./pages/PlatformAdminPage"));
 const ResearchPage = lazy(() => import("./pages/ResearchPage"));
 const ResearchConversationStartPage = lazy(() => import("./pages/ResearchConversationStartPage"));
 const ResearchConversationPage = lazy(() => import("./pages/ResearchConversationPage"));
@@ -36,7 +38,17 @@ function ProtectedRoute({ children }) {
   if (status === "loading") return <SessionGate />;
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`} replace />;
   if (!user.emailVerifiedAt) return <Navigate to="/verify-email" replace />;
-  if (!user.planSelectedAt) return <Navigate to={onboardingDestination(user.intendedPlan)} replace />;
+  if (!user.planSelectedAt && !isPlatformAdminUser(user)) return <Navigate to={onboardingDestination(user.intendedPlan)} replace />;
+  return <PlatformShell>{children}</PlatformShell>;
+}
+
+function PlatformAdminRoute({ children }) {
+  const location = useLocation();
+  const { user, status } = useAuth();
+  if (status === "loading") return <SessionGate />;
+  if (!user) return <Navigate to={`/signin?next=${encodeURIComponent(location.pathname)}`} replace />;
+  if (!user.emailVerifiedAt) return <Navigate to="/verify-email" replace />;
+  if (!isPlatformAdminUser(user)) return <Navigate to="/signals" replace />;
   return <PlatformShell>{children}</PlatformShell>;
 }
 
@@ -61,6 +73,7 @@ export default function App() {
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/platform-admin" element={<PlatformAdminRoute><PlatformAdminPage /></PlatformAdminRoute>} />
     <Route path="/account" element={<Navigate to="/settings?tab=account" replace />} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/voice-profiles" element={<ProtectedRoute><VoiceProfilesPage /></ProtectedRoute>}/>
