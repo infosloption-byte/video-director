@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { validateModelInput, allowedHostedOrigin, ModelPoolError } from "../src/services/modelPoolValidation.js";
+import { validateModelInput, allowedHostedOrigin, ModelPoolError, defaultModelEndpoint, validateModelEndpoint, resolveModelEndpoint } from "../src/services/modelPoolValidation.js";
 import { encryptCredential, decryptCredential, configuredCredential, resolveModelCredential } from "../src/services/modelPoolCredentials.js";
 import { safePoolModel } from "../src/services/modelPoolService.js";
 import { probeModelCapability } from "../src/services/modelPoolProbe.js";
@@ -43,6 +43,87 @@ test("self-hosted inference requires operator-approved endpoint, without URL cre
     assert.throws(() => allowedHostedOrigin(uri, config), ModelPoolError);
   }
 });
+
+test("each cloud provider has a stored, approved, model-specific API endpoint", () => {
+  const all = [
+    ["openai", "gpt-4.1-mini", "https://api.openai.com/v1/chat/completions"],
+    ["xai", "grok-4", "https://api.x.ai/v1/chat/completions"],
+    ["openrouter", "openai/gpt-4o-mini", "https://openrouter.ai/api/v1/chat/completions"],
+    ["gemini", "gemini-2.5-flash", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"],
+  ];
+  for (const [provider, modelIdentifier, endpoint] of all) {
+    assert.equal(defaultModelEndpoint(provider, modelIdentifier), endpoint);
+    const input = { name: "Example cloud model", hostingType: "cloud", provider,
+      modelIdentifier, endpointUrl: endpoint, declaredCapabilities: ["research"] };
+    assert.equal(validateModelInput(input).endpointUrl, endpoint);
+    assert.equal(resolveModelEndpoint(input), endpoint);
+    // Previous Model Pool clients remain compatible while the new UI
+    // always supplies endpointUrl explicitly.
+    assert.equal(validateModelInput({ ...input, endpointUrl: undefined }).endpointUrl, endpoint);
+    assert.throws(() => validateModelInput({ ...input,
+      endpointUrl: "https://untrusted.example/steal" }), ModelPoolError);
+    assert.throws(() => validateModelInput({ ...input,
+      endpointUrl: endpoint + "?key=secret" }), ModelPoolError);
+    assert.throws(() => validateModelInput({ ...input,
+      endpointUrl: endpoint.replace("https://", "http://") }), ModelPoolError);
+  }
+  assert.equal(defaultModelEndpoint("gemini", "gemini/pro"), "https://generativelanguage.googleapis.com/v1beta/models/gemini%2Fpro:generateContent");
+  assert.throws(() => validateModelEndpoint("openrouter", "cloud",
+    "https://openrouter.ai/api/v1/responses", "openai/gpt-4o-mini"), ModelPoolError);
+});
+
+test("self-hosted models store a full trusted endpoint URL with a custom API path", () => {
+  const configuration = { AI_POOL_ALLOWED_ORIGINS: "https://gpu.example.net:8443", AI_POOL_ALLOW_INSECURE_HTTP: "false" };
+  const endpointUrl = "https://gpu.example.net:8443/custom/api/chat/completions";
+  const input = { name: "Private GPU model", hostingType: "hosted",
+    provider: "openai_compatible", modelIdentifier: "qwen3-local",
+    endpointUrl, declaredCapabilities: ["research"] };
+  const result = validateModelInput(input, configuration);
+  assert.equal(result.endpointUrl, endpointUrl);
+  assert.equal(result.baseUrl, "https://gpu.example.net:8443");
+  assert.equal(resolveModelEndpoint(result, configuration), endpointUrl);
+  for (const value of [
+    "https://another.example.net/custom/api/chat/completions",
+    "https://gpu.example.net:8443/",
+    "https://user:pass@gpu.example.net:8443/custom/api/chat/completions",
+    "https://gpu.example.net:8443/custom/api/chat/completions?apiKey=unsafe",
+    "https://gpu.example.net:8443/custom/api/chat/completions#secret",
+    "http://gpu.example.net:8443/custom/api/chat/completions",
+  ]) assert.throws(() => validateModelInput({ ...input, endpointUrl: value }, configuration), ModelPoolError);
+  assert.equal(validateModelInput({ ...input, endpointUrl: undefined,
+    baseUrl: "https://gpu.example.net:8443" }, configuration).endpointUrl,
+    "https://gpu.example.net:8443/v1/chat/completions");
+});
+
+test("live capability tests dispatch to the model's saved, permitted endpoint", async () => {
+  const previous = process.env.AI_POOL_ALLOWED_ORIGINS;
+  process.env.AI_POOL_ALLOWED_ORIGINS = "https://gpu.example.net";
+  try {
+    const model = { hostingType: "hosted", provider: "openai_compatible",
+      baseUrl: "https://gpu.example.net", endpointUrl: "https://gpu.example.net/llm/v1/chat/completions",
+      modelIdentifier: "local-model" };
+    const report = await probeModelCapability(model, "research", {
+      fetchFn: async (url, options) => {
+        assert.equal(url, model.endpointUrl);
+        assert.equal(options.redirect, "error");
+        assert.equal(options.method, "POST");
+        return new Response(JSON.stringify({ choices: [{ message: {
+          content: JSON.stringify({ summary: "Photosynthesis transforms light energy into stored chemical energy." }),
+        } }] }), { status: 200 });
+      },
+    });
+    assert.equal(report.passed, true);
+    assert.equal(report.result.code, "PASS");
+    await assert.rejects(() => probeModelCapability(
+      { ...model, endpointUrl: "https://untrusted.example/api" }, "research", {
+        fetchFn: async () => { throw new Error("Must not send request to an untrusted origin."); },
+      }), ModelPoolError);
+  } finally {
+    if (previous === undefined) delete process.env.AI_POOL_ALLOWED_ORIGINS;
+    else process.env.AI_POOL_ALLOWED_ORIGINS = previous;
+  }
+});
+
 test("encrypted keys use authenticated encryption and never appear in model list", () => {
   const old = process.env.AI_POOL_ENCRYPTION_KEY;
   process.env.AI_POOL_ENCRYPTION_KEY = "0123456789abcdef".repeat(4);
