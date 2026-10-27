@@ -768,6 +768,7 @@ model AiPoolModel {
   hostingType          String                @map("hosting_type") @db.VarChar(12)
   provider             String                @db.VarChar(30)
   baseUrl              String?               @map("base_url") @db.VarChar(512)
+  endpointUrl          String?               @map("endpoint_url") @db.VarChar(1024)
   encryptedCredential  String?               @map("encrypted_credential") @db.Text
   declaredCapabilities Json                  @map("declared_capabilities")
   enabled              Boolean               @default(true)

@@ -1,4 +1,4 @@
-import { ModelPoolError, TESTABLE_CAPABILITIES, allowedHostedOrigin } from "./modelPoolValidation.js";
+import { ModelPoolError, TESTABLE_CAPABILITIES, resolveModelEndpoint } from "./modelPoolValidation.js";
 import { resolveModelCredential } from "./modelPoolCredentials.js";
 
 const MAX_BYTES = 65536;
@@ -38,14 +38,8 @@ export async function probeModelCapability(model, capability, dependencies = {})
   const credential = resolveModelCredential(model);
   if (model.hostingType === "cloud" && !credential) throw new ModelPoolError(409, "Configure a provider API credential before testing.");
   const prompt = promptFor(capability);
-  const hostedOrigin = model.hostingType === "hosted" ? allowedHostedOrigin(model.baseUrl) : null;
+  const endpoint = resolveModelEndpoint(model);
   const gemini = model.provider === "gemini";
-  const endpoint = gemini
-    ? "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model.modelIdentifier) + ":generateContent"
-    : model.provider === "xai" ? "https://api.x.ai/v1/chat/completions"
-    : model.provider === "openai" ? "https://api.openai.com/v1/chat/completions"
-    : model.provider === "openrouter" ? "https://openrouter.ai/api/v1/chat/completions"
-    : hostedOrigin + "/v1/chat/completions";
   const headers = { "Content-Type": "application/json" };
   if (gemini) headers["x-goog-api-key"] = credential;
   else if (credential) headers.Authorization = "Bearer " + credential;

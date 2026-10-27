@@ -1,5 +1,5 @@
 import { prisma } from "../db/client.js";
-import { ModelPoolError, CAPABILITIES, TESTABLE_CAPABILITIES, validateModelInput, allowedHostedOrigin } from "./modelPoolValidation.js";
+import { ModelPoolError, CAPABILITIES, TESTABLE_CAPABILITIES, validateModelInput, allowedHostedOrigin, resolveModelEndpoint } from "./modelPoolValidation.js";
 import { encryptCredential, configuredCredential } from "./modelPoolCredentials.js";
 import { probeModelCapability } from "./modelPoolProbe.js";
 
@@ -21,17 +21,17 @@ function recentResults(model) {
 export function safePoolModel(model) {
   const tests = recentResults(model);
   let connectionReady = configuredCredential(model);
-  if (model.hostingType === "hosted") {
-    try { allowedHostedOrigin(model.baseUrl); connectionReady = true; }
-    catch { connectionReady = false; }
-  }
+  try {
+    resolveModelEndpoint(model);
+    if (model.hostingType === "hosted") connectionReady = true;
+  } catch { connectionReady = false; }
   const verifiedCapabilities = model.enabled && connectionReady
     ? tests.filter(test => test.current && test.passed).map(test => test.capability)
     : [];
   return {
     id: model.id, name: model.name, hostingType: model.hostingType,
     provider: model.provider, modelIdentifier: model.modelIdentifier,
-    baseUrl: model.baseUrl, declaredCapabilities: model.declaredCapabilities,
+    baseUrl: model.baseUrl, endpointUrl: model.endpointUrl || null, declaredCapabilities: model.declaredCapabilities,
     enabled: model.enabled, revision: model.revision,
     credentialConfigured: connectionReady,
     hasStoredCredential: Boolean(model.encryptedCredential),
@@ -63,7 +63,7 @@ export async function createPoolModel(input, actorId, db = prisma) {
   const model = await db.$transaction(async tx => {
     const created = await tx.aiPoolModel.create({ data: {
       name: value.name, hostingType: value.hostingType, provider: value.provider,
-      modelIdentifier: value.modelIdentifier, baseUrl: value.baseUrl, enabled: value.enabled,
+      modelIdentifier: value.modelIdentifier, baseUrl: value.baseUrl, endpointUrl: value.endpointUrl, enabled: value.enabled,
       declaredCapabilities: value.declaredCapabilities, encryptedCredential,
     } });
     await audit(tx, actorId, "ai_pool.model.created",
@@ -84,7 +84,7 @@ export async function updatePoolModel(id, input, actorId, db = prisma) {
     const after = await tx.aiPoolModel.update({
       where: { id },
       data: { name: value.name, provider: value.provider, hostingType: value.hostingType,
-        modelIdentifier: value.modelIdentifier, baseUrl: value.baseUrl, enabled: value.enabled,
+        modelIdentifier: value.modelIdentifier, baseUrl: value.baseUrl, endpointUrl: value.endpointUrl, enabled: value.enabled,
         declaredCapabilities: value.declaredCapabilities, revision: { increment: 1 },
         ...(encryptedCredential === undefined ? {} : { encryptedCredential }) },
     });
