@@ -6,7 +6,7 @@ import { searchPexelsVideos } from "../services/pexelsService.js";
 import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
 import { requireProjectOwner, requireSceneOwner } from "../middleware/ownership.js";
 import { getPredefinedVoice } from "../services/predefinedVoiceService.js";
-import { FRAMEWORKS, TONES, AUDIENCES } from "../services/setupService.js";
+import { FRAMEWORKS, getSetupCatalog } from "../services/setupService.js";
 import { rewriteStoryboardScene } from "../services/storyboardService.js";
 
 const router = Router();
@@ -48,11 +48,11 @@ async function loadProjectScenes(id) {
 function allowedFramework(value) {
   return FRAMEWORKS.some((item) => item.key === value);
 }
-function allowedTone(value) {
-  return TONES.includes(value);
+function allowedTone(value, catalog, scene) {
+  return catalog.tones.includes(value) || value === scene.project.tone || value === scene.customization?.tone;
 }
-function allowedAudience(value) {
-  return AUDIENCES.includes(value);
+function allowedAudience(value, catalog, scene) {
+  return catalog.audiences.includes(value) || value === scene.project.audienceLevel || value === scene.customization?.audienceLevel;
 }
 function normalizeCustomization(value) {
   return value && typeof value === "object" ? { ...value } : {};
@@ -484,9 +484,10 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
       ? Math.min(30, Math.max(1.5, requestedDuration))
       : Number(scene.durationSeconds || 5);
 
+    const catalog = await getSetupCatalog();
     if (!allowedFramework(framework)) return res.status(400).json({ error: "Invalid scene framework." });
-    if (!allowedTone(tone)) return res.status(400).json({ error: "Invalid scene tone." });
-    if (!allowedAudience(audienceLevel)) return res.status(400).json({ error: "Invalid scene audience." });
+    if (!allowedTone(tone, catalog, scene)) return res.status(400).json({ error: "Invalid scene tone." });
+    if (!allowedAudience(audienceLevel, catalog, scene)) return res.status(400).json({ error: "Invalid scene audience." });
 
     const researchCorpus = await loadResearchCorpus(scene.projectId);
     if (!researchCorpus) return res.status(409).json({ error: "The persisted research corpus is not available." });
