@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { validateModelInput, allowedHostedOrigin, ModelPoolError } from "../src/services/modelPoolValidation.js";
-import { encryptCredential, decryptCredential } from "../src/services/modelPoolCredentials.js";
+import { encryptCredential, decryptCredential, configuredCredential, resolveModelCredential } from "../src/services/modelPoolCredentials.js";
 import { safePoolModel } from "../src/services/modelPoolService.js";
 import { probeModelCapability } from "../src/services/modelPoolProbe.js";
 import { validatePipelineDefinition, CLASSIC_PIPELINE_DEFINITION } from "../src/services/pipelineRegistry.js";
@@ -18,6 +18,24 @@ test("strict provider types and capability allowlist", () => {
   assert.throws(() => validateModelInput({ ...sample, declaredCapabilities: ["admin"] }), ModelPoolError);
   assert.throws(() => validateModelInput({ ...sample, apiKey: "token", secret: "leak" }), ModelPoolError);
 });
+test("OpenRouter can use its server-side environment credential without storing an admin key", () => {
+  const previous = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = "example-openrouter-token-private";
+  try {
+    const model = { provider: "openrouter", hostingType: "cloud", encryptedCredential: null };
+    assert.equal(configuredCredential(model), true);
+    assert.equal(resolveModelCredential(model), "example-openrouter-token-private");
+    const poolView = safePoolModel({ ...model, id: "or-1", name: "OpenRouter test",
+      modelIdentifier: "openai/gpt-4o-mini", declaredCapabilities: ["research"],
+      enabled: true, revision: 1, tests: [] });
+    assert.equal(poolView.credentialConfigured, true);
+    assert.ok(!JSON.stringify(poolView).includes("example-openrouter-token-private"));
+  } finally {
+    if (previous === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = previous;
+  }
+});
+
 test("self-hosted inference requires operator-approved endpoint, without URL credentials", () => {
   const config = { AI_POOL_ALLOWED_ORIGINS: "https://gpu.example.net", AI_POOL_ALLOW_INSECURE_HTTP: "false" };
   assert.equal(allowedHostedOrigin("https://gpu.example.net", config), "https://gpu.example.net");
