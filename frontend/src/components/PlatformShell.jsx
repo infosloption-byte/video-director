@@ -107,10 +107,7 @@ export default function PlatformShell({ children }) {
     <span className="platform-nav__icon">{renderNavIcon(item)}</span><span className="platform-nav__label">{item.label}</span>
   </Link>;
 
-  const visibleNav = [
-    ...NAV.filter((item) => !item.authOnly || Boolean(user)),
-    ...(isPlatformAdminUser(user) ? [{ label: "Platform Admin", icon: "Settings", path: "/platform-admin" }] : []),
-  ];
+  const visibleNav = NAV.filter((item) => !item.authOnly || Boolean(user));
 
   return <div className={`platform-shell ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}>
     <aside className="platform-sidebar" aria-label="Platform navigation">
@@ -143,6 +140,7 @@ export default function PlatformShell({ children }) {
       <div className="platform-sidebar__footer">
         {user ? <div className="platform-account" ref={accountMenuRef}>
           {accountMenuOpen && <div className="platform-account-menu" role="menu" aria-label="Account menu">
+            {isPlatformAdminUser(user) && <Link to="/admin" className="platform-account-menu__item" role="menuitem" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ icon: "Settings" })}</span><span>Admin Console</span></Link>}
             <Link to="/my-research" className="platform-account-menu__item" role="menuitem" title="My Research" aria-label="My Research" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "My Research", icon: "My Research" })}</span><span>My Research</span></Link>
             <Link to="/voice-profiles" className="platform-account-menu__item" role="menuitem" title="Voice Profiles" aria-label="Voice Profiles" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Voice Profiles", icon: "Voice Profiles" })}</span><span>Voice Profiles</span></Link>
             <Link to="/settings" className="platform-account-menu__item" role="menuitem" title="Settings" aria-label="Settings" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Settings", icon: "Settings" })}</span><span>Settings</span></Link>

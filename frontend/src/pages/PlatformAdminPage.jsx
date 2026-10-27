@@ -89,8 +89,7 @@ function Records({ view, items }) {
   ] }))} />;
 }
 
-export default function PlatformAdminPage() {
-  const [view, setView] = useState("overview");
+export default function PlatformAdminPage({ view = "overview" }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -129,18 +128,13 @@ export default function PlatformAdminPage() {
     return () => controller.abort();
   }, [load, nonce]);
 
-  function changeView(next) {
-    if (next === view) return;
-    setView(next); setPage(1); setSearch(""); setAppliedSearch(""); setResult(null); setLoading(true);
-  }
   function refresh() { setLoading(true); setNonce((n) => n + 1); }
 
   const records = result?.items || [];
   const totalPages = Math.max(1, Math.ceil(Number(result?.total || 0) / Number(result?.pageSize || 20)));
   return <div className="pa-page">
-    <header className="pa-header"><div><span className="eyebrow">Voxora / Administration</span><h1>Platform monitor</h1><p>Read-only monitoring for users, revenue operations, projects and AI services.</p></div>
+    <header className="pa-header"><div><span className="eyebrow">Voxora / Administration</span><h1>{VIEWS.find((item) => item.id === view)?.label || "Overview"}</h1><p>Platform-wide operational visibility and customer activity.</p></div>
       <button type="button" className="pa-refresh" onClick={refresh} disabled={loading} aria-label="Refresh platform monitoring">{loading ? "Loading…" : "↻ Refresh"}</button></header>
-    <nav className="pa-tabs" aria-label="Platform administration sections">{VIEWS.map((item) => <button type="button" key={item.id} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "pa-active" : ""} onClick={() => changeView(item.id)}>{item.label}</button>)}</nav>
     {view !== "overview" && <form className="pa-tools" onSubmit={(event) => { event.preventDefault(); setPage(1); setAppliedSearch(search.trim().slice(0, 100)); setLoading(true); setNonce((n) => n + 1); }}>
       <label htmlFor="pa-search">{view === "activity" ? "Platform activity history" : "Search " + view}</label>
       {view !== "activity" && <><input id="pa-search" value={search} onChange={(event) => setSearch(event.target.value)} maxLength={100} placeholder={view === "projects" ? "Project title" : "Customer name or email"} autoComplete="off" /><button type="submit">Search</button></>}
@@ -152,6 +146,6 @@ export default function PlatformAdminPage() {
       <Records view={view} items={records} />
       <div className="pa-pages"><button type="button" disabled={page <= 1} onClick={() => { setPage((p) => p - 1); setLoading(true); }}>Previous</button><span>{page} / {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => { setPage((p) => p + 1); setLoading(true); }}>Next</button></div>
     </section>)}
-    {!loading && !error && result && <p className="pa-updated">Snapshot received {date(result.collectedAt || new Date().toISOString())}. No customer data or platform settings can be changed from this console.</p>}
+    {!loading && !error && result && <p className="pa-updated">Snapshot received {date(result.collectedAt || new Date().toISOString())}. These monitoring records are read-only. Use the management sections to make audited changes.</p>}
   </div>;
 }

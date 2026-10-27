@@ -8,6 +8,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import PlanSelectPage from "./pages/PlanSelectPage";
 import PlatformShell from "./components/PlatformShell";
+import AdminShell from "./components/AdminShell.jsx";
 import { isPlatformAdminUser } from "./lib/platformAdmin.js";
 import SessionGate from "./components/SessionGate";
 import { onboardingDestination } from "./lib/onboarding";
@@ -16,6 +17,7 @@ import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
 const SignalsPage = lazy(() => import("./pages/SignalsPage"));
 const PlatformAdminPage = lazy(() => import("./pages/PlatformAdminPage"));
+const AdminManagementPage = lazy(() => import("./pages/AdminManagementPage.jsx"));
 const ResearchPage = lazy(() => import("./pages/ResearchPage"));
 const ResearchConversationStartPage = lazy(() => import("./pages/ResearchConversationStartPage"));
 const ResearchConversationPage = lazy(() => import("./pages/ResearchConversationPage"));
@@ -49,7 +51,7 @@ function PlatformAdminRoute({ children }) {
   if (!user) return <Navigate to={`/signin?next=${encodeURIComponent(location.pathname)}`} replace />;
   if (!user.emailVerifiedAt) return <Navigate to="/verify-email" replace />;
   if (!isPlatformAdminUser(user)) return <Navigate to="/signals" replace />;
-  return <PlatformShell>{children}</PlatformShell>;
+  return <AdminShell>{children}</AdminShell>;
 }
 
 function LegacyEditorToolRedirect({ tool }) {
@@ -73,7 +75,17 @@ export default function App() {
     <Route path="/review/:token" element={<ReviewPage />} />
     <Route path="/my-research" element={<ProtectedRoute><MyResearchPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-    <Route path="/platform-admin" element={<PlatformAdminRoute><PlatformAdminPage /></PlatformAdminRoute>} />
+    <Route path="/platform-admin" element={<Navigate to="/admin" replace />} />
+    <Route path="/admin" element={<PlatformAdminRoute><PlatformAdminPage key="overview" view="overview" /></PlatformAdminRoute>} />
+    <Route path="/admin/users" element={<PlatformAdminRoute><PlatformAdminPage key="users" view="users" /></PlatformAdminRoute>} />
+    <Route path="/admin/projects" element={<PlatformAdminRoute><PlatformAdminPage key="projects" view="projects" /></PlatformAdminRoute>} />
+    <Route path="/admin/subscriptions" element={<PlatformAdminRoute><PlatformAdminPage key="subscriptions" view="subscriptions" /></PlatformAdminRoute>} />
+    <Route path="/admin/activity" element={<PlatformAdminRoute><PlatformAdminPage key="activity" view="activity" /></PlatformAdminRoute>} />
+    <Route path="/admin/plans" element={<PlatformAdminRoute><AdminManagementPage key="plans" section="plans" /></PlatformAdminRoute>} />
+    <Route path="/admin/master-data" element={<PlatformAdminRoute><AdminManagementPage key="master-data" section="master-data" /></PlatformAdminRoute>} />
+    <Route path="/admin/settings" element={<PlatformAdminRoute><AdminManagementPage key="settings" section="settings" /></PlatformAdminRoute>} />
+    <Route path="/admin/audit" element={<PlatformAdminRoute><AdminManagementPage key="audit" section="audit" /></PlatformAdminRoute>} />
+    <Route path="/admin/integrations" element={<PlatformAdminRoute><AdminManagementPage key="integrations" section="integrations" /></PlatformAdminRoute>} />
     <Route path="/account" element={<Navigate to="/settings?tab=account" replace />} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/voice-profiles" element={<ProtectedRoute><VoiceProfilesPage /></ProtectedRoute>}/>
