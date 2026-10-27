@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 /**
  * Capability registry for the FIRST pipeline batch.
  * "ready" means an adapter is already wired in the existing Voxora application.
@@ -47,7 +48,7 @@ export const CLASSIC_PIPELINE_DEFINITION = Object.freeze({
 });
 const adapterMap = new Map(PIPELINE_ADAPTERS.map(adapter => [adapter.id, adapter]));
 
-export function validatePipelineDefinition(definition) {
+export function validatePipelineDefinition(definition, { allowPlanned = false } = {}) {
   const errors = [];
   if (!definition || Array.isArray(definition) || typeof definition !== "object") return { valid: false, errors: ["Pipeline definition must be an object."], warnings: [] };
   if (Object.keys(definition).sort().join(",") !== "schemaVersion,stages" || definition.schemaVersion !== 1 || !Array.isArray(definition.stages)) {
@@ -62,16 +63,29 @@ export function validatePipelineDefinition(definition) {
     if (stage.key !== expected.key) errors.push("Stage order must remain fixed: expected " + expected.key + ".");
     const adapter = adapterMap.get(stage.adapterId);
     if (!adapter || adapter.capability !== expected.key) errors.push("Unsupported adapter for " + expected.key + ".");
-    else if (!adapter.available) errors.push(adapter.label + " is not integrated and cannot be selected yet.");
+    else if (!adapter.available && !allowPlanned) errors.push(adapter.label + " is not integrated and cannot be selected yet.");
     if (expected.locked && stage.adapterId !== CLASSIC_PIPELINE_DEFINITION.stages[i].adapterId) errors.push("Mandatory stage " + expected.key + " cannot be replaced.");
   }
   const warnings = [];
   for (const stage of definition.stages) {
+    const draftAdapter = adapterMap.get(stage?.adapterId);
+    if (allowPlanned && draftAdapter && !draftAdapter.available) warnings.push(draftAdapter.label + " is planned only: it cannot run or be published.");
     const adapter = adapterMap.get(stage?.adapterId);
     if (adapter?.env && !String(process.env[adapter.env] || "").trim()) warnings.push(adapter.label + " needs " + adapter.env + " configured on the API server.");
   }
   return { valid: errors.length === 0, errors, warnings: [...new Set(warnings)] };
 }
 export function pipelineCatalog() {
-  return { stages: PIPELINE_STAGES, adapters: PIPELINE_ADAPTERS.map(({ env, ...adapter }) => ({ ...adapter, configured: !env || Boolean(String(process.env[env] || "").trim()) })) };
+  return { workspaceRolloutEnabled: process.env.PIPELINE_WORKSPACE_ROLLOUT === "enabled", stages: PIPELINE_STAGES, adapters: PIPELINE_ADAPTERS.map(({ env, ...adapter }) => ({ ...adapter, configured: !env || Boolean(String(process.env[env] || "").trim()) })) };
+}
+
+function stableDefinitionValue(value) {
+  if (Array.isArray(value)) return value.map(stableDefinitionValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableDefinitionValue(value[key])]));
+  }
+  return value;
+}
+export function definitionHash(definition) {
+  return createHash("sha256").update(JSON.stringify(stableDefinitionValue(definition))).digest("hex");
 }

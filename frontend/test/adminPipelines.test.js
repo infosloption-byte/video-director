@@ -8,7 +8,9 @@ const page = readFileSync("src/pages/AdminPipelinesPage.jsx", "utf8");
 test("pipeline builder is a separate protected administrator page", () => {
   assert.match(app, /path="\/admin\/pipelines" element=\{<PlatformAdminRoute><AdminPipelinesPage/);
   assert.match(nav, /path: "\/admin\/pipelines", label: "AI Pipelines"/);
-  assert.match(page, /Grok and GPU models remain unavailable/);
+  assert.match(page, /Admin testing mode/);
+  assert.match(page, /Production rollout is locked/);
+  assert.match(page, /Run admin sandbox/);
 });
 test("pipeline creation and activation are explicit admin operations", () => {
   assert.match(page, /Create draft/);

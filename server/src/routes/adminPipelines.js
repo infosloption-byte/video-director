@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pipelineCatalog, validatePipelineDefinition } from "../services/pipelineRegistry.js";
+import { runPipelineSandbox, pipelineSandboxHistory } from "../services/pipelineSandboxService.js";
 import { PipelineProblem, listPipelines, createPipeline, createDraft, updateDraft, publishVersion, activateVersion } from "../services/pipelineService.js";
 
 const router = Router();
@@ -24,8 +25,12 @@ router.post("/:pipelineId/drafts", execute(async req => ({ version: await create
 router.put("/:pipelineId/versions/:versionId", execute(async req =>
   updateDraft(req.params.versionId, req.params.pipelineId, req.body?.definition, req.user.id)));
 router.post("/:pipelineId/versions/:versionId/validate", execute(async req => ({
-  validation: validatePipelineDefinition(req.body?.definition),
+  validation: validatePipelineDefinition(req.body?.definition, { allowPlanned: true }),
 })));
+router.post("/:pipelineId/versions/:versionId/sandbox-tests", execute(async req =>
+  runPipelineSandbox(req.params.pipelineId, req.params.versionId, req.user.id), 201));
+router.get("/:pipelineId/versions/:versionId/sandbox-tests", execute(async req =>
+  pipelineSandboxHistory(req.params.pipelineId, req.params.versionId)));
 router.post("/:pipelineId/versions/:versionId/publish", execute(async req =>
   publishVersion(req.params.versionId, req.params.pipelineId, req.user.id)));
 router.post("/:pipelineId/versions/:versionId/activate", execute(async req =>
