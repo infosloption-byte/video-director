@@ -4,7 +4,7 @@ import { prisma } from "../db/client.js";
 import { researchSignal } from "../services/researchService.js";
 import { persistResearchGraph } from "../services/researchGraphService.js";
 import { buildResearchMemory, answerResearchQuestion, resolveResearchConflict, summarizeResearchMetrics } from "../services/researchMemoryService.js";
-import { buildSetupSuggestions, validateSetup } from "../services/setupService.js";
+import { buildSetupSuggestions, validateSetup, getSetupCatalog } from "../services/setupService.js";
 import { publishFacebookReel } from "../services/facebookService.js";
 import { getPredefinedVoice } from "../services/predefinedVoiceService.js";
 
@@ -93,7 +93,7 @@ router.get("/:id/research/metrics", async (req, res) => { try { const project = 
 router.post("/:id/research/follow-up", async (req, res) => { try { const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } }); if (!project) return res.status(404).json({ error: "Project not found." }); const session = await prisma.researchSession.findFirst({ where: { projectId: project.id }, orderBy: { version: "desc" }, include: { plan: true, sources: { orderBy: { sourceIndex: "asc" } }, evidence: { orderBy: { evidenceIndex: "asc" } }, claims: { orderBy: { claimIndex: "asc" }, include: { verification: true, sourceLinks: { include: { source: true } }, evidenceLinks: { include: { evidence: true } } } }, conflicts: { orderBy: { createdAt: "asc" } } } }); if (!session) return res.status(404).json({ error: "Research memory is not available yet." }); const question = String(req.body?.question || "").trim(); if (!question) return res.status(400).json({ error: "A follow-up question is required." }); res.json({ question, grounded: true, ...answerResearchQuestion(session, question) }); } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/follow-up failed:`, error); res.status(500).json({ error: "Failed to answer the research follow-up." }); } });
 router.post("/:id/research/conflicts/:conflictId/resolve", async (req, res) => { try { const project = await prisma.project.findFirst({ where: { id: req.params.id, userId: req.user.id }, select: { id: true } }); if (!project) return res.status(404).json({ error: "Project not found." }); const conflict = await prisma.researchConflict.findFirst({ where: { id: req.params.conflictId, session: { projectId: project.id } } }); if (!conflict) return res.status(404).json({ error: "Conflict not found." }); const updated = await resolveResearchConflict(prisma, { conflictId: conflict.id, status: req.body?.status, resolution: req.body?.resolution }); res.json({ conflict: updated }); } catch (error) { console.error(`POST /api/projects/${req.params.id}/research/conflicts/${req.params.conflictId}/resolve failed:`, error); res.status(500).json({ error: "Failed to resolve the research conflict." }); } });
 router.get("/:id/setup/suggestions", async (req, res) => { try { const project = await prisma.project.findUnique({ where: { id: req.params.id } }); if (!project) return res.status(404).json({ error: "Project not found." }); if (!project.researchSummary) return res.status(409).json({ error: "Research is not ready yet." }); res.json({
-    suggestions: buildSetupSuggestions(project),
+    suggestions: buildSetupSuggestions(project, await getSetupCatalog()),
     setup: project.scriptLengthSeconds
       ? {
           length: project.scriptLengthSeconds,
@@ -112,7 +112,8 @@ router.post("/:id/setup", async (req, res) => {
     const project = await prisma.project.findUnique({ where: { id: req.params.id } });
     if (!project) return res.status(404).json({ error: "Project not found." });
     if (!project.researchSummary) return res.status(409).json({ error: "Complete research before setup." });
-    const validation = validateSetup(req.body);
+    const catalog = await getSetupCatalog();
+    const validation = validateSetup(req.body, catalog);
     if (validation.error) return res.status(400).json({ error: validation.error });
 
     const { length, framework, tone, audienceLevel } = validation.value;
@@ -137,7 +138,7 @@ router.post("/:id/setup", async (req, res) => {
       selectedPresetId = preset.id;
     }
 
-    const suggestions = buildSetupSuggestions(project);
+    const suggestions = buildSetupSuggestions(project, catalog);
     if (suggestions.framework.guardrailApplied && framework === "disruptor") {
       return res.status(400).json({ error: "The Disruptor is blocked for this signal because of a high monetization-risk flag. Choose a safer framework." });
     }
