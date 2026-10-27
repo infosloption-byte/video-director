@@ -87,7 +87,7 @@ const plans = [
 
 const faqs = [
   { q: "Do I need an account?", a: "Yes. Create a free account to open the signal desk, start research and save projects. The Free plan needs no payment details." },
-  { q: "How long can my videos be?", a: "Every plan supports videos up to 60 seconds. In setup you choose 15, 30, 45 or 60 seconds." },
+  { q: "How long can my videos be?", a: "The maximum duration depends on your plan. Guided storyboard templates currently offer 15, 30, 45 or 60 seconds." },
   { q: "What counts as a render?", a: "Limits apply to completed render requests, not to projects, drafts or storyboard edits." },
   { q: "Can I clone any voice?", a: "No. Voice profiles are for adults recording their own voice, after an explicit consent step. Cloning someone else's voice is not allowed under the Terms." },
   { q: "Is the research always correct?", a: "No. AI output can be incomplete or wrong. That is why Voxora shows sources, evidence and conflicts, and why you review the script and visuals before publishing." },
@@ -147,8 +147,27 @@ function HowItWorks() {
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const [livePlans, setLivePlans] = useState(null);
   const { hash, pathname, key: locationKey } = useLocation();
   const destination = user ? "/my-research" : "/signup";
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/billing/plans", { cache: "no-store", signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(result => { if (!controller.signal.aborted && Array.isArray(result?.plans)) setLivePlans(result.plans); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  const displayPlans = plans.map(plan => {
+    const actual = livePlans?.find(row => row.id === plan.id);
+    if (!actual) return plan;
+    return {
+      ...plan,
+      limit: String(actual.rendersPerMonth) + " video renders / month",
+      perks: plan.perks.filter(perk => !perk.includes("×") && !perk.startsWith("Up to "))
+        .concat(["Up to " + String(actual.maxSeconds) + " seconds per video"]),
+    };
+  });
 
   // Router does not scroll to #hash by itself; the top bar and legal pages link here with hashes.
   useEffect(() => {
@@ -225,7 +244,7 @@ export default function LandingPage() {
           <div className="container">
             <div className="lp-heading"><div><p className="lp-kicker">PRICING</p><h2>Find room for your next idea.</h2></div><p>Simple, render-based plans for creators at different stages.</p></div>
             <div className="lp-plans">
-              {plans.map((plan) => (
+              {displayPlans.map((plan) => (
                 <article key={plan.id} className={plan.featured ? "lp-plan lp-plan--featured" : "lp-plan"}>
                   <span className="lp-plan__label">{plan.featured ? "MOST POPULAR" : "VOXORA PLAN"}</span>
                   <h3>{plan.name}</h3>
