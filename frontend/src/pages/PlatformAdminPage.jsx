@@ -141,7 +141,7 @@ export default function PlatformAdminPage() {
     <header className="pa-header"><div><span className="eyebrow">Voxora / Administration</span><h1>Platform monitor</h1><p>Read-only monitoring for users, revenue operations, projects and AI services.</p></div>
       <button type="button" className="pa-refresh" onClick={refresh} disabled={loading} aria-label="Refresh platform monitoring">{loading ? "Loading…" : "↻ Refresh"}</button></header>
     <nav className="pa-tabs" aria-label="Platform administration sections">{VIEWS.map((item) => <button type="button" key={item.id} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "pa-active" : ""} onClick={() => changeView(item.id)}>{item.label}</button>)}</nav>
-    {view !== "overview" && <form className="pa-tools" onSubmit={(event) => { event.preventDefault(); setPage(1); setAppliedSearch(search.trim().slice(0, 100)); setLoading(true); }}>
+    {view !== "overview" && <form className="pa-tools" onSubmit={(event) => { event.preventDefault(); setPage(1); setAppliedSearch(search.trim().slice(0, 100)); setLoading(true); setNonce((n) => n + 1); }}>
       <label htmlFor="pa-search">{view === "activity" ? "Platform activity history" : "Search " + view}</label>
       {view !== "activity" && <><input id="pa-search" value={search} onChange={(event) => setSearch(event.target.value)} maxLength={100} placeholder={view === "projects" ? "Project title" : "Customer name or email"} autoComplete="off" /><button type="submit">Search</button></>}
     </form>}
