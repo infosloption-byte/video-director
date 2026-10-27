@@ -99,11 +99,15 @@ export default function AdminPipelinesPage() {
     const result = await request("/" + pipeline.id + "/versions/" + version.id, "PUT", { definition });
     setValidation(result.validation); setNotice("Draft saved.");
   });
-  const validate = () => void action(async () => {
-    const result = await request("/" + pipeline.id + "/versions/" + version.id + "/validate", "POST", { definition });
-    setValidation(result.validation);
-    setNotice(result.validation.valid ? "Pipeline definition is valid." : "Validation found issues.");
-  });
+  async function validate() {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await request("/" + pipeline.id + "/versions/" + version.id + "/validate", "POST", { definition });
+      setValidation(result.validation);
+      setNotice(result.validation.valid ? "Pipeline definition is valid." : "Validation found issues.");
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
   const publish = () => void action(async () => {
     await request("/" + pipeline.id + "/versions/" + version.id + "/publish", "POST");
     setNotice("Version published. Activate it to use it for new projects.");
