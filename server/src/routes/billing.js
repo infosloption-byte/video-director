@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { prisma } from "../db/client.js";
-import { checkoutEnabled, paddleFetch, PLANS, paidPlanIds, priceId, publicPlans, userBilling, verifyPaddleSignature } from "../services/billingService.js";
+import { checkoutEnabled, paddleFetch, PLANS, paidPlanIds, priceId, configuredPublicPlans, userBilling, verifyPaddleSignature } from "../services/billingService.js";
 import { sendEmail } from "../services/emailService.js";
 import { isPaidSubscriptionActive, planFromSubscriptionItems, planChangeRequest, successfulCheckout, voxoraCheckoutUrl } from "../services/paddlePlanFlow.js";
 import { CHECKOUT_ACTIVE, CHANGE_ACTIVE, checkoutEventStatus, publicCheckoutStatus, publicPlanChange, belongsToVoxora, isUncertainPaddleError } from "../services/paymentState.js";
 
 export const billingRouter = Router();
-billingRouter.get("/plans", (_req, res) => res.json({ plans: publicPlans(), billingReady: checkoutEnabled(), currency: "USD", provisionalPricing: true }));
+billingRouter.get("/plans", async (_req, res, next) => { try { res.set("Cache-Control", "no-store"); res.json({ plans: await configuredPublicPlans(), billingReady: checkoutEnabled(), currency: "USD", provisionalPricing: true }); } catch (error) { next(error); } });
  // Client-side tokens are publishable; API keys and notification secrets are not.
 billingRouter.get("/checkout-config", (_req, res) => {
   if (!checkoutEnabled()) return res.status(503).json({ error: "Paddle checkout is not configured yet." });

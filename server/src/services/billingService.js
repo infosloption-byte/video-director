@@ -10,13 +10,29 @@ export const paidPlanIds = ["creator","studio"];
 export function priceId(plan) { return String(process.env[`PADDLE_PRICE_${String(plan).toUpperCase()}`] || "").trim(); }
 export function checkoutEnabled() { return Boolean(process.env.PADDLE_API_KEY && process.env.PADDLE_CLIENT_TOKEN && process.env.PADDLE_WEBHOOK_SECRET && paidPlanIds.every(x => /^pri_/.test(priceId(x)))); }
 export function publicPlans() { return Object.values(PLANS).map(({ ...plan }) => ({ ...plan, checkoutAvailable: plan.id !== "free" && checkoutEnabled() })); }
+export function mergePlanLimits(plan, row) {
+  if (!row) return plan;
+  const { rendersPerMonth, maxSeconds } = row;
+  if (!Number.isInteger(rendersPerMonth) || !Number.isInteger(maxSeconds) || rendersPerMonth < 1 || maxSeconds < 15) return plan;
+  return { ...plan, rendersPerMonth, maxSeconds };
+}
+export async function configuredPlans(db = prisma) {
+  const rows = await db.platformPlanLimit.findMany();
+  const byId = new Map(rows.map(row => [row.planId, row]));
+  return Object.fromEntries(Object.entries(PLANS).map(([id, plan]) => [id, mergePlanLimits(plan, byId.get(id))]));
+}
+export async function configuredPublicPlans(db = prisma) {
+  return Object.values(await configuredPlans(db)).map(plan => ({ ...plan, checkoutAvailable: plan.id !== "free" && checkoutEnabled() }));
+}
 export function currentMonth(date = new Date()) { return date.toISOString().slice(0, 7); }
 export function effectivePlan(subscription) {
   return subscription && ["active","trialing"].includes(subscription.status) && PLANS[subscription.plan] ? PLANS[subscription.plan] : PLANS.free;
 }
 export async function userBilling(userId) {
   const subscription = await prisma.billingSubscription.findUnique({ where: { userId } });
-  const plan = effectivePlan(subscription);
+  const basePlan = effectivePlan(subscription);
+  const override = await prisma.platformPlanLimit.findUnique({ where: { planId: basePlan.id } });
+  const plan = mergePlanLimits(basePlan, override);
   const month = currentMonth();
   const usage = await prisma.monthlyRenderUsage.findUnique({ where: { userId_month: { userId, month } } });
   return { plan, month, resetAt: new Date(Date.UTC(Number(month.slice(0,4)), Number(month.slice(5,7)), 1)).toISOString(), used: usage?.used || 0, remaining: Math.max(0, plan.rendersPerMonth - (usage?.used || 0)),

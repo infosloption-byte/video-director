@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../db/client.js";
-import { currentMonth, PLANS } from "../services/billingService.js";
+import { currentMonth, PLANS, configuredPlans } from "../services/billingService.js";
+import { getPublicPlatformConfig } from "../services/platformConfigService.js";
+import { validatePlanLimits, validatePlatformSettings, validateMasterItem, MASTER_CATEGORIES } from "../services/adminManagementService.js";
 import { getRenderQueue } from "../jobs/renderQueue.js";
 import { getEditorRenderQueue } from "../jobs/editorRenderQueue.js";
 
@@ -149,6 +151,144 @@ router.get("/activity", async (req, res) => {
   } catch (error) {
     console.error("[platform-admin] activity failed:", error);
     res.status(500).json({ error: "Unable to load platform activity." });
+  }
+});
+
+
+async function auditChange(tx, req, action, before, after) {
+  return tx.adminAuditLog.create({ data: {
+    actorUserId: req.user.id, action,
+    metadata: { before, after },
+  } });
+}
+
+router.get("/plans", async (_req, res) => {
+  try {
+    const plans = await configuredPlans();
+    res.json({ plans: Object.values(plans), pricingManagedBy: "Paddle", note: "Limits apply to new render reservations; changing them does not alter Paddle prices or reset usage." });
+  } catch (error) {
+    console.error("[platform-admin] plans read failed:", error);
+    res.status(500).json({ error: "Unable to load plan limits." });
+  }
+});
+
+router.put("/plans/:planId", async (req, res) => {
+  const { planId } = req.params;
+  const checked = validatePlanLimits(planId, req.body);
+  if (checked.error) return res.status(400).json({ error: checked.error });
+  try {
+    const row = await prisma.$transaction(async tx => {
+      const before = await tx.platformPlanLimit.findUnique({ where: { planId } });
+      const after = await tx.platformPlanLimit.upsert({
+        where: { planId }, create: { planId, ...checked.value }, update: checked.value,
+      });
+      await auditChange(tx, req, "plan.limits.updated",
+        { planId, rendersPerMonth: before?.rendersPerMonth ?? PLANS[planId].rendersPerMonth, maxSeconds: before?.maxSeconds ?? PLANS[planId].maxSeconds },
+        { planId, rendersPerMonth: after.rendersPerMonth, maxSeconds: after.maxSeconds });
+      return after;
+    });
+    res.json({ plan: { ...PLANS[planId], rendersPerMonth: row.rendersPerMonth, maxSeconds: row.maxSeconds } });
+  } catch (error) {
+    console.error("[platform-admin] plan update failed:", error);
+    res.status(500).json({ error: "Unable to update plan limits." });
+  }
+});
+
+router.get("/settings", async (_req, res) => {
+  try { res.json({ settings: await getPublicPlatformConfig() }); }
+  catch (error) { console.error("[platform-admin] settings read failed:", error); res.status(500).json({ error: "Unable to read settings." }); }
+});
+
+router.put("/settings", async (req, res) => {
+  const checked = validatePlatformSettings(req.body);
+  if (checked.error) return res.status(400).json({ error: checked.error });
+  try {
+    const settings = await prisma.$transaction(async tx => {
+      const before = await tx.platformSettings.findUnique({ where: { id: "global" } });
+      const updated = await tx.platformSettings.upsert({ where: { id: "global" }, create: { id: "global", ...checked.value }, update: checked.value });
+      await auditChange(tx, req, "platform.settings.updated",
+        { registrationOpen: before?.registrationOpen ?? true, announcement: before?.announcement ?? "" },
+        { registrationOpen: updated.registrationOpen, announcement: updated.announcement || "" });
+      return updated;
+    });
+    res.json({ settings: { registrationOpen: settings.registrationOpen, announcement: settings.announcement || "" } });
+  } catch (error) {
+    console.error("[platform-admin] settings update failed:", error);
+    res.status(500).json({ error: "Unable to update platform settings." });
+  }
+});
+
+router.get("/master-data", async (_req, res) => {
+  try {
+    const items = await prisma.platformMasterItem.findMany({ orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { label: "asc" }] });
+    res.json({ categories: MASTER_CATEGORIES, items });
+  } catch (error) {
+    console.error("[platform-admin] master data read failed:", error);
+    res.status(500).json({ error: "Unable to load master data." });
+  }
+});
+
+router.post("/master-data", async (req, res) => {
+  const checked = validateMasterItem(req.body);
+  if (checked.error) return res.status(400).json({ error: checked.error });
+  try {
+    const existingLabel = await prisma.platformMasterItem.findFirst({
+      where: { category: checked.value.category, label: checked.value.label },
+    });
+    if (existingLabel) return res.status(409).json({ error: "This label already exists in the selected category." });
+    const item = await prisma.$transaction(async tx => {
+      const created = await tx.platformMasterItem.create({ data: checked.value });
+      await auditChange(tx, req, "master.item.created", null, { id: created.id, ...checked.value });
+      return created;
+    });
+    res.status(201).json({ item });
+  } catch (error) {
+    if (error.code === "P2002") return res.status(409).json({ error: "Master data code or label already exists." });
+    console.error("[platform-admin] master creation failed:", error);
+    res.status(500).json({ error: "Unable to create master data." });
+  }
+});
+
+router.put("/master-data/:id", async (req, res) => {
+  const checked = validateMasterItem(req.body, { update: true });
+  if (checked.error) return res.status(400).json({ error: checked.error });
+  try {
+    const result = await prisma.$transaction(async tx => {
+      const old = await tx.platformMasterItem.findUnique({ where: { id: req.params.id } });
+      if (!old) return { status: 404, error: "Master data item not found." };
+      const labelTaken = await tx.platformMasterItem.findFirst({ where: { category: old.category, label: checked.value.label, id: { not: old.id } } });
+      if (labelTaken) return { status: 409, error: "That label is already used in this category." };
+      if (old.active && !checked.value.active) {
+        const count = await tx.platformMasterItem.count({ where: { category: old.category, active: true } });
+        if (count <= 1) return { status: 409, error: "At least one active item must remain for each category." };
+      }
+      const updated = await tx.platformMasterItem.update({ where: { id: old.id }, data: checked.value });
+      await auditChange(tx, req, "master.item.updated",
+        { id: old.id, label: old.label, active: old.active, sortOrder: old.sortOrder },
+        { id: updated.id, label: updated.label, active: updated.active, sortOrder: updated.sortOrder });
+      return { item: updated };
+    });
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    res.json(result);
+  } catch (error) {
+    if (error.code === "P2002") return res.status(409).json({ error: "Master data already exists." });
+    console.error("[platform-admin] master update failed:", error);
+    res.status(500).json({ error: "Unable to update master data." });
+  }
+});
+
+router.get("/admin-audit", async (req, res) => {
+  try {
+    const { page, pageSize, skip } = pagination(req.query);
+    const [total, items] = await Promise.all([
+      prisma.adminAuditLog.count(),
+      prisma.adminAuditLog.findMany({ orderBy: { createdAt: "desc" }, skip, take: pageSize,
+        select: { id: true, actorUserId: true, targetUserId: true, action: true, metadata: true, createdAt: true } }),
+    ]);
+    res.json({ page, pageSize, total, items });
+  } catch (error) {
+    console.error("[platform-admin] audit read failed:", error);
+    res.status(500).json({ error: "Unable to load admin audit history." });
   }
 });
 

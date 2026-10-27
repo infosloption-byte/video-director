@@ -671,9 +671,37 @@ model AdminAuditLog {
   actorUserId  String?  @map("actor_user_id")
   targetUserId String?  @map("target_user_id")
   action       String   @db.VarChar(80)
+  metadata     Json?
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([actorUserId, createdAt])
   @@index([targetUserId, createdAt])
   @@map("admin_audit_logs")
+}
+
+model PlatformPlanLimit {
+  planId          String   @id @map("plan_id") @db.VarChar(20)
+  rendersPerMonth Int      @map("renders_per_month")
+  maxSeconds      Int      @map("max_seconds")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  @@map("platform_plan_limits")
+}
+model PlatformSettings {
+  id               String   @id @default("global") @db.VarChar(20)
+  registrationOpen Boolean  @default(true) @map("registration_open")
+  announcement     String?  @db.VarChar(240)
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  @@map("platform_settings")
+}
+model PlatformMasterItem {
+  id        String   @id @default(uuid())
+  category  String   @db.VarChar(30)
+  code      String   @db.VarChar(60)
+  label     String   @db.VarChar(100)
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@unique([category, code])
+  @@index([category, active, sortOrder])
+  @@map("platform_master_items")
 }

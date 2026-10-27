@@ -28,10 +28,21 @@ export default function PlatformShell({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
   const accountMenuRef = useRef(null);
   const projectId = useMemo(() => location.pathname.match(/^(?:\/research|\/research-conversation|\/storyboard|\/media)\/([^/]+)/)?.[1] || location.pathname.match(/^\/editor\/([^/]+)/)?.[1] || "", [location.pathname]);
   const userLabel = user?.displayName || user?.email || "Account";
   const recentProjects = useMemo(() => projects.slice(0, 5), [projects]);
+
+  useEffect(() => {
+    if (!user) { return undefined; }
+    const controller = new AbortController();
+    fetch("/api/platform-config", { credentials: "include", cache: "no-store", signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted) setAnnouncement(String(data?.announcement || "").slice(0, 240)); })
+      .catch(() => { if (!controller.signal.aborted) setAnnouncement(""); });
+    return () => controller.abort();
+  }, [user]);
 
   useEffect(() => {
     try { localStorage.setItem("helix.platform.sidebar", collapsed ? "collapsed" : "expanded"); } catch { /* storage is optional */ }
@@ -107,10 +118,7 @@ export default function PlatformShell({ children }) {
     <span className="platform-nav__icon">{renderNavIcon(item)}</span><span className="platform-nav__label">{item.label}</span>
   </Link>;
 
-  const visibleNav = [
-    ...NAV.filter((item) => !item.authOnly || Boolean(user)),
-    ...(isPlatformAdminUser(user) ? [{ label: "Platform Admin", icon: "Settings", path: "/platform-admin" }] : []),
-  ];
+  const visibleNav = NAV.filter((item) => !item.authOnly || Boolean(user));
 
   return <div className={`platform-shell ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}>
     <aside className="platform-sidebar" aria-label="Platform navigation">
@@ -143,6 +151,7 @@ export default function PlatformShell({ children }) {
       <div className="platform-sidebar__footer">
         {user ? <div className="platform-account" ref={accountMenuRef}>
           {accountMenuOpen && <div className="platform-account-menu" role="menu" aria-label="Account menu">
+            {isPlatformAdminUser(user) && <Link to="/admin" className="platform-account-menu__item" role="menuitem" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ icon: "Settings" })}</span><span>Admin Console</span></Link>}
             <Link to="/my-research" className="platform-account-menu__item" role="menuitem" title="My Research" aria-label="My Research" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "My Research", icon: "My Research" })}</span><span>My Research</span></Link>
             <Link to="/voice-profiles" className="platform-account-menu__item" role="menuitem" title="Voice Profiles" aria-label="Voice Profiles" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Voice Profiles", icon: "Voice Profiles" })}</span><span>Voice Profiles</span></Link>
             <Link to="/settings" className="platform-account-menu__item" role="menuitem" title="Settings" aria-label="Settings" onClick={() => setAccountMenuOpen(false)}><span className="platform-account-menu__icon">{renderNavIcon({ label: "Settings", icon: "Settings" })}</span><span>Settings</span></Link>
@@ -158,6 +167,7 @@ export default function PlatformShell({ children }) {
     {mobileOpen && <button type="button" className="platform-mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
     <div className="platform-main">
       <header className="platform-topbar"><button type="button" className="platform-mobile-menu" onClick={() => setMobileOpen((value) => !value)} aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen}><span /><span /><span /></button><div className="platform-breadcrumb"><span className="platform-breadcrumb__product">Voxora</span>{projectId && <><span>/</span><span>{location.pathname.includes("/editor") ? "Editor" : "Project"}</span></>}</div><div className="platform-topbar__actions"><button type="button" onClick={toggleTheme} aria-label="Toggle theme" title="Toggle theme">{theme === "dark" ? "☼" : "☾"}</button></div></header>
+      {announcement && <div className="platform-announcement" role="status">{announcement}</div>}
       <main className="platform-content">{children}</main>
     </div>
   </div>;

@@ -1,4 +1,5 @@
 import cors from "cors";
+import { getPublicPlatformConfig } from "./services/platformConfigService.js";
 import express from "express";
 import path from "node:path";
 import signalsRouter from "./routes/signals.js";
@@ -42,6 +43,7 @@ app.use(express.json({ limit: "40mb" }));
 app.use(authOptional);
 app.use(sameOriginProtection);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.get("/api/platform-config", async (_req, res, next) => { try { res.set("Cache-Control", "no-store"); res.json(await getPublicPlatformConfig()); } catch (error) { next(error); } });
 
 app.get("/api/health/integrations", (_req, res) => {
   const configured = (name) => Boolean(String(process.env[name] || "").trim());

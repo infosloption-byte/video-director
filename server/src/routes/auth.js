@@ -7,6 +7,7 @@ import { emailReady, sendVerificationEmail, sendResetEmail, sendSecurityEmail } 
 import { CURRENT_LEGAL_VERSION } from "../services/legalConsent.js";
 import { normalizeIntendedPlan } from "../services/onboardingPlan.js";
 import { resolvePreferences, alertsEnabled } from "../services/preferences.js";
+import { isRegistrationOpen } from "../services/platformConfigService.js";
 
 const router = Router();
 const SESSION_DAYS = 30;
@@ -129,6 +130,7 @@ router.get("/me", authOptional, async (req, res) => {
 
 router.post("/signup", async (req, res, next) => {
   try {
+    if (!(await isRegistrationOpen())) return res.status(503).json({ code: "REGISTRATION_CLOSED", error: "New registrations are temporarily paused." });
     if (process.env.NODE_ENV === "production" && !emailReady()) return res.status(503).json({ error: "Signups are temporarily unavailable." });
     if (!rateLimitByIp(req, "signup", 8, 15 * 60 * 1000)) return res.status(429).json({ error: "Too many sign-up attempts. Please try again later." });
     const email = normalizeEmail(req.body?.email);
