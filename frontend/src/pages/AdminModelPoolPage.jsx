@@ -9,6 +9,17 @@ const PROVIDERS = [
   { id: "openrouter", label: "OpenRouter", type: "cloud" },
   { id: "openai_compatible", label: "OpenAI-compatible endpoint", type: "hosted" },
 ];
+// These provider defaults are also enforced by the backend; the browser does
+// not authorize credential destinations.
+function recommendedEndpoint(provider, modelId, legacyOrigin = "") {
+  if (provider === "gemini") return "https://generativelanguage.googleapis.com/v1beta/models/" +
+    encodeURIComponent(modelId || "") + ":generateContent";
+  if (provider === "openai") return "https://api.openai.com/v1/chat/completions";
+  if (provider === "xai") return "https://api.x.ai/v1/chat/completions";
+  if (provider === "openrouter") return "https://openrouter.ai/api/v1/chat/completions";
+  if (provider === "openai_compatible" && legacyOrigin) return legacyOrigin.replace(/\/$/, "") + "/v1/chat/completions";
+  return "";
+}
 const CAPS = [
   { id: "research", label: "Research synthesis", test: true },
   { id: "storyboard", label: "Storyboard generation", test: true },
@@ -30,21 +41,34 @@ function Form({ existing, saved, cancel }) {
   const [hostingType, setHostingType] = useState(existing?.hostingType || "cloud");
   const [provider, setProvider] = useState(existing?.provider || "gemini");
   const [modelIdentifier, setModelIdentifier] = useState(existing?.modelIdentifier || "");
-  const [baseUrl, setBaseUrl] = useState(existing?.baseUrl || "");
+  const [endpointUrl, setEndpointUrl] = useState(
+    existing?.endpointUrl || recommendedEndpoint(existing?.provider || "gemini", existing?.modelIdentifier || "", existing?.baseUrl),
+  );
   const [apiKey, setApiKey] = useState("");
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
   const [capabilities, setCapabilities] = useState(existing?.declaredCapabilities || ["research", "storyboard"]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  function changeType(type) { setHostingType(type); setProvider(type === "cloud" ? "gemini" : "openai_compatible"); }
+  function changeType(type) {
+    const nextProvider = type === "cloud" ? "gemini" : "openai_compatible";
+    setHostingType(type); setProvider(nextProvider);
+    setEndpointUrl(recommendedEndpoint(nextProvider, modelIdentifier));
+  }
+  function changeProvider(value) {
+    setProvider(value); setEndpointUrl(recommendedEndpoint(value, modelIdentifier));
+  }
+  function changeModelIdentifier(value) {
+    setModelIdentifier(value);
+    if (provider === "gemini") setEndpointUrl(recommendedEndpoint("gemini", value));
+  }
   function toggleCapability(cap) {
     setCapabilities(previous => previous.includes(cap) ? previous.filter(x => x !== cap) : [...previous, cap]);
   }
   async function save(event) {
     event.preventDefault(); setError(""); setBusy(true);
     try {
-      const body = { name, hostingType, provider, modelIdentifier,
-        ...(hostingType === "hosted" ? { baseUrl } : {}), declaredCapabilities: capabilities, enabled,
+      const body = { name, hostingType, provider, modelIdentifier, endpointUrl,
+        declaredCapabilities: capabilities, enabled,
         ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) };
       await api(existing ? "/" + existing.id : "", {
         method: existing ? "PUT" : "POST", body: JSON.stringify(body),
@@ -60,10 +84,17 @@ function Form({ existing, saved, cancel }) {
     </div>
     <div className="mp-form-grid">
       <label>Display name<input required minLength={3} maxLength={120} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Gemini research"/></label>
-      <div className="mp-field"><label>Provider</label><div className="mp-choice" role="group" aria-label="Provider">{PROVIDERS.filter(p => p.type === hostingType).map(p => <button type="button" key={p.id} className={provider === p.id ? "selected" : ""} aria-pressed={provider === p.id} onClick={() => setProvider(p.id)}>{p.label}</button>)}</div></div>
-      <label>API model identifier<input required maxLength={120} pattern="[A-Za-z0-9][A-Za-z0-9._:/-]+" value={modelIdentifier} onChange={e => setModelIdentifier(e.target.value)} placeholder={provider === "gemini" ? "gemini-2.5-flash" : provider === "openai" ? "gpt-4.1-mini" : provider === "xai" ? "grok-4" : provider === "openrouter" ? "openai/gpt-4o-mini" : "model-id"}/></label>
+      <div className="mp-field"><label>Provider</label><div className="mp-choice" role="group" aria-label="Provider">{PROVIDERS.filter(p => p.type === hostingType).map(p => <button type="button" key={p.id} className={provider === p.id ? "selected" : ""} aria-pressed={provider === p.id} onClick={() => changeProvider(p.id)}>{p.label}</button>)}</div></div>
+      <label>API model identifier<input required maxLength={120} pattern="[A-Za-z0-9][A-Za-z0-9._:/-]+" value={modelIdentifier} onChange={e => changeModelIdentifier(e.target.value)} placeholder={provider === "gemini" ? "gemini-2.5-flash" : provider === "openai" ? "gpt-4.1-mini" : provider === "xai" ? "grok-4" : provider === "openrouter" ? "openai/gpt-4o-mini" : "model-id"}/></label>
       {provider === "openrouter" && <p className="mp-note">Enter an OpenRouter model slug such as openai/gpt-4o-mini, and use an OpenRouter API key or OPENROUTER_API_KEY on the server. Live tests may incur API charges.</p>}
-      {hostingType === "hosted" && <label>Endpoint origin<input required type="url" maxLength={512} value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="https://gpu.example.net"/><small>Only origins approved by the server operator are accepted.</small></label>}
+      <label className="mp-endpoint-field">Model API endpoint URL
+        <input required type="url" maxLength={1024} value={endpointUrl} onChange={e => setEndpointUrl(e.target.value)}
+          placeholder={hostingType === "hosted" ? "https://gpu.example.net/v1/chat/completions" : recommendedEndpoint(provider, modelIdentifier)}
+          autoComplete="url"/>
+        <small>{hostingType === "cloud"
+          ? "Provider default filled automatically. For security, only this provider's approved endpoint is accepted."
+          : "Full API endpoint including request path. Its origin must be explicitly approved in AI_POOL_ALLOWED_ORIGINS on the API server."}</small>
+      </label>
       <label>API key or access token<input type="password" autoComplete="new-password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={existing?.hasStoredCredential ? "Leave empty to keep encrypted key" : "Optional when server environment provides the key"}/><small>Encrypted on the server; never returned to the browser. Self-hosted endpoints may permit unauthenticated access.</small></label>
     </div>
     <div className="mp-field"><label>Declared capabilities</label><div className="mp-capchoices">{CAPS.map(c => <label key={c.id} className="mp-check"><input type="checkbox" checked={capabilities.includes(c.id)} onChange={() => toggleCapability(c.id)}/><span>{c.label}</span><small>{c.test ? "Live test available" : "Tester not implemented yet"}</small></label>)}</div></div>
@@ -76,7 +107,7 @@ function Form({ existing, saved, cancel }) {
 function ModelCard({ model, edit, run, busy }) {
   const requested = model.declaredCapabilities || [];
   return <article className="mp-model">
-    <div className="mp-model-head"><div><span className="mp-kind">{model.hostingType === "cloud" ? "CLOUD API" : "SELF HOSTED"}</span><h3>{model.name}</h3><p>{model.provider} · {model.modelIdentifier}</p></div><Pill good={model.enabled && model.credentialConfigured}>{!model.enabled ? "Disabled" : model.credentialConfigured ? "Credential ready" : "Credential missing / optional"}</Pill></div>
+    <div className="mp-model-head"><div><span className="mp-kind">{model.hostingType === "cloud" ? "CLOUD API" : "SELF HOSTED"}</span><h3>{model.name}</h3><p>{model.provider} · {model.modelIdentifier}</p><p className="mp-endpoint-preview" title={model.endpointUrl || ""}>Endpoint: {model.endpointUrl || "Not configured"}</p></div><Pill good={model.enabled && model.credentialConfigured}>{!model.enabled ? "Disabled" : model.credentialConfigured ? "Credential ready" : "Credential missing / optional"}</Pill></div>
     <div className="mp-verified"><strong>Stage eligibility</strong>
       {model.verifiedCapabilities.length ? <div className="mp-tags">{model.verifiedCapabilities.map(cap => <Pill key={cap} good>{cap} verified</Pill>)}</div>
         : <p>No verified capabilities yet. Declaring a capability does not grant stage access.</p>}
