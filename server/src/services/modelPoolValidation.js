@@ -70,7 +70,7 @@ export function defaultModelEndpoint(provider, modelIdentifier, baseUrl = "") {
   if (provider === "openai") return "https://api.openai.com/v1/chat/completions";
   if (provider === "xai") return "https://api.x.ai/v1/chat/completions";
   if (provider === "openrouter") return "https://openrouter.ai/api/v1/chat/completions";
-  if (provider === "openai_compatible") return baseUrl ? baseUrl.replace(/\\/$/, "") + "/v1/chat/completions" : "";
+  if (provider === "openai_compatible") return baseUrl ? (baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl) + "/v1/chat/completions" : "";
   return "";
 }
 export function validateModelEndpoint(provider, hostingType, endpointUrl, modelIdentifier, env = process.env) {
