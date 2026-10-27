@@ -16,6 +16,7 @@ const MENU = [
     { path: "/admin/master-data", label: "Master Data", icon: "database" },
     { path: "/admin/settings", label: "Platform Settings", icon: "settings" },
     { path: "/admin/integrations", label: "AI Integrations", icon: "cpu" },
+    { path: "/admin/pipelines", label: "AI Pipelines", icon: "activity" },
   ] },
   { section: "Security", links: [
     { path: "/admin/activity", label: "Activity", icon: "activity" },

@@ -18,6 +18,7 @@ import { ProjectProvider } from "./context/ProjectProvider.jsx";
 const SignalsPage = lazy(() => import("./pages/SignalsPage"));
 const PlatformAdminPage = lazy(() => import("./pages/PlatformAdminPage"));
 const AdminManagementPage = lazy(() => import("./pages/AdminManagementPage.jsx"));
+const AdminPipelinesPage = lazy(() => import("./pages/AdminPipelinesPage.jsx"));
 const ResearchPage = lazy(() => import("./pages/ResearchPage"));
 const ResearchConversationStartPage = lazy(() => import("./pages/ResearchConversationStartPage"));
 const ResearchConversationPage = lazy(() => import("./pages/ResearchConversationPage"));
@@ -86,6 +87,7 @@ export default function App() {
     <Route path="/admin/settings" element={<PlatformAdminRoute><AdminManagementPage key="settings" section="settings" /></PlatformAdminRoute>} />
     <Route path="/admin/audit" element={<PlatformAdminRoute><AdminManagementPage key="audit" section="audit" /></PlatformAdminRoute>} />
     <Route path="/admin/integrations" element={<PlatformAdminRoute><AdminManagementPage key="integrations" section="integrations" /></PlatformAdminRoute>} />
+    <Route path="/admin/pipelines" element={<PlatformAdminRoute><AdminPipelinesPage /></PlatformAdminRoute>} />
     <Route path="/account" element={<Navigate to="/settings?tab=account" replace />} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/voice-profiles" element={<ProtectedRoute><VoiceProfilesPage /></ProtectedRoute>}/>
