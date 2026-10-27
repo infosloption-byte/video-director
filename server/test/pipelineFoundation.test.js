@@ -45,17 +45,29 @@ test("activation changes one global pointer and refuses draft versions", async (
       update: async ({ data }) => { active = data.versionId; },
     },
     adminAuditLog: { create: async ({ data }) => { audits.push(data); } },
+    aiPipelineSandboxTest: { findFirst: async () => ({ id: "test-passed" }) },
   };
   await assert.rejects(() => activateVersion("candidate-v2", "candidate", "admin", db),
     error => error instanceof PipelineProblem && error.status === 409);
-  const changed = await activateVersion("candidate-v1", "candidate", "admin", db);
-  assert.equal(changed.activeVersionId, "candidate-v1");
-  assert.equal(active, "candidate-v1");
-  assert.equal(audits.length, 1);
-  assert.equal(audits[0].action, "pipeline.activated");
-  const repeated = await activateVersion("candidate-v1", "candidate", "admin", db);
-  assert.equal(repeated.alreadyActive, true);
-  assert.equal(audits.length, 1);
+  const previous = process.env.PIPELINE_WORKSPACE_ROLLOUT;
+  delete process.env.PIPELINE_WORKSPACE_ROLLOUT;
+  try {
+    await assert.rejects(() => activateVersion("candidate-v1", "candidate", "admin", db),
+      error => error instanceof PipelineProblem && error.status === 409);
+    assert.equal(active, "classic-v1");
+    process.env.PIPELINE_WORKSPACE_ROLLOUT = "enabled";
+    const changed = await activateVersion("candidate-v1", "candidate", "admin", db);
+    assert.equal(changed.activeVersionId, "candidate-v1");
+    assert.equal(active, "candidate-v1");
+    assert.equal(audits.length, 1);
+    assert.equal(audits[0].action, "pipeline.activated");
+    const repeated = await activateVersion("candidate-v1", "candidate", "admin", db);
+    assert.equal(repeated.alreadyActive, true);
+    assert.equal(audits.length, 1);
+  } finally {
+    if (previous === undefined) delete process.env.PIPELINE_WORKSPACE_ROLLOUT;
+    else process.env.PIPELINE_WORKSPACE_ROLLOUT = previous;
+  }
 });
 test("published pipeline versions cannot be edited", async () => {
   const definition = structuredClone(CLASSIC_PIPELINE_DEFINITION);
