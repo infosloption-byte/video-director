@@ -6,6 +6,7 @@ const PROVIDERS = [
   { id: "gemini", label: "Google Gemini", type: "cloud" },
   { id: "openai", label: "OpenAI", type: "cloud" },
   { id: "xai", label: "xAI / Grok", type: "cloud" },
+  { id: "openrouter", label: "OpenRouter", type: "cloud" },
   { id: "openai_compatible", label: "OpenAI-compatible endpoint", type: "hosted" },
 ];
 const CAPS = [
@@ -60,7 +61,8 @@ function Form({ existing, saved, cancel }) {
     <div className="mp-form-grid">
       <label>Display name<input required minLength={3} maxLength={120} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Gemini research"/></label>
       <div className="mp-field"><label>Provider</label><div className="mp-choice" role="group" aria-label="Provider">{PROVIDERS.filter(p => p.type === hostingType).map(p => <button type="button" key={p.id} className={provider === p.id ? "selected" : ""} aria-pressed={provider === p.id} onClick={() => setProvider(p.id)}>{p.label}</button>)}</div></div>
-      <label>API model identifier<input required maxLength={120} pattern="[A-Za-z0-9][A-Za-z0-9._:/-]+" value={modelIdentifier} onChange={e => setModelIdentifier(e.target.value)} placeholder={provider === "gemini" ? "gemini-2.5-flash" : provider === "openai" ? "gpt-4.1-mini" : provider === "xai" ? "grok-4" : "model-id"}/></label>
+      <label>API model identifier<input required maxLength={120} pattern="[A-Za-z0-9][A-Za-z0-9._:/-]+" value={modelIdentifier} onChange={e => setModelIdentifier(e.target.value)} placeholder={provider === "gemini" ? "gemini-2.5-flash" : provider === "openai" ? "gpt-4.1-mini" : provider === "xai" ? "grok-4" : provider === "openrouter" ? "openai/gpt-4o-mini" : "model-id"}/></label>
+      {provider === "openrouter" && <p className="mp-note">Enter an OpenRouter model slug such as openai/gpt-4o-mini, and use an OpenRouter API key or OPENROUTER_API_KEY on the server. Live tests may incur API charges.</p>}
       {hostingType === "hosted" && <label>Endpoint origin<input required type="url" maxLength={512} value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="https://gpu.example.net"/><small>Only origins approved by the server operator are accepted.</small></label>}
       <label>API key or access token<input type="password" autoComplete="new-password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={existing?.hasStoredCredential ? "Leave empty to keep encrypted key" : "Optional when server environment provides the key"}/><small>Encrypted on the server; never returned to the browser. Self-hosted endpoints may permit unauthenticated access.</small></label>
     </div>
@@ -133,7 +135,7 @@ export default function AdminModelPoolPage() {
     {data && !formOpen && <div className="mp-summary"><span>{data.models.length} registered models</span><span>{data.models.reduce((sum, m) => sum + m.verifiedCapabilities.length, 0)} passing stage capabilities</span><span>Host allowlist: {data.hostedOriginConfigured ? "configured" : "not configured"}</span><span>Encrypted key storage: {data.encryptionReady ? "configured" : "setup required"}</span></div>}
     {formOpen ? <Form key={(editing?.id || "new") + (editing?.revision || "")} existing={editing} saved={saved} cancel={() => setFormOpen(false)}/> : data && <div className="mp-models">
       {data.models.length ? data.models.map(model => <ModelCard key={model.id} model={model} edit={startEdit} run={runTest} busy={busy === model.id + "research" || busy === model.id + "storyboard"}/>) :
-        <section className="mp-empty"><h2>No AI models registered</h2><p>Add an OpenAI, Gemini, xAI Grok or self-hosted inference model. Then verify its capabilities before choosing it in a draft pipeline.</p></section>}
+        <section className="mp-empty"><h2>No AI models registered</h2><p>Add an OpenAI, Gemini, xAI Grok, OpenRouter or self-hosted inference model. Then verify its capabilities before choosing it in a draft pipeline.</p></section>}
     </div>}
   </div>;
 }
