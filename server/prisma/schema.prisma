@@ -731,6 +731,7 @@ model AiPipelineVersion {
   pipeline    AiPipeline          @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   activeFor   ActiveAiPipeline[]
   projects    Project[]
+  sandboxTests AiPipelineSandboxTest[]
 
   @@unique([pipelineId, version])
   @@index([status])
@@ -744,4 +745,18 @@ model ActiveAiPipeline {
   version   AiPipelineVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
 
   @@map("active_ai_pipeline")
+}
+
+model AiPipelineSandboxTest {
+  id                String            @id @default(uuid()) @db.VarChar(64)
+  pipelineVersionId String            @map("pipeline_version_id") @db.VarChar(64)
+  actorUserId       String            @map("actor_user_id") @db.VarChar(191)
+  definitionHash    String            @map("definition_hash") @db.VarChar(64)
+  passed            Boolean
+  report            Json
+  createdAt         DateTime          @default(now()) @map("created_at")
+  version           AiPipelineVersion @relation(fields: [pipelineVersionId], references: [id], onDelete: Cascade)
+
+  @@index([pipelineVersionId, createdAt])
+  @@map("ai_pipeline_sandbox_tests")
 }
