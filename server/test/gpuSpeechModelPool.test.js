@@ -26,9 +26,9 @@ function model(engine = "kokoro") {
     enabled: true, declaredCapabilities: ["speech"] };
 }
 function wavBase64() {
-  const wav = Buffer.alloc(48);
+  const wav = Buffer.alloc(48044);
   wav.write("RIFF", 0);
-  wav.writeUInt32LE(40, 4);
+  wav.writeUInt32LE(48036, 4);
   wav.write("WAVE", 8);
   wav.write("fmt ", 12);
   wav.writeUInt32LE(16, 16);
@@ -39,7 +39,7 @@ function wavBase64() {
   wav.writeUInt16LE(2, 32);
   wav.writeUInt16LE(16, 34);
   wav.write("data", 36);
-  wav.writeUInt32LE(4, 40);
+  wav.writeUInt32LE(48000, 40);
   return wav.toString("base64");
 }
 
@@ -83,7 +83,7 @@ test("speech probe sends only a fixed admin sentence and reports verified WAV me
     });
     assert.equal(result.passed, true);
     assert.equal(result.result.sampleRate, 24000);
-    assert.equal(result.result.audioBytes, 48);
+    assert.equal(result.result.audioBytes, 48044);
     assert.ok(!JSON.stringify(result).includes(b64));
     const view = safePoolModel({ ...model(), id: "test", revision: 1, tests: [
       { id: "t", capability: "speech", passed: true, modelRevision: 1,
