@@ -1,6 +1,5 @@
 """Unit tests for the scheduler lease primitive; no live Redis required."""
 import unittest
-from unittest.mock import patch
 
 from media_service.gpu_lease import GPULease, LeaseLost, LeaseUnavailable
 
@@ -63,6 +62,19 @@ class LeaseTests(unittest.TestCase):
         redis.fail = True
         with self.assertRaises(LeaseUnavailable):
             GPULease(redis).acquire()
+
+    def test_release_does_not_delete_expired_owner(self):
+        redis = FakeRedis()
+        first = GPULease(redis, heartbeat_seconds=0.1).acquire()
+        redis.values.pop(first.key)
+        successor = GPULease(redis, heartbeat_seconds=0.1).acquire()
+        first.release()
+        self.assertEqual(redis.values[successor.key], successor.token)
+        successor.release()
+
+    def test_invalid_lease_configuration(self):
+        with self.assertRaises(ValueError):
+            GPULease(FakeRedis(), ttl_ms=3000, heartbeat_seconds=2.0)
 
     def test_heartbeat_detects_loss(self):
         redis = FakeRedis()
