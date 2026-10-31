@@ -72,6 +72,41 @@ class LeaseTests(unittest.TestCase):
         self.assertEqual(redis.values[successor.key], successor.token)
         successor.release()
 
+    def test_waiter_can_acquire_after_release(self):
+        import threading
+        import time
+        redis = FakeRedis()
+        first = GPULease(redis, heartbeat_seconds=0.1).acquire()
+        second = GPULease(redis, heartbeat_seconds=0.1)
+        outcome = []
+
+        def wait_for_gpu():
+            try:
+                second.acquire(wait_seconds=1)
+                second.assert_held()
+                outcome.append("acquired")
+            finally:
+                if second._acquired:
+                    second.release()
+
+        waiter = threading.Thread(target=wait_for_gpu)
+        waiter.start()
+        time.sleep(0.05)
+        self.assertEqual(outcome, [])
+        first.release()
+        waiter.join(timeout=2)
+        self.assertFalse(waiter.is_alive())
+        self.assertEqual(outcome, ["acquired"])
+
+    def test_lease_loss_on_redis_failure_after_acquisition(self):
+        redis = FakeRedis()
+        lease = GPULease(redis, heartbeat_seconds=0.1).acquire()
+        redis.fail = True
+        with self.assertRaises(LeaseLost):
+            lease.assert_held()
+        redis.fail = False
+        lease.release()
+
     def test_invalid_lease_configuration(self):
         with self.assertRaises(ValueError):
             GPULease(FakeRedis(), ttl_ms=3000, heartbeat_seconds=2.0)
