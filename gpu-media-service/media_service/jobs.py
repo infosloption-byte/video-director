@@ -3,6 +3,9 @@ import json
 import os
 import subprocess
 import time
+from contextlib import contextmanager
+from redis import Redis
+from .gpu_lease import GPULease, LeaseUnavailable
 from pathlib import Path
 
 from rq import get_current_job
@@ -116,6 +119,32 @@ def video_generate(output_path: Path, prompt: str, negative: str):
             "width": 832, "height": 480,
             "peakPyTorchGiB": round(torch.cuda.max_memory_allocated() / (1024**3), 2)}
 
+@contextmanager
+def gpu_reservation(kind: str):
+    # CPU jobs never require a GPU lease; GPU jobs fail closed when opted in.
+    gpu_job = kind in ("image", "video") or (
+        kind == "transcription" and os.getenv("GPU_MEDIA_WHISPER_DEVICE", "cpu") == "cuda"
+    )
+    if not gpu_job:
+        yield None
+        return
+    if os.getenv("GPU_COORDINATION_ENABLED", "false").lower() != "true":
+        raise LeaseUnavailable("GPU jobs require enabled shared coordination.")
+    url = os.getenv("GPU_COORDINATION_REDIS_URL", "")
+    if not url:
+        raise LeaseUnavailable("GPU coordinator URL is missing.")
+    client = Redis.from_url(url, socket_connect_timeout=3, socket_timeout=3)
+    lease = GPULease(client)
+    try:
+        lease.acquire(wait_seconds=15)
+        lease.assert_held()
+        yield lease
+        lease.assert_held()
+    finally:
+        if lease._acquired:
+            lease.release()
+        client.close()
+
 def run_media_job(kind: str, arguments: dict):
     job = get_current_job()
     if job is None:
@@ -127,15 +156,16 @@ def run_media_job(kind: str, arguments: dict):
     artifact_name, _ = ARTIFACTS[kind]
     output = folder / artifact_name
     start = time.monotonic()
-    if kind == "transcription":
-        result = transcribe(job.id, folder / "input.audio", output, arguments.get("language"))
-        (folder / "input.audio").unlink(missing_ok=True)
-    elif kind == "image":
-        result = image_generate(output, arguments["prompt"], arguments.get("negative_prompt") or "")
-    elif kind == "video":
-        result = video_generate(output, arguments["prompt"], arguments.get("negative_prompt") or "")
-    else:
-        raise ValueError("Unknown media job.")
+    with gpu_reservation(kind):
+        if kind == "transcription":
+            result = transcribe(job.id, folder / "input.audio", output, arguments.get("language"))
+            (folder / "input.audio").unlink(missing_ok=True)
+        elif kind == "image":
+            result = image_generate(output, arguments["prompt"], arguments.get("negative_prompt") or "")
+        elif kind == "video":
+            result = video_generate(output, arguments["prompt"], arguments.get("negative_prompt") or "")
+        else:
+            raise ValueError("Unknown media job.")
     if not output.is_file() or output.stat().st_size < 10:
         raise RuntimeError("Inference reported success without an artifact.")
     progress(99)
