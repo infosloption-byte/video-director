@@ -94,7 +94,7 @@ The worker downloads model checkpoints at first use; first-run latency may be mu
 ```bash
 cd gpu-media-service
 python -m pip install -r requirements-test.txt
-pytest -q test/
+python -m pytest -q test/
 python -m compileall -q media_service
 sudo docker compose -p voxora-media -f docker-compose.gpu.yml config --quiet
 ```
