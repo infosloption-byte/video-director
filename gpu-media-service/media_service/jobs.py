@@ -26,7 +26,12 @@ def transcribe(job_id: str, input_path: Path, output_path: Path, language: str |
     progress(10)
 
     from faster_whisper import WhisperModel
-    model = WhisperModel("small", device="cpu", compute_type="int8", cpu_threads=2)
+    model = WhisperModel(
+        "small",
+        device=os.getenv("GPU_MEDIA_WHISPER_DEVICE", "cpu"),
+        compute_type=os.getenv("GPU_MEDIA_WHISPER_COMPUTE_TYPE", "int8"),
+        cpu_threads=2,
+    )
     progress(35)
     segments, info = model.transcribe(
         str(input_path), language=language, beam_size=3, vad_filter=True,
