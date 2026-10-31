@@ -36,11 +36,32 @@ function validateWavResult(payload, expectedEngine) {
   if (wav.length < 44 || wav.length > MAX_RESPONSE_BYTES ||
       wav.toString("ascii", 0, 4) !== "RIFF" ||
       wav.toString("ascii", 8, 12) !== "WAVE") return null;
-  const sampleRate = wav.readUInt32LE(24);
+  let fmt = null;
+  let dataBytes = null;
+  let offset = 12;
+  while (offset + 8 <= wav.length) {
+    const id = wav.toString("ascii", offset, offset + 4);
+    const size = wav.readUInt32LE(offset + 4);
+    const end = offset + 8 + size;
+    if (end > wav.length) return null;
+    if (id === "fmt " && size >= 16) {
+      fmt = { format: wav.readUInt16LE(offset + 8),
+        channels: wav.readUInt16LE(offset + 10),
+        sampleRate: wav.readUInt32LE(offset + 12),
+        bits: wav.readUInt16LE(offset + 22) };
+    }
+    if (id === "data") dataBytes = size;
+    offset = end + (size % 2);
+  }
+  if (!fmt || fmt.format !== 1 || ![1, 2].includes(fmt.channels) ||
+      fmt.bits !== 16 || fmt.sampleRate < 8000 || fmt.sampleRate > 192000 ||
+      !dataBytes || dataBytes % (fmt.channels * 2) !== 0) return null;
+  const measuredDuration = dataBytes / (fmt.sampleRate * fmt.channels * 2);
   const durationSeconds = Number(payload.duration_seconds);
-  if (sampleRate < 8000 || sampleRate > 192000 ||
-      !Number.isFinite(durationSeconds) || durationSeconds < 0.2 || durationSeconds > 30) return null;
-  return { durationSeconds: Number(durationSeconds.toFixed(2)), sampleRate, audioBytes: wav.length, engine: expectedEngine };
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 0.2 || durationSeconds > 30 ||
+      measuredDuration < 0.2 || Math.abs(durationSeconds - measuredDuration) > Math.max(0.5, measuredDuration * 0.1)) return null;
+  return { durationSeconds: Number(measuredDuration.toFixed(2)),
+    sampleRate: fmt.sampleRate, audioBytes: wav.length, engine: expectedEngine };
 }
 
 export async function probeVoxoraSpeech(model, dependencies = {}) {
