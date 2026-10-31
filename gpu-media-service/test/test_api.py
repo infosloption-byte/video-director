@@ -69,7 +69,8 @@ def test_fails_closed_without_auth(setup, monkeypatch):
                            json={"kind": "image", "prompt": "An ocean container port at dawn."})
     assert response.status_code == 503
 
-def test_generation_queued_without_starting_gpu(setup):
+def test_generation_queued_without_starting_gpu(setup, monkeypatch):
+    monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
     client, q, root = setup
     result = client.post("/v1/jobs", headers=headers(), json={
         "kind": "video", "prompt": "Documentary footage of cargo ships entering a port."})
@@ -101,7 +102,8 @@ def test_audio_upload_enqueues_existing_private_directory(setup):
     assert (root / item["id"] / "input.audio").read_bytes() == body
     assert sorted(p.name for p in (root / item["id"]).iterdir()) == ["input.audio"]
 
-def test_media_api_cancel_queued_job(setup):
+def test_media_api_cancel_queued_job(setup, monkeypatch):
+    monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
     client, q, _ = setup
     response = client.post("/v1/jobs", headers=headers(), json={
         "kind": "image", "prompt": "Cinematic mountain valley at sunrise."})
@@ -109,6 +111,13 @@ def test_media_api_cancel_queued_job(setup):
     canceled = client.post("/v1/jobs/" + id + "/cancel", headers=headers())
     assert canceled.status_code == 200
     assert canceled.json()["status"] == "canceled"
+
+def test_heavy_api_requires_explicit_opt_in(setup):
+    client, q, _ = setup
+    denied = client.post("/v1/jobs", headers=headers(), json={
+        "kind": "image", "prompt": "Documentary view of a busy container port."})
+    assert denied.status_code == 409
+    assert not q.jobs
 
 def test_heavy_jobs_are_disabled_by_default(setup, tmp_path):
     with pytest.raises(RuntimeError, match="disabled"):
