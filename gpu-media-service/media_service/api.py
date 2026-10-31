@@ -70,18 +70,21 @@ def enqueue_job(kind: str, *, prompt=None, negative_prompt="", language=None, ex
         raise HTTPException(429, "GPU media queue capacity reached.")
     job_id = existing_id or uuid.uuid4().hex
     folder = job_dir(job_id)
-    folder.mkdir(mode=0o700, parents=True, exist_ok=False)
+    if existing_id is not None:
+        if not folder.is_dir() or not (folder / "input.audio").is_file():
+            raise HTTPException(422, "Missing uploaded transcription input.")
+    else:
+        folder.mkdir(mode=0o700, parents=True, exist_ok=False)
     try:
         from .jobs import run_media_job
         job = q.enqueue(
             run_media_job, kind, {"prompt": prompt or "", "negative_prompt": negative_prompt,
                                   "language": language},
             job_id=job_id, job_timeout=JOB_TIMEOUT_SECONDS[kind],
+            meta={"kind": kind, "progress": 0},
             ttl=JOB_QUEUE_TTL_SECONDS, result_ttl=JOB_RETENTION_SECONDS,
             failure_ttl=JOB_RETENTION_SECONDS, description="voxora-media-" + kind,
         )
-        job.meta.update({"kind": kind, "progress": 0})
-        job.save_meta()
         return public_status(job)
     except Exception:
         shutil.rmtree(folder, ignore_errors=True)
