@@ -1,0 +1,30 @@
+name: GPU coordination primitive tests
+
+on:
+  pull_request:
+    paths:
+      - "gpu-media-service/media_service/gpu_lease.py"
+      - "gpu-media-service/tests/test_gpu_lease.py"
+      - ".github/workflows/gpu-coordination-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "gpu-media-service/media_service/gpu_lease.py"
+      - "gpu-media-service/tests/test_gpu_lease.py"
+      - ".github/workflows/gpu-coordination-tests.yml"
+
+jobs:
+  lease-unit-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gpu-media-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Redis client (no inference dependencies required)
+        run: python -m pip install "redis==5.2.1"
+      - name: Test cross-process lease semantics
+        run: python -m unittest discover -s tests -p "test_gpu_lease.py" -v
