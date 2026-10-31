@@ -1,0 +1,10 @@
+FROM pytorch/pytorch:2.11.0-cuda13.0-cudnn9-runtime
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 GPU_MEDIA_DATA_ROOT=/media/jobs HF_HOME=/hf-cache
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements-api.txt requirements-worker.txt ./
+RUN pip install --break-system-packages --no-cache-dir -r requirements-worker.txt
+COPY media_service ./media_service
+RUN mkdir -p /media/jobs /hf-cache
+# Exactly ONE RQ worker process: heavyweight inference is sequential within this service.
+CMD ["rq", "worker", "voxora-gpu-media", "--url", "redis://redis:6379/0", "--path", "/app"]
