@@ -23,7 +23,7 @@ export function safePoolModel(model) {
   let connectionReady = configuredCredential(model);
   try {
     resolveModelEndpoint(model);
-    if (model.hostingType === "hosted") connectionReady = true;
+    if (model.hostingType === "hosted" && model.provider !== "voxora_tts") connectionReady = true;
   } catch { connectionReady = false; }
   const verifiedCapabilities = model.enabled && connectionReady
     ? tests.filter(test => test.current && test.passed).map(test => test.capability)
@@ -108,7 +108,7 @@ export async function testPoolCapability(id, capability, actorId, db = prisma, r
     const outcome = await runProbe(model, capability);
     const result = await db.aiPoolCapabilityTest.create({
       data: { modelId: id, modelRevision: model.revision, capability, passed: outcome.passed,
-        latencyMs: Math.min(60000, Math.max(0, outcome.latencyMs)), result: outcome.result },
+        latencyMs: Math.min(180000, Math.max(0, outcome.latencyMs)), result: outcome.result },
       select: { id: true, modelRevision: true, capability: true, passed: true, latencyMs: true, result: true, createdAt: true },
     });
     await audit(db, actorId, "ai_pool.capability.tested", { modelId: id, capability, revision: model.revision, passed: outcome.passed });
