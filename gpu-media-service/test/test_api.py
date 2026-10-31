@@ -70,8 +70,8 @@ def test_fails_closed_without_auth(setup, monkeypatch):
     assert response.status_code == 503
 
 def test_generation_queued_without_starting_gpu(setup, monkeypatch):
-    monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
     client, q, root = setup
+    monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
     result = client.post("/v1/jobs", headers=headers(), json={
         "kind": "video", "prompt": "Documentary footage of cargo ships entering a port."})
     assert result.status_code == 202, result.text
@@ -103,8 +103,8 @@ def test_audio_upload_enqueues_existing_private_directory(setup):
     assert sorted(p.name for p in (root / item["id"]).iterdir()) == ["input.audio"]
 
 def test_media_api_cancel_queued_job(setup, monkeypatch):
-    monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
     client, q, _ = setup
+    monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
     response = client.post("/v1/jobs", headers=headers(), json={
         "kind": "image", "prompt": "Cinematic mountain valley at sunrise."})
     id = response.json()["id"]
