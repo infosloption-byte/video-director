@@ -73,7 +73,7 @@ curl -X POST http://127.0.0.1:8010/v1/transcriptions \
 | `GET /health` | public localhost liveness only; not proof queue or worker is available |
 | `GET /v1/status` | authenticated Redis ping, queue depth, heavyweight disabled flag |
 | `POST /v1/transcriptions` | authenticated multipart `file` (optional language ISO code); returns 202 job |
-| `POST /v1/jobs` | authenticated JSON `{"kind":"image"|"video","prompt":"...", "negative_prompt":""}`; 202 job; heavy jobs disabled by default |
+| `POST /v1/jobs` | authenticated image/video generation request; returns **HTTP 409** while GPU-heavy jobs are disabled, HTTP 202 only after safe enablement |
 | `GET /v1/jobs/{id}` | authenticated status, progress and safe result metadata |
 | `POST /v1/jobs/{id}/cancel` | authenticated queued cancellation or running stop request |
 | `GET /v1/jobs/{id}/artifact` | authenticated file download only after success |
