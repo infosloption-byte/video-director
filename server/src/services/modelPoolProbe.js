@@ -1,5 +1,6 @@
 import { ModelPoolError, TESTABLE_CAPABILITIES, resolveModelEndpoint } from "./modelPoolValidation.js";
 import { resolveModelCredential } from "./modelPoolCredentials.js";
+import { probeVoxoraSpeech } from "./voxoraSpeechProbe.js";
 
 const MAX_BYTES = 65536;
 const promptFor = capability => capability === "research"
@@ -35,6 +36,7 @@ function readModelJson(text) {
 export async function probeModelCapability(model, capability, dependencies = {}) {
   if (!TESTABLE_CAPABILITIES.includes(capability))
     throw new ModelPoolError(409, "Live testing for this capability is not implemented. It remains unverified.");
+  if (capability === "speech") return probeVoxoraSpeech(model, dependencies);
   const credential = resolveModelCredential(model);
   if (model.hostingType === "cloud" && !credential) throw new ModelPoolError(409, "Configure a provider API credential before testing.");
   const prompt = promptFor(capability);
