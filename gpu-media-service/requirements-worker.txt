@@ -5,8 +5,11 @@ accelerate==1.11.0
 safetensors==0.6.2
 faster-whisper==1.2.1
 # Faster-Whisper 1.2.1 uses av.open(metadata_errors=...), removed in PyAV 19.
-# Explicit pin keeps decoding compatible until faster-whisper ships the upstream fix.
 av==18.1.0
+# CTranslate2 CUDA 12 GPU inference needs cuBLAS 12 and cuDNN 9 even when
+# the base PyTorch image ships a different CUDA runtime.
+nvidia-cublas-cu12>=12,<13
+nvidia-cudnn-cu12>=9,<10
 imageio==2.37.0
 imageio-ffmpeg==0.6.0
 ftfy==6.3.1
