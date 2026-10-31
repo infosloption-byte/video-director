@@ -1,0 +1,79 @@
+# Standalone, disabled-by-default GPU Media Engine.
+# This stack does NOT replace/alter the existing voxora-gpu TTS stack.
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - media-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      GPU_MEDIA_REDIS_URL: redis://redis:6379/0
+      GPU_MEDIA_DATA_ROOT: /media/jobs
+      GPU_MEDIA_HEAVY_ENABLED: "${GPU_MEDIA_HEAVY_ENABLED:-false}"
+    volumes:
+      - media-artifacts:/media/jobs
+    ports:
+      - "${GPU_MEDIA_BIND_IP:-127.0.0.1}:8010:8010"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    profiles: ["worker"]
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      GPU_MEDIA_REDIS_URL: redis://redis:6379/0
+      GPU_MEDIA_DATA_ROOT: /media/jobs
+      GPU_MEDIA_HEAVY_ENABLED: "${GPU_MEDIA_HEAVY_ENABLED:-false}"
+      HF_HOME: /hf-cache
+      OMP_NUM_THREADS: "2"
+      TORCH_NUM_THREADS: "2"
+    gpus: all
+    cpus: "3.0"
+    mem_limit: 14g
+    memswap_limit: 30g
+    shm_size: 2gb
+    volumes:
+      - media-artifacts:/media/jobs
+      - media-hf-cache:/hf-cache
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  janitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      GPU_MEDIA_REDIS_URL: redis://redis:6379/0
+      GPU_MEDIA_DATA_ROOT: /media/jobs
+    volumes:
+      - media-artifacts:/media/jobs
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["python", "-m", "media_service.prune"]
+
+volumes:
+  media-redis:
+  media-artifacts:
+  media-hf-cache:
