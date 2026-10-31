@@ -62,9 +62,10 @@ GPU_COORDINATION_REDIS_URL = os.getenv("GPU_COORDINATION_REDIS_URL", "")
 
 @asynccontextmanager
 async def gpu_reservation(engine_name: str):
-    if engine_name != "qwen3-tts-0.6b" or not GPU_COORDINATION_ENABLED:
+    if not GPU_COORDINATION_ENABLED:
         yield None
         return
+    # Reserve across all engine switches because ensure_resident may unload Qwen.
     if not GPU_COORDINATION_REDIS_URL:
         raise LeaseUnavailable("GPU coordination Redis URL is missing.")
     client = Redis.from_url(GPU_COORDINATION_REDIS_URL, socket_timeout=3, socket_connect_timeout=3)
