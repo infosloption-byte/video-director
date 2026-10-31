@@ -108,6 +108,8 @@ def status():
 
 @app.post("/v1/jobs", status_code=202, dependencies=[Depends(require_auth)])
 def submit_generation(data: GenerationRequest):
+    if os.getenv("GPU_MEDIA_HEAVY_ENABLED", "false").lower() != "true":
+        raise HTTPException(409, "Image/video inference is disabled pending cross-stack TTS GPU scheduling.")
     try:
         return enqueue_job(data.kind, prompt=data.prompt,
                            negative_prompt=data.negative_prompt)
