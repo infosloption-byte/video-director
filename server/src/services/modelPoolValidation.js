@@ -1,11 +1,12 @@
 export const CAPABILITIES = Object.freeze(["research", "storyboard", "visuals", "speech"]);
-export const TESTABLE_CAPABILITIES = Object.freeze(["research", "storyboard"]);
+export const TESTABLE_CAPABILITIES = Object.freeze(["research", "storyboard", "speech"]);
 export const PROVIDERS = Object.freeze({
   openai: { hostingType: "cloud", env: "OPENAI_API_KEY" },
   xai: { hostingType: "cloud", env: "XAI_API_KEY" },
   gemini: { hostingType: "cloud", env: "GEMINI_API_KEY" },
   openrouter: { hostingType: "cloud", env: "OPENROUTER_API_KEY" },
   openai_compatible: { hostingType: "hosted", env: null },
+  voxora_tts: { hostingType: "hosted", env: "GPU_TTS_AUTH_TOKEN" },
 });
 export const STAGE_CAPABILITY = Object.freeze({
   research: "research", storyboard: "storyboard", visuals: "visuals", speech: "speech",
@@ -40,6 +41,10 @@ export function validateModelInput(input, env = process.env) {
   if (!Array.isArray(input.declaredCapabilities) || input.declaredCapabilities.length === 0 ||
       new Set(input.declaredCapabilities).size !== input.declaredCapabilities.length ||
       input.declaredCapabilities.some(cap => !CAPABILITIES.includes(cap))) bad("Select at least one supported capability without duplicates.");
+  if (provider === "voxora_tts" &&
+      (input.declaredCapabilities.length !== 1 || input.declaredCapabilities[0] !== "speech" ||
+       !["kokoro", "qwen3-tts-0.6b"].includes(modelIdentifier)))
+    bad("Voxora TTS supports only the speech capability and the deployed kokoro or qwen3-tts-0.6b engines.");
   if (input.enabled !== undefined && typeof input.enabled !== "boolean") bad("Enabled must be true or false.");
   const apiKey = input.apiKey === undefined ? undefined : String(input.apiKey).trim();
   if (apiKey !== undefined && (apiKey.length < 8 || apiKey.length > 2048 || /[\r\n]/.test(apiKey))) bad("Invalid API credential.");
@@ -71,6 +76,7 @@ export function defaultModelEndpoint(provider, modelIdentifier, baseUrl = "") {
   if (provider === "xai") return "https://api.x.ai/v1/chat/completions";
   if (provider === "openrouter") return "https://openrouter.ai/api/v1/chat/completions";
   if (provider === "openai_compatible") return baseUrl ? (baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl) + "/v1/chat/completions" : "";
+  if (provider === "voxora_tts") return baseUrl ? baseUrl.replace(/\/$/, "") + "/v1/audio/speech" : "";
   return "";
 }
 export function validateModelEndpoint(provider, hostingType, endpointUrl, modelIdentifier, env = process.env) {
@@ -93,6 +99,9 @@ export function validateModelEndpoint(provider, hostingType, endpointUrl, modelI
     allowedHostedOrigin(parsed.origin, env);
     if (!parsed.pathname || parsed.pathname === "/")
       bad("Hosted endpoint must specify a supported API request path.");
+  } else if (hostingType === "hosted" && provider === "voxora_tts") {
+    allowedHostedOrigin(parsed.origin, env);
+    if (parsed.pathname !== "/v1/audio/speech") bad("Voxora TTS requires the fixed /v1/audio/speech endpoint.");
   } else bad("Unsupported provider or hosting type.");
   return value;
 }
