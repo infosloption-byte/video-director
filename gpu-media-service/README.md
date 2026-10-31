@@ -40,7 +40,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8010/v1/status
 # Expected: 401 if API token is configured
 ```
 
-**Whisper worker** can be started independently for CPU tasks but will consume CPU/RAM alongside Qwen:
+**Whisper worker** can be started independently for CPU tasks but will consume CPU/RAM alongside Qwen. The worker pins PyAV 18.1.0 because faster-whisper 1.2.1 calls \`av.open(metadata_errors=...)\`, which PyAV 19 removed. Each worker image build runs a synthetic WAV decoder smoke test and fails before deployment if decoding is incompatible:
 
 ```bash
 sudo docker compose -p voxora-media -f docker-compose.gpu.yml --profile worker build worker

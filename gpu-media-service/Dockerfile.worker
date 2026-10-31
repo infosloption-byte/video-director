@@ -5,6 +5,9 @@ WORKDIR /app
 COPY requirements-api.txt requirements-worker.txt ./
 RUN pip install --break-system-packages --no-cache-dir -r requirements-worker.txt
 COPY media_service ./media_service
+COPY smoke_decoder.py ./smoke_decoder.py
+# Catch incompatible PyAV/Faster-Whisper versions before replacing a running worker.
+RUN python smoke_decoder.py
 RUN mkdir -p /media/jobs /hf-cache
 # Exactly ONE RQ worker process: heavyweight inference is sequential within this service.
 CMD ["rq", "worker", "voxora-gpu-media", "--url", "redis://redis:6379/0", "--path", "/app"]
