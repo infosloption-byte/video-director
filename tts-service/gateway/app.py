@@ -56,8 +56,9 @@ resident_engine: str | None = None
 synthesis_lock = asyncio.Lock()
 
 def require_auth(authorization: str | None = Header(default=None)) -> None:
+    # Fail closed if deployment omitted the gateway secret.
     if not AUTH_TOKEN:
-        return
+        raise HTTPException(status_code=503, detail="TTS gateway authentication is not configured.")
     if authorization != f"Bearer {AUTH_TOKEN}":
         raise HTTPException(status_code=401, detail="Invalid TTS service credentials.")
 
