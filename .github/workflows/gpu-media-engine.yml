@@ -29,7 +29,7 @@ jobs:
       - name: Check Python syntax
         run: python -m compileall -q media_service test
       - name: Run isolated API contract tests
-        run: pytest -q test/
+        run: python -m pytest -q test/
       - name: Validate Compose spec (no services started)
         run: |
           cp .env.example .env
