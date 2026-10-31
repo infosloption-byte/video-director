@@ -8,6 +8,7 @@ const PROVIDERS = [
   { id: "xai", label: "xAI / Grok", type: "cloud" },
   { id: "openrouter", label: "OpenRouter", type: "cloud" },
   { id: "openai_compatible", label: "OpenAI-compatible endpoint", type: "hosted" },
+  { id: "voxora_tts", label: "Voxora private GPU / TTS", type: "hosted" },
 ];
 // These provider defaults are also enforced by the backend; the browser does
 // not authorize credential destinations.
@@ -18,13 +19,14 @@ function recommendedEndpoint(provider, modelId, legacyOrigin = "") {
   if (provider === "xai") return "https://api.x.ai/v1/chat/completions";
   if (provider === "openrouter") return "https://openrouter.ai/api/v1/chat/completions";
   if (provider === "openai_compatible" && legacyOrigin) return legacyOrigin.replace(/\/$/, "") + "/v1/chat/completions";
+  if (provider === "voxora_tts" && legacyOrigin) return legacyOrigin.replace(/\/$/, "") + "/v1/audio/speech";
   return "";
 }
 const CAPS = [
   { id: "research", label: "Research synthesis", test: true },
   { id: "storyboard", label: "Storyboard generation", test: true },
   { id: "visuals", label: "Visual / video generation", test: false },
-  { id: "speech", label: "Text-to-speech", test: false },
+  { id: "speech", label: "Text-to-speech", test: true },
 ];
 async function api(path = "", options = {}) {
   const response = await fetch(BASE + path, {
@@ -53,9 +55,12 @@ function Form({ existing, saved, cancel }) {
     const nextProvider = type === "cloud" ? "gemini" : "openai_compatible";
     setHostingType(type); setProvider(nextProvider);
     setEndpointUrl(recommendedEndpoint(nextProvider, modelIdentifier));
+    setCapabilities(type === "cloud" ? ["research", "storyboard"] : ["research"]);
   }
   function changeProvider(value) {
     setProvider(value); setEndpointUrl(recommendedEndpoint(value, modelIdentifier));
+    setCapabilities(value === "voxora_tts" ? ["speech"] : value === "openai_compatible" ? ["research"] : ["research", "storyboard"]);
+    if (value === "voxora_tts") setModelIdentifier("kokoro");
   }
   function changeModelIdentifier(value) {
     setModelIdentifier(value);
@@ -87,15 +92,16 @@ function Form({ existing, saved, cancel }) {
       <div className="mp-field"><label>Provider</label><div className="mp-choice" role="group" aria-label="Provider">{PROVIDERS.filter(p => p.type === hostingType).map(p => <button type="button" key={p.id} className={provider === p.id ? "selected" : ""} aria-pressed={provider === p.id} onClick={() => changeProvider(p.id)}>{p.label}</button>)}</div></div>
       <label>API model identifier<input required maxLength={120} pattern="[A-Za-z0-9][A-Za-z0-9._:/-]+" value={modelIdentifier} onChange={e => changeModelIdentifier(e.target.value)} placeholder={provider === "gemini" ? "gemini-2.5-flash" : provider === "openai" ? "gpt-4.1-mini" : provider === "xai" ? "grok-4" : provider === "openrouter" ? "openai/gpt-4o-mini" : "model-id"}/></label>
       {provider === "openrouter" && <p className="mp-note">Enter an OpenRouter model slug such as openai/gpt-4o-mini, and use an OpenRouter API key or OPENROUTER_API_KEY on the server. Live tests may incur API charges.</p>}
+      {provider === "voxora_tts" && <p className="mp-note">Choose kokoro or qwen3-tts-0.6b. Speech tests use a fixed admin script, never customer data. Qwen requires an authorized test voice configured on the server.</p>}
       <label className="mp-endpoint-field">Model API endpoint URL
         <input required type="url" maxLength={1024} value={endpointUrl} onChange={e => setEndpointUrl(e.target.value)}
-          placeholder={hostingType === "hosted" ? "https://gpu.example.net/v1/chat/completions" : recommendedEndpoint(provider, modelIdentifier)}
+          placeholder={provider === "voxora_tts" ? "http://private-gpu:8000/v1/audio/speech" : hostingType === "hosted" ? "https://gpu.example.net/v1/chat/completions" : recommendedEndpoint(provider, modelIdentifier)}
           autoComplete="url"/>
         <small>{hostingType === "cloud"
           ? "Provider default filled automatically. For security, only this provider's approved endpoint is accepted."
           : "Full API endpoint including request path. Its origin must be explicitly approved in AI_POOL_ALLOWED_ORIGINS on the API server."}</small>
       </label>
-      <label>API key or access token<input type="password" autoComplete="new-password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={existing?.hasStoredCredential ? "Leave empty to keep encrypted key" : "Optional when server environment provides the key"}/><small>Encrypted on the server; never returned to the browser. Self-hosted endpoints may permit unauthenticated access.</small></label>
+      <label>API key or access token<input type="password" autoComplete="new-password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={existing?.hasStoredCredential ? "Leave empty to keep encrypted key" : "Optional when server environment provides the key"}/><small>Encrypted on the server; never returned to the browser. Voxora TTS requires a gateway token; other self-hosted APIs may support environment credentials.</small></label>
     </div>
     <div className="mp-field"><label>Declared capabilities</label><div className="mp-capchoices">{CAPS.map(c => <label key={c.id} className="mp-check"><input type="checkbox" checked={capabilities.includes(c.id)} onChange={() => toggleCapability(c.id)}/><span>{c.label}</span><small>{c.test ? "Live test available" : "Tester not implemented yet"}</small></label>)}</div></div>
     <label className="mp-check"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)}/><span>Enabled for admin testing</span></label>
@@ -114,12 +120,13 @@ function ModelCard({ model, edit, run, busy }) {
     </div>
     <div className="mp-test-grid">{requested.map(cap => {
       const info = CAPS.find(x => x.id === cap);
+      const canTest = Boolean(info?.test && (cap !== "speech" || model.provider === "voxora_tts"));
       const history = model.tests.find(t => t.capability === cap);
       return <div className="mp-testrow" key={cap}>
         <div><strong>{info?.label || cap}</strong><small>{history ? (history.current ? history.passed ? "Last test passed" : "Last test failed" : "Retest required") : "Not tested"}</small>
           {history && <small>{history.latencyMs} ms · {history.result?.code || "TEST"} · {new Date(history.createdAt).toLocaleString()}</small>}</div>
-        <button type="button" className="mp-button" disabled={busy || !model.enabled || !info?.test}
-          onClick={() => run(model, cap)}>{busy ? "Testing…" : info?.test ? "Run live test" : "Coming later"}</button>
+        <button type="button" className="mp-button" disabled={busy || !model.enabled || !canTest}
+          onClick={() => run(model, cap)}>{busy ? "Testing…" : canTest ? "Run live test" : "Coming later"}</button>
       </div>;
     })}</div>
     <div className="mp-bottom"><span>Revision {model.revision} · {model.hasStoredCredential ? "Stored encrypted key" : "Environment key or keyless"}</span><button type="button" className="mp-button" onClick={() => edit(model)}>Edit configuration</button></div>
@@ -158,14 +165,14 @@ export default function AdminModelPoolPage() {
   return <div className="mp-page">
     <header className="mp-header"><div><span className="eyebrow">Voxora / AI Infrastructure</span><h1>AI Model Pool</h1><p>Manage cloud models, self-hosted inference endpoints and capability verification separately from production workflows.</p></div>
       <button className="mp-button primary" type="button" onClick={() => { setEditing(null); setFormOpen(true); }}>+ Add AI model</button></header>
-    <div className="mp-banner"><strong>Admin-only, preproduction configuration.</strong> Research and storyboard tests make real API requests and may incur provider charges. Visual/video and speech verification are not yet implemented. The live workspace continues using Voxora Classic.</div>
+    <div className="mp-banner"><strong>Admin-only, preproduction configuration.</strong> Research and storyboard tests make real API requests and may incur provider charges. Voxora private TTS speech tests are available; image/video verification remains planned. The live workspace continues using Voxora Classic.</div>
     {error && <p className="mp-error" role="alert">{error}</p>}
     {notice && <p className="mp-success" role="status">{notice}</p>}
     {loading && <p role="status">Loading model pool…</p>}
     {data && !data.encryptionReady && <div className="mp-banner"><strong>Encrypted credential storage is not configured.</strong> Set AI_POOL_ENCRYPTION_KEY on the API server before entering cloud API keys in Admin. Existing provider environment variables can be used without storing a key here.</div>}
     {data && !formOpen && <div className="mp-summary"><span>{data.models.length} registered models</span><span>{data.models.reduce((sum, m) => sum + m.verifiedCapabilities.length, 0)} passing stage capabilities</span><span>Host allowlist: {data.hostedOriginConfigured ? "configured" : "not configured"}</span><span>Encrypted key storage: {data.encryptionReady ? "configured" : "setup required"}</span></div>}
     {formOpen ? <Form key={(editing?.id || "new") + (editing?.revision || "")} existing={editing} saved={saved} cancel={() => setFormOpen(false)}/> : data && <div className="mp-models">
-      {data.models.length ? data.models.map(model => <ModelCard key={model.id} model={model} edit={startEdit} run={runTest} busy={busy === model.id + "research" || busy === model.id + "storyboard"}/>) :
+      {data.models.length ? data.models.map(model => <ModelCard key={model.id} model={model} edit={startEdit} run={runTest} busy={busy === model.id + "research" || busy === model.id + "storyboard" || busy === model.id + "speech"}/>) :
         <section className="mp-empty"><h2>No AI models registered</h2><p>Add an OpenAI, Gemini, xAI Grok, OpenRouter or self-hosted inference model. Then verify its capabilities before choosing it in a draft pipeline.</p></section>}
     </div>}
   </div>;
