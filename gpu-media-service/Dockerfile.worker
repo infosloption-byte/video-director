@@ -4,6 +4,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -r
 WORKDIR /app
 COPY requirements-api.txt requirements-worker.txt ./
 RUN pip install --break-system-packages --no-cache-dir -r requirements-worker.txt
+# Allow CTranslate2 to discover pip-installed CUDA 12 libraries, even though
+# the base image contains a CUDA 13 PyTorch runtime.
+ENV LD_LIBRARY_PATH="/usr/local/lib/python3.12/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.12/dist-packages/nvidia/cudnn/lib:${LD_LIBRARY_PATH}"
 COPY media_service ./media_service
 COPY smoke_decoder.py ./smoke_decoder.py
 # Catch incompatible PyAV/Faster-Whisper versions before replacing a running worker.
