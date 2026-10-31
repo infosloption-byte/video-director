@@ -22,3 +22,18 @@ python -m unittest discover -s tests -p 'test_gpu_lease.py' -v
 ```
 
 **No server deployment is necessary for this stage.** Do not switch existing services to the lease until both clients are integrated and tested.
+
+## Stage 2 opt-in integration (draft; do not enable in production yet)
+
+Both the TTS gateway and media job worker now contain conditional use of the same Redis-backed lease key `voxora:gpu:exclusive`. Both default to coordination **disabled**. The TTS gateway holds it across `ensure_resident` and synthesis and across explicit unload. Media holds it around GPU transcriptions and image/video jobs; CPU transcriptions do not acquire it. When enabled, media GPU jobs fail closed if coordination is absent.
+
+Required environment for BOTH stacks when fully validated:
+
+```text
+GPU_COORDINATION_ENABLED=true
+GPU_COORDINATION_REDIS_URL=redis://<authenticated-private-coordinator>:6379/0
+```
+
+Do not use the literal example endpoint. An external Redis dependency must be authenticated, network-isolated, monitored, and configured with no-eviction for lease keys. The gateway Docker image now includes the Redis client. The local TTS Compose file is untracked on the live server, so **do not overwrite it** with an example or assume a deployable Compose file exists in Git.
+
+**Known limitations:** An RQ worker cannot safely interrupt an in-progress CTranslate2 native call on heartbeat loss; the gateway likewise cannot interrupt a running Qwen kernel. This implementation provides mutual exclusion under healthy connectivity, not hard preemption or guaranteed TTS latency. Adding fencing/admission windows, heartbeat-loss integration tests, explicit priority policy, and pre-deployment rollback tests is required before any production flag is turned on. The current draft has not passed real concurrent GPU workload testing.
