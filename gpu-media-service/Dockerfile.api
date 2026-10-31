@@ -6,4 +6,4 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 COPY media_service ./media_service
 RUN mkdir -p /media/jobs
 EXPOSE 8010
-CMD ["uvicorn", "media_service.api:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1", "--proxy-headers", "false"]
+CMD ["uvicorn", "media_service.api:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1", "--no-proxy-headers"]
