@@ -320,3 +320,26 @@ inspect the conflicting configuration and revise the overlay first.
 Even after this passes, switching the actual live TTS gateway/worker is a
 **separate deployment and rollback operation** with possible brief service
 interruption. No such operation is included here. GPU scheduling remains off.
+
+## Stage 9: protected rollback snapshot before any service image rollout
+
+The upgraded TTS gateway and media worker images have passed staged import and
+authenticated Redis preflight checks, and the actual live Compose overlays
+have passed read-only comparison tests.
+
+Before any gateway or worker container is recreated, follow
+[`ROLLOUT.md`](./ROLLOUT.md) and run:
+
+```bash
+cd /opt/voxora-gpu/video-director
+bash scripts/prepare_gpu_coordination_rollout.sh
+```
+
+This snapshots the untracked live TTS Compose file and local environment
+files into a protected private directory, records live image/container IDs,
+tags the original images for rollback, and verifies the original running
+gateway and worker were not replaced. **It does not deploy anything.**
+
+The backup may contain secrets. Keep its location private and never upload it
+to GitHub or send its contents in a chat. Keep both GPU coordination and heavy
+workloads disabled until runtime failure safety is demonstrated.
