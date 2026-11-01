@@ -53,13 +53,18 @@ class RealRedisLeaseTests(unittest.TestCase):
             another.close()
 
     def test_media_and_tts_lease_implementations_interoperate(self):
-        from gateway.gpu_lease import GPULease as TTSGPULease
+        from gateway.gpu_lease import (
+            GPULease as TTSGPULease,
+            LeaseUnavailable as TTSLeaseUnavailable,
+        )
         # Exercise both service implementations against one real Redis key.
         another = Redis.from_url(self.url, socket_connect_timeout=2, socket_timeout=2)
         try:
             with GPULease(self.client, key=self.key) as media_holder:
                 media_holder.assert_held()
-                with self.assertRaises(LeaseUnavailable):
+                # Each service defines its own exception class; a failed
+                # TTS lease acquisition must raise the TTS-specific type.
+                with self.assertRaises(TTSLeaseUnavailable):
                     TTSGPULease(another, key=self.key).acquire()
 
             with TTSGPULease(another, key=self.key) as tts_holder:
