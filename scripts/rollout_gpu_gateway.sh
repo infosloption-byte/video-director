@@ -129,6 +129,11 @@ if [[ "$mode" == rollback ]]; then
   [[ "$gateway_image" == "$old_gateway_image" || "$gateway_image" == "$new_image" ]] || {
     echo "BLOCKED: gateway image unrelated to this rollout." >&2; exit 1;
   }
+  if [[ "$gateway" == "$old_gateway" && "$gateway_image" == "$old_gateway_image" ]]; then
+    echo "PASS: gateway is already the original snapshot container and image."
+    echo "No rollback needed; no services were changed."
+    exit 0
+  fi
   restore
   exit $?
 fi
