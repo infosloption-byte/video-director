@@ -119,3 +119,48 @@ bash scripts/test_gpu_redis_integration.sh
 ```
 
 The test runner uses its **own disposable Redis**, not this coordinator.
+
+## Verify the real coordinator without changing live TTS/media containers
+
+After starting the coordinator and confirming it is healthy, run:
+
+```bash
+cd /opt/voxora-gpu/video-director
+bash scripts/smoke_gpu_coordinator.sh
+```
+
+The script uses the **existing** `voxora-media-worker:latest` image as a
+disposable client, joining only the shared Docker network. It mounts the local
+coordinator secret read-only and **does not pass credentials in CLI arguments
+or log them**. Both TTS and media lease modules are loaded from Git checkout
+read-only. The test verifies network/DNS, authenticated Redis access, refusal
+of unauthenticated requests, bi-directional TTS/media contention on a **unique
+test-only Redis key**, and safe lease release.
+
+The probe does NOT attach the existing `voxora-gpu` TTS gateway or
+`voxora-media` worker, update production environment variables, restart
+Docker containers, invoke CUDA or publish ports.
+
+If Compose displayed **"network exists but was not created by compose"**, it
+reused an existing named bridge. Review ownership before reconfiguring that
+network:
+
+```bash
+sudo docker network inspect voxora-gpu-coordination \
+  --format '{{json .Labels}}'
+sudo docker network inspect voxora-gpu-coordination \
+  --format '{{range .Containers}}{{.Name}} {{end}}'
+```
+
+Do not delete/recreate the existing network while the coordinator or other
+containers are attached. The network warning alone is not a Redis failure.
+
+**Security:** Keep the secret file under the protected, gitignored
+`gpu-coordination/secrets` directory. Avoid command tracing (`set -x`)
+during credential handling. Docker administrators can inspect container
+mounts and read credentials; protect Docker daemon access.
+
+Passing this probe is a **network and lease protocol gate only**. Running
+TTS/media containers will still need a planned, tested way to read
+authentication credentials, and Redis ownership loss during active CUDA
+inference still needs fail-safe behavior before scheduling activation.
