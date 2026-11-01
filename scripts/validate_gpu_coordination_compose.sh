@@ -18,4 +18,6 @@ echo "Checking TTS base + coordination overlay (no deployment)..."
 (cd "$ROOT/tts-service" && sudo docker compose -p voxora-gpu -f docker-compose.gpu.yml -f docker-compose.coordination.yml config --quiet)
 echo "Checking GPU media base + coordination overlay (no deployment)..."
 (cd "$ROOT/gpu-media-service" && sudo docker compose -p voxora-media -f docker-compose.gpu.yml -f docker-compose.coordination.yml --profile worker config --quiet)
+echo "Checking for unsafe changes against live base Compose definitions..."
+python3 "$ROOT/scripts/check_gpu_coordination_rollout.py"
 echo "Compose validation passed; no containers changed."
