@@ -279,3 +279,44 @@ During a separate maintenance window, before recreating any service:
 
 Do not treat the shared Redis lease as CUDA preemption. Expiry of the
 Redis key does not stop an already-running GPU kernel.
+
+## Stage 8: compare current live Compose definitions before any rollout
+
+A successful Docker image preflight confirms that new image imports and Redis
+authentication work, but not that combining the overlays with your *actual*
+live Compose configuration preserves existing behavior. The live TTS base
+`tts-service/docker-compose.gpu.yml` is untracked, so this comparison must run
+**on the GPU server**, not in CI.
+
+After merging the dry-run validation PR, run:
+
+```bash
+cd /opt/voxora-gpu/video-director
+python3 -m unittest discover -s scripts/tests \
+  -p 'test_gpu_rollout_compare.py' -v
+bash scripts/validate_gpu_coordination_compose.sh
+```
+
+The validator now runs an additional **read-only** comparison between the
+actual `docker compose config --format json` outputs with and without each
+overlay. No container is started, stopped, recreated, or joined to a network.
+
+It blocks overlays that:
+
+- Change unrelated services (including Kokoro/Qwen workers or media Redis).
+- Change gateway/worker image/build, volumes, host ports, dependencies,
+  resource/GPU settings, or their existing network memberships.
+- Add unexpected networks or remove any existing network membership.
+- Remove existing secrets, add an unexpected secret, or point at a
+  different secret file.
+- Change unrelated environment settings or enable GPU coordination,
+  GPU Whisper or heavy media inference.
+
+It prints only sanitized pass/fail messages, **not the rendered Compose
+configuration**, because environment values could contain credentials.
+If it prints `BLOCKED`, do **not** run the overlays with `up`. We must
+inspect the conflicting configuration and revise the overlay first.
+
+Even after this passes, switching the actual live TTS gateway/worker is a
+**separate deployment and rollback operation** with possible brief service
+interruption. No such operation is included here. GPU scheduling remains off.
