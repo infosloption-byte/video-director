@@ -32,11 +32,11 @@ cd /opt/voxora-gpu/video-director
 umask 077
 install -d -m 700 gpu-coordination/secrets
 openssl rand -hex 32 > gpu-coordination/secrets/redis_password.txt
-chmod 600 gpu-coordination/secrets/redis_password.txt
+chmod 644 gpu-coordination/secrets/redis_password.txt
 git status --short
 ```
 
-The file is gitignored. **Do not paste its contents into chat, GitHub, or logs.**
+The file is gitignored. The local secret directory is mode 700 (not traversable by other host users); the file uses mode 644 so the unprivileged Redis user can read the bind-mounted Compose secret. Compose file-backed secrets may not support uid/gid/mode remapping. Do not relax the directory permissions. **Do not paste the password into chat, GitHub, or logs.**
 Do not commit any `.env` files containing coordinator credentials.
 
 ## Validate Compose without changing the live services
