@@ -4,7 +4,7 @@ import os
 import subprocess
 import time
 from contextlib import contextmanager
-from redis import Redis
+from .gpu_client import create_gpu_redis_client
 from .gpu_lease import GPULease, LeaseUnavailable
 from .gpu_admission import assert_gpu_admitted
 from pathlib import Path
@@ -131,10 +131,7 @@ def gpu_reservation(kind: str):
         return
     if os.getenv("GPU_COORDINATION_ENABLED", "false").lower() != "true":
         raise LeaseUnavailable("GPU jobs require enabled shared coordination.")
-    url = os.getenv("GPU_COORDINATION_REDIS_URL", "")
-    if not url:
-        raise LeaseUnavailable("GPU coordinator URL is missing.")
-    client = Redis.from_url(url, socket_connect_timeout=3, socket_timeout=3)
+    client = create_gpu_redis_client()
     lease = GPULease(client)
     try:
         lease.acquire(wait_seconds=15)

@@ -164,3 +164,59 @@ Passing this probe is a **network and lease protocol gate only**. Running
 TTS/media containers will still need a planned, tested way to read
 authentication credentials, and Redis ownership loss during active CUDA
 inference still needs fail-safe behavior before scheduling activation.
+
+## Stage 6: read-only secret integration in optional service overlays
+
+The `tts-service/docker-compose.coordination.yml` and
+`gpu-media-service/docker-compose.coordination.yml` overlays now mount the
+same local coordinator password as a read-only Docker Compose secret at
+`/run/secrets/coordinator_password`. Both set:
+
+```text
+GPU_COORDINATION_ENABLED=false
+GPU_COORDINATION_REDIS_HOST=voxora-gpu-coordinator
+GPU_COORDINATION_REDIS_PASSWORD_FILE=/run/secrets/coordinator_password
+```
+
+The worker overlay also pins `GPU_MEDIA_WHISPER_DEVICE=cpu` and
+`GPU_MEDIA_HEAVY_ENABLED=false`. These are **safety defaults**, not an
+activation procedure.
+
+Both Python clients now prefer an absolute secret path to a URL. Supplying
+both `GPU_COORDINATION_REDIS_URL` and
+`GPU_COORDINATION_REDIS_PASSWORD_FILE` is rejected when coordination is
+enabled. Do not store the Redis password in tracked files, .env, shell
+history, or service environment variables.
+
+**Manual validation after merging this PR, with no Docker restarts:**
+
+```bash
+cd /opt/voxora-gpu/video-director
+bash scripts/validate_gpu_coordination_compose.sh
+bash scripts/smoke_gpu_coordinator.sh
+
+cd gpu-media-service
+sudo docker run --rm --network none \
+  -v "$PWD/media_service:/app/media_service:ro" \
+  -v "$PWD/tests:/app/tests:ro" \
+  --workdir /app --entrypoint python \
+  voxora-media-worker:latest \
+  -B -m unittest discover -s tests -p 'test_gpu_*.py' -v
+```
+
+The smoke script now invokes the **actual TTS and media client
+constructors**, reading a mounted password file from the disposable client.
+This confirms both real client implementations can authenticate without
+placing the password in the URL. It does **not** test that the running TTS
+gateway/worker has the secret mounted.
+
+**DO NOT apply the service overlays with `up -d` yet.** A Compose overlay
+may recreate existing TTS or media containers to add networks and secrets.
+The runtime flag remains off and no GPU inference behavior changes until
+the gateway and worker are rebuilt/deployed in a controlled maintenance
+window, health-checked, and verified to keep their prior networks.
+
+Before enabling shared GPU locks, investigate lease-loss handling during
+native inference. A Redis lease can expire while a CUDA kernel is still
+running, and the current lease alone cannot stop that kernel or guarantee
+latency priority for TTS.

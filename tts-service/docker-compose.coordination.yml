@@ -3,6 +3,13 @@
 # The base TTS compose file is currently untracked on the server; do not replace it.
 services:
   gateway:
+    # Intentionally disabled until end-to-end GPU scheduling is proven safe.
+    environment:
+      GPU_COORDINATION_ENABLED: "false"
+      GPU_COORDINATION_REDIS_HOST: voxora-gpu-coordinator
+      GPU_COORDINATION_REDIS_PASSWORD_FILE: /run/secrets/coordinator_password
+    secrets:
+      - coordinator_password
     networks:
       - default
       - coordination
@@ -11,3 +18,7 @@ networks:
   coordination:
     external: true
     name: voxora-gpu-coordination
+
+secrets:
+  coordinator_password:
+    file: ../gpu-coordination/secrets/redis_password.txt
