@@ -33,6 +33,13 @@ class PeerDiscoveryTests(unittest.TestCase):
         )
         self.assertEqual([r["service"] for r in records], ["melo-worker", "qwen-cuda"])
 
+    def test_accepts_shortened_compose_gateway_id(self):
+        records = peers.parse_peers(
+            GATEWAY[:12], [GATEWAY, CUSTOM_MELO],
+            [record(CUSTOM_MELO, "melo-worker")],
+        )
+        self.assertEqual(len(records), 1)
+
     def test_rejects_missing_gateway_membership(self):
         with self.assertRaises(peers.PeerDiscoveryError):
             peers.parse_peers(GATEWAY, [CUSTOM_MELO], [record(CUSTOM_MELO, "melo")])
