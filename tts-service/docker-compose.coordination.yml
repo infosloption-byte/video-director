@@ -1,0 +1,13 @@
+# Optional overlay. Always compose with the existing LIVE TTS base file first:
+# -f docker-compose.gpu.yml -f docker-compose.coordination.yml
+# The base TTS compose file is currently untracked on the server; do not replace it.
+services:
+  gateway:
+    networks:
+      - default
+      - coordination
+
+networks:
+  coordination:
+    external: true
+    name: voxora-gpu-coordination
