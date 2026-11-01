@@ -1,6 +1,6 @@
-# Shared GPU scheduling — implementation stage 1
+# Shared GPU scheduling — staged implementation
 
-This branch introduces an **unused** Redis GPU lease primitive with unit tests. It does not activate cross-service scheduling, alter the TTS gateway, or enable image/video jobs. The existing CPU-only queued transcription remains safe.
+GPU leases, opt-in TTS/media hooks and VRAM admission now exist in the repository, but deployment flags remain disabled. The feature must not be activated until full cross-service runtime and failure testing is complete. Existing CPU-only transcription and disabled heavy jobs remain the production defaults.
 
 ## Requirements before activation
 
@@ -68,3 +68,26 @@ It removes the temporary Redis container and network after the test, including o
 **Guardrail:** This test must always run against its own disposable Redis. Never point `GPU_COORDINATION_TEST_REDIS_URL` at production or queue Redis. The password is temporary and passed to disposable test containers; it is not a deployment credential.
 
 Passing these tests still does **not** prove safe GPU inference when the coordinator disconnects while a native CUDA kernel remains active. That requires runtime cancellation/fencing tests and an explicit policy for TTS latency during long-running image/video inference. Keep scheduling disabled and heavy jobs disabled until the complete rollout is validated.
+
+## Stage 5: dedicated private coordination Redis and Compose overlays
+
+The optional infrastructure lives in `gpu-coordination/docker-compose.yml`. The
+Redis container has no published host port, uses a locally generated password,
+and joins the dedicated `voxora-gpu-coordination` Docker bridge. It does NOT
+replace `voxora-media` Redis or publish a Redis port on the GPU host.
+
+Separate optional overlays attach **only** `tts-service.gateway` and
+`gpu-media-service.worker` to that network. Their default networks, internal
+dependencies, and existing Docker Compose files remain intact.
+
+Read `gpu-coordination/README.md` and validate with:
+
+```bash
+bash scripts/validate_gpu_coordination_compose.sh
+```
+
+**Do not enable scheduling or run the overlays yet.** The current implementation
+cannot prevent native CUDA inference from continuing during loss of Redis
+ownership. The current priority behavior is also bounded waiting, not
+preemptive TTS priority. Confirmed real Redis protocol integration tests
+passed 5/5 on the GPU host; these are not end-to-end CUDA concurrency tests.
