@@ -17,11 +17,19 @@ class PeerDiscoveryError(RuntimeError):
     pass
 
 
-def parse_peers(gateway_id: str, all_ids: list[str], inspected: list[dict]) -> list[dict]:
-    if not re.fullmatch(r"[0-9a-f]{64}", gateway_id):
+def normalize_gateway_id(gateway_id: str, all_ids: list[str]) -> str:
+    # Compose versions may return a shortened container ID; docker ps --no-trunc
+    # supplies full IDs. Resolve a unique prefix before comparing peers.
+    if not re.fullmatch(r"[0-9a-f]{12,64}", gateway_id):
         raise PeerDiscoveryError("Invalid gateway ID.")
-    if gateway_id not in all_ids:
-        raise PeerDiscoveryError("The gateway is not in the expected Compose project.")
+    matches = [item for item in all_ids if item.startswith(gateway_id)]
+    if len(matches) != 1:
+        raise PeerDiscoveryError("Gateway is absent or ambiguous in the Compose project.")
+    return matches[0]
+
+
+def parse_peers(gateway_id: str, all_ids: list[str], inspected: list[dict]) -> list[dict]:
+    gateway_id = normalize_gateway_id(gateway_id, all_ids)
     peer_ids = set(all_ids) - {gateway_id}
     if not peer_ids:
         raise PeerDiscoveryError("No other TTS containers found in Compose project.")
@@ -60,9 +68,7 @@ def capture() -> str:
         capture_output=True, text=True, timeout=15, check=True,
     )
     all_ids = [x.strip() for x in listed.stdout.splitlines() if x.strip()]
-    gateway_id = sys.argv[1].strip()
-    if gateway_id not in all_ids:
-        raise PeerDiscoveryError("Gateway not found among TTS project containers.")
+    gateway_id = normalize_gateway_id(sys.argv[1].strip(), all_ids)
     peers = [x for x in all_ids if x != gateway_id]
     if not peers:
         raise PeerDiscoveryError("No non-gateway containers were discovered.")
