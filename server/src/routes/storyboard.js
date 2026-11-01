@@ -631,6 +631,75 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
   }
 });
 
+// Repair only missing narration; leave already playable cloned audio unchanged.
+const activeRepairs = new Set();
+router.post("/projects/:id/repair-narration", async (req, res) => {
+  const projectId = req.params.id;
+  if (activeRepairs.has(projectId)) {
+    return res.status(409).json({ code: "NARRATION_REPAIR_ACTIVE", error: "Narration repair is already in progress." });
+  }
+  activeRepairs.add(projectId);
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { scenes: { orderBy: { sceneOrder: "asc" } } },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    if (!project.scenes.length) return res.status(409).json({ error: "Generate the storyboard before repairing narration." });
+
+    const initial = await inspectNarration(project.id, project.scenes, narrationFileExists);
+    const missingIds = new Set(initial.scenes.filter((scene) => !scene.ready).map((scene) => scene.sceneId));
+    const failures = [];
+    let regeneratedCount = 0;
+    for (const scene of project.scenes) {
+      if (!missingIds.has(scene.id)) continue;
+      try {
+        const voice = await resolveNarrationVoice({
+          project,
+          userId: req.user.id,
+          voice: scene.customization?.voice || null,
+        });
+        const narration = await synthesizeSpeech({
+          projectId: project.id,
+          sceneId: scene.id,
+          text: scene.spokenText,
+          engine: voice.engine,
+          voiceId: voice.voiceId,
+          voice: voice.voice,
+          language: voice.language,
+          allowFallback: false,
+        });
+        await prisma.projectScene.update({
+          where: { id: scene.id },
+          data: {
+            audioUrl: narration.audioUrl,
+            wordTimestamps: narration.wordTimestamps,
+            ...(narration.durationSeconds != null ? { durationSeconds: narration.durationSeconds } : {}),
+          },
+        });
+        regeneratedCount += 1;
+      } catch (error) {
+        console.error("Narration repair failed for scene", scene.sceneOrder, error?.message);
+        failures.push({ sceneOrder: scene.sceneOrder, error: "Narration could not be generated for this scene." });
+      }
+    }
+    if (regeneratedCount) await syncProjectStoryboardTotals(project.id);
+    const updated = await loadProjectScenes(project.id);
+    const status = await inspectNarration(project.id, updated.scenes, narrationFileExists);
+    return res.json({
+      ...status,
+      regeneratedCount,
+      failures,
+      updatedScenes: updated.scenes.map((scene) => publicScene({ ...scene, projectId: project.id })),
+    });
+  } catch (error) {
+    console.error("POST repair-narration failed:", error?.message);
+    return res.status(503).json({ error: "Could not check or repair project narration." });
+  } finally {
+    activeRepairs.delete(projectId);
+  }
+});
+
 router.get("/projects/:id/narration-status", async (req, res) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { scenes: { orderBy: { sceneOrder: "asc" } } } });
