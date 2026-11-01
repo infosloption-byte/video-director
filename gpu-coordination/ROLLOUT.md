@@ -223,3 +223,35 @@ replace the media worker until gateway behavior is verified.
 Keep `GPU_COORDINATION_ENABLED=false` throughout. No GPU
 Whisper, SDXL or Wan workload is enabled by this step. Redis lease loss
 during a native CUDA call and TTS prioritization remain unaddressed.
+
+### Live TTS Compose service-name compatibility
+
+The first gateway rollout command on the GPU host stopped safely with
+`no such service: melotts-v3`, including the `check`, `deploy`, and
+`rollback` commands. This was a runbook/script assumption about live
+service names, **not evidence that Redis or the TTS gateway failed**.
+
+The gateway-only rollout script now inventories every non-gateway container
+labeled with the live `voxora-gpu` Compose project, regardless of its
+actual service name. It captures an identity fingerprint including container
+ID, image ID, start time, running state and service label. After the planned
+gateway recreation or rollback it checks that the peer fingerprint did not
+change; this protects the running engine containers without assuming example
+service names. It resolves the configured TTS worker endpoints from the
+deployed gateway's `gateway.app.WORKERS` instead of probing hardcoded DNS
+service names. No container configuration or secret values are printed.
+
+After merging the compatibility fix, rerun **check only**:
+
+```bash
+cd /opt/voxora-gpu/video-director
+python3 -m unittest discover -s scripts/tests \
+  -p 'test_tts_peer_fingerprint.py' -v
+bash scripts/rollout_gpu_gateway.sh check \
+  /home/ubuntu/voxora-gpu-rollout-faOcjeMQ
+```
+
+The `rollback` operation now exits without any Docker changes if the
+original snapshot gateway container and image are still running. Do not
+recreate the gateway until the fixed check passes and upstream narration
+work is explicitly paused for a maintenance window.
