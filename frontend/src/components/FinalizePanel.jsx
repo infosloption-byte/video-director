@@ -109,12 +109,19 @@ function AssetDownloadDetail({ asset, completedAssets = 0, totalAssets = 0 }) {
   );
 }
 
-export default function FinalizePanel({ projectId, project, scenes, renderStatus, renderLoading, renderError, onRender, onBack }) {
+export default function FinalizePanel({ projectId, project, scenes, renderStatus, renderLoading, renderError, onRender, onBack, onNarrationUpdated }) {
   const [exports, setExports] = useState(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [narrationReady, setNarrationReady] = useState(false);
+  const [narrationStatus, setNarrationStatus] = useState(null);
+  const [narrationChecking, setNarrationChecking] = useState(true);
+  const [narrationError, setNarrationError] = useState("");
+  const [narrationRepairing, setNarrationRepairing] = useState(false);
+  const [narrationRepairMessage, setNarrationRepairMessage] = useState("");
+  const narrationRevision = scenes.map((scene) => [scene.id, scene.audioUrl || "", scene.wordTimestamps?.length || 0].join(":")).join("|");
+  const narrationReady = narrationStatus?.ready === true;
+  const missingNarration = (narrationStatus?.scenes || []).filter((scene) => !scene.ready);
   const [facebookPublishing, setFacebookPublishing] = useState(false);
   const [facebookResult, setFacebookResult] = useState(null);
   const [facebookError, setFacebookError] = useState("");
@@ -132,13 +139,43 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
   }
 
   async function loadNarrationStatus() {
+    setNarrationChecking(true);
+    setNarrationError("");
     try {
-      const response = await fetch(`/api/projects/${projectId}/narration-status`, { cache: "no-store" });
+      const response = await fetch(`/api/projects/${projectId}/narration-status`, { cache: "no-store", credentials: "include" });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Failed to check narration.");
-      setNarrationReady(Boolean(data.ready));
-    } catch {
-      setNarrationReady(scenes.length > 0 && scenes.every((scene) => Boolean(scene.audioUrl && scene.wordTimestamps?.length)));
+      if (!response.ok) throw new Error(data.error || "Failed to check narration files.");
+      setNarrationStatus(data);
+    } catch (error) {
+      // Never infer that the audio files exist from the browser's scene metadata.
+      setNarrationStatus(null);
+      setNarrationError(error.message || "Narration status is temporarily unavailable.");
+    } finally {
+      setNarrationChecking(false);
+    }
+  }
+
+  async function repairMissingNarration() {
+    if (narrationRepairing || !missingNarration.length) return;
+    setNarrationRepairing(true);
+    setNarrationRepairMessage("");
+    setNarrationError("");
+    try {
+      const response = await fetch(`/api/projects/${projectId}/repair-narration`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Narration repair failed.");
+      setNarrationStatus(data);
+      if (Array.isArray(data.updatedScenes)) onNarrationUpdated?.(data.updatedScenes);
+      if (data.ready) setNarrationRepairMessage(`Narration ready for all ${data.totalScenes} scenes. You can now render your video.`);
+      else setNarrationRepairMessage(`Repaired ${data.regeneratedCount || 0} scene(s). ${data.missingScenes?.length || 0} still need narration. Try again after checking the selected voice.`);
+    } catch (error) {
+      setNarrationError(error.message || "Narration repair failed.");
+      await loadNarrationStatus();
+    } finally {
+      setNarrationRepairing(false);
     }
   }
 
@@ -157,7 +194,7 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
     void loadExports();
     void loadNarrationStatus();
     void loadRenderStatus();
-  }, [projectId, scenes.length]);
+  }, [projectId, narrationRevision]);
 
   useEffect(() => {
     if (renderStatus) setLiveRenderStatus(renderStatus);
@@ -276,10 +313,30 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
         <div><span className="mono-label">RUNTIME</span><strong>{formatSeconds(displayDuration)}</strong></div>
         <div><span className="mono-label">CUTS</span><strong>{scenes.length}</strong></div>
         <div><span className="mono-label">FRAMEWORK</span><strong>{project?.setup?.framework || "—"}</strong></div>
-        <div><span className="mono-label">NARRATION</span><strong>{narrationReady ? "Ready" : "Missing"}</strong></div>
+        <div><span className="mono-label">NARRATION</span><strong>{narrationChecking ? "Checking…" : narrationError ? "Check failed" : narrationReady ? "Ready" : `${narrationStatus?.readyScenes ?? 0}/${narrationStatus?.totalScenes ?? scenes.length} ready`}</strong></div>
       </div>
 
-      {!narrationReady && <div className="finalize-panel__warning">Narration is not complete for every scene. Generate narration in Storyboard before rendering the final MP4.</div>}
+      {!narrationReady && (
+        <div className="finalize-panel__warning" role="status" aria-live="polite" id="narration-render-blocker">
+          <strong>{narrationChecking ? "Checking narration files…" : narrationError ? "Narration status unavailable" : "Narration needs attention"}</strong>
+          {narrationError ? (
+            <p>{narrationError} Rendering will remain disabled until the server can confirm the audio files.</p>
+          ) : !narrationChecking && narrationStatus ? (
+            <p>
+              {missingNarration.length} of {narrationStatus.totalScenes} scenes still need playable audio.
+              {missingNarration.length > 0 && ` Check scene${missingNarration.length === 1 ? "" : "s"} ${missingNarration.map((scene) => scene.sceneOrder).join(", ")}.`}
+              {" "}Scenes that already have audio will not be regenerated.
+            </p>
+          ) : null}
+          <div className="finalize-panel__narration-actions">
+            <button type="button" className="btn btn-ghost" disabled={narrationChecking || narrationRepairing} onClick={loadNarrationStatus}>Recheck narration</button>
+            {missingNarration.length > 0 && <button type="button" className="btn btn-cream" disabled={narrationChecking || narrationRepairing || renderLoading} onClick={repairMissingNarration}>
+              {narrationRepairing ? "Generating missing audio…" : "Generate missing narration"}
+            </button>}
+          </div>
+        </div>
+      )}
+      {narrationRepairMessage && <div className="finalize-panel__success" role="status">{narrationRepairMessage}</div>}
       {renderError && <div className="finalize-panel__error"><strong>Render couldn't complete.</strong><span>{renderError}</span></div>}
       {exportError && <div className="finalize-panel__error"><strong>Export couldn't complete.</strong><span>{exportError}</span></div>}
       {facebookError && <div className="finalize-panel__error"><strong>Facebook publish couldn't complete.</strong><span>{facebookError}</span></div>}
@@ -291,9 +348,9 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
           <h3>{renderComplete ? "Your MP4 is ready." : renderFailed ? "Render stopped." : "Render the finished reel."}</h3>
           <p>{isRenderActive ? stageMessage : "Remotion combines the selected B-roll, narration and synced captions into the final 9:16 video."}</p>
         </div>
-        {!renderComplete && !renderFailed && <button className="btn btn-cream" onClick={onRender} disabled={renderLoading || isRenderActive || !narrationReady}>{renderLoading || isRenderActive ? `${progress}% · ${RENDER_STAGES[currentIndex]?.label || "Rendering"}` : "Render MP4 →"}</button>}
+        {!renderComplete && !renderFailed && <button className="btn btn-cream" onClick={onRender} disabled={renderLoading || isRenderActive || !narrationReady || narrationChecking || narrationRepairing} aria-describedby={!narrationReady ? "narration-render-blocker" : undefined}>{renderLoading || isRenderActive ? `${progress}% · ${RENDER_STAGES[currentIndex]?.label || "Rendering"}` : "Render MP4 →"}</button>}
         {renderComplete && <a className="btn btn-cream" href={renderUrl} target="_blank" rel="noreferrer">Open MP4 <IconArrowRight className="btn-icon" /></a>}
-        {renderFailed && <button className="btn btn-cream" onClick={onRender} disabled={renderLoading || !narrationReady}>{renderLoading ? "Retrying…" : "Retry render →"}</button>}
+        {renderFailed && <button className="btn btn-cream" onClick={onRender} disabled={renderLoading || !narrationReady || narrationChecking || narrationRepairing} aria-describedby={!narrationReady ? "narration-render-blocker" : undefined}>{renderLoading ? "Retrying…" : "Retry render →"}</button>}
       </div>
 
       {(isRenderActive || renderFailed || renderComplete) && (
