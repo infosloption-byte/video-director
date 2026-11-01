@@ -71,7 +71,7 @@ class RealRedisLeaseTests(unittest.TestCase):
         self.assertEqual(self.client.get(self.key), b"successor")
 
     def test_sigkill_releases_lease_after_ttl(self):
-        # Linux worker image uses fork; no active parent heartbeat threads here.
+        # Spawn creates a separate Python process and Redis connection.
         ctx = multiprocessing.get_context("spawn")
         receiver, sender = ctx.Pipe(duplex=False)
         process = ctx.Process(target=_hold_lease_in_child, args=(self.url, self.key, sender))
@@ -85,9 +85,13 @@ class RealRedisLeaseTests(unittest.TestCase):
             process.kill()
             process.join(timeout=3)
             self.assertFalse(process.is_alive())
-            with GPULease(self.client, key=self.key, ttl_ms=3500,
-                          heartbeat_seconds=0.2).acquire(wait_seconds=7) as successor:
+            successor = GPULease(self.client, key=self.key, ttl_ms=3500,
+                                 heartbeat_seconds=0.2)
+            successor.acquire(wait_seconds=7)
+            try:
                 successor.assert_held()
+            finally:
+                successor.release()
         finally:
             if process.is_alive():
                 process.kill()
