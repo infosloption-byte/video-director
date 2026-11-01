@@ -11,7 +11,6 @@ import uuid
 
 from redis import Redis
 from media_service.gpu_lease import GPULease, LeaseUnavailable, LeaseLost
-from gateway.gpu_lease import GPULease as TTSGPULease
 
 
 def _hold_lease_in_child(redis_url, key, sender):
@@ -54,6 +53,7 @@ class RealRedisLeaseTests(unittest.TestCase):
             another.close()
 
     def test_media_and_tts_lease_implementations_interoperate(self):
+        from gateway.gpu_lease import GPULease as TTSGPULease
         # Exercise both service implementations against one real Redis key.
         another = Redis.from_url(self.url, socket_connect_timeout=2, socket_timeout=2)
         try:
