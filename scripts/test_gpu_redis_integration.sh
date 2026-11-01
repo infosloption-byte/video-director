@@ -52,6 +52,8 @@ echo "Running cross-container coordination tests with production worker Python..
   --tmpfs /tmp:rw,noexec,nosuid,size=32m \
   -e "GPU_COORDINATION_TEST_REDIS_URL=redis://:$PASSWORD@$REDIS_NAME:6379/0" \
   -v "$MEDIA_DIR:/app:ro" \
+  -v "$ROOT/tts-service:/tts-service:ro" \
+  -e "PYTHONPATH=/app:/tts-service" \
   -w /app \
   --entrypoint python \
   voxora-media-worker:latest \
