@@ -30,6 +30,23 @@ class AdmissionTests(unittest.TestCase):
         with self.assertRaises(GPUAdmissionDenied):
             required_free_mib("unknown")
 
+    def test_rejects_multiple_gpu_readings(self):
+        import subprocess
+        with patch("media_service.gpu_admission.subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout="12000\n11000\n")):
+            with self.assertRaises(GPUAdmissionDenied):
+                gpu_free_memory_mib()
+
+    def test_rejects_negative_gpu_reading(self):
+        import subprocess
+        with patch("media_service.gpu_admission.subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout="-12\n")):
+            with self.assertRaises(GPUAdmissionDenied):
+                gpu_free_memory_mib()
+
+    def test_rejects_excessive_threshold(self):
+        with patch.dict(os.environ, {"GPU_MEDIA_MIN_FREE_MIB_VIDEO": "999999"}):
+            with self.assertRaises(GPUAdmissionDenied):
+                required_free_mib("video")
+
     def test_telemetry_failure_fails_closed(self):
         with patch("media_service.gpu_admission.subprocess.run", side_effect=FileNotFoundError):
             with self.assertRaises(GPUAdmissionDenied):
