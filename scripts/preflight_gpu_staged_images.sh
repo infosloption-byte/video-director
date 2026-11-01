@@ -65,6 +65,8 @@ probe() {
     -e GPU_COORDINATION_REDIS_HOST=voxora-gpu-coordinator \
     -e GPU_COORDINATION_REDIS_PASSWORD_FILE=/run/secrets/coordinator_password \
     -e "GPU_PREFLIGHT_SERVICE=$service" \
+    -e PYTHONPATH=/app \
+    --workdir /app \
     --entrypoint python \
     "$image" -B /checks/check_gpu_stage_image.py
 }
