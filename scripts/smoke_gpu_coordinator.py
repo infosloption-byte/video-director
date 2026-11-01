@@ -4,10 +4,14 @@ Uses an isolated, unique key. It neither invokes CUDA nor enables the runtime
 scheduler. The caller must mount both service source trees and a password file.
 """
 from pathlib import Path
+from unittest.mock import patch
+import os
 import uuid
 
 from redis import Redis
 from redis.exceptions import AuthenticationError
+from gateway.gpu_client import create_gpu_redis_client as tts_redis_client
+from media_service.gpu_client import create_gpu_redis_client as media_redis_client
 from gateway.gpu_lease import (
     GPULease as TTSLease,
     LeaseUnavailable as TTSLeaseUnavailable,
@@ -48,14 +52,14 @@ def run():
     finally:
         unauthenticated.close()
 
-    first = Redis(
-        host=HOST, port=6379, password=password, db=0,
-        socket_connect_timeout=3, socket_timeout=3,
-    )
-    second = Redis(
-        host=HOST, port=6379, password=password, db=0,
-        socket_connect_timeout=3, socket_timeout=3,
-    )
+    # Exercise the same secret-file client builders used in real deployments.
+    with patch.dict(os.environ, {
+        "GPU_COORDINATION_REDIS_HOST": HOST,
+        "GPU_COORDINATION_REDIS_PASSWORD_FILE": str(SECRET),
+        "GPU_COORDINATION_REDIS_URL": "",
+    }):
+        first = media_redis_client()
+        second = tts_redis_client()
     key = "voxora:gpu:connectivity-smoke:" + uuid.uuid4().hex
     try:
         if not first.ping() or not second.ping():
@@ -71,6 +75,7 @@ def run():
         if first.exists(key):
             raise AssertionError("Lease key remained after normal release.")
         print("PASS: Redis authentication required")
+        print("PASS: both services authenticate via mounted Redis secret")
         print("PASS: authenticated Redis DNS and connectivity")
         print("PASS: media and TTS exclusive lease interoperability")
         print("PASS: temporary lease released")
