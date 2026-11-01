@@ -182,7 +182,16 @@ from pathlib import Path
 assert os.environ.get("GPU_COORDINATION_ENABLED") == "false"
 assert os.environ.get("GPU_COORDINATION_REDIS_HOST") == "voxora-gpu-coordinator"
 assert Path("/run/secrets/coordinator_password").is_file()
-print("PASS: gateway secret mounted, GPU coordination OFF")
+import socket
+for host in ("kokoro", "melotts-v3", "chatterbox-nano", "qwen3-tts-0.6b", "voxora-gpu-coordinator"):
+    socket.getaddrinfo(host, None)
+from gateway.gpu_client import create_gpu_redis_client
+client = create_gpu_redis_client()
+try:
+    assert client.ping() is True
+finally:
+    client.close()
+print("PASS: gateway engine DNS and coordinator Redis access, GPU coordination OFF")
 '
 healthy
 engines_unchanged
