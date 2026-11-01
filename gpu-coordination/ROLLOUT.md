@@ -163,3 +163,63 @@ targeting only `gateway` with `--no-deps --no-build`. If it fails health
 or synthesis checks, rollback should combine the original TTS base Compose
 **without the coordination overlay** and the private rollback image override.
 No TTS engine or media worker should be recreated in either case.
+
+## Stage 10: controlled TTS gateway-only deployment (explicit operator action)
+
+Once the protected gateway rollout plan and staging checks pass, the
+gateway can be updated **without changing the engine workers or media
+worker**. The script defaults to a read-only check.
+
+After merging the rollout-script pull request:
+
+```bash
+cd /opt/voxora-gpu/video-director
+bash -n scripts/rollout_gpu_gateway.sh
+bash scripts/rollout_gpu_gateway.sh check /home/ubuntu/voxora-gpu-rollout-faOcjeMQ
+```
+
+This confirms that the original gateway and media worker still match the
+saved snapshot, the original gateway image tag still points to the correct
+rollback image, and the proposed Compose overrides remain valid.
+
+**Only in a confirmed TTS maintenance window**, after temporarily stopping
+new upstream TTS submissions and confirming no synthesis is in flight, run:
+
+```bash
+cd /opt/voxora-gpu/video-director
+bash scripts/rollout_gpu_gateway.sh deploy \
+  /home/ubuntu/voxora-gpu-rollout-faOcjeMQ \
+  --accept-tts-interruption
+```
+
+The script will ask for `DEPLOY-GATEWAY` interactively. It
+then recreates **only** service `gateway` with its existing
+live base Compose, the disabled coordination overlay, and the already tested
+gateway image. It uses `--no-deps --no-build --force-recreate`.
+A brief outage is expected; no availability promise is made.
+
+Checks after recreation: new gateway image ID, Redis password mount, GPU
+coordination still OFF, internal DNS resolution for all four TTS engine workers,
+authenticated connectivity to the coordinator, gateway `/health`,
+unchanged engine container IDs and unchanged media worker ID.
+
+If deployment or checks fail, the script attempts automatic rollback to the
+**original image plus base-only Compose**. If rollback fails, investigate
+immediately and use the private snapshot. The script does not print credentials.
+
+At any later point, an explicit manual rollback can be attempted:
+
+```bash
+bash scripts/rollout_gpu_gateway.sh rollback \
+  /home/ubuntu/voxora-gpu-rollout-faOcjeMQ
+```
+
+**Important:** A green `/health` and Redis/DNS check do not
+prove end-to-end narration. After successful deployment, send a controlled
+authenticated Kokoro synthesis request through the existing application and,
+where safe, verify voice cloning or Qwen separately. Do not restart or
+replace the media worker until gateway behavior is verified.
+
+Keep `GPU_COORDINATION_ENABLED=false` throughout. No GPU
+Whisper, SDXL or Wan workload is enabled by this step. Redis lease loss
+during a native CUDA call and TTS prioritization remain unaddressed.
