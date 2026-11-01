@@ -16,6 +16,7 @@ services:
       - /bin/sh
       - -ec
       - |
+        umask 077
         password="$$(cat /run/secrets/coordinator_password)"
         test "$$(printf %s "$$password" | wc -c)" -ge 32
         printf 'bind 0.0.0.0\nprotected-mode yes\nport 6379\nsave ""\nappendonly no\nmaxmemory 128mb\nmaxmemory-policy noeviction\nrequirepass %s\n' "$$password" > /tmp/redis.conf
