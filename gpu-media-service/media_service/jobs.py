@@ -6,6 +6,7 @@ import time
 from contextlib import contextmanager
 from redis import Redis
 from .gpu_lease import GPULease, LeaseUnavailable
+from .gpu_admission import assert_gpu_admitted
 from pathlib import Path
 
 from rq import get_current_job
@@ -138,6 +139,7 @@ def gpu_reservation(kind: str):
     try:
         lease.acquire(wait_seconds=15)
         lease.assert_held()
+        assert_gpu_admitted(kind)
         yield lease
         lease.assert_held()
     finally:
