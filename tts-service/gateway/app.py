@@ -6,11 +6,14 @@ import os
 import subprocess
 import tempfile
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
+from redis import Redis
+from .gpu_lease import GPULease, LeaseUnavailable
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
@@ -54,6 +57,29 @@ class SpeechRequest(BaseModel):
 app = FastAPI(title=APP_NAME, version="1.0.0")
 resident_engine: str | None = None
 synthesis_lock = asyncio.Lock()
+GPU_COORDINATION_ENABLED = os.getenv("GPU_COORDINATION_ENABLED", "false").lower() == "true"
+GPU_COORDINATION_REDIS_URL = os.getenv("GPU_COORDINATION_REDIS_URL", "")
+
+@asynccontextmanager
+async def gpu_reservation(engine_name: str):
+    if not GPU_COORDINATION_ENABLED:
+        yield None
+        return
+    # Reserve across all engine switches because ensure_resident may unload Qwen.
+    if not GPU_COORDINATION_REDIS_URL:
+        raise LeaseUnavailable("GPU coordination Redis URL is missing.")
+    client = Redis.from_url(GPU_COORDINATION_REDIS_URL, socket_timeout=3, socket_connect_timeout=3)
+    lease = GPULease(client)
+    try:
+        await asyncio.to_thread(lease.acquire, 15.0)
+        await asyncio.to_thread(lease.assert_held)
+        yield lease
+        await asyncio.to_thread(lease.assert_held)
+    finally:
+        if lease._acquired:
+            await asyncio.to_thread(lease.release)
+        await asyncio.to_thread(client.close)
+
 
 def require_auth(authorization: str | None = Header(default=None)) -> None:
     # Fail closed if deployment omitted the gateway secret.
@@ -234,13 +260,14 @@ async def synthesize(request: SpeechRequest) -> dict[str, Any]:
                 payload["reference_text"] = voice.get("reference_text") or None
 
             try:
-                await ensure_resident(engine_name)
-                result = await worker_request(
-                    engine_name,
-                    "POST",
-                    "/synthesize",
-                    payload,
-                )
+                async with gpu_reservation(engine_name):
+                    await ensure_resident(engine_name)
+                    result = await worker_request(
+                        engine_name,
+                        "POST",
+                        "/synthesize",
+                        payload,
+                    )
                 result["engine"] = engine_name
                 result["fallback"] = engine_name != primary
                 result["requested_engine"] = primary
@@ -373,10 +400,12 @@ async def delete_voice(voice_id: str) -> dict[str, Any]:
 @app.post("/unload", dependencies=[Depends(require_auth)])
 async def unload_all_models() -> dict[str, Any]:
     global resident_engine
-    for engine_name in WORKERS:
-        try:
-            await worker_request(engine_name, "POST", "/unload")
-        except Exception:
-            pass
-    resident_engine = None
+    async with synthesis_lock:
+        async with gpu_reservation("qwen3-tts-0.6b"):
+            for engine_name in WORKERS:
+                try:
+                    await worker_request(engine_name, "POST", "/unload")
+                except Exception:
+                    pass
+            resident_engine = None
     return {"ok": True}
