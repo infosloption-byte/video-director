@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib
 import os
+from pathlib import Path
 
 service = os.getenv("GPU_PREFLIGHT_SERVICE", "")
 if service not in {"tts", "media"}:
@@ -27,6 +28,12 @@ else:
     if not hasattr(module, "run_media_job"):
         raise SystemExit("Media worker jobs module did not load")
     print("PASS: media worker imports in the new image")
+
+# Ensure imports resolve from the baked image, not a temporary mounted directory.
+module_path = Path(module.__file__).resolve()
+if not module_path.is_relative_to(Path("/app")):
+    raise SystemExit("Preflight imported application outside the built image")
+print(f"PASS: {service} imports resolve from the built image")
 
 client = create_gpu_redis_client()
 try:
