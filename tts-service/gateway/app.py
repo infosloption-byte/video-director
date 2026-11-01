@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from redis import Redis
+from .gpu_client import create_gpu_redis_client
 from .gpu_lease import GPULease, LeaseUnavailable
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -58,7 +58,6 @@ app = FastAPI(title=APP_NAME, version="1.0.0")
 resident_engine: str | None = None
 synthesis_lock = asyncio.Lock()
 GPU_COORDINATION_ENABLED = os.getenv("GPU_COORDINATION_ENABLED", "false").lower() == "true"
-GPU_COORDINATION_REDIS_URL = os.getenv("GPU_COORDINATION_REDIS_URL", "")
 
 @asynccontextmanager
 async def gpu_reservation(engine_name: str):
@@ -66,9 +65,7 @@ async def gpu_reservation(engine_name: str):
         yield None
         return
     # Reserve across all engine switches because ensure_resident may unload Qwen.
-    if not GPU_COORDINATION_REDIS_URL:
-        raise LeaseUnavailable("GPU coordination Redis URL is missing.")
-    client = Redis.from_url(GPU_COORDINATION_REDIS_URL, socket_timeout=3, socket_connect_timeout=3)
+    client = create_gpu_redis_client()
     lease = GPULease(client)
     try:
         await asyncio.to_thread(lease.acquire, 15.0)
