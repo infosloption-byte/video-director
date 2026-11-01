@@ -78,24 +78,13 @@ gateway="$(cd "$tts" && sudo docker compose -p voxora-gpu \
 [[ -n "$gateway" ]] || { echo "BLOCKED: gateway is missing." >&2; exit 1; }
 gateway_image="$(sudo docker inspect "$gateway" --format '{{.Image}}')"
 
-# Remember original engine IDs, to ensure no dependency is recreated.
-engine_ids=""
-for engine in kokoro melotts-v3 chatterbox-nano qwen3-tts-0.6b; do
-  id="$(cd "$tts" && sudo docker compose -p voxora-gpu \
-    -f docker-compose.gpu.yml ps -q "$engine")"
-  [[ -n "$id" ]] || { echo "BLOCKED: TTS engine not running: $engine" >&2; exit 1; }
-  engine_ids="$engine_ids $id"
-done
-
-engines_unchanged() {
-  local now=""
-  local engine id
-  for engine in kokoro melotts-v3 chatterbox-nano qwen3-tts-0.6b; do
-    id="$(cd "$tts" && sudo docker compose -p voxora-gpu \
-      -f docker-compose.gpu.yml ps -q "$engine")"
-    now="$now $id"
-  done
-  [[ "$now" == "$engine_ids" ]]
+# Discover every existing non-gateway container in the LIVE TTS Compose project.
+# This includes locally renamed engine services and protects their image and start time.
+peer_fingerprint_before="$(python3 "$root/scripts/tts_peer_fingerprint.py" "$gateway")"
+peers_unchanged() {
+  local current_fingerprint
+  current_fingerprint="$(python3 "$root/scripts/tts_peer_fingerprint.py" "$gateway")" || return 1
+  [[ "$current_fingerprint" == "$peer_fingerprint_before" ]]
 }
 healthy() {
   local attempt
@@ -116,8 +105,8 @@ restore() {
   local id
   id="$(cd "$tts" && sudo docker compose -p voxora-gpu -f docker-compose.gpu.yml ps -q gateway)"
   [[ "$(sudo docker inspect "$id" --format '{{.Image}}')" == "$old_gateway_image" ]] &&
-    healthy && engines_unchanged && {
-      echo "PASS: rollback gateway image and health restored, engine IDs unchanged."
+    healthy && peers_unchanged && {
+      echo "PASS: rollback gateway image and health restored, other TTS containers unchanged."
       return 0
     }
   echo "URGENT: rollback did not fully verify; investigate TTS gateway." >&2
@@ -183,22 +172,28 @@ assert os.environ.get("GPU_COORDINATION_ENABLED") == "false"
 assert os.environ.get("GPU_COORDINATION_REDIS_HOST") == "voxora-gpu-coordinator"
 assert Path("/run/secrets/coordinator_password").is_file()
 import socket
-for host in ("kokoro", "melotts-v3", "chatterbox-nano", "qwen3-tts-0.6b", "voxora-gpu-coordinator"):
-    socket.getaddrinfo(host, None)
+from urllib.parse import urlparse
+from gateway.app import WORKERS
+assert WORKERS, "No configured TTS workers"
+for endpoint in WORKERS.values():
+    parsed = urlparse(endpoint)
+    assert parsed.hostname and parsed.scheme in ("http", "https")
+    socket.getaddrinfo(parsed.hostname, parsed.port)
+socket.getaddrinfo("voxora-gpu-coordinator", 6379)
 from gateway.gpu_client import create_gpu_redis_client
 client = create_gpu_redis_client()
 try:
     assert client.ping() is True
 finally:
     client.close()
-print("PASS: gateway engine DNS and coordinator Redis access, GPU coordination OFF")
+print("PASS: configured TTS worker DNS and coordinator Redis access, GPU coordination OFF")
 '
 healthy
-engines_unchanged
+peers_unchanged
 [[ "$(cd "$media" && sudo docker compose -p voxora-media \
   -f docker-compose.gpu.yml --profile worker ps -q worker)" == "$old_worker" ]]
 
 complete=1
-echo "PASS: new gateway image, health, TTS engine IDs and media worker verified."
+echo "PASS: new gateway image, health, non-gateway TTS containers and media worker verified."
 echo "GPU scheduling remains disabled. Test real narration before deploying media worker."
 echo "Rollback: bash scripts/rollout_gpu_gateway.sh rollback SNAPSHOT_DIR"
