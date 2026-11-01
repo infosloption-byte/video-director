@@ -124,3 +124,42 @@ running CUDA kernel. Priority and safe interruption (or single-owner
 supervision) must be implemented and validated. Long SDXL/Wan jobs can block
 TTS; enable neither until resource profiles and admission/latency policy
 are established.
+
+## Gateway-only rollout planning check (NO deployment)
+
+After the protected snapshot has been created, use the planning script to
+produce **private image-only Compose overrides** for the new gateway and its
+previous image. This is a dry run and makes no Docker service changes.
+
+```bash
+cd /opt/voxora-gpu/video-director
+python3 -m unittest discover -s scripts/tests -p 'test_gpu_gateway_override.py' -v
+bash scripts/plan_gpu_gateway_rollout.sh /home/ubuntu/voxora-gpu-rollout-faOcjeMQ
+```
+
+The planner requires the live TTS base Compose file and environment to match
+their protected copies, the gateway and media worker to have the **same**
+container IDs and image IDs as the snapshot, the coordinator to remain healthy,
+and the original gateway rollback image tag to point to the original image ID.
+
+It then creates two mode-600 files inside the protected snapshot:
+
+- `gateway-new-image.override.yml` — the separately tested new gateway image.
+- `gateway-rollback-image.override.yml` — the original gateway image.
+
+It renders both complete intended Compose configurations without printing the
+environment values. The checker rejects any unexpected changes to non-gateway
+services, networks, ports, volumes, environment or dependencies.
+
+**This stage does not recreate the gateway.** Do not run an `up` command in
+response to a planner pass alone. First choose a maintenance window, drain
+incoming TTS work, and verify the live image/Compose state has not changed.
+The gateway will have a short outage if later recreated, even when the
+scheduler is disabled.
+
+A later operator-controlled deployment will combine the current untracked TTS
+base Compose, the coordination overlay and the private new-image override,
+targeting only `gateway` with `--no-deps --no-build`. If it fails health
+or synthesis checks, rollback should combine the original TTS base Compose
+**without the coordination overlay** and the private rollback image override.
+No TTS engine or media worker should be recreated in either case.
