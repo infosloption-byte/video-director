@@ -173,7 +173,6 @@ export default function FinalizePanel({ projectId, project, scenes, renderStatus
       else setNarrationRepairMessage(`Repaired ${data.regeneratedCount || 0} scene(s). ${data.missingScenes?.length || 0} still need narration. Try again after checking the selected voice.`);
     } catch (error) {
       setNarrationError(error.message || "Narration repair failed.");
-      await loadNarrationStatus();
     } finally {
       setNarrationRepairing(false);
     }
