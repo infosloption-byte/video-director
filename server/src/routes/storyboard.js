@@ -4,6 +4,7 @@ import { generateStoryboard } from "../services/storyboardService.js";
 import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
 import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
+import { inspectNarration } from "../services/narrationReadiness.js";
 import { requireProjectOwner, requireSceneOwner } from "../middleware/ownership.js";
 import { getPredefinedVoice } from "../services/predefinedVoiceService.js";
 import { FRAMEWORKS, getSetupCatalog } from "../services/setupService.js";
@@ -634,8 +635,7 @@ router.get("/projects/:id/narration-status", async (req, res) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { scenes: { orderBy: { sceneOrder: "asc" } } } });
     if (!project) return res.status(404).json({ error: "Project not found." });
-    const scenes = await Promise.all(project.scenes.map(async (scene) => ({ sceneId: scene.id, ready: Boolean(scene.audioUrl && await narrationFileExists(project.id, scene.id) && Array.isArray(scene.wordTimestamps) && scene.wordTimestamps.length > 0) })));
-    res.json({ projectId: project.id, ready: scenes.length > 0 && scenes.every((scene) => scene.ready), scenes });
+    res.json(await inspectNarration(project.id, project.scenes, narrationFileExists));
   } catch (error) { console.error(`GET /api/projects/${req.params.id}/narration-status failed:`, error); res.status(500).json({ error: "Failed to inspect narration files." }); }
 });
 
