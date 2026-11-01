@@ -1,0 +1,42 @@
+# Dedicated lock-only Redis. Do NOT use the media job queue Redis.
+# This stack is opt-in and never publishes a host port.
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    user: redis
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=16m
+    secrets:
+      - coordinator_password
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        umask 077
+        password="$$(cat /run/secrets/coordinator_password)"
+        test "$$(printf %s "$$password" | wc -c)" -ge 32
+        printf 'bind 0.0.0.0\nprotected-mode yes\nport 6379\nsave ""\nappendonly no\nmaxmemory 128mb\nmaxmemory-policy noeviction\nrequirepass %s\n' "$$password" > /tmp/redis.conf
+        unset password
+        exec redis-server /tmp/redis.conf
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$(cat /run/secrets/coordinator_password)\" redis-cli ping | grep -qx PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      coordination:
+        aliases:
+          - voxora-gpu-coordinator
+
+secrets:
+  coordinator_password:
+    file: ./secrets/redis_password.txt
+
+networks:
+  coordination:
+    name: voxora-gpu-coordination
+    driver: bridge
