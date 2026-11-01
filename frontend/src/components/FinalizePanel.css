@@ -66,3 +66,12 @@
 @media (max-width: 800px) { .finalize-panel__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .finalize-panel__summary > div:nth-child(2) { border-right: 0; } .finalize-panel__summary > div:nth-child(-n+2) { border-bottom: 1px solid var(--border-soft); } .finalize-panel__cards { grid-template-columns: 1fr; } .finalize-panel__render, .finalize-panel__exports-head, .finalize-panel__intro, .finalize-panel__progress-head { flex-direction: column; align-items: stretch; } .finalize-panel__status { align-self: flex-start; } }
 @media (max-width: 520px) { .finalize-panel { padding: 24px 0 56px; } .finalize-panel__summary { grid-template-columns: 1fr 1fr; } .finalize-panel__summary > div { padding: 14px; } .finalize-panel__summary strong { font-size: 19px; } .finalize-panel__render, .finalize-panel__progress, .finalize-panel__exports { padding: 18px; } .finalize-panel__stage { grid-template-columns: 30px minmax(0, 1fr); gap: 10px; } .finalize-panel__stage-mark { width: 28px; height: 28px; } }
 @media (prefers-reduced-motion: reduce) { .finalize-panel__progress-track span, .finalize-panel__asset-track span, .finalize-panel__substep-track span { transition: none; } .finalize-panel__stage.is-active .finalize-panel__stage-mark { animation: none; } }
+
+.finalize-panel__warning strong { display: block; color: var(--ink); margin-bottom: 6px; }
+.finalize-panel__warning p { margin: 0 0 12px; }
+.finalize-panel__narration-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.finalize-panel__narration-actions .btn { min-width: 0; }
+@media (max-width: 600px) {
+  .finalize-panel__narration-actions { flex-direction: column; align-items: stretch; }
+  .finalize-panel__narration-actions .btn { width: 100%; }
+}
