@@ -82,8 +82,11 @@ gateway_image="$(sudo docker inspect "$gateway" --format '{{.Image}}')"
 # This includes locally renamed engine services and protects their image and start time.
 peer_fingerprint_before="$(python3 "$root/scripts/tts_peer_fingerprint.py" "$gateway")"
 peers_unchanged() {
-  local current_fingerprint
-  current_fingerprint="$(python3 "$root/scripts/tts_peer_fingerprint.py" "$gateway")" || return 1
+  local current_fingerprint current_gateway
+  current_gateway="$(cd "$tts" && sudo docker compose -p voxora-gpu \
+    -f docker-compose.gpu.yml ps -a -q gateway)" || return 1
+  [[ -n "$current_gateway" ]] || return 1
+  current_fingerprint="$(python3 "$root/scripts/tts_peer_fingerprint.py" "$current_gateway")" || return 1
   [[ "$current_fingerprint" == "$peer_fingerprint_before" ]]
 }
 healthy() {
