@@ -60,7 +60,7 @@ copy_private "$TTS/docker-compose.gpu.yml" "tts-docker-compose.gpu.yml"
 copy_private "$TTS/.env" "tts.env"
 copy_private "$MEDIA/docker-compose.gpu.yml" "media-docker-compose.gpu.yml"
 copy_private "$MEDIA/.env" "media.env"
-copy_private "$ROOT/gpu-coordination/secrets/redis_password.txt" "coordinator_password.txt"
+# Coordinator password remains at its original protected path; do not duplicate it.
 
 # Pin the original images to local rollback tags. This does not replace or restart a container.
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
