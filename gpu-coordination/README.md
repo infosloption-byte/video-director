@@ -220,3 +220,62 @@ Before enabling shared GPU locks, investigate lease-loss handling during
 native inference. A Redis lease can expire while a CUDA kernel is still
 running, and the current lease alone cannot stop that kernel or guarantee
 latency priority for TTS.
+
+## Stage 7: build and probe new images BEFORE any service recreation
+
+When the existing host tests have passed, use the following **non-disruptive**
+preflight to check the actual deployable images, rather than only host-mounted
+source modules:
+
+```bash
+cd /opt/voxora-gpu/video-director
+bash scripts/preflight_gpu_staged_images.sh
+```
+
+This script:
+
+- Validates all three Compose configurations without applying them.
+- Builds **separate, explicitly tagged** `voxora-gateway-coordination-preflight:20261101`
+  and `voxora-media-coordination-preflight:20261101` images from source,
+  without replacing the running `voxora-gpu` or `voxora-media` image tags.
+- Starts disposable containers on `voxora-gpu-coordination` with
+  `GPU_COORDINATION_ENABLED=false` and the Redis password **bind-mounted
+  read-only**. No ports are published; no GPU device or media queue is used.
+- Imports the real TTS FastAPI app and media worker job module from the new
+  images and checks Redis authentication through each service's factory.
+- Verifies the original gateway and media worker container IDs/start times
+  are unchanged after testing.
+
+The script **builds Docker images**, which may use disk, CPU, and network
+bandwidth. It does not rebuild, stop, recreate, or update production service
+containers. Avoid doing it during active, high-load GPU processing.
+
+Passing the staged-image preflight is needed before any planned deployment
+that attaches the real TTS gateway or media worker to the coordination bridge.
+It does **not** validate native GPU inference, lease-loss behavior, or TTS
+priority. Do not run the optional service Compose overlays with `up` yet.
+
+### Future deployment safety checklist (not part of this preflight)
+
+During a separate maintenance window, before recreating any service:
+
+1. Make a private backup of the live, **untracked**
+   `tts-service/docker-compose.gpu.yml` and its local environment file.
+   Do not overwrite or commit either file.
+2. Record running TTS gateway and media worker image IDs, container IDs,
+   their healthy endpoints, volume mounts, and network names.
+   Do not post their complete Docker inspect output or environment, as
+   these may contain credentials.
+3. Confirm both new images work on the host and that the overlays preserve
+   original DNS for all TTS engines and the media Redis queue.
+4. Recreate **only** gateway and worker, one at a time, under coordinated
+   observation; keep `GPU_COORDINATION_ENABLED=false` throughout.
+5. Verify TTS speech and queued CPU transcription still work. If either
+   regresses, return to the backed-up pre-overlay Compose configuration,
+   preserving data and volumes.
+6. Only after real coordination interruption and concurrent Qwen/Whisper
+   tests should GPU scheduling be considered for activation. SDXL/Wan
+   must remain disabled until separately profiled.
+
+Do not treat the shared Redis lease as CUDA preemption. Expiry of the
+Redis key does not stop an already-running GPU kernel.
