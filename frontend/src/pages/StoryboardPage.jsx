@@ -70,6 +70,7 @@ export default function StoryboardPage() {
   const [sceneRetry, setSceneRetry] = useState(0);
   const [persisting, setPersisting] = useState(false);
   const [voiceError, setVoiceError] = useState("");
+  const [narrationSummary, setNarrationSummary] = useState(null);
   const { quota, quotaError, loading: quotaLoading, refresh: refreshQuota } = useRenderQuota();
   const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [renderLoading, setRenderLoading] = useState(false);
@@ -420,7 +421,25 @@ export default function StoryboardPage() {
     setSelectedAssetByScene((current) => ({ ...current, [sceneId]: index }));
   }
 
-  const narratedSceneCount = useMemo(() => scenes.filter((scene) => Boolean(scene.audioUrl)).length, [scenes]);
+  const narrationRevision = scenes.map((scene) => [scene.id, scene.audioUrl || ""].join(":")).join("|");
+  useEffect(() => {
+    if (tab !== "Storyboard" || !scenes.length) return undefined;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const response = await fetch(`/api/projects/${id}/narration-status`, { cache: "no-store", credentials: "include" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Narration status check failed");
+        if (!cancelled) setNarrationSummary(data);
+      } catch {
+        if (!cancelled) setNarrationSummary(null);
+      }
+    };
+    void check();
+    return () => { cancelled = true; };
+  }, [id, tab, narrationRevision]);
+  const narratedSceneCount = narrationSummary?.readyScenes ?? scenes.filter((scene) => Boolean(scene.audioUrl)).length;
+  const missingNarrationOrders = narrationSummary?.scenes?.filter((scene) => !scene.ready).map((scene) => scene.sceneOrder) || [];
   const customizedSceneCount = useMemo(() => scenes.filter((scene) => Boolean(scene.customization?.customized)).length, [scenes]);
 
   const activeSceneStep = useMemo(() => {
@@ -538,8 +557,12 @@ export default function StoryboardPage() {
                     </div>
                     <div className="storyboard-narration-status">
                       <span className="eyebrow">Narration</span>
-                      <strong>{scenes.every((scene) => scene.audioUrl) ? "Generated with your selected voice" : "Narration pending"}</strong>
-                      <span>{scenes.every((scene) => scene.audioUrl) ? "Every scene has synchronized narration and word timings." : "Return to Setup to select a narration voice."}</span>
+                      <strong>{narrationSummary?.ready ? "Narration ready" : narrationSummary ? `Narration pending · ${narrationSummary.readyScenes}/${narrationSummary.totalScenes} scenes ready` : "Checking narration availability"}</strong>
+                      <span>{narrationSummary?.ready
+                        ? "Every scene has an audio file ready for the final video. Word timing metadata is optional."
+                        : narrationSummary
+                          ? `Missing narration for scene${missingNarrationOrders.length === 1 ? "" : "s"} ${missingNarrationOrders.join(", ")}. Continue to Preview to repair only missing audio.`
+                          : "Voxora is verifying the narration files before rendering."}</span>
                     </div>
                     <div className="hx-board__actions">
                       <button className="btn btn-ghost" onClick={() => changeTab("Setup")}><IconArrowLeft className="btn-icon" /> Back to setup</button>
@@ -565,6 +588,16 @@ export default function StoryboardPage() {
               renderLoading={renderLoading}
               renderError={renderError}
               onRender={renderProject}
+              onNarrationUpdated={(updatedScenes) => {
+                setScenes(updatedScenes);
+                setNarrationSummary(null);
+                setProject((current) => current ? {
+                  ...current,
+                  durationSeconds: updatedScenes.reduce((total, scene) => total + Number(scene.durationSeconds || 0), 0),
+                  cuts: updatedScenes.length,
+                  renderUrl: null,
+                } : current);
+              }}
               onBack={() => changeTab("Storyboard")}
             />
             </>
