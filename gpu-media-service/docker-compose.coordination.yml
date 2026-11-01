@@ -1,0 +1,12 @@
+# Optional overlay, never applied automatically.
+# The media Redis queue remains on the ordinary, private Compose network.
+services:
+  worker:
+    networks:
+      - default
+      - coordination
+
+networks:
+  coordination:
+    external: true
+    name: voxora-gpu-coordination
