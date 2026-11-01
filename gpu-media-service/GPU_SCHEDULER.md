@@ -37,3 +37,9 @@ GPU_COORDINATION_REDIS_URL=redis://<authenticated-private-coordinator>:6379/0
 Do not use the literal example endpoint. An external Redis dependency must be authenticated, network-isolated, monitored, and configured with no-eviction for lease keys. The gateway Docker image now includes the Redis client. The local TTS Compose file is untracked on the live server, so **do not overwrite it** with an example or assume a deployable Compose file exists in Git.
 
 **Known limitations:** An RQ worker cannot safely interrupt an in-progress CTranslate2 native call on heartbeat loss; the gateway likewise cannot interrupt a running Qwen kernel. This implementation provides mutual exclusion under healthy connectivity, not hard preemption or guaranteed TTS latency. Adding fencing/admission windows, heartbeat-loss integration tests, explicit priority policy, and pre-deployment rollback tests is required before any production flag is turned on. The current draft has not passed real concurrent GPU workload testing.
+
+## Stage 3: GPU memory admission (draft)
+
+GPU media jobs acquiring a shared lease now run a fail-closed `nvidia-smi` free-VRAM check before starting GPU inference. Initial thresholds are **provisional**, not based on final model profiling: transcription 2048 MiB; SDXL image 10240 MiB; Wan video 14336 MiB. They may be overridden with `GPU_MEDIA_MIN_FREE_MIB_TRANSCRIPTION`, `GPU_MEDIA_MIN_FREE_MIB_IMAGE`, and `GPU_MEDIA_MIN_FREE_MIB_VIDEO` for controlled profiling. A wrong or unavailable telemetry reading denies GPU admission rather than continuing blindly.
+
+Free VRAM is **not** a reservation, and model resident allocations can change between measurements. This is not yet sufficient to safely enable heavy generation or offer real-time TTS guarantees. The media worker image must provide `nvidia-smi` at runtime; validate in the exact deployed container before enabling GPU mode. Unit tests use patched telemetry, not a live Tesla T4.
