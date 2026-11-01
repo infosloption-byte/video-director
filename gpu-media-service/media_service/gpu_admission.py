@@ -19,8 +19,8 @@ def required_free_mib(kind: str) -> int:
         value = int(env)
     except ValueError as exc:
         raise GPUAdmissionDenied("Invalid GPU free-memory threshold.") from exc
-    if value < 256:
-        raise GPUAdmissionDenied("GPU threshold cannot be lower than 256 MiB.")
+    if not 256 <= value <= 262144:
+        raise GPUAdmissionDenied("GPU threshold must be between 256 and 262144 MiB.")
     return value
 
 def gpu_free_memory_mib() -> int:
@@ -29,7 +29,13 @@ def gpu_free_memory_mib() -> int:
             ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits", "-i", "0"],
             capture_output=True, text=True, check=True, timeout=5,
         ).stdout.strip()
-        return int(output.splitlines()[0].strip())
+        values = output.splitlines()
+        if len(values) != 1:
+            raise ValueError("Expected exactly one GPU telemetry value.")
+        value = int(values[0].strip())
+        if value < 0:
+            raise ValueError("Negative GPU free memory.")
+        return value
     except (OSError, ValueError, IndexError, subprocess.SubprocessError) as exc:
         raise GPUAdmissionDenied("GPU memory telemetry is unavailable.") from exc
 
