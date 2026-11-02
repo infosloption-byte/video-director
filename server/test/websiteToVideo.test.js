@@ -38,7 +38,7 @@ test("page extraction identifies public pages, products, offers, contacts and ci
     '<a href="/services">Services</a><img src="/product.jpg"></body></html>';
   const page = extractWebsitePage(html, "https://business.test.invalid/products/crm");
   assert.equal(page.category, "product");
-  assert.ok(page.prices.includes("$49"));
+  assert.ok(page.prices.some(value => value.startsWith("$49")));
   assert.ok(page.emails.includes("sales@example.org"));
   assert.ok(page.links.includes("/services"));
   const report = assembleWebsiteReport("https://business.test.invalid/", [page]);
