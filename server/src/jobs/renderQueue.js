@@ -3,6 +3,7 @@ import { Queue, Worker } from "bullmq";
 import { prisma } from "../db/client.js";
 import { releaseRender } from "../services/billingService.js";
 import { renderProject } from "../services/renderService.js";
+import { measureGeneration } from "../services/generationTelemetry.js";
 
 const QUEUE_NAME = "helix-render";
 const JOB_LOCK_DURATION_MS = Number(process.env.RENDER_JOB_LOCK_DURATION_MS || 30 * 60 * 1000);
@@ -85,11 +86,19 @@ export async function startRenderWorker() {
       const { projectId } = job.data;
       await job.updateProgress({ progress: 3, stage: "preflight", stageProgress: 0, message: "Starting render preflight" });
       await prisma.project.update({ where: { id: projectId }, data: { status: "rendering" } });
-      const result = await renderProject(projectId, {
-        onProgress: async (state) => {
-          await job.updateProgress(state);
-        },
+      const projectInfo = await prisma.project.findUnique({
+        where: { id: projectId }, select: { userId: true, durationSeconds: true },
       });
+      const result = await measureGeneration({
+        projectId, userId: projectInfo?.userId, stage: "render", operation: "render.remotion",
+        provider: "remotion", metadata: {
+          outputSeconds: Number(projectInfo?.durationSeconds || 0),
+          jobType: "storyboard",
+          retry: Number(job.attemptsMade || 0) > 0,
+        },
+      }, () => renderProject(projectId, {
+        onProgress: async (state) => { await job.updateProgress(state); },
+      }));
       await job.updateProgress({ progress: 100, stage: "complete", stageProgress: 100, message: "Render complete" });
       return result;
     },
