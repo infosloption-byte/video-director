@@ -100,11 +100,33 @@ export async function analyzeWebsite(rawUrl,{onProgress=()=>{},fetchPage=fetchPu
   try{
     onProgress(5,"Reading website access rules");
     let robots="";
+    let robotsWarning=null;
     try{
       const r=await fetchPage(start.origin+"/robots.txt",{signal:ctrl.signal});
       if(r.type.includes("text/plain")||!r.type)robots=r.text.slice(0,100000);
     }catch(error){
-      if(!String(error.message).includes("404"))throw new Error("Could not verify website access rules.");
+      // RFC 9309 section 2.3.1.3: an HTTP 4xx robots.txt response means
+      // the robots rules are unavailable, not that crawling is forbidden.
+      // Stay conservative for 429 to respect rate limiting, and never
+      // ignore 5xx, DNS, TLS, or timeout failures.
+      const httpStatus=Number(error?.status) ||
+        Number(/^Website returned HTTP (\d{3})\.$/.exec(String(error?.message||""))?.[1]||0);
+      if(httpStatus>=400&&httpStatus<500&&httpStatus!==429){
+        if(httpStatus!==404&&httpStatus!==410){
+          robotsWarning="robots.txt returned HTTP "+httpStatus+"; no crawl rules were available. Voxora scanned only public pages, without logging in.";
+        }
+      }else if(httpStatus===429){
+        throw new Error("Website robots.txt returned HTTP 429 (rate limited). Retry later.");
+      }else if(httpStatus>=500&&httpStatus<600){
+        throw new Error("Website robots.txt returned HTTP "+httpStatus+" (server error). Retry after the site recovers.");
+      }else{
+        // Provide a safe error code, never a raw error string that may
+        // accidentally contain request data or credentials.
+        const code=String(error?.code||error?.cause?.code||"NETWORK_OR_REDIRECT_FAILURE");
+        throw new Error("Website robots.txt could not be checked ("+
+          ( /^[A-Z0-9_]{2,50}$/.test(code)?code:"NETWORK_OR_REDIRECT_FAILURE" )+
+          "). Check whether the site permits this server to access robots.txt.");
+      }
     }
     const queue=[start.href];
     try{
@@ -145,6 +167,8 @@ export async function analyzeWebsite(rawUrl,{onProgress=()=>{},fetchPage=fetchPu
     }
     if(!pages.length)throw new Error("No readable public HTML pages were found. Check the URL and website access rules.");
     onProgress(92,"Preparing website report and video ideas");
-    return assembleWebsiteReport(start.href,pages,failures);
+    const report=assembleWebsiteReport(start.href,pages,failures);
+    if(robotsWarning)report.limitations.push(robotsWarning);
+    return report;
   }finally{clearTimeout(timer);}
 }
