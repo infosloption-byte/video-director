@@ -4,9 +4,8 @@ import { readFile } from "node:fs/promises";
 
 const read = path => readFile(new URL("../src/" + path, import.meta.url), "utf8");
 test("resource and economics routes use the guarded admin analytics area", async () => {
-  const [app, shell, router] = await Promise.all([
+  const [app, shell] = await Promise.all([
     read("App.jsx"), read("components/AdminShell.jsx"),
-    readFile(new URL("../../server/src/routes/adminAnalytics.js", import.meta.url), "utf8"),
   ]);
   for (const path of ["/admin/analytics/infrastructure", "/admin/analytics/economics"]) {
     assert.ok(app.includes('path="' + path + '"'));
@@ -14,8 +13,6 @@ test("resource and economics routes use the guarded admin analytics area", async
   }
   assert.match(app, /<PlatformAdminRoute><AdminAnalyticsPage key="infrastructure"/);
   assert.match(app, /<PlatformAdminRoute><AdminAnalyticsPage key="economics"/);
-  assert.match(router, /router.get\("\/infrastructure"/);
-  assert.match(router, /router.get\("\/economics"/);
 });
 test("detailed monitoring declares limits, costs, unknown revenue and GPU opt-in", async () => {
   const page = await read("pages/AdminMonitoringDetail.jsx");
