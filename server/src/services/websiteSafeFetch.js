@@ -72,6 +72,20 @@ async function approvedAddresses(hostname) {
   return records;
 }
 
+// Node 20/22 may request lookup({ all: true }) when auto-selecting address
+// families. Returning (address, family) for that mode produces
+// ERR_INVALID_IP_ADDRESS because Node expects an array of {address, family}.
+export function createPinnedLookup(records) {
+  const approved = records.find(row => row.family === 4) || records[0];
+  if (!approved || !net.isIP(approved.address) || ![4, 6].includes(approved.family)) {
+    throw new Error("No validated DNS address is available for the website.");
+  }
+  return (_hostname, options, callback) => {
+    if (options?.all) callback(null, [{ address: approved.address, family: approved.family }]);
+    else callback(null, approved.address, approved.family);
+  };
+}
+
 function requestText(url, records, signal) {
   return new Promise((resolve, reject) => {
     const transport = url.protocol === "https:" ? https : http;
@@ -79,10 +93,7 @@ function requestText(url, records, signal) {
     const req = transport.get(url, {
       timeout: 10000,
       headers: { "User-Agent": "VoxoraWebsiteResearch/1.0 (+https://usevoxora.online)", Accept: "text/html,application/xml,text/plain;q=0.8" },
-      lookup: (_hostname, _options, callback) => {
-        const target = records.find(x => x.family === 4) || records[0];
-        callback(null, target.address, target.family);
-      },
+      lookup: createPinnedLookup(records),
       signal,
     }, res => {
       const parts = []; let bytes = 0;
@@ -117,7 +128,11 @@ export async function fetchPublicPage(rawUrl, { signal } = {}) {
       url = target;
       continue;
     }
-    if (result.status < 200 || result.status >= 300) throw new Error("Website returned HTTP " + result.status + ".");
+    if (result.status < 200 || result.status >= 300) {
+      const error = new Error("Website returned HTTP " + result.status + ".");
+      error.status = result.status;
+      throw error;
+    }
     return { ...result, url: url.href };
   }
   throw new Error("Too many website redirects.");

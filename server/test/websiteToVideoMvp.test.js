@@ -99,3 +99,100 @@ test("API and storyboard routing remain distinct from Signals/Own Topic", async 
   assert.match(routes, /userId: req\.user\.id|userId = req\.user\.id/);
   assert.match(routes, /persistResearchGraph/);
 });
+
+
+test("robots.txt HTTP 4xx unavailable: public pages can be scanned, with a clear limitation", async () => {
+  for (const status of [401, 403]) {
+    const base="https://public-store.example.org/";
+    const fetchPage=async url => {
+      if(url.endsWith("/robots.txt")){
+        const error=new Error("Website returned HTTP "+status+".");
+        error.status=status;
+        throw error;
+      }
+      if(url.endsWith("/sitemap.xml"))throw new Error("Website returned HTTP 404.");
+      return {url,type:"text/html",text:"<title>Public Shop</title><h1>Product catalog</h1><p>We provide carefully documented everyday kitchen tools.</p>"};
+    };
+    const report=await analyzeWebsite(base,{fetchPage});
+    assert.equal(report.pagesScanned,1);
+    assert.ok(report.limitations.some(value=>value.includes("HTTP "+status)));
+  }
+});
+
+test("robots.txt 429, 5xx, DNS and TLS errors do not silently permit crawling", async () => {
+  for(const [code,expected] of [[429,/HTTP 429/],[503,/HTTP 503/]]){
+    const fetchPage=async () => {const error=new Error("Website returned HTTP "+code+".");error.status=code;throw error;};
+    await assert.rejects(analyzeWebsite("https://public-store.example.org/",{fetchPage}),expected);
+  }
+  const fetchPage=async () => {
+    const error=new Error("Connection to private endpoint rejected");
+    error.code="ENOTFOUND";
+    throw error;
+  };
+  await assert.rejects(analyzeWebsite("https://public-store.example.org/",{fetchPage}),/ENOTFOUND/);
+});
+
+test("robots.txt explicit Disallow still blocks public HTML paths", async () => {
+  const fetchPage=async url => {
+    if(url.endsWith("/robots.txt"))return {url,type:"text/plain",text:"User-agent: *\nDisallow: /\n"};
+    if(url.endsWith("/sitemap.xml"))throw new Error("Website returned HTTP 404.");
+    throw new Error("Blocked URL should not have been fetched: "+url);
+  };
+  await assert.rejects(analyzeWebsite("https://public-store.example.org/",{fetchPage}),/No readable public HTML pages/);
+});
+
+
+test("HTTP 410 robots.txt is treated as gone without falsely reporting a policy warning", async () => {
+  const fetchPage = async url => {
+    if (url.endsWith("/robots.txt")) {
+      const error = new Error("Website returned HTTP 410.");
+      error.status = 410;
+      throw error;
+    }
+    if (url.endsWith("/sitemap.xml")) throw new Error("Website returned HTTP 404.");
+    return { url, type: "text/html", text: "<title>Public Store</title><h1>Shop</h1>" };
+  };
+  const report = await analyzeWebsite("https://public-store.example.org/", { fetchPage });
+  assert.equal(report.pagesScanned, 1);
+  assert.ok(!report.limitations.some(value => value.includes("HTTP 410")));
+});
+
+test("pinned website DNS lookup supports Node all:true and scalar modes", async () => {
+  const { createPinnedLookup } = await import("../src/services/websiteSafeFetch.js");
+  const { createServer, get } = await import("node:http");
+  const lookup = createPinnedLookup([{ address: "127.0.0.1", family: 4 }]);
+
+  const allRecords = await new Promise((resolve, reject) =>
+    lookup("public-website.example.org", { all: true }, (err, records) => err ? reject(err) : resolve(records))
+  );
+  assert.deepEqual(allRecords, [{ address: "127.0.0.1", family: 4 }]);
+
+  const scalar = await new Promise((resolve, reject) =>
+    lookup("public-website.example.org", { all: false }, (err, address, family) =>
+      err ? reject(err) : resolve({ address, family }))
+  );
+  assert.deepEqual(scalar, { address: "127.0.0.1", family: 4 });
+
+  // Integration: Node's autoSelectFamily path invokes lookup(all:true).
+  // Using a loopback-only test server does not exercise or relax the
+  // production public-address validation in fetchPublicPage().
+  const server = createServer((_req, res) => res.end("lookup-ok"));
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const body = await new Promise((resolve, reject) => {
+      const req = get("http://public-website.example.org:" + server.address().port, {
+        lookup, autoSelectFamily: true, timeout: 2000,
+      }, response => {
+        const chunks = [];
+        response.on("data", chunk => chunks.push(chunk));
+        response.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+        response.on("error", reject);
+      });
+      req.on("timeout", () => req.destroy(new Error("Lookup test request timed out.")));
+      req.on("error", reject);
+    });
+    assert.equal(body, "lookup-ok");
+  } finally {
+    await new Promise((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+  }
+});
