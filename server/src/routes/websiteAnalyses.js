@@ -122,7 +122,7 @@ router.post("/:id/videos", async (req, res) => {
     if (!idea) return res.status(400).json({ error: "Select one of the suggested video ideas." });
     const createdVideos = Array.isArray(item.createdVideos) ? item.createdVideos : [];
     const prior = createdVideos.find(x => x.ideaId === idea.id);
-    if (prior) return res.json({ projectId: prior.projectId, reused: true });
+    if (prior) return res.json({ projectId: prior.projectId, path: "/storyboard/" + prior.projectId + "?stage=setup", reused: true });
     const reserved = await prisma.websiteAnalysis.updateMany({
       where: { id: item.id, userId, status: "completed", projectId: null },
       data: { status: "converting", stage: "Preparing video workspace" },
@@ -142,7 +142,10 @@ router.post("/:id/videos", async (req, res) => {
             whyReasoning: "Created from bounded website research and selected video concept.",
             status: "used",
           } },
-          status: "setup", pipelineVersionId: pipeline.id,
+          status: "setup",
+          // Nested signal.create uses Prisma's checked create input. Connect the
+          // pipeline relation here, rather than mixing in pipelineVersionId.
+          pipelineVersion: { connect: { id: pipeline.id } },
           researchSummary: brief.executive_summary, researchSources: brief,
           suggestedFramework: "EXPLAINER", suggestedLengthSeconds: idea.durationSeconds,
           suggestedTone: "Conversational",
@@ -164,7 +167,12 @@ router.post("/:id/videos", async (req, res) => {
       throw error;
     }
   } catch (error) {
-    console.error("[website] Video project creation failed", error?.code || error?.message);
+    // Prisma validation errors include a complete, potentially sensitive
+    // research brief. Avoid logging request payloads or business contacts.
+    console.error("[website] Video project creation failed", {
+      code: error?.code || "UNEXPECTED_CREATE_ERROR",
+      name: error?.name || "Error",
+    });
     res.status(500).json({ error: "Unable to create the video project. Try again." });
   }
 });
