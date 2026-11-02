@@ -31,9 +31,9 @@ export function extractWebsitePage(html, url) {
     .map(plain).filter(x=>x.length>=25&&x.length<=800)).slice(0,25);
   const mainText = plain(body).slice(0,7000);
   const links = (safeHtml.match(/<a\b[^>]*>/gi)||[]).map(x=>attribute(x,"href")).filter(Boolean).slice(0,350);
-  const emails = unique((mainText.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi)||[])
+  const emails = unique([...(mainText.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi)||[]), ...links.filter(x=>x.startsWith("mailto:")).map(x=>x.slice(7).split("?")[0])]
     .filter(x=>x.length<=110&&!/example\.(?:com|org)|wixpress|schema\.org/i.test(x))).slice(0,12);
-  const phones = unique((mainText.match(/(?:\+?\d[\d()\s.-]{7,}\d)/g)||[])
+  const phones = unique([...(mainText.match(/(?:\+?\d[\d()\s.-]{7,}\d)/g)||[]), ...links.filter(x=>x.startsWith("tel:")).map(x=>x.slice(4))]
     .map(clean).filter(x=>{const len=x.replace(/\D/g,"").length;return len>=9&&len<=15;})).slice(0,10);
   const social = unique(links.filter(x=>/(?:facebook\.com|instagram\.com|linkedin\.com|youtube\.com|tiktok\.com|wa\.me|whatsapp\.com)/i.test(x))
     .map(x=>{try{return new URL(x,url).href;}catch{return null;}})).slice(0,15);
@@ -132,7 +132,11 @@ export async function analyzeWebsite(rawUrl,{onProgress=()=>{},fetchPage=fetchPu
         if(page.title||page.headings.length||page.paragraphs.length)pages.push(page);
         for(const href of page.links){
           const candidate=safeInternalUrl(href,start);
-          if(candidate&&!seen.has(candidate)&&!queue.includes(candidate)&&queue.length<80)queue.push(candidate);
+          if(candidate&&!seen.has(candidate)&&!queue.includes(candidate)&&queue.length<80){
+            // Website navigation should outrank long sitemap/blog listings during a bounded scan.
+            if(/product|service|offer|pricing|about|contact|shop|collection|faq/i.test(new URL(candidate).pathname))queue.unshift(candidate);
+            else queue.push(candidate);
+          }
         }
       }catch(error){
         failures.push({url:link,error:ctrl.signal.aborted?"Analysis time limit exceeded":String(error.message).slice(0,140)});
