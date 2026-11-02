@@ -34,15 +34,17 @@ test("crawl navigation stays on public same-origin HTML pages", () => {
 test("page extraction identifies public pages, products, offers, contacts and citations", () => {
   const html = '<html><head><title>Example Cloud Apps</title><meta name="description" content="Business cloud tools"></head>' +
     '<body><h1>CRM Software</h1><p>Customer relationship management software for small teams.</p>' +
-    '<p>Starter price $49 per month.</p><p>Contact sales@example.org for a demonstration.</p>' +
+    '<p>Starter price $49 per month.</p><p>Contact sales@smallteam-crm.test for a demonstration.</p><p>Ignore example placeholder: sales@example.org.</p>' +
     '<a href="/services">Services</a><img src="/product.jpg"></body></html>';
   const page = extractWebsitePage(html, "https://business.test.invalid/products/crm");
   assert.equal(page.category, "product");
   assert.ok(page.prices.some(value => value.startsWith("$49")));
-  assert.ok(page.emails.includes("sales@example.org"));
+  assert.ok(page.emails.includes("sales@smallteam-crm.test"), "Realistic business contact must be extracted");
+  assert.ok(!page.emails.includes("sales@example.org"), "Documentation placeholder addresses must be ignored");
   assert.ok(page.links.includes("/services"));
   const report = assembleWebsiteReport("https://business.test.invalid/", [page]);
   assert.equal(report.pagesScanned, 1);
+  assert.ok(report.contacts.emails.includes("sales@smallteam-crm.test"));
   assert.equal(report.products.length, 1);
   assert.ok(report.products[0].sourceUrl.endsWith("/products/crm"));
   assert.ok(report.videoIdeas.some(x => x.id === "product-showcase"));
