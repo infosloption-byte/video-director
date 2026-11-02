@@ -52,7 +52,7 @@ export function extractWebsitePage(html, url) {
     if(!src)return null;
     try{const dest=new URL(src,url);return ["https:","http:"].includes(dest.protocol)?dest.href:null;}catch{return null;}
   })).slice(0,10);
-  return {url,title,description:meta(safeHtml,"description")||meta(safeHtml,"og:description"),
+  return {url,title,siteName:meta(safeHtml,"og:site_name")||meta(safeHtml,"application-name"),description:meta(safeHtml,"description")||meta(safeHtml,"og:description"),
     category,headings,highlights,paragraphs:paragraphs.slice(0,14),prices,offers,emails,phones,social,images,links,
     textPreview:mainText.slice(0,1500)};
 }
