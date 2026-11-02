@@ -31,7 +31,7 @@ function isPublicIp(ip) {
   if (type === 6) {
     const lower = ip.toLowerCase();
     // Do not allow embedded IPv4 addresses or other special-use IPv6 ranges.
-    return /^[23][0-9a-f]{3}:/i.test(lower) && !lower.startsWith("2001:0db8:");
+    return /^[23][0-9a-f]{3}:/i.test(lower) && !/^2001:0?db8:/i.test(lower);
   }
   return false;
 }
