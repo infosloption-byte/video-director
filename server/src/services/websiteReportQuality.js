@@ -41,7 +41,7 @@ function compactFact(page, fallback = "") {
   const candidates = [page?.description, ...(page?.highlights || []), page?.textPreview];
   return text(candidates.find(value => typeof value === "string" && value.trim().length > 16) || fallback, 400);
 }
-function buildVideoIdea(report, original, brand, category) {
+function buildVideoIdea(report, original, brand) {
   const hostname = new URL(report.url).hostname;
   const pages = report.pages || [];
   const types = {
@@ -51,7 +51,7 @@ function buildVideoIdea(report, original, brand, category) {
       angle: "Introduce " + brand + " using its published business overview, offerings and website messaging.",
       focus: brand,
       audience: "People discovering the business",
-      sources: [report.url, ...(report.about || []).map(x => x.sourceUrl)],
+      sources: [pages[0]?.url, ...(report.about || []).map(x => x.sourceUrl)],
     },
     "product-showcase": {
       title: "Product spotlight",
@@ -59,7 +59,7 @@ function buildVideoIdea(report, original, brand, category) {
       angle: "Present one listed product, explaining its published features without adding unsupported benefits.",
       focus: itemTitle(report.products?.[0], "Product"),
       audience: "Visitors evaluating this product",
-      sources: (report.products || []).map(x => x.sourceUrl),
+      sources: (report.products || []).slice(0, 1).map(x => x.sourceUrl),
     },
     "service-explainer": {
       title: "Service explainer",
@@ -67,7 +67,7 @@ function buildVideoIdea(report, original, brand, category) {
       angle: "Explain a listed service, what the business says it provides, and how visitors can enquire.",
       focus: itemTitle(report.services?.[0], "Service"),
       audience: "Visitors considering this service",
-      sources: (report.services || []).map(x => x.sourceUrl),
+      sources: (report.services || []).slice(0, 1).map(x => x.sourceUrl),
     },
     "verified-offer": {
       title: "Published offer spotlight",
@@ -94,7 +94,6 @@ function buildVideoIdea(report, original, brand, category) {
   const focused = ["product-showcase", "service-explainer"].includes(original.id) &&
     focus && !["Product", "Service"].includes(focus);
   const title = focused ? focus + (original.id === "product-showcase" ? " — Product video" : " — Service video") : template.title;
-  const firstPage = sourcePage(report, urls[0]) || pages[0] || {};
   return {
     ...original,
     title: title.slice(0, 135),
