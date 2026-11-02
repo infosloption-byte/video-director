@@ -99,3 +99,44 @@ test("API and storyboard routing remain distinct from Signals/Own Topic", async 
   assert.match(routes, /userId: req\.user\.id|userId = req\.user\.id/);
   assert.match(routes, /persistResearchGraph/);
 });
+
+
+test("robots.txt HTTP 4xx unavailable: public pages can be scanned, with a clear limitation", async () => {
+  for (const status of [403, 410]) {
+    const base="https://public-store.example.org/";
+    const fetchPage=async url => {
+      if(url.endsWith("/robots.txt")){
+        const error=new Error("Website returned HTTP "+status+".");
+        error.status=status;
+        throw error;
+      }
+      if(url.endsWith("/sitemap.xml"))throw new Error("Website returned HTTP 404.");
+      return {url,type:"text/html",text:"<title>Public Shop</title><h1>Product catalog</h1><p>We provide carefully documented everyday kitchen tools.</p>"};
+    };
+    const report=await analyzeWebsite(base,{fetchPage});
+    assert.equal(report.pagesScanned,1);
+    assert.ok(report.limitations.some(value=>value.includes("HTTP "+status)));
+  }
+});
+
+test("robots.txt 429, 5xx, DNS and TLS errors do not silently permit crawling", async () => {
+  for(const [code,expected] of [[429,/HTTP 429/],[503,/HTTP 503/]]){
+    const fetchPage=async () => {const error=new Error("Website returned HTTP "+code+".");error.status=code;throw error;};
+    await assert.rejects(analyzeWebsite("https://public-store.example.org/",{fetchPage}),expected);
+  }
+  const fetchPage=async () => {
+    const error=new Error("Connection to private endpoint rejected");
+    error.code="ENOTFOUND";
+    throw error;
+  };
+  await assert.rejects(analyzeWebsite("https://public-store.example.org/",{fetchPage}),/ENOTFOUND/);
+});
+
+test("robots.txt explicit Disallow still blocks public HTML paths", async () => {
+  const fetchPage=async url => {
+    if(url.endsWith("/robots.txt"))return {url,type:"text/plain",text:"User-agent: *\nDisallow: /\n"};
+    if(url.endsWith("/sitemap.xml"))throw new Error("Website returned HTTP 404.");
+    throw new Error("Blocked URL should not have been fetched: "+url);
+  };
+  await assert.rejects(analyzeWebsite("https://public-store.example.org/",{fetchPage}),/No readable public HTML pages/);
+});
