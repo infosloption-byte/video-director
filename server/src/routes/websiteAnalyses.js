@@ -8,6 +8,7 @@ import { persistResearchGraph } from "../services/researchGraphService.js";
 import { recordGenerationTrace } from "../services/generationTelemetry.js";
 import { refineWebsiteReport } from "../services/websiteReportQuality.js";
 import { buildWebsiteBrief } from "../services/websiteCampaignService.js";
+import { buildWebsiteVideoProjectData } from "../services/websiteVideoProjectCreate.js";
 
 const router = Router();
 const running = new Set();
@@ -132,25 +133,10 @@ router.post("/:id/videos", async (req, res) => {
     try {
       const brief = buildWebsiteBrief(report, idea);
       const pipeline = await getActivePipelineVersion();
-      created = await prisma.project.create({
-        data: {
-          id: crypto.randomUUID(), userId, title: (report.name + " — " + idea.title).slice(0, 250),
-          signal: { create: {
-            origin: "search", sourceType: "brave", sourceReliability: "general_web", category: "WEBSITE_MARKETING",
-            title: report.name.slice(0, 255), description: idea.angle,
-            sourceUrl: report.url, sourceName: new URL(report.url).hostname,
-            whyReasoning: "Created from bounded website research and selected video concept.",
-            status: "used",
-          } },
-          status: "setup",
-          // Nested signal.create uses Prisma's checked create input. Connect the
-          // pipeline relation here, rather than mixing in pipelineVersionId.
-          pipelineVersion: { connect: { id: pipeline.id } },
-          researchSummary: brief.executive_summary, researchSources: brief,
-          suggestedFramework: "EXPLAINER", suggestedLengthSeconds: idea.durationSeconds,
-          suggestedTone: "Conversational",
-        },
-      });
+      created = await prisma.project.create({ data: buildWebsiteVideoProjectData({
+        id: crypto.randomUUID(), userId, report, idea, brief,
+        pipelineVersionId: pipeline.id,
+      }) });
       await persistResearchGraph(created.id, brief);
       await prisma.websiteAnalysis.update({ where: { id: item.id }, data: {
         projectId: item.projectId || created.id,
