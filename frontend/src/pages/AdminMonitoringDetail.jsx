@@ -3,6 +3,7 @@ import "./AdminAnalyticsPage.css";
 
 const n = x => Number(x || 0).toLocaleString();
 const usd = x => x == null ? "Unknown" : "$" + Number(x).toFixed(4);
+const usdPerMinute = (cost, seconds) => cost == null || !(Number(seconds) > 0) ? "Unknown" : usd(Number(cost) * 60 / Number(seconds)) + "/min";
 const date = x => x ? new Date(x).toLocaleString() : "—";
 const percentage = x => x == null ? "Not reported" : Number(x).toFixed(1) + "%";
 const gib = x => x == null ? "Not reported" : (Number(x) / (1024 ** 3)).toFixed(2) + " GiB";
@@ -56,11 +57,13 @@ function Economics({ data }) {
       <div className="an-metric"><span>Billed revenue and margin</span><strong>Not available</strong><small>Awaiting reconciled Paddle revenue and complete provider charges</small></div>
     </div>
     <section className="pa-card"><h2>Projects — generation cost coverage</h2>
-      <SectionTable headers={["Project", "Current plan", "Generated video", "Operations", "Verified cost", "Compute allocation"]}
+      <SectionTable headers={["Project", "Current plan", "Generated video", "Operations", "Verified cost", "Verified cost/min", "Compute allocation"]}
         entries={data.projects.map(row => [
           row.title || row.projectId.slice(0, 8), row.plan,
           row.rendered ? row.outputSeconds.toFixed(1) + " sec" : "Not rendered",
-          n(row.tracedOperations), usd(row.verifiedProviderCostUsd), usd(row.estimatedComputeAllocationUsd),
+          n(row.tracedOperations), usd(row.verifiedProviderCostUsd),
+          usdPerMinute(row.verifiedProviderCostUsd, row.rendered ? row.outputSeconds : 0),
+          usd(row.estimatedComputeAllocationUsd),
         ])} />
     </section>
     <section className="pa-card"><h2>Cost coverage by current subscription plan</h2>
