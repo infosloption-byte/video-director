@@ -3,6 +3,7 @@ import { prisma } from "../db/client.js";
 import { generateStoryboard } from "../services/storyboardService.js";
 import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
+import { measureGeneration } from "../services/generationTelemetry.js";
 import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
 import { inspectNarration } from "../services/narrationReadiness.js";
 import { requireProjectOwner, requireSceneOwner } from "../middleware/ownership.js";
@@ -200,7 +201,14 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
     const researchCorpus = await loadResearchCorpus(project.id);
     if (!researchCorpus) return res.status(409).json({ error: "The persisted research corpus is not available. Complete research before generating scenes." });
     const scenes = await generateStoryboard({ project, signal: project.signal, researchCorpus });
-    const withAssets = await Promise.all(scenes.map(async (scene) => ({ scene, assets: await searchPexelsVideos(scene.broll_search_term, 5) })));
+    const withAssets = await Promise.all(scenes.map(async (scene) => ({
+      scene,
+      assets: await measureGeneration({
+        stage: "storyboard", operation: "storyboard.pexels_search",
+        projectId: project.id, userId: req.user.id, provider: "pexels",
+        metadata: { sceneCount: 1 },
+      }, () => searchPexelsVideos(scene.broll_search_term, 5)),
+    })));
     const missingAssets = withAssets.find((item) => item.assets.length < 5);
     if (missingAssets) throw new Error(`Pexels returned fewer than 5 usable visuals for scene ${missingAssets.scene.scene_order}.`);
     await prisma.$transaction(async (tx) => {

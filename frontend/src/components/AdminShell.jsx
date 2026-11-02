@@ -16,6 +16,8 @@ const MENU = [
     { path: "/admin/analytics/pipeline", label: "Pipeline Timings", icon: "activity" },
     { path: "/admin/analytics/users", label: "User Usage", icon: "users" },
     { path: "/admin/analytics/costs", label: "Costs & Providers", icon: "credit-card" },
+    { path: "/admin/analytics/infrastructure", label: "Server Resources", icon: "cpu" },
+    { path: "/admin/analytics/economics", label: "Generation Economics", icon: "credit-card" },
   ] },
   { section: "Management", links: [
     { path: "/admin/plans", label: "Plans & Limits", icon: "sliders" },

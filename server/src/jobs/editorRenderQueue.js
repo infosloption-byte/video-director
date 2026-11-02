@@ -3,6 +3,7 @@ import { Queue, Worker } from "bullmq";
 import { prisma } from "../db/client.js";
 import { releaseRender } from "../services/billingService.js";
 import { renderEditorProject } from "../services/editorRenderService.js";
+import { measureGeneration, recordGenerationTrace } from "../services/generationTelemetry.js";
 
 const QUEUE_NAME = "helix-editor-render";
 const JOB_LOCK_DURATION_MS = Number(process.env.RENDER_JOB_LOCK_DURATION_MS || 30 * 60 * 1000);
@@ -85,9 +86,22 @@ export async function startEditorRenderWorker() {
     async (job) => {
       const { projectId, version, renderHash } = job.data;
       await job.updateProgress({ progress: 3, stage: "preflight", stageProgress: 0, message: "Starting editor render preflight" });
-      const result = await renderEditorProject(projectId, version, renderHash, {
+      const project = await prisma.project.findUnique({ where: { id: projectId }, select: { userId: true } });
+      if (Number.isSafeInteger(job.timestamp) && job.timestamp > 0) {
+        await recordGenerationTrace({
+          projectId, userId: project?.userId, stage: "editor_render",
+          operation: "editor_render.queue_wait", status: "completed",
+          startedAt: new Date(job.timestamp),
+          finishedAt: new Date(Math.max(job.timestamp, Number(job.processedOn || Date.now()))),
+        });
+      }
+      const result = await measureGeneration({
+        projectId, userId: project?.userId, stage: "editor_render",
+        operation: "editor_render.full", provider: "remotion",
+        metadata: { retry: Number(job.attemptsMade || 0) > 0 },
+      }, () => renderEditorProject(projectId, version, renderHash, {
         onProgress: async (state) => { await job.updateProgress(state); },
-      });
+      }));
       await job.updateProgress({ progress: 100, stage: "complete", stageProgress: 100, message: "Editor render complete", ...result });
       return result;
     },

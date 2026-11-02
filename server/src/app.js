@@ -35,6 +35,7 @@ import { sameOriginProtection } from "./middleware/csrf.js";
 import { expensiveOperationRateLimit } from "./middleware/rateLimit.js";
 import { captureProjectOperation } from "./middleware/generationMetrics.js";
 import { waitForResearchGraph } from "./services/researchGraphAvailability.js";
+import { receiveGpuTelemetry } from "./routes/gpuTelemetry.js";
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -44,6 +45,7 @@ app.use(express.json({ limit: "40mb" }));
 app.use(authOptional);
 app.use(sameOriginProtection);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.post("/api/internal/telemetry/gpu", receiveGpuTelemetry);
 app.get("/api/platform-config", async (_req, res, next) => { try { res.set("Cache-Control", "no-store"); res.json(await getPublicPlatformConfig()); } catch (error) { next(error); } });
 
 app.get("/api/health/integrations", (_req, res) => {

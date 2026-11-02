@@ -1,3 +1,4 @@
+import { recordGenerationTrace } from "./generationTelemetry.js";
 const ALLOWED_LENGTHS = [15, 30, 45, 60];
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_MS = 1500;
@@ -67,13 +68,15 @@ function retryDelay(error, attempt) {
   return Math.min(12000, RETRY_BASE_MS * (2 ** (attempt - 1)));
 }
 
-async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputTokens = 4096, temperature = 0.2) {
+async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputTokens = 4096, temperature = 0.2, telemetry = {}) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   let lastError = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const startedAt = new Date();
+    let requestReported = false;
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -82,6 +85,18 @@ async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputT
         signal: AbortSignal.timeout(90000),
       });
       const data = await response.json().catch(() => ({}));
+      if (telemetry.projectId) {
+        await recordGenerationTrace({
+          projectId: telemetry.projectId, userId: telemetry.userId,
+          stage: "storyboard", operation: telemetry.operation || "storyboard.gemini",
+          provider: "gemini", model, status: response.ok ? "completed" : "failed",
+          startedAt, finishedAt: new Date(),
+          inputTokens: data?.usageMetadata?.promptTokenCount,
+          outputTokens: data?.usageMetadata?.candidatesTokenCount,
+          metadata: { retry: attempt > 1 },
+        });
+        requestReported = true;
+      }
       if (!response.ok) {
         const error = new Error(data?.error?.message || `Gemini returned ${response.status}.`);
         error.status = response.status;
@@ -94,6 +109,14 @@ async function callGemini(prompt, responseSchema = STORYBOARD_SCHEMA, maxOutputT
       if (!text) { const error = new Error(`Gemini returned no storyboard JSON${candidate?.finishReason ? ` (finish reason: ${candidate.finishReason})` : ""}.`); error.status = 502; throw error; }
       return parseJson(text);
     } catch (error) {
+      if (telemetry.projectId && !requestReported) {
+        await recordGenerationTrace({
+          projectId: telemetry.projectId, userId: telemetry.userId,
+          stage: "storyboard", operation: telemetry.operation || "storyboard.gemini",
+          provider: "gemini", model, status: "failed",
+          startedAt, finishedAt: new Date(), metadata: { retry: attempt > 1 },
+        });
+      }
       lastError = error;
       if (!isRetryable(error) || attempt === MAX_ATTEMPTS) break;
       const delay = retryDelay(error, attempt);
@@ -218,7 +241,7 @@ Persisted research corpus:
 ${grounding}`;
 
   try {
-    const result = await callGemini(prompt);
+    const result = await callGemini(prompt, STORYBOARD_SCHEMA, 4096, 0.2, { projectId: project.id, userId: project.userId, operation: "storyboard.gemini_generate" });
     const rawScenes = Array.isArray(result.scenes) ? result.scenes : [];
     if (rawScenes.length < 4) throw new Error("Gemini returned too few storyboard scenes.");
     return rawScenes.slice(0, 8).map((scene, index) => normalizeScene(scene, index, length));
@@ -305,7 +328,7 @@ ${project.researchSummary || "No research summary available."}
 Persisted verified research corpus:
 ${grounding}`;
 
-  const result = await callGemini(prompt, SCENE_REWRITE_SCHEMA, 2048, 0.55);
+  const result = await callGemini(prompt, SCENE_REWRITE_SCHEMA, 2048, 0.55, { projectId: project.id, userId: project.userId, operation: "storyboard.gemini_rewrite" });
   const rewritten = normalizeScene(result, Math.max(0, Number(scene.sceneOrder || 1) - 1), targetDuration);
   assertUniqueSceneNarration(rewritten.spoken_text, siblingTexts);
   return rewritten;

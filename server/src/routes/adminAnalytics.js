@@ -2,8 +2,24 @@ import { Router } from "express";
 import { getPlatformAnalytics, reportWindow } from "../services/platformAnalyticsService.js";
 import { prisma } from "../db/client.js";
 import { getLiveOperations } from "../services/liveOperationsService.js";
+import { getInfrastructureHistory } from "../services/infrastructureMonitoring.js";
+import { getGenerationEconomics } from "../services/generationEconomicsService.js";
 
 const router = Router();
+router.get("/infrastructure", async (req, res) => {
+  try { res.json(await getInfrastructureHistory(req.query.days)); }
+  catch (error) {
+    console.error("[admin-analytics] infrastructure failed:", error?.code || error?.message);
+    res.status(500).json({ error: "Infrastructure history is temporarily unavailable." });
+  }
+});
+router.get("/economics", async (req, res) => {
+  try { res.json(await getGenerationEconomics(req.query.days)); }
+  catch (error) {
+    console.error("[admin-analytics] economics failed:", error?.code || error?.message);
+    res.status(500).json({ error: "Generation economics are temporarily unavailable." });
+  }
+});
 router.get("/live", async (_req, res) => {
   try {
     res.json(await getLiveOperations());

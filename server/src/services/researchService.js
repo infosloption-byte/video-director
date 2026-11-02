@@ -4,8 +4,8 @@ import { adjudicateResearchConflicts, attachEvidenceIndexes } from "./researchAd
 import { normalizeResearchBrief, sanitizeResearchJson } from "./researchNormalization.js";
 import { ensureStructuredResearchReport } from "./researchReportBuilder.js";
 
-export async function researchSignal(signal, { onProgress, onActivity } = {}) {
-  const rawBrief = normalizeResearchBrief(await deepResearchSignal(signal, { onProgress, onActivity }));
+export async function researchSignal(signal, { onProgress, onActivity, telemetry } = {}) {
+  const rawBrief = normalizeResearchBrief(await deepResearchSignal(signal, { onProgress, onActivity, telemetry }));
   const structuredBrief = normalizeResearchBrief(await ensureStructuredResearchReport(
     String(signal?.title || "Research topic").trim(),
     rawBrief,
