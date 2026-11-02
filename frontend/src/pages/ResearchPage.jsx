@@ -251,6 +251,7 @@ export default function ResearchPage() {
   const avoidClaims = Array.isArray(deep.claims_to_avoid) ? deep.claims_to_avoid : [];
   const opportunities = Array.isArray(deep.creative_opportunities) ? deep.creative_opportunities : [];
   const reliability = deep.reliability_assessment;
+  const isWebsiteMarketing = Boolean(deep.websiteMarketing);
   const verifiedClaims = graph?.claims || [];
   const graphSources = graph?.sources || [];
   const graphEvidence = graph?.evidence || [];
@@ -349,7 +350,7 @@ export default function ResearchPage() {
               <div className="research-report__hero-copy">
                 <p className="eyebrow">Research complete</p>
                 <h2 id="research-report-title">{project?.title || "Research report"}</h2>
-                <p>Voxora reviewed the selected signal across multiple research areas, read source material, checked evidence, and assembled the report below.</p>
+                <p>{isWebsiteMarketing ? "This video brief uses business-published information from the selected website. Review all claims, prices and image rights before publishing; website statements are not independently verified." : "Voxora reviewed the selected signal across multiple research areas, read source material, checked evidence, and assembled the report below."}</p>
                 <div className="research-report__hero-meta">
                   <span>{discoveredCount} sources found</span>
                   <span>{reviewedCount} sources reviewed</span>
