@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import "./PlatformAdminPage.css";
 import "./AdminAnalyticsPage.css";
+import AdminMonitoringDetail from "./AdminMonitoringDetail.jsx";
 
 const TABS = [
   { id: "overview", name: "Operations", path: "/admin/analytics" },
   { id: "pipeline", name: "Pipeline timing", path: "/admin/analytics/pipeline" },
   { id: "users", name: "User usage", path: "/admin/analytics/users" },
   { id: "costs", name: "Provider costs", path: "/admin/analytics/costs" },
+  { id: "infrastructure", name: "Server resources", path: "/admin/analytics/infrastructure" },
+  { id: "economics", name: "Generation economics", path: "/admin/analytics/economics" },
 ];
 
 const number = (v) => Number(v || 0).toLocaleString();
@@ -206,7 +209,7 @@ export default function AdminAnalyticsPage({ view = "overview" }) {
   const [error, setError] = useState("");
   const refresh = useCallback(() => { setLoading(true); setNonce(n => n + 1); }, []);
   useEffect(() => {
-    if (userId) return undefined;
+    if (userId || view === "infrastructure" || view === "economics") return undefined;
     const controller = new AbortController();
     setLoading(true);
     api("/api/platform-admin/analytics?days=" + days, controller.signal).then(data => {
@@ -214,7 +217,7 @@ export default function AdminAnalyticsPage({ view = "overview" }) {
     }).catch(e => { if (!controller.signal.aborted) { setResult(null); setError(e.message); } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [days, nonce, userId]);
+  }, [days, nonce, userId, view]);
   return <div className="pa-page an-page">
     <header className="pa-header"><div><span className="eyebrow">Voxora / Operational intelligence</span>
       <h1>{userId ? "Customer usage" : TABS.find(x => x.id === view)?.name || "Operations analytics"}</h1>
@@ -227,6 +230,7 @@ export default function AdminAnalyticsPage({ view = "overview" }) {
       <span className="an-muted">UTC timestamps · Refresh for latest</span>
     </div>
     {userId ? <UserDetails userId={userId} days={days} nonce={nonce} /> :
+      (view === "infrastructure" || view === "economics") ? <AdminMonitoringDetail view={view} days={days} nonce={nonce} /> :
       loading ? <p role="status" className="pa-loading">Loading operational data…</p> :
       error ? <p role="alert" className="pa-error">{error} <button onClick={refresh}>Retry</button></p> :
       result ? <>
