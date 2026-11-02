@@ -1,8 +1,17 @@
 import { Router } from "express";
 import { getPlatformAnalytics, reportWindow } from "../services/platformAnalyticsService.js";
 import { prisma } from "../db/client.js";
+import { getLiveOperations } from "../services/liveOperationsService.js";
 
 const router = Router();
+router.get("/live", async (_req, res) => {
+  try {
+    res.json(await getLiveOperations());
+  } catch (error) {
+    console.error("[admin-analytics] live queue failed:", error?.code || error?.message);
+    res.status(500).json({ error: "Live operations are temporarily unavailable." });
+  }
+});
 router.get("/", async (req, res) => {
   try {
     res.json(await getPlatformAnalytics(req.query.days));
