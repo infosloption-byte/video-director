@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { prisma } from "../db/client.js";
+import { cpuPercent, readContainerResourceSnapshot, sampleSource } from "./containerResourceReader.js";
 
 const number = (value, min, max) => {
   if (value == null || value === "") return null;
@@ -32,34 +33,33 @@ export function validateGpuSample(body, now = new Date()) {
   };
 }
 
-async function readCgroupNumber(path) {
-  try {
-    const raw = (await readFile(path, "utf8")).trim();
-    const n = Number(raw);
-    return Number.isSafeInteger(n) && n >= 0 ? n : null;
-  } catch { return null; }
-}
+let lastSnapshot = null;
+let lastAt = null;
+let lastNodeCpu = process.cpuUsage();
 
-let lastCpu = process.cpuUsage();
-let lastAt = process.hrtime.bigint();
 export async function sampleApiContainer() {
   const now = process.hrtime.bigint();
-  const cpu = process.cpuUsage();
-  const elapsedMs = Number(now - lastAt) / 1e6;
-  const usedMs = (cpu.user - lastCpu.user + cpu.system - lastCpu.system) / 1000;
+  const processCpu = process.cpuUsage();
+  const snapshot = await readContainerResourceSnapshot();
+  const elapsedMs = lastAt === null ? null : Number(now - lastAt) / 1e6;
+
+  let pct = cpuPercent(lastSnapshot, snapshot, elapsedMs);
+  if (snapshot.cpuUsageUs === null && lastAt !== null && elapsedMs > 0) {
+    // Explicitly labeled fallback, not the Chrome-inclusive container metric.
+    const deltaUs = processCpu.user - lastNodeCpu.user + processCpu.system - lastNodeCpu.system;
+    pct = Math.max(0, Math.round((deltaUs / 1000 / elapsedMs) * 1000) / 10);
+  }
   lastAt = now;
-  lastCpu = cpu;
-  const [current, max] = await Promise.all([
-    readCgroupNumber("/sys/fs/cgroup/memory.current"),
-    readCgroupNumber("/sys/fs/cgroup/memory.max"),
-  ]);
-  // The container may be allowed multiple CPU cores: percentage can exceed 100.
-  const pct = elapsedMs > 0 ? Math.max(0, Math.min(4096, (usedMs / elapsedMs) * 100)) : 0;
+  lastSnapshot = snapshot;
+  lastNodeCpu = processCpu;
+
   return {
-    host: "lightsail-api", source: "node-cgroup", collectedAt: new Date(),
-    cpuPct: Math.round(pct * 10) / 10,
-    ramUsedBytes: BigInt(current ?? process.memoryUsage().rss),
-    ramTotalBytes: max == null ? null : BigInt(max),
+    host: "lightsail-api",
+    source: sampleSource(snapshot.cpuSource, snapshot.memorySource),
+    collectedAt: new Date(),
+    cpuPct: pct,
+    ramUsedBytes: snapshot.ramUsedBytes ?? BigInt(process.memoryUsage().rss),
+    ramTotalBytes: snapshot.ramTotalBytes,
   };
 }
 export async function recordApiSample() {
@@ -91,37 +91,51 @@ export function startInfrastructureSampling() {
 export async function getInfrastructureHistory(days = 7) {
   const safeDays = [1, 7].includes(Number(days)) ? Number(days) : 7;
   const since = new Date(Date.now() - safeDays * 86400000);
+  const resolutionMinutes = safeDays === 1 ? 1 : 15;
   const batches = await Promise.all(["lightsail-api", "gpu-ec2"].map(host =>
     prisma.infrastructureSample.findMany({
       where: { host, collectedAt: { gte: since } },
       orderBy: { collectedAt: "desc" }, take: 11000,
     })
   ));
-  // Return one newest sample per host per 15-minute interval, not a huge raw stream.
+  // Latest reading + independent interval peaks. This prevents averaging
+  // away or silently dropping the CPU/memory spikes caused by Remotion.
   const buckets = new Map();
+  const max = (a, b) => a == null ? b : b == null ? a : a > b ? a : b;
   for (const sample of batches.flat()) {
-    const key = sample.host + ":" + Math.floor(sample.collectedAt.getTime() / 900000);
-    if (!buckets.has(key)) buckets.set(key, sample);
+    const key = sample.host + ":" + Math.floor(sample.collectedAt.getTime() / (resolutionMinutes * 60000));
+    const existing = buckets.get(key);
+    if (!existing) {
+      buckets.set(key, {
+        newest: sample, peakCpuPct: sample.cpuPct,
+        peakRamUsedBytes: sample.ramUsedBytes, peakGpuPct: sample.gpuPct,
+      });
+    } else {
+      existing.peakCpuPct = max(existing.peakCpuPct, sample.cpuPct);
+      existing.peakRamUsedBytes = max(existing.peakRamUsedBytes, sample.ramUsedBytes);
+      existing.peakGpuPct = max(existing.peakGpuPct, sample.gpuPct);
+    }
   }
-  const samples = [...buckets.values()].sort((a,b) => b.collectedAt - a.collectedAt);
+  const groups = [...buckets.values()].sort((a, b) => b.newest.collectedAt - a.newest.collectedAt);
   return {
     days: safeDays, collectedAt: new Date().toISOString(),
     truncated: batches.some(batch => batch.length === 11000),
-    resolutionMinutes: 15,
-    samples: samples.map(s => ({
+    resolutionMinutes,
+    samples: groups.map(({ newest: s, peakCpuPct, peakRamUsedBytes, peakGpuPct }) => ({
       host: s.host, source: s.source, collectedAt: s.collectedAt,
-      cpuPct: s.cpuPct,
+      cpuPct: s.cpuPct, peakCpuPct,
       ramUsedBytes: s.ramUsedBytes == null ? null : Number(s.ramUsedBytes),
+      peakRamUsedBytes: peakRamUsedBytes == null ? null : Number(peakRamUsedBytes),
       ramTotalBytes: s.ramTotalBytes == null ? null : Number(s.ramTotalBytes),
-      gpuPct: s.gpuPct,
+      gpuPct: s.gpuPct, peakGpuPct,
       vramUsedBytes: s.vramUsedBytes == null ? null : Number(s.vramUsedBytes),
       vramTotalBytes: s.vramTotalBytes == null ? null : Number(s.vramTotalBytes),
       temperatureC: s.temperatureC,
     })),
     definitions: {
-      lightsail: "API container CPU process usage and cgroup memory, NOT total Lightsail host load or RAM for other apps.",
-      gpu: "GPU EC2 sampled by nvidia-smi only when the optional authenticated outbound reporter is configured.",
-      frequency: "API sampled every 60 seconds; GPU cadence configured separately. Up to 7 days retained; reports downsample to 15-minute snapshots.",
+      lightsail: "Lightsail API Docker container: cgroup CPU usage and memory (including Remotion/Chromium child processes) when available. When unavailable, the row source explicitly labels a Node-process-only fallback. NOT total host load or RAM of other apps.",
+      gpu: "GPU EC2 sampled by the optional authenticated outbound nvidia-smi reporter. GPU 0% is expected when no GPU workload runs.",
+      frequency: "One raw API sample each 60s. 1-day view uses 1-minute intervals; 7-day view uses 15-minute intervals and preserves CPU/RAM/GPU peaks for each interval. 7-day retention.",
     },
   };
 }
