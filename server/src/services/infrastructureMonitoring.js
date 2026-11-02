@@ -90,12 +90,24 @@ export function startInfrastructureSampling() {
 }
 export async function getInfrastructureHistory(days = 7) {
   const safeDays = [1, 7].includes(Number(days)) ? Number(days) : 7;
-  const samples = await prisma.infrastructureSample.findMany({
-    where: { collectedAt: { gte: new Date(Date.now() - safeDays * 86400000) } },
-    orderBy: { collectedAt: "desc" }, take: 2000,
-  });
+  const since = new Date(Date.now() - safeDays * 86400000);
+  const batches = await Promise.all(["lightsail-api", "gpu-ec2"].map(host =>
+    prisma.infrastructureSample.findMany({
+      where: { host, collectedAt: { gte: since } },
+      orderBy: { collectedAt: "desc" }, take: 11000,
+    })
+  ));
+  // Return one newest sample per host per 15-minute interval, not a huge raw stream.
+  const buckets = new Map();
+  for (const sample of batches.flat()) {
+    const key = sample.host + ":" + Math.floor(sample.collectedAt.getTime() / 900000);
+    if (!buckets.has(key)) buckets.set(key, sample);
+  }
+  const samples = [...buckets.values()].sort((a,b) => b.collectedAt - a.collectedAt);
   return {
     days: safeDays, collectedAt: new Date().toISOString(),
+    truncated: batches.some(batch => batch.length === 11000),
+    resolutionMinutes: 15,
     samples: samples.map(s => ({
       host: s.host, source: s.source, collectedAt: s.collectedAt,
       cpuPct: s.cpuPct,
@@ -109,7 +121,7 @@ export async function getInfrastructureHistory(days = 7) {
     definitions: {
       lightsail: "API container CPU process usage and cgroup memory, NOT total Lightsail host load or RAM for other apps.",
       gpu: "GPU EC2 sampled by nvidia-smi only when the optional authenticated outbound reporter is configured.",
-      frequency: "API sampled every 60 seconds; GPU reporter cadence configured separately; maximum 7 days retained.",
+      frequency: "API sampled every 60 seconds; GPU cadence configured separately. Up to 7 days retained; reports downsample to 15-minute snapshots.",
     },
   };
 }
