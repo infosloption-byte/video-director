@@ -30,6 +30,23 @@ function normalizeResearchFacts(brief) {
 async function runResearch(projectId, signal) {
   const traceStartedAt = new Date();
   let traceStatus = "completed";
+  const owner = await prisma.project.findUnique({
+    where: { id: projectId }, select: { userId: true },
+  }).catch(() => null);
+  const phaseWrites = [];
+  let phase = null;
+  function observePhase(stage) {
+    if (!["planning", "discovering", "reading", "verifying", "synthesizing", "ready"].includes(stage)) return;
+    if (phase?.stage === stage) return;
+    const now = new Date();
+    if (phase) phaseWrites.push(recordGenerationTrace({
+      projectId, userId: owner?.userId, stage: "research",
+      operation: "research." + phase.stage, status: "completed",
+      startedAt: phase.startedAt, finishedAt: now,
+    }));
+    phase = stage === "ready" ? null : { stage, startedAt: now };
+  }
+
   const setJob = (status, progress, label, detail) => researchJobs.set(projectId, { ...(researchJobs.get(projectId) || {}), status, progress, label, detail });
   setJob("planning", 5, "Planning the research", "Breaking the topic into evidence, mechanism, data, recent developments, and counter-evidence questions.");
   appendActivity(projectId, { type: "research.started", message: "Deep research job started." });
@@ -39,7 +56,7 @@ async function runResearch(projectId, signal) {
   // an orphaned state and automatically resume it. See resumeOrphanedResearch().
   await prisma.project.update({ where: { id: projectId }, data: { researchJobRunning: true } }).catch(() => {});
   try {
-    const brief = await researchSignal(signal, { onProgress: (stage, progress) => { const labels = { planning: ["Planning the research", "Defining the questions Voxora needs to answer before synthesis."], discovering: ["Discovering sources", "Searching academic, institutional, news, and independent evidence."], reading: ["Reading sources", "Opening selected sources and extracting their available evidence."], verifying: ["Verifying evidence", "Comparing claims, source quality, and conflicting findings."], synthesizing: ["Synthesizing findings", "Building an evidence-backed research intelligence brief."], ready: ["Research brief ready", "The evidence-backed brief is ready for guided setup."] }; const [label, detail] = labels[stage] || [stage, "Voxora is working through the evidence pipeline."]; setJob(stage, progress, label, detail); }, onActivity: (activity) => appendActivity(projectId, activity) });
+    const brief = await researchSignal(signal, { telemetry: { projectId, userId: owner?.userId }, onProgress: (stage, progress) => { observePhase(stage); const labels = { planning: ["Planning the research", "Defining the questions Voxora needs to answer before synthesis."], discovering: ["Discovering sources", "Searching academic, institutional, news, and independent evidence."], reading: ["Reading sources", "Opening selected sources and extracting their available evidence."], verifying: ["Verifying evidence", "Comparing claims, source quality, and conflicting findings."], synthesizing: ["Synthesizing findings", "Building an evidence-backed research intelligence brief."], ready: ["Research brief ready", "The evidence-backed brief is ready for guided setup."] }; const [label, detail] = labels[stage] || [stage, "Voxora is working through the evidence pipeline."]; setJob(stage, progress, label, detail); }, onActivity: (activity) => appendActivity(projectId, activity) });
     const keyFacts = normalizeResearchFacts(brief);
     const executiveSummary = String(brief.executive_summary || brief.mechanism_summary || "").trim();
     const fallbackSummary = [executiveSummary, ...keyFacts.map((fact) => `• ${fact}`)].filter(Boolean).join("\n\n");
@@ -54,7 +71,11 @@ async function runResearch(projectId, signal) {
     const existing = researchJobs.get(projectId) || {}; setJob("error", existing.progress || 0, "Research failed", "Voxora could not complete the evidence check."); researchJobs.set(projectId, { ...researchJobs.get(projectId), error: error.message || "Research failed." }); await prisma.project.update({ where: { id: projectId }, data: { status: "researching", researchJobRunning: false } }).catch(() => {});
   }
   finally {
-    const owner = await prisma.project.findUnique({ where: { id: projectId }, select: { userId: true } }).catch(() => null);
+    if (phase) phaseWrites.push(recordGenerationTrace({
+      projectId, userId: owner?.userId, stage: "research", operation: "research." + phase.stage,
+      status: traceStatus, startedAt: phase.startedAt, finishedAt: new Date(),
+    }));
+    await Promise.allSettled(phaseWrites);
     await recordGenerationTrace({
       projectId, userId: owner?.userId, stage: "research", operation: "research.full",
       status: traceStatus, startedAt: traceStartedAt, finishedAt: new Date(),
