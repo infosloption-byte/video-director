@@ -8,6 +8,7 @@ on:
       - 'server/src/services/storyboardService.js'
       - 'server/prisma/**'
       - 'server/test/websiteToVideoMvp.test.js'
+      - 'server/test/websiteToVideo.test.js'
       - 'server/src/app.js'
       - 'frontend/src/pages/WebsiteToVideoPage.*'
       - 'frontend/src/components/PlatformShell.jsx'
@@ -37,9 +38,16 @@ jobs:
         env:
           DATABASE_URL: mysql://test:test@127.0.0.1:3306/voxora
         run: npx prisma validate
+      - name: Check website backend JavaScript syntax
+        working-directory: server
+        run: |
+          node --check src/services/websiteSafeFetch.js
+          node --check src/services/websiteAnalysisService.js
+          node --check src/routes/websiteAnalyses.js
+          node --check src/services/storyboardService.js
       - name: Website crawler and API integration tests
         working-directory: server
-        run: node --test test/websiteToVideoMvp.test.js test/generationPerformanceMonitoring.test.js
+        run: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/generationPerformanceMonitoring.test.js
       - name: Install frontend
         working-directory: frontend
         run: npm ci --no-audit --no-fund
