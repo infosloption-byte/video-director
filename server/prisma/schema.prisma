@@ -856,6 +856,7 @@ model WebsiteAnalysis {
   report      Json?
   error       String?  @db.Text
   projectId   String?  @map("project_id") @db.VarChar(64)
+  createdVideos Json? @map("created_videos")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   completedAt DateTime? @map("completed_at")
