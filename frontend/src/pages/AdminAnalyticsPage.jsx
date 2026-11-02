@@ -202,7 +202,7 @@ function UserDetails({ userId, days, nonce }) {
 
 export default function AdminAnalyticsPage({ view = "overview" }) {
   const { userId } = useParams();
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(view === "infrastructure" ? 7 : 30);
   const [nonce, setNonce] = useState(0);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -225,7 +225,7 @@ export default function AdminAnalyticsPage({ view = "overview" }) {
     </div><button type="button" className="pa-refresh" onClick={refresh}>↻ Refresh</button></header>
     <nav className="an-tabs" aria-label="Operational reports">{TABS.map(tab =>
       <Link key={tab.id} to={tab.path} className={view === tab.id && !userId ? "is-active" : ""}>{tab.name}</Link>)}</nav>
-    <div className="an-filters"><span>Reporting window</span>{[7, 30, 90].map(d =>
+    <div className="an-filters"><span>Reporting window</span>{(view === "infrastructure" ? [1, 7] : [7, 30, 90]).map(d =>
       <button type="button" key={d} className={d === days ? "is-active" : ""} onClick={() => setDays(d)}>{d} days</button>)}
       <span className="an-muted">UTC timestamps · Refresh for latest</span>
     </div>
