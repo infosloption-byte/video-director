@@ -32,19 +32,14 @@
 @media(max-width:950px){.pa-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.pa-overview-grid,.pa-queues{grid-template-columns:1fr}}
 @media(max-width:600px){.pa-header{align-items:flex-start;flex-direction:column}.pa-page{padding-top:20px}.pa-stats,.pa-integrations,.pa-feed--columns{grid-template-columns:1fr}.pa-queue-values{grid-template-columns:repeat(3,minmax(0,1fr))}.pa-card,.pa-stat{padding:16px}.pa-tools input{min-width:0;max-width:none;flex-basis:100%}.pa-tools label{flex-basis:100%}}
 
-/* Activity time-window dropdown follows the existing admin controls. */
-.pa-tools select {
-  appearance: none;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  padding: 10px 36px 10px 13px;
-  background-color: var(--bg-raised);
-  background-image: linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
-  background-position: calc(100% - 19px) 50%,calc(100% - 13px) 50%;
-  background-size: 6px 6px;
-  background-repeat: no-repeat;
-  color: var(--body);
-  font: inherit;
+
+/* Accessible, theme-matched activity history filters. */
+.pa-activity-range { display: flex; flex-wrap: wrap; gap: 8px; }
+.pa-activity-range button {
+  border: 1px solid var(--border-soft); background: var(--bg-raised);
+  border-radius: 10px; padding: 9px 13px; font: inherit;
+  color: var(--body); cursor: pointer;
 }
-.pa-tools select:focus-visible { outline: 2px solid var(--ink-dim); outline-offset: 2px; }
+.pa-activity-range button.is-active { color: var(--bg); background: var(--ink); }
+.pa-activity-range button:focus-visible { outline: 2px solid var(--ink-dim); outline-offset: 2px; }
 .pa-tools p { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0; }
