@@ -84,12 +84,18 @@ function Records({ view, items }) {
   if (view === "subscriptions") return <DataTable headings={["Customer", "Plan", "Status", "Renewal/period end", "Cancel scheduled", "Updated"]} empty="No subscriptions match this search." rows={items.map((s) => ({ key: s.id, cells: [
     <span className="pa-primary"><strong>{s.user?.displayName || "Customer"}</strong><small>{s.user?.email}</small></span>, s.plan, <Status value={s.status} good={s.status === "active"} />, date(s.periodEnd), s.cancelAtPeriodEnd ? "Yes" : "No", date(s.updatedAt),
   ] }))} />;
-  return <DataTable headings={["Event", "Project", "Actor", "Time"]} empty="No activity recorded." rows={items.map((a) => ({ key: a.id, cells: [
-    <strong>{a.action}</strong>, <span className="pa-primary"><strong>{a.project?.title || "Untitled project"}</strong><small>{a.projectId.slice(0, 12)}</small></span>, a.user?.email || "System", date(a.createdAt),
+  return <DataTable headings={["Event", "Source", "Project", "Actor", "Duration", "Time"]} empty="No workflow activity recorded for this period." rows={items.map((a) => ({ key: a.id, cells: [
+    <span className="pa-primary"><strong>{a.action}</strong>{a.status && <small>{a.status}</small>}</span>,
+    <Status value={a.source || "project_activity"} />,
+    a.projectId ? <span className="pa-primary"><strong>{a.project?.title || "Deleted project"}</strong><small>{a.projectId.slice(0, 12)}</small></span> : "Platform",
+    a.user?.email || (a.userId ? "Deleted user" : "System"),
+    a.durationMs == null ? "—" : (Number(a.durationMs) / 1000).toFixed(1) + "s",
+    date(a.createdAt),
   ] }))} />;
 }
 
 export default function PlatformAdminPage({ view = "overview" }) {
+  const [activityDays, setActivityDays] = useState(90);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -103,6 +109,7 @@ export default function PlatformAdminPage({ view = "overview" }) {
     if (view !== "overview") {
       params.set("page", String(page));
       params.set("limit", "20");
+      if (view === "activity") params.set("days", String(activityDays));
       if (appliedSearch && view !== "activity") params.set("q", appliedSearch);
     }
     const url = "/api/platform-admin/" + view + (params.size ? "?" + params : "");
@@ -110,7 +117,7 @@ export default function PlatformAdminPage({ view = "overview" }) {
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.error || `Monitoring request failed (HTTP ${response.status}).`);
     return body;
-  }, [view, page, appliedSearch]);
+  }, [view, page, appliedSearch, activityDays]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -135,6 +142,19 @@ export default function PlatformAdminPage({ view = "overview" }) {
   return <div className="pa-page">
     <header className="pa-header"><div><span className="eyebrow">Voxora / Administration</span><h1>{VIEWS.find((item) => item.id === view)?.label || "Overview"}</h1><p>Platform-wide operational visibility and customer activity.</p></div>
       <button type="button" className="pa-refresh" onClick={refresh} disabled={loading} aria-label="Refresh platform monitoring">{loading ? "Loading…" : "↻ Refresh"}</button></header>
+    {view === "activity" && <div className="pa-tools" aria-label="Activity date range">
+      <span>Show activity from the past</span>
+      <div className="pa-activity-range" role="group" aria-label="Activity history period">
+        {[7, 30, 90].map(days => (
+          <button key={days} type="button" aria-pressed={activityDays === days}
+            className={activityDays === days ? "is-active" : ""}
+            onClick={() => { setActivityDays(days); setPage(1); setLoading(true); }}>
+            {days} days
+          </button>
+        ))}
+      </div>
+      <p>Combines recorded operations, project and research records, render reservations, and audited admin changes. Historical events are labeled by source.</p>
+    </div>}
     {view !== "overview" && <form className="pa-tools" onSubmit={(event) => { event.preventDefault(); setPage(1); setAppliedSearch(search.trim().slice(0, 100)); setLoading(true); setNonce((n) => n + 1); }}>
       <label htmlFor="pa-search">{view === "activity" ? "Platform activity history" : "Search " + view}</label>
       {view !== "activity" && <><input id="pa-search" value={search} onChange={(event) => setSearch(event.target.value)} maxLength={100} placeholder={view === "projects" ? "Project title" : "Customer name or email"} autoComplete="off" /><button type="submit">Search</button></>}

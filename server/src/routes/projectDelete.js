@@ -43,6 +43,7 @@ router.delete("/:id", async (req, res) => {
       if (scenes.length) await tx.sceneAsset.deleteMany({ where: { sceneId: { in: scenes.map((scene) => scene.id) } } });
       await tx.projectScene.deleteMany({ where: { projectId: project.id } });
       await tx.projectExport.deleteMany({ where: { projectId: project.id } });
+      await tx.generationTrace.deleteMany({ where: { projectId: project.id } });
       await tx.project.delete({ where: { id: project.id } });
     });
 

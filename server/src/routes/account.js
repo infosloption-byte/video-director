@@ -89,6 +89,7 @@ async function removeProject(projectId) {
     if (scenes.length) await tx.sceneAsset.deleteMany({ where: { sceneId: { in: scenes.map((s) => s.id) } } });
     await tx.projectScene.deleteMany({ where: { projectId } });
     await tx.projectExport.deleteMany({ where: { projectId } });
+    await tx.generationTrace.deleteMany({ where: { projectId } });
     await tx.project.delete({ where: { id: projectId } });
   });
   await Promise.all(["audio", "render-assets", "renders", "exports"].map((dir) => rm(path.join(STORAGE_ROOT, dir, projectId), { recursive: true, force: true }).catch(() => {})));
@@ -122,6 +123,7 @@ accountRouter.post("/delete", async (req, res, next) => {
     }
     for (const project of projects) await removeProject(project.id);
 
+    await prisma.generationTrace.deleteMany({ where: { userId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
     void sendSecurityEmail(user, "deleted").catch((e) => console.error("[mail] Deletion notice failed:", e.message));
     clearSessionCookie(res);

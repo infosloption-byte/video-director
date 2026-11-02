@@ -1,6 +1,8 @@
 import { Router } from "express";
 import pipelineAdminRouter from "./adminPipelines.js";
 import modelPoolRouter from "./adminModelPool.js";
+import analyticsRouter from "./adminAnalytics.js";
+import { listOperationalActivity } from "../services/platformActivityService.js";
 import { prisma } from "../db/client.js";
 import { currentMonth, PLANS, configuredPlans } from "../services/billingService.js";
 import { getPublicPlatformConfig } from "../services/platformConfigService.js";
@@ -16,6 +18,7 @@ router.use((_req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
   next();
 });
+router.use("/analytics", analyticsRouter);
 
 function pagination(query) {
   const page = Math.min(1000, Math.max(1, Number.parseInt(String(query.page || "1"), 10) || 1));
@@ -144,20 +147,14 @@ router.get("/subscriptions", async (req, res) => {
 
 router.get("/activity", async (req, res) => {
   try {
-    const { page, pageSize, skip } = pagination(req.query);
-    const [total, rows] = await Promise.all([
-      prisma.projectActivity.count(),
-      prisma.projectActivity.findMany({ orderBy: { createdAt: "desc" }, skip, take: pageSize,
-        select: { id: true, projectId: true, action: true, createdAt: true,
-          user: { select: { email: true } }, project: { select: { title: true } } } }),
-    ]);
-    res.json({ page, pageSize, total, items: rows });
+    res.json(await listOperationalActivity({
+      page: req.query.page, limit: req.query.limit, days: req.query.days,
+    }));
   } catch (error) {
-    console.error("[platform-admin] activity failed:", error);
+    console.error("[platform-admin] activity failed:", error?.code || error?.message);
     res.status(500).json({ error: "Unable to load platform activity." });
   }
 });
-
 
 async function auditChange(tx, req, action, before, after) {
   return tx.adminAuditLog.create({ data: {

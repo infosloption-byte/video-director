@@ -17,6 +17,7 @@ import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
 const SignalsPage = lazy(() => import("./pages/SignalsPage"));
 const PlatformAdminPage = lazy(() => import("./pages/PlatformAdminPage"));
+const AdminAnalyticsPage = lazy(() => import("./pages/AdminAnalyticsPage"));
 const AdminManagementPage = lazy(() => import("./pages/AdminManagementPage.jsx"));
 const AdminPipelinesPage = lazy(() => import("./pages/AdminPipelinesPage.jsx"));
 const AdminModelPoolPage = lazy(() => import("./pages/AdminModelPoolPage.jsx"));
@@ -79,6 +80,11 @@ export default function App() {
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/platform-admin" element={<Navigate to="/admin" replace />} />
     <Route path="/admin" element={<PlatformAdminRoute><PlatformAdminPage key="overview" view="overview" /></PlatformAdminRoute>} />
+    <Route path="/admin/analytics" element={<PlatformAdminRoute><AdminAnalyticsPage key="operations" view="overview" /></PlatformAdminRoute>} />
+    <Route path="/admin/analytics/pipeline" element={<PlatformAdminRoute><AdminAnalyticsPage key="pipeline" view="pipeline" /></PlatformAdminRoute>} />
+    <Route path="/admin/analytics/users" element={<PlatformAdminRoute><AdminAnalyticsPage key="usage" view="users" /></PlatformAdminRoute>} />
+    <Route path="/admin/analytics/costs" element={<PlatformAdminRoute><AdminAnalyticsPage key="costs" view="costs" /></PlatformAdminRoute>} />
+    <Route path="/admin/analytics/user/:userId" element={<PlatformAdminRoute><AdminAnalyticsPage key="user-detail" view="users" /></PlatformAdminRoute>} />
     <Route path="/admin/users" element={<PlatformAdminRoute><PlatformAdminPage key="users" view="users" /></PlatformAdminRoute>} />
     <Route path="/admin/projects" element={<PlatformAdminRoute><PlatformAdminPage key="projects" view="projects" /></PlatformAdminRoute>} />
     <Route path="/admin/subscriptions" element={<PlatformAdminRoute><PlatformAdminPage key="subscriptions" view="subscriptions" /></PlatformAdminRoute>} />

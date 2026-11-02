@@ -33,6 +33,7 @@ import { requireProjectOwner, requireSceneOwner } from "./middleware/ownership.j
 import { requireRenderAssetAccess, requireStoredProjectOwner } from "./middleware/storageOwnership.js";
 import { sameOriginProtection } from "./middleware/csrf.js";
 import { expensiveOperationRateLimit } from "./middleware/rateLimit.js";
+import { captureProjectOperation } from "./middleware/generationMetrics.js";
 import { waitForResearchGraph } from "./services/researchGraphAvailability.js";
 
 const app = express();
@@ -103,6 +104,7 @@ app.use("/api/projects", requireAuth, (req, _res, next) => {
   if (req.body && typeof req.body === "object") req.body.userId = userId;
   next();
 }, requireProjectOwner, expensiveOperationRateLimit);
+app.use("/api/projects", captureProjectOperation);
 app.use("/api/templates", requireAuth, templatesRouter);
 app.use("/api/projects", requireAuth, requireProjectOwner, projectDeleteRouter);
 app.use("/api/projects", editorRouter);

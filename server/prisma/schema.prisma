@@ -669,6 +669,33 @@ model RenderCredit {
   @@map("render_credits")
 }
 
+// Immutable operational measurements, with no prompts, audio or customer content.
+model GenerationTrace {
+  id            String    @id @default(uuid()) @db.VarChar(64)
+  projectId     String?   @map("project_id") @db.VarChar(64)
+  userId        String?   @map("user_id") @db.VarChar(64)
+  stage         String    @db.VarChar(50)
+  operation     String    @db.VarChar(80)
+  status        String    @db.VarChar(20)
+  provider      String?   @db.VarChar(50)
+  model         String?   @db.VarChar(100)
+  startedAt     DateTime  @map("started_at")
+  finishedAt    DateTime  @map("finished_at")
+  durationMs    Int       @map("duration_ms")
+  inputTokens   Int?      @map("input_tokens")
+  outputTokens  Int?      @map("output_tokens")
+  costUsd       Decimal?  @map("cost_usd") @db.Decimal(14, 8)
+  costSource    String?   @map("cost_source") @db.VarChar(50)
+  metadata      Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([stage, status, createdAt])
+  @@map("generation_traces")
+}
+
 model AdminAuditLog {
   id           String   @id @default(uuid())
   actorUserId  String?  @map("actor_user_id")
