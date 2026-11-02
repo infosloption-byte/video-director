@@ -7,6 +7,8 @@ on:
       - 'server/src/services/websiteCampaignService.js'
       - 'server/src/services/websiteReportQuality.js'
       - 'server/src/routes/websiteAnalyses.js'
+      - 'server/src/services/websiteVideoProjectCreate.js'
+      - 'server/scripts/smokeWebsiteVideoProjectCreate.js'
       - 'server/src/services/storyboardService.js'
       - 'server/prisma/**'
       - 'server/test/websiteToVideoMvp.test.js'
@@ -51,6 +53,8 @@ jobs:
           node --check src/services/websiteReportQuality.js
           node --check src/services/websiteAnalysisService.js
           node --check src/routes/websiteAnalyses.js
+          node --check src/services/websiteVideoProjectCreate.js
+          node --check scripts/smokeWebsiteVideoProjectCreate.js
           node --check src/services/storyboardService.js
       - name: Website crawler and API integration tests
         working-directory: server
