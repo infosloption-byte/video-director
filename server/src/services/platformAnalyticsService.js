@@ -23,7 +23,7 @@ export async function getPlatformAnalytics(daysValue) {
   const where = { createdAt: { gte: since } };
   const [users, projects, rendered, sessions, credits, traces,
     knownCosts, verifiedSpend, stages, providers, topUsers, recent,
-    recentProjects, durationProjects, researchByStatus] = await Promise.all([
+    recentProjects, durationProjects, researchByStatus, projectUsers, creditUsers] = await Promise.all([
     prisma.user.count(),
     prisma.project.count({ where: { createdAt: { gte: since } } }),
     prisma.project.count({ where: { renderUrl: { not: null }, createdAt: { gte: since } } }),
@@ -60,8 +60,32 @@ export async function getPlatformAnalytics(daysValue) {
       _sum: { durationSeconds: true } }),
     prisma.researchSession.groupBy({ by: ["status"], where: { createdAt: { gte: since } },
       _count: { _all: true } }),
+    prisma.project.groupBy({ by: ["userId"], where: { createdAt: { gte: since } },
+      _count: { _all: true }, orderBy: { _count: { _all: "desc" } }, take: 30 }),
+    prisma.renderCredit.groupBy({ by: ["userId"], where: { createdAt: { gte: since } },
+      _count: { _all: true }, orderBy: { _count: { _all: "desc" } }, take: 30 }),
   ]);
-  const ids = [...new Set([...topUsers.map(x => x.userId), ...recent.map(x => x.userId), ...recentProjects.map(x => x.userId)].filter(Boolean))];
+  const usageByUser = new Map();
+  for (const group of topUsers) if (group.userId) usageByUser.set(group.userId, {
+    userId: group.userId, operations: group._count._all,
+    totalDurationMs: group._sum.durationMs || 0,
+    measuredCostUsd: group._sum.costUsd == null ? null : Number(group._sum.costUsd),
+    newProjects: 0, renderCredits: 0,
+  });
+  for (const group of projectUsers) {
+    const row = usageByUser.get(group.userId) || { userId: group.userId, operations: 0,
+      totalDurationMs: 0, measuredCostUsd: null, newProjects: 0, renderCredits: 0 };
+    row.newProjects = group._count._all; usageByUser.set(group.userId, row);
+  }
+  for (const group of creditUsers) {
+    const row = usageByUser.get(group.userId) || { userId: group.userId, operations: 0,
+      totalDurationMs: 0, measuredCostUsd: null, newProjects: 0, renderCredits: 0 };
+    row.renderCredits = group._count._all; usageByUser.set(group.userId, row);
+  }
+  const rankedUsers = [...usageByUser.values()].sort((a,b) =>
+    (b.operations + b.newProjects + b.renderCredits) - (a.operations + a.newProjects + a.renderCredits)
+    || a.userId.localeCompare(b.userId)).slice(0, 30);
+  const ids = [...new Set([...rankedUsers.map(x => x.userId), ...recent.map(x => x.userId), ...recentProjects.map(x => x.userId)].filter(Boolean))];
   const people = ids.length ? await prisma.user.findMany({ where: { id: { in: ids } },
     select: { id: true, email: true, displayName: true } }) : [];
   const usersById = Object.fromEntries(people.map((u) => [u.id, { email: u.email, name: u.displayName }]));
@@ -92,10 +116,8 @@ export async function getPlatformAnalytics(daysValue) {
       measuredCostUsd: p._sum.costUsd == null ? null : Number(p._sum.costUsd),
       totalDurationMs: p._sum.durationMs || 0,
     })),
-    users: topUsers.filter(x => x.userId).map((g) => ({
-      userId: g.userId, user: usersById[g.userId] || null,
-      operations: g._count._all, totalDurationMs: g._sum.durationMs || 0,
-      measuredCostUsd: g._sum.costUsd == null ? null : Number(g._sum.costUsd),
+    users: rankedUsers.map((g) => ({
+      ...g, user: usersById[g.userId] || null,
     })),
     recentOperations: recent.map((r) => ({
       ...r, costUsd: r.costUsd == null ? null : Number(r.costUsd),
