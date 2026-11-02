@@ -255,3 +255,55 @@ The `rollback` operation now exits without any Docker changes if the
 original snapshot gateway container and image are still running. Do not
 recreate the gateway until the fixed check passes and upstream narration
 work is explicitly paused for a maintenance window.
+
+## Voxora app: narration readiness and final render UX correction
+
+The GPU gateway itself can authenticate and synthesize Kokoro audio from the
+Voxora API container. A user can also create a cloned voice and generate
+storyboard audio, but the Storyboard screen may show Narration pending and the
+Preview Render MP4 button may appear inert.
+
+Two application-side problems were identified:
+
+1. `GET /api/projects/:id/narration-status` required *word timestamps* in
+   addition to a real MP3 file, although `POST /api/projects/:id/render`
+   only requires an actual narration file. This is a false-negative render
+   readiness check for otherwise usable audio.
+2. The Preview render button is disabled while narration is not ready but the
+   UI did not explain the missing scene(s) or provide a recovery action.
+
+The new readiness response reports individual scene order, whether a real
+audio file exists, and whether optional timestamp data exists. It uses the
+same basic audio-file requirement as the render backend. The Preview screen
+explains the exact missing scene numbers, can recheck readiness, and allows
+authenticated users to regenerate only missing narration; audio for ready
+scenes is left unchanged. Errors and partial repairs are visible. This does
+not bypass the server-side missing-file guard or quotas/rate limiting.
+
+### Application deployment and manual checks
+
+This change affects **Lightsail Voxora API + frontend only**, not the GPU TTS
+gateway or its running worker containers. Before deploying, run from the
+project checkout:
+
+```bash
+cd server && node --test test/narrationReadiness.test.js test/narrationRepairRoute.test.js
+cd ../frontend && npm run test:unit && npm run build
+```
+
+After merging to `main` and rebuilding the two application images
+individually using the existing Lightsail Compose configuration, verify:
+
+- Storyboard: ready scene count accurately reflects existing narration files.
+- Preview: narration is ready and Render MP4 is enabled when all audio files
+  exist—even if word-level timings are unavailable.
+- If one file is absent, Preview identifies its scene number and can regenerate
+  only that scene, keeping other audio untouched.
+- MP4 rendering still fails with `NARRATION_MISSING` for a truly missing
+  file. The UI must not silently bypass the backend guard.
+- MP4 queueing, progress and completion are verified against the actual
+  rendered project. Avoid duplicate render requests.
+
+No schema migrations or GPU coordination activation are needed. Keep the
+existing `TTS_SERVICE_URL` and `TTS_SERVICE_AUTH_TOKEN` configuration and
+never paste their values in logs or chat.
