@@ -263,7 +263,7 @@ ${grounding}`;
     return rawScenes.slice(0, 8).map((scene, index) => normalizeScene(scene, index, length));
   } catch (error) {
     const fallbackEnabled = process.env.GEMINI_STORYBOARD_FALLBACK !== "false";
-    if ((error.status === 429 || error.status === 503 || error.status === 502) && fallbackEnabled) {
+    if ((error.status === 429 || error.status === 503 || error.status === 502) && fallbackEnabled && signal.category !== "WEBSITE_MARKETING") {
       console.warn(`[storyboard] Gemini unavailable (${error.message}); using research-backed fallback storyboard.`);
       return buildFallbackStoryboard({ project, signal, length });
     }
@@ -300,7 +300,7 @@ export async function rewriteStoryboardScene({
   const role = sceneRole(Number(scene.sceneOrder || 1), sceneCount);
   const currentDraft = String(currentNarration || scene.spokenText || "").trim();
 
-  const prompt = `You are Voxora, the AI director for one scene inside an evidence-grounded short-form science and technology Reel.
+  const prompt = `You are Voxora, the AI director for one scene inside an evidence-grounded ${signal.category === "WEBSITE_MARKETING" ? "BUSINESS MARKETING VIDEO, grounded in published website evidence (not independently verified). Never invent promotional claims, prices, reviews, offers, discounts, customers, guarantees or results" : "short-form science and technology Reel"}.
 
 Regenerate ONLY this scene's narration. This is not a word-swap, synonym pass, or light paraphrase. Rebuild the narration from the persisted research evidence so it contributes a distinct piece of information to the overall story.
 
