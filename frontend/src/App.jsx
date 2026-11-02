@@ -84,6 +84,8 @@ export default function App() {
     <Route path="/admin/analytics/pipeline" element={<PlatformAdminRoute><AdminAnalyticsPage key="pipeline" view="pipeline" /></PlatformAdminRoute>} />
     <Route path="/admin/analytics/users" element={<PlatformAdminRoute><AdminAnalyticsPage key="usage" view="users" /></PlatformAdminRoute>} />
     <Route path="/admin/analytics/costs" element={<PlatformAdminRoute><AdminAnalyticsPage key="costs" view="costs" /></PlatformAdminRoute>} />
+    <Route path="/admin/analytics/infrastructure" element={<PlatformAdminRoute><AdminAnalyticsPage key="infrastructure" view="infrastructure" /></PlatformAdminRoute>} />
+    <Route path="/admin/analytics/economics" element={<PlatformAdminRoute><AdminAnalyticsPage key="economics" view="economics" /></PlatformAdminRoute>} />
     <Route path="/admin/analytics/user/:userId" element={<PlatformAdminRoute><AdminAnalyticsPage key="user-detail" view="users" /></PlatformAdminRoute>} />
     <Route path="/admin/users" element={<PlatformAdminRoute><PlatformAdminPage key="users" view="users" /></PlatformAdminRoute>} />
     <Route path="/admin/projects" element={<PlatformAdminRoute><PlatformAdminPage key="projects" view="projects" /></PlatformAdminRoute>} />
