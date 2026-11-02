@@ -55,16 +55,16 @@ export async function listOperationalActivity({ page = 1, limit = 20, days = 90 
   ];
   const sorted = rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() ||
     a.id.localeCompare(b.id)).slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const userIds = [...new Set(sorted.map(x => x.userId).filter(Boolean))];
   const projectIds = [...new Set(sorted.map(x => x.projectId).filter(Boolean))];
-  const [users, projectNames] = await Promise.all([
-    userIds.length ? prisma.user.findMany({ where: { id: { in: userIds } },
-      select: { id: true, email: true } }) : [],
-    projectIds.length ? prisma.project.findMany({ where: { id: { in: projectIds } },
-      select: { id: true, title: true, userId: true } }) : [],
-  ]);
-  const userById = Object.fromEntries(users.map(x => [x.id, { email: x.email }]));
+  const projectNames = projectIds.length ? await prisma.project.findMany({
+    where: { id: { in: projectIds } }, select: { id: true, title: true, userId: true },
+  }) : [];
   const projectById = Object.fromEntries(projectNames.map(x => [x.id, x]));
+  const userIds = [...new Set(sorted.map(x => x.userId || projectById[x.projectId]?.userId).filter(Boolean))];
+  const users = userIds.length ? await prisma.user.findMany({
+    where: { id: { in: userIds } }, select: { id: true, email: true },
+  }) : [];
+  const userById = Object.fromEntries(users.map(x => [x.id, { email: x.email }]));
   const items = sorted.map(x => ({
     ...x,
     userId: x.userId || projectById[x.projectId]?.userId || null,
