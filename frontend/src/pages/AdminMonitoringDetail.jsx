@@ -88,7 +88,7 @@ export default function AdminMonitoringDetail({ view, days, nonce }) {
   useEffect(() => {
     const controller = new AbortController();
     setState({ loading: true });
-    const period = view === "infrastructure" ? (days === 7 ? 7 : 1) : days;
+    const period = days;
     fetch("/api/platform-admin/analytics/" + view + "?days=" + period,
       { credentials: "include", cache: "no-store", signal: controller.signal })
       .then(async res => { const data = await res.json().catch(() => ({}));
