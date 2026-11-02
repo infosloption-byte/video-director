@@ -5,6 +5,7 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 import { prisma } from "../db/client.js";
 import { getNarrationFilePath } from "./ttsService.js";
 import { ensureRenderAssets } from "./renderAssetService.js";
+import { measureGeneration, recordGenerationTrace } from "./generationTelemetry.js";
 
 const RENDER_ROOT = path.resolve(process.cwd(), "storage", "renders");
 const ENTRY_POINT = path.resolve(process.cwd(), "src", "remotion", "index.jsx");
@@ -147,7 +148,12 @@ export async function renderProject(projectId, { onProgress } = {}) {
     completedAssets: 0,
     totalAssets: project.scenes.length,
   });
-  const renderAssets = await ensureRenderAssets(project.id, project.scenes, (detail) => {
+  const trace = (operation) => ({
+    stage: "render", projectId: project.id, userId: project.userId, provider: "remotion",
+    operation, metadata: { sceneCount: project.scenes.length },
+  });
+  const renderAssets = await measureGeneration(trace("render.asset_preparation"), () =>
+    ensureRenderAssets(project.id, project.scenes, (detail) => {
     const overallAsset = Number(detail.overallProgress || 0);
     const stageProgress = Math.max(0, Math.min(100, overallAsset));
     const phaseLabel = detail.phase === "cached" ? "Using cached B-roll" : detail.phase === "downloaded" ? "B-roll cached locally" : "Downloading B-roll";
@@ -169,7 +175,7 @@ export async function renderProject(projectId, { onProgress } = {}) {
         { id: "cache", label: "Cache local asset", progress: detail.phase === "downloaded" || detail.phase === "cached" ? 100 : 0 },
       ],
     });
-  });
+  }));
   const localAssetUrlByScene = new Map(project.scenes.map((scene, index) => [scene.id, `${getBaseUrl()}${renderAssets[index].url}`]));
 
   const scenes = project.scenes.map((scene) => toRenderScene(scene, localAssetUrlByScene.get(scene.id)));
@@ -185,7 +191,7 @@ export async function renderProject(projectId, { onProgress } = {}) {
       { id: "bundle", label: "Build Remotion bundle", progress: 10 },
     ],
   });
-  const serveUrl = await getBundle();
+  const serveUrl = await measureGeneration(trace("render.bundle"), () => getBundle());
   report("bundle", 100, "Composition bundle ready", 24, {
     substeps: [
       { id: "resolve", label: "Resolve composition entry", progress: 100 },
@@ -200,7 +206,7 @@ export async function renderProject(projectId, { onProgress } = {}) {
       { id: "timeline", label: `Build ${scenes.length}-scene timeline`, progress: 0 },
     ],
   });
-  const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps });
+  const composition = await measureGeneration(trace("render.composition"), () => selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps }));
   report("composition", 100, "Composition ready", 28, {
     substeps: [
       { id: "composition", label: "Load video composition", progress: 100 },
@@ -225,7 +231,12 @@ export async function renderProject(projectId, { onProgress } = {}) {
   let lastRenderReportAt = 0;
   let lastStitchStage = null;
 
-  await renderMedia({
+  const mediaStartedAt = new Date();
+  let framesDoneMs = null;
+  let encodedDoneMs = null;
+  let muxingStartedAt = null;
+  let muxingFinishedAt = null;
+  await measureGeneration(trace("render.remotion_media"), () => renderMedia({
     composition,
     serveUrl,
     codec: "h264",
@@ -242,6 +253,10 @@ export async function renderProject(projectId, { onProgress } = {}) {
       renderEstimatedTime = 0,
       stitchStage = "encoding",
     }) => {
+      if (framesDoneMs === null && Number.isFinite(renderedDoneIn) && renderedDoneIn >= 0) framesDoneMs = Number(renderedDoneIn);
+      if (encodedDoneMs === null && Number.isFinite(encodedDoneIn) && encodedDoneIn >= 0) encodedDoneMs = Number(encodedDoneIn);
+      if (stitchStage === "muxing" && !muxingStartedAt) muxingStartedAt = new Date();
+      if (stitchStage !== "muxing" && muxingStartedAt && !muxingFinishedAt) muxingFinishedAt = new Date();
       const overallProgress = roundProgress(Number(progress) * 100);
       const frameProgress = renderedDoneIn !== null
         ? 100
@@ -324,7 +339,25 @@ export async function renderProject(projectId, { onProgress } = {}) {
         ],
       });
     },
-  });
+  }));
+  const mediaTraceWrites = [];
+  for (const [operation, measuredMs] of [
+    ["render.frames_elapsed_milestone", framesDoneMs],
+    ["render.encoding_elapsed_milestone", encodedDoneMs],
+  ]) {
+    if (measuredMs !== null && measuredMs >= 0 && measuredMs < 86400000) {
+      mediaTraceWrites.push(recordGenerationTrace({
+        ...trace(operation), status: "completed", startedAt: mediaStartedAt,
+        finishedAt: new Date(mediaStartedAt.getTime() + measuredMs),
+        metadata: { sceneCount: project.scenes.length, outputSeconds: effectiveDuration },
+      }));
+    }
+  }
+  if (muxingStartedAt) mediaTraceWrites.push(recordGenerationTrace({
+    ...trace("render.mux_observed"), status: "completed",
+    startedAt: muxingStartedAt, finishedAt: muxingFinishedAt || new Date(),
+  }));
+  await Promise.allSettled(mediaTraceWrites);
 
   report("finalizing", 40, "Writing final MP4 and saving render state", 98, {
     substeps: [
