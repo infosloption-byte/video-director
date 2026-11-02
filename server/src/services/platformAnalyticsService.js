@@ -41,12 +41,12 @@ export async function getPlatformAnalytics(daysValue) {
     prisma.generationTrace.groupBy({
       by: ["provider", "model"], where,
       _count: { _all: true }, _sum: { costUsd: true, durationMs: true },
-      orderBy: { _count: { _all: "desc" } }, take: 25,
+      orderBy: { _count: { id: "desc" } }, take: 25,
     }),
     prisma.generationTrace.groupBy({
       by: ["userId"], where,
       _count: { _all: true }, _sum: { durationMs: true, costUsd: true },
-      orderBy: { _count: { _all: "desc" } }, take: 20,
+      orderBy: { _count: { id: "desc" } }, take: 20,
     }),
     prisma.generationTrace.findMany({ where, orderBy: { createdAt: "desc" }, take: 40,
       select: { id: true, stage: true, operation: true, status: true, projectId: true, userId: true,
@@ -61,9 +61,9 @@ export async function getPlatformAnalytics(daysValue) {
     prisma.researchSession.groupBy({ by: ["status"], where: { createdAt: { gte: since } },
       _count: { _all: true } }),
     prisma.project.groupBy({ by: ["userId"], where: { createdAt: { gte: since } },
-      _count: { _all: true }, orderBy: { _count: { _all: "desc" } }, take: 30 }),
+      _count: { _all: true }, orderBy: { _count: { id: "desc" } }, take: 30 }),
     prisma.renderCredit.groupBy({ by: ["userId"], where: { createdAt: { gte: since } },
-      _count: { _all: true }, orderBy: { _count: { _all: "desc" } }, take: 30 }),
+      _count: { _all: true }, orderBy: { _count: { id: "desc" } }, take: 30 }),
   ]);
   const usageByUser = new Map();
   for (const group of topUsers) if (group.userId) usageByUser.set(group.userId, {
