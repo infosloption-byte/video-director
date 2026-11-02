@@ -3,7 +3,7 @@ import { Queue, Worker } from "bullmq";
 import { prisma } from "../db/client.js";
 import { releaseRender } from "../services/billingService.js";
 import { renderProject } from "../services/renderService.js";
-import { measureGeneration } from "../services/generationTelemetry.js";
+import { measureGeneration, recordGenerationTrace } from "../services/generationTelemetry.js";
 
 const QUEUE_NAME = "helix-render";
 const JOB_LOCK_DURATION_MS = Number(process.env.RENDER_JOB_LOCK_DURATION_MS || 30 * 60 * 1000);
@@ -89,6 +89,15 @@ export async function startRenderWorker() {
       const projectInfo = await prisma.project.findUnique({
         where: { id: projectId }, select: { userId: true, durationSeconds: true },
       });
+      if (Number.isSafeInteger(job.timestamp) && job.timestamp > 0) {
+        const startedAt = new Date(job.timestamp);
+        const finishedAt = new Date(Math.max(job.timestamp, Number(job.processedOn || Date.now())));
+        await recordGenerationTrace({
+          projectId, userId: projectInfo?.userId, stage: "render",
+          operation: "render.queue_wait", status: "completed", startedAt, finishedAt,
+          metadata: { retry: Number(job.attemptsMade || 0) > 0 },
+        });
+      }
       const result = await measureGeneration({
         projectId, userId: projectInfo?.userId, stage: "render", operation: "render.remotion",
         provider: "remotion", metadata: {
