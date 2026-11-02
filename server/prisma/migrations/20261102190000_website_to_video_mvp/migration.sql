@@ -8,6 +8,7 @@ CREATE TABLE `website_analyses` (
   `report` JSON NULL,
   `error` TEXT NULL,
   `project_id` VARCHAR(64) NULL,
+  `created_videos` JSON NULL,
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` DATETIME(3) NOT NULL,
   `completed_at` DATETIME(3) NULL,
