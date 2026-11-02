@@ -48,8 +48,11 @@ not automatically licensed to use in exported advertisements.
   HTTPS downgrade redirects.
 - Bounded page size, request time and crawl breadth; skip admin/login/cart
   routes and binary assets.
-- Respect published robots exclusions. If robots cannot be retrieved
-  (other than 404), fail closed.
+- Respect published robots exclusions. Under RFC 9309, a 4xx response to
+  robots.txt means the rules are unavailable; the MVP may read public pages
+  and flags this limitation for 401/403 and other non-404/410 cases.
+  A 429 rate-limit is treated conservatively as blocked, as are 5xx,
+  network, DNS and TLS failures. An explicit Disallow rule is respected.
 - Authenticated, email-verified creation, account-scoped saved reports,
   rate limiting and rolling daily quota.
 - Prisma `website_analyses.user_id` cascades on account deletion.
