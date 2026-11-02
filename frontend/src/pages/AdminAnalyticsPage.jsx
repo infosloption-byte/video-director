@@ -31,6 +31,53 @@ const api = async (url, signal) => {
   return data;
 };
 
+function LiveOperations() {
+  const [snapshot, setSnapshot] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    let timer = null;
+    const fetchLive = async () => {
+      try {
+        const response = await fetch("/api/platform-admin/analytics/live", { credentials: "include", cache: "no-store" });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || "Live queue unavailable");
+        if (active) { setSnapshot(body); setError(""); }
+      } catch (e) {
+        if (active) setError(e.message || "Live queue unavailable");
+      } finally {
+        if (active) timer = window.setTimeout(fetchLive, 20000);
+      }
+    };
+    void fetchLive();
+    return () => { active = false; if (timer) clearTimeout(timer); };
+  }, []);
+  return <section className="pa-card">
+    <div className="pa-section-head"><div><h2>Live research and render queue</h2>
+      <p>Lightweight status refresh every 20 seconds. Final MP4 rendering currently runs on Lightsail.</p></div>
+      <span className="pa-readonly">{snapshot ? "Updated " + time(snapshot.collectedAt) : "Loading"}</span>
+    </div>
+    {error && <p role="status" className="an-muted">Live status unavailable: {error}</p>}
+    {snapshot && <>
+      <div className="an-grid">
+        {Object.values(snapshot.queues || {}).map(q =>
+          <div key={q.type} className="an-live-queue"><h3>{title(q.type)} rendering</h3>
+            {q.available ? <p>{number(q.counts?.active)} active · {number(q.counts?.waiting)} waiting · {number(q.counts?.failed)} failed</p>
+              : <p>{q.reason || "Unavailable"}</p>}
+            {(q.jobs || []).map(job => <div className="an-live-job" key={job.jobId}>
+              <span>{job.state} · {title(job.stage)} · {job.progress.toFixed(1)}%</span>
+              <div className="an-bar"><i style={{ width: job.progress + "%" }} /></div>
+              <small>Job {job.jobId.slice(0, 18)} · Queued {time(job.queuedAt)}</small>
+            </div>)}
+          </div>)}
+      </div>
+      <p className="an-muted">Research projects flagged active: {number(snapshot.researching?.length || 0)}
+        {(snapshot.researching || []).map(p => <span key={p.projectId}> · {p.title || p.projectId.slice(0, 8)}</span>)}
+      </p>
+    </>}
+  </section>;
+}
+
 function Overview({ report }) {
   const t = report.totals;
   const stageCounts = Object.entries((report.stages || []).reduce((all, x) => {
@@ -38,6 +85,7 @@ function Overview({ report }) {
   }, {}));
   const max = Math.max(1, ...stageCounts.map(x => x[1]));
   return <>
+    <LiveOperations />
     <div className="an-metrics">
       <Metric label="Projects started" value={number(t.newProjects)} help="Created in selected period" />
       <Metric label="Research sessions" value={number(t.researchSessions)} help="Historical database records" />
