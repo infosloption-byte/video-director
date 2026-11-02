@@ -41,6 +41,7 @@ export default function WebsiteToVideoPage() {
   const [starting, setStarting] = useState(false);
   const [creating, setCreating] = useState("");
   const [selectedTab, setSelectedTab] = useState("overview");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +68,7 @@ export default function WebsiteToVideoPage() {
     setError("");
     void poll();
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [id]);
+  }, [id, refreshKey]);
 
   async function begin(event) {
     event.preventDefault();
@@ -89,9 +90,9 @@ export default function WebsiteToVideoPage() {
       await api("/api/website-analyses/" + id + "/retry", { method: "POST" });
       const data = await api("/api/website-analyses/" + id);
       setAnalysis(data.analysis);
-      // Restart polling without reloading the page.
-      navigate("/website-to-video/" + id + "?retry=" + Date.now());
-      window.location.reload();
+      // Restart polling via React state, without losing the workspace.
+      setRefreshKey(value => value + 1);
+      setStarting(false);
     } catch (err) { setError(err.message); setStarting(false); }
   }
 
