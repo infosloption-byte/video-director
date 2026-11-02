@@ -1,8 +1,6 @@
-import os from "node:os";
 import { readFile } from "node:fs/promises";
 import { prisma } from "../db/client.js";
 
-const MB = 1024 * 1024;
 const number = (value, min, max) => {
   if (value == null || value === "") return null;
   const n = Number(value);
@@ -70,6 +68,7 @@ export async function recordApiSample() {
   return data;
 }
 
+let lastCleanupDay = "";
 export function startInfrastructureSampling() {
   if (process.env.INFRA_SAMPLING_ENABLED === "false") return null;
   const tick = async () => {
@@ -77,8 +76,11 @@ export function startInfrastructureSampling() {
       await recordApiSample();
       const cutoff = new Date(Date.now() - 7 * 86400000);
       // Sample retention: daily, avoiding a growing history on 4 GiB Lightsail.
-      if (new Date().getUTCHours() === 0 && new Date().getUTCMinutes() === 0)
+      const today = new Date().toISOString().slice(0, 10);
+      if (lastCleanupDay !== today) {
+        lastCleanupDay = today;
         await prisma.infrastructureSample.deleteMany({ where: { collectedAt: { lt: cutoff } } });
+      }
     } catch (error) { console.warn("[monitor] Sample unavailable:", error?.code || error?.message); }
   };
   const handle = setInterval(() => { void tick(); }, 60000);
