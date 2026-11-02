@@ -12,7 +12,7 @@ set +a
 : "${VOXORA_METRICS_TOKEN:?Configure VOXORA_METRICS_TOKEN}"
 : "${VOXORA_METRICS_URL:=https://usevoxora.online/api/internal/telemetry/gpu}"
 python3 - <<'PY'
-import datetime, json, os, subprocess, urllib.request
+import datetime, json, os, subprocess, time, urllib.request
 
 values = subprocess.check_output([
     "nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
@@ -40,6 +40,18 @@ def meminfo():
             if sep and key in {"MemTotal", "MemAvailable"}:
                 result[key] = int(value.strip().split()[0]) * 1024
     return result
+
+def cpu_ticks():
+    with open("/proc/stat", encoding="utf8") as stream:
+        row = stream.readline().split()
+    ticks = [int(value) for value in row[1:]]
+    return sum(ticks), ticks[3] + (ticks[4] if len(ticks) > 4 else 0)
+
+cpu_a, idle_a = cpu_ticks()
+time.sleep(0.25)
+cpu_b, idle_b = cpu_ticks()
+if cpu_b > cpu_a:
+    sample["cpuPct"] = round(100 * (1 - (idle_b - idle_a) / (cpu_b - cpu_a)), 1)
 
 memory = meminfo()
 if "MemTotal" in memory and "MemAvailable" in memory:
