@@ -6,7 +6,9 @@ ENV_FILE="${VOXORA_GPU_METRICS_ENV:-/etc/voxora-gpu-telemetry.env}"
 if [[ ! -r "$ENV_FILE" ]]; then echo "Missing protected telemetry configuration" >&2; exit 2; fi
 # Configuration owned by the operator; enforce mode 600 and root ownership at setup.
 # shellcheck disable=SC1090
+set -a
 source "$ENV_FILE"
+set +a
 : "${VOXORA_METRICS_TOKEN:?Configure VOXORA_METRICS_TOKEN}"
 : "${VOXORA_METRICS_URL:=https://usevoxora.online/api/internal/telemetry/gpu}"
 python3 - <<'PY'
