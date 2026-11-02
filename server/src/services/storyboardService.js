@@ -215,7 +215,23 @@ function buildResearchGrounding(researchCorpus) {
 export async function generateStoryboard({ project, signal, researchCorpus = null }) {
   const length = ALLOWED_LENGTHS.includes(Number(project.scriptLengthSeconds)) ? Number(project.scriptLengthSeconds) : 30;
   const grounding = buildResearchGrounding(researchCorpus);
-  const prompt = `You are Voxora, a short-form science and technology Reel director. Create a complete scene-by-scene storyboard for a ${length}-second vertical video. Use the persisted research corpus as the factual authority. Never invent facts, and never present an unverified claim as established. When evidence conflicts, preserve the uncertainty instead of averaging it away. Keep the selected framework and tone. Each scene needs a concise spoken line, a reason that line belongs, a reason for the picture, and a concrete B-roll search phrase suitable for Pexels.
+  const marketingPrompt = [
+    "You are Voxora, a commercial short-form video creative director. Create a vertical marketing video for a business website.",
+    "This is BUSINESS-PUBLISHED WEBSITE RESEARCH, not independently verified marketing evidence.",
+    "Only state facts clearly present in the supplied readable website sources and linked passages.",
+    "Never fabricate reviews, discounts, prices, results, statistics, guarantees, customers, or product capabilities.",
+    "The website owner must approve the script and confirm brand/media rights before advertising.",
+    "Present a clear value proposition and an appropriate CTA sourced from the website, not a fictional offer.",
+    "Create 4 to 8 scenes of approximately " + length + " seconds in total. Use a natural voiceover, strong opening hook and practical call to action.",
+    "Each scene must contain title, spoken_text, duration_seconds, why_line, why_picture, broll_search_term.",
+    "B-roll phrases describe relevant real products, services, locations, or customer activities. Do not assume stock images are the actual product.",
+    "Respect framework: " + (project.selectedFramework || "how-it-works") + "; tone: " + (project.tone || "Conversational") + "; audience: " + (project.audienceLevel || "General public") + ".",
+    "Return only a JSON object matching the provided scene schema. Sum durations within 1 second of requested length.",
+    "Business/selected campaign: " + JSON.stringify({ title: signal.title, description: signal.description, category: signal.category }),
+    "Website research summary: " + (project.researchSummary || ""),
+    "Cited business-published evidence: " + grounding,
+  ].join("\n\n");
+  const prompt = signal.category === "WEBSITE_MARKETING" ? marketingPrompt : `You are Voxora, a short-form science and technology Reel director. Create a complete scene-by-scene storyboard for a ${length}-second vertical video. Use the persisted research corpus as the factual authority. Never invent facts, and never present an unverified claim as established. When evidence conflicts, preserve the uncertainty instead of averaging it away. Keep the selected framework and tone. Each scene needs a concise spoken line, a reason that line belongs, a reason for the picture, and a concrete B-roll search phrase suitable for Pexels.
 
 Return ONLY a single JSON object matching this schema exactly. Do not include markdown or commentary.
 
