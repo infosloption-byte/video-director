@@ -11,6 +11,7 @@ on:
       - 'server/prisma/**'
       - 'server/test/websiteToVideoMvp.test.js'
       - 'server/test/websiteBatch2A.test.js'
+      - 'server/test/websiteVideoProjectCreate.test.js'
       - 'server/test/websiteToVideo.test.js'
       - 'server/src/app.js'
       - 'frontend/src/pages/WebsiteToVideoPage.*'
@@ -53,7 +54,7 @@ jobs:
           node --check src/services/storyboardService.js
       - name: Website crawler and API integration tests
         working-directory: server
-        run: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/websiteBatch2A.test.js test/generationPerformanceMonitoring.test.js
+        run: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/websiteBatch2A.test.js test/websiteVideoProjectCreate.test.js test/generationPerformanceMonitoring.test.js
       - name: Install frontend
         working-directory: frontend
         run: npm ci --no-audit --no-fund
