@@ -76,14 +76,41 @@ test("Gemini, TTS and Remotion integrations record measured substeps", async () 
     "render.frames_elapsed_milestone", "render.encoding_elapsed_milestone", "render.mux_observed"]) assert.ok(render.includes(name));
   assert.match(research, /observePhase\(stage\)/);
 });
-test("GPU intake uses a separate constant-time bearer gate and is disabled without a token", async () => {
-  const [route, app, compose] = await Promise.all([
-    read("routes/gpuTelemetry.js"), read("app.js"),
-    readFile(new URL("../../docker-compose.lightsail.yml", import.meta.url), "utf8"),
+test("GPU intake is registered and validates bearer authorization inside the API image", async () => {
+  // The API image contains server/ only; the repository-root Compose file is not
+  // present in /app. Exercise the real handler without a database call instead.
+  const [{ receiveGpuTelemetry }, route, app] = await Promise.all([
+    import("../src/routes/gpuTelemetry.js"),
+    read("routes/gpuTelemetry.js"),
+    read("app.js"),
   ]);
   assert.match(route, /timingSafeEqual/);
   assert.match(route, /expected\.length < 32/);
   assert.match(route, /validateGpuSample/);
   assert.match(app, /"\/api\/internal\/telemetry\/gpu", receiveGpuTelemetry/);
-  assert.match(compose, /GPU_TELEMETRY_INGEST_TOKEN/);
+
+  const originalToken = process.env.GPU_TELEMETRY_INGEST_TOKEN;
+  const invoke = async (authorization = "") => {
+    let statusCode = 200;
+    let data;
+    const req = { get: name => name === "authorization" ? authorization : "" };
+    const res = {
+      set: () => res,
+      status: code => { statusCode = code; return res; },
+      json: value => { data = value; return res; },
+    };
+    await receiveGpuTelemetry(req, res);
+    return { statusCode, data };
+  };
+
+  try {
+    delete process.env.GPU_TELEMETRY_INGEST_TOKEN;
+    assert.equal((await invoke()).statusCode, 503);
+    process.env.GPU_TELEMETRY_INGEST_TOKEN = "a".repeat(48);
+    assert.equal((await invoke("Bearer invalid-token")).statusCode, 401);
+    assert.equal((await invoke("Basic " + "a".repeat(48))).statusCode, 401);
+  } finally {
+    if (originalToken === undefined) delete process.env.GPU_TELEMETRY_INGEST_TOKEN;
+    else process.env.GPU_TELEMETRY_INGEST_TOKEN = originalToken;
+  }
 });
