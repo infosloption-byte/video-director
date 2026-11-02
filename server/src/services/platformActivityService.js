@@ -72,12 +72,16 @@ export async function listOperationalActivity({ page = 1, limit = 20, days = 90 
     project: x.projectId ? { title: x.projectTitle || projectById[x.projectId]?.title || "Project" } : null,
     projectTitle: undefined,
   }));
+  const actualCount = savedCount + traceCount + projectCount + researchCount + auditCount + creditCount;
+  const maxBrowsable = pageSize * 20;
   return {
     collectedAt: new Date().toISOString(),
     days: reportWindow(days).days,
     page: currentPage, pageSize,
-    total: savedCount + traceCount + projectCount + researchCount + auditCount + creditCount,
+    total: Math.min(maxBrowsable, actualCount),
+    totalAvailable: actualCount,
+    truncated: actualCount > maxBrowsable,
     items,
-    coverage: "Includes persisted project activity, measured operations, project creation, research sessions, render reservations and admin changes. Legacy timing/costs were not recorded.",
+    coverage: "Includes persisted project activity, measured operations, project creation, research sessions, render reservations and admin changes. Legacy timing/costs were not recorded. Only the most recent 20 pages are browsable.",
   };
 }
