@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { Prisma } from "@prisma/client";
+import { buildWebsiteVideoProjectData } from "../src/services/websiteVideoProjectCreate.js";
 
 // Regression for the live 500: Unknown argument pipelineVersionId when the
 // project is created with nested signal.create. This checked Prisma input must
@@ -13,11 +14,24 @@ test("website project creation uses checked Prisma relation input for its pipeli
   assert.equal(relation?.kind, "object");
   assert.deepEqual(relation?.relationFromFields, ["pipelineVersionId"]);
 
+  const data = buildWebsiteVideoProjectData({
+    id: "test-project-id",
+    userId: "test-user-id",
+    report: { name: "Example Business", url: "https://business.example.org/" },
+    idea: { id: "product-showcase", title: "Showcase", angle: "Explain an actual product", durationSeconds: 30 },
+    brief: { executive_summary: "Published business information" },
+    pipelineVersionId: "active-version-id",
+  });
+  assert.equal(data.signal.create.category, "WEBSITE_MARKETING");
+  assert.equal(data.signal.create.sourceType, "brave");
+  assert.equal(data.pipelineVersion.connect.id, "active-version-id");
+  assert.equal(Object.hasOwn(data, "pipelineVersionId"), false);
+  assert.equal(data.status, "setup");
+
   const path = new URL("../src/routes/websiteAnalyses.js", import.meta.url);
   const route = await readFile(path, "utf8");
-  assert.match(route, /signal:\s*\{\s*create:\s*\{/);
-  assert.match(route, /pipelineVersion:\s*\{\s*connect:\s*\{\s*id:\s*pipeline\.id\s*\}\s*\}/);
-  assert.doesNotMatch(route, /pipelineVersionId\s*:\s*pipeline\.id/);
+  assert.match(route, /data:\s*buildWebsiteVideoProjectData\(\{/);
+  assert.match(route, /pipelineVersionId:\s*pipeline\.id/);
   assert.match(route, /const pipeline = await getActivePipelineVersion\(\)/);
   assert.match(route, /persistResearchGraph\(created\.id, brief\)/);
   assert.match(route, /status:\s*"completed", stage:\s*"Video workspace ready"/);
