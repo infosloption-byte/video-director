@@ -136,10 +136,11 @@ function Pipeline({ report }) {
   </>;
 }
 function Users({ report }) {
-  return <section className="pa-card"><h2>Highest usage users</h2><p>Ranked by measured generation operations in the selected period. Click a user for details.</p>
-    <SimpleTable columns={["Customer", "Operations", "Execution time", "Verified spend", "Details"]}
+  return <section className="pa-card"><h2>Highest usage users</h2><p>Based on projects, render reservations and measured operations in the selected period. Click a user for details.</p>
+    <SimpleTable columns={["Customer", "Projects", "Render credits", "Timed operations", "Execution time", "Verified spend", "Details"]}
       rows={(report.users || []).map(u => ({ key: u.userId, cells: [
-        u.user?.email || u.userId, number(u.operations), duration(u.totalDurationMs),
+        u.user?.email || u.userId, number(u.newProjects), number(u.renderCredits),
+        number(u.operations), duration(u.totalDurationMs),
         money(u.measuredCostUsd), <Link to={"/admin/analytics/user/" + encodeURIComponent(u.userId)}>Open user report</Link>,
       ] }))} />
     <p className="an-muted">Older activity without generation traces is not attributed as measured execution time. See the Projects and Activity pages for historical records.</p>
