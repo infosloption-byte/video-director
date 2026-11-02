@@ -13,12 +13,12 @@ import { getEditorRenderQueue } from "../jobs/editorRenderQueue.js";
 const router = Router();
 router.use("/pipelines", pipelineAdminRouter);
 router.use("/model-pool", modelPoolRouter);
-router.use("/analytics", analyticsRouter);
 router.use((_req, res, next) => {
   res.set("Cache-Control", "no-store, private");
   res.set("X-Content-Type-Options", "nosniff");
   next();
 });
+router.use("/analytics", analyticsRouter);
 
 function pagination(query) {
   const page = Math.min(1000, Math.max(1, Number.parseInt(String(query.page || "1"), 10) || 1));
