@@ -109,6 +109,8 @@ test("GPU intake is registered and validates bearer authorization inside the API
     process.env.GPU_TELEMETRY_INGEST_TOKEN = "a".repeat(48);
     assert.equal((await invoke("Bearer invalid-token")).statusCode, 401);
     assert.equal((await invoke("Basic " + "a".repeat(48))).statusCode, 401);
+    // A valid token reaches payload validation, but an empty sample is rejected before writing to MySQL.
+    assert.equal((await invoke("Bearer " + "a".repeat(48))).statusCode, 400);
   } finally {
     if (originalToken === undefined) delete process.env.GPU_TELEMETRY_INGEST_TOKEN;
     else process.env.GPU_TELEMETRY_INGEST_TOKEN = originalToken;
