@@ -3,6 +3,7 @@ import { readFile, rm } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../db/client.js";
 import { createTtsVoiceFromFile, deleteTtsVoice, synthesizeVoicePreview } from "../services/ttsService.js";
+import { measureGeneration } from "../services/generationTelemetry.js";
 import { CURRENT_LEGAL_VERSION } from "../services/legalConsent.js";
 import { buildCombinedReference, deleteVoiceProfileFiles, getVoiceProfileSamplePath, saveVoiceProfileSample, MAX_SAMPLES, MIN_SAMPLES, MAX_SAMPLE_BYTES } from "../services/voiceProfileService.js";
 
@@ -172,12 +173,15 @@ router.post("/:id/preview", async (req, res) => {
     }
 
     const text = String(req.body?.text || PREVIEW_TEXT).trim().slice(0, 500);
-    const preview = await synthesizeVoicePreview({
+    const preview = await measureGeneration({
+      userId: req.user.id, stage: "voice", operation: "voice.preview",
+      provider: "helix-tts", model: profile.preferredEngine,
+    }, () => synthesizeVoicePreview({
       text,
       engine: profile.preferredEngine,
       voiceId: profile.ttsVoiceId,
       language: profile.language || "English",
-    });
+    }));
 
     return res.json({
       text,
@@ -203,7 +207,11 @@ router.post("/:id/clone", async (req, res) => {
     await prisma.voiceProfile.update({ where: { id: profile.id }, data: { status: "processing", sampleCount: profile.samples.length } });
     combinedPath = await buildCombinedReference(profile.samples, profile.id);
     const referenceText = profile.samples.map((sample) => sample.promptText).join("\n");
-    const created = await createTtsVoiceFromFile({ name: profile.name, referenceAudioPath: combinedPath, referenceText, preferredEngine: profile.preferredEngine });
+    const created = await measureGeneration({
+      userId: req.user.id, stage: "voice", operation: "voice.clone",
+      provider: "helix-tts", model: profile.preferredEngine,
+    }, () => createTtsVoiceFromFile({ name: profile.name, referenceAudioPath: combinedPath,
+      referenceText, preferredEngine: profile.preferredEngine }));
     await prisma.voiceProfile.update({ where: { id: profile.id }, data: { status: "ready", ttsVoiceId: created.voice_id, sampleCount: profile.samples.length, referenceText } });
     const ready = await ownedProfile(req.user.id, profile.id);
     return res.status(201).json({ profile: publicProfile(ready), provider: created });
