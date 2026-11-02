@@ -8,6 +8,7 @@ import { buildResearchMemory, answerResearchQuestion, resolveResearchConflict, s
 import { buildSetupSuggestions, validateSetup, getSetupCatalog } from "../services/setupService.js";
 import { publishFacebookReel } from "../services/facebookService.js";
 import { getPredefinedVoice } from "../services/predefinedVoiceService.js";
+import { recordGenerationTrace } from "../services/generationTelemetry.js";
 
 const router = Router();
 const researchJobs = new Map();
@@ -27,6 +28,8 @@ function normalizeResearchFacts(brief) {
     .filter(Boolean);
 }
 async function runResearch(projectId, signal) {
+  const traceStartedAt = new Date();
+  let traceStatus = "completed";
   const setJob = (status, progress, label, detail) => researchJobs.set(projectId, { ...(researchJobs.get(projectId) || {}), status, progress, label, detail });
   setJob("planning", 5, "Planning the research", "Breaking the topic into evidence, mechanism, data, recent developments, and counter-evidence questions.");
   appendActivity(projectId, { type: "research.started", message: "Deep research job started." });
@@ -45,9 +48,18 @@ async function runResearch(projectId, signal) {
     appendActivity(projectId, { type: "research.corpus_persisted", message: "Research corpus persisted for downstream Storyboard and AI workflows." });
     setJob("ready", 100, "Research brief ready", "The evidence-backed brief is ready for guided setup.");
   } catch (error) {
+    traceStatus = "failed";
     console.error(`[research] Project ${projectId} failed:`, error);
     appendActivity(projectId, { type: "research.failed", status: "error", message: error.message || "Research failed." });
     const existing = researchJobs.get(projectId) || {}; setJob("error", existing.progress || 0, "Research failed", "Voxora could not complete the evidence check."); researchJobs.set(projectId, { ...researchJobs.get(projectId), error: error.message || "Research failed." }); await prisma.project.update({ where: { id: projectId }, data: { status: "researching", researchJobRunning: false } }).catch(() => {});
+  }
+  finally {
+    const owner = await prisma.project.findUnique({ where: { id: projectId }, select: { userId: true } }).catch(() => null);
+    await recordGenerationTrace({
+      projectId, userId: owner?.userId, stage: "research", operation: "research.full",
+      status: traceStatus, startedAt: traceStartedAt, finishedAt: new Date(),
+      provider: "multiple",
+    });
   }
 }
 
