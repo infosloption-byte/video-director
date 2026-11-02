@@ -1,5 +1,6 @@
 import { searchSourceCascade } from "./sourceCascade.js";
 import { registerResearchController, clearResearchController } from "./researchCancellation.js";
+import { recordGenerationTrace } from "./generationTelemetry.js";
 
 const MAX_DISCOVERY_RESULTS = 36;
 const MAX_READABLE_SOURCES = 12;
@@ -59,7 +60,7 @@ function isTransientModelFailure(status, message = "") { return [408, 409, 425, 
 async function listAvailableGeminiModels(apiKey) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`, { signal: AbortSignal.timeout(MODEL_LIST_TIMEOUT_MS) }); const data = await response.json().catch(() => ({})); if (!response.ok) return []; return (data.models || []).filter((item) => Array.isArray(item.supportedGenerationMethods) && item.supportedGenerationMethods.includes("generateContent")).map((item) => normalizeModelName(item.name)).filter(isUsableModel); } catch (error) { console.warn(`[research] Unable to list Gemini models for failover: ${error.message || "request failed"}`); return []; } }
 async function resolveGeminiModelChain(apiKey, configuredModel) { const preferred = normalizeModelName(configuredModel || process.env.GEMINI_MODEL || "gemini-3.5-flash-lite"); const configuredFallbacks = String(process.env.GEMINI_MODEL_FALLBACKS || "").split(",").map(normalizeModelName).filter(Boolean); const discovered = await listAvailableGeminiModels(apiKey); const ordered = []; for (const model of [preferred, ...configuredFallbacks, ...DEFAULT_GEMINI_FALLBACK_MODELS, ...discovered]) { const normalized = normalizeModelName(model); if (!normalized || !isUsableModel(normalized) || ordered.includes(normalized)) continue; if (discovered.length && !discovered.includes(normalized) && normalized !== preferred) continue; ordered.push(normalized); } return ordered; }
 
-async function synthesize(topic, plan, sources, onProgress, onActivity, abortSignal) {
+async function synthesize(topic, plan, sources, onProgress, onActivity, abortSignal, telemetry) {
   const apiKey = process.env.GEMINI_API_KEY; if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
   const configuredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   const evidence = sources.map((source, index) => ({ index: source.researchSourceIndex ?? index, title: source.title, url: source.sourceUrl, source_name: source.sourceName, source_class: source.sourceClass, source_reliability: source.sourceReliability, published_at: source.publishedAt, quality_prior: Math.round(sourceQuality(source) * 100), content: source.content || source.description || "No readable source text available." }));
@@ -68,19 +69,46 @@ async function synthesize(topic, plan, sources, onProgress, onActivity, abortSig
   for (let modelIndex = 0; modelIndex < models.length; modelIndex += 1) {
     if (abortSignal?.aborted) throw abortSignal.reason || new Error("Research was stopped by the user.");
     const model = models[modelIndex]; const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const request = (generationConfig) => fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig }), signal: timeoutSignal(abortSignal, GEMINI_REQUEST_TIMEOUT_MS) });
-    onActivity?.({ type: "research.model_attempt", model, attempt: modelIndex + 1, total: models.length, message: `Synthesizing with ${model}.` }); let response;
-    try { response = await request({ responseMimeType: "application/json", responseSchema: DEEP_SCHEMA, temperature: 0.1, maxOutputTokens: 12000 }); }
+    const request = async (generationConfig) => {
+      const startedAt = new Date();
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig }),
+          signal: timeoutSignal(abortSignal, GEMINI_REQUEST_TIMEOUT_MS),
+        });
+        const data = await response.json().catch(() => ({}));
+        await recordGenerationTrace({
+          projectId: telemetry?.projectId, userId: telemetry?.userId,
+          stage: "research", operation: "gemini.generate_content",
+          status: response.ok ? "completed" : "failed", provider: "gemini", model,
+          startedAt, finishedAt: new Date(),
+          inputTokens: data?.usageMetadata?.promptTokenCount,
+          outputTokens: data?.usageMetadata?.candidatesTokenCount,
+          metadata: { retry: generationConfig?.responseSchema == null },
+        });
+        return { response, data };
+      } catch (error) {
+        await recordGenerationTrace({
+          projectId: telemetry?.projectId, userId: telemetry?.userId,
+          stage: "research", operation: "gemini.generate_content", status: "failed",
+          provider: "gemini", model, startedAt, finishedAt: new Date(),
+        });
+        throw error;
+      }
+    };
+    onActivity?.({ type: "research.model_attempt", model, attempt: modelIndex + 1, total: models.length, message: `Synthesizing with ${model}.` }); let response; let data;
+    try { ({ response, data } = await request({ responseMimeType: "application/json", responseSchema: DEEP_SCHEMA, temperature: 0.1, maxOutputTokens: 12000 })); }
     catch (error) { if (abortSignal?.aborted) throw abortSignal.reason || new Error("Research was stopped by the user."); lastError = error; onActivity?.({ type: "research.model_failed", model, status: error?.status || 408, transient: true, message: `Model ${model} failed: ${error?.message || "request timeout"}` }); if (models[modelIndex + 1]) { console.warn(`[research] Gemini model ${model} failed (${error.message}); failing over to ${models[modelIndex + 1]}.`); onActivity?.({ type: "research.model_fallback", from_model: model, to_model: models[modelIndex + 1], message: `Falling back to ${models[modelIndex + 1]} after ${model} failed.` }); continue; } break; }
-    let data = await response.json().catch(() => ({}));
-    if (!response.ok && response.status === 400 && /invalid argument/i.test(data?.error?.message || "")) { console.warn(`[research] Gemini rejected the structured-output schema for model ${model}; retrying with plain JSON output.`); try { response = await request({ responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 12000 }); data = await response.json().catch(() => ({})); } catch (error) { if (abortSignal?.aborted) throw abortSignal.reason || new Error("Research was stopped by the user."); lastError = error; response = { ok: false, status: 408 }; data = {}; } }
+
+    if (!response.ok && response.status === 400 && /invalid argument/i.test(data?.error?.message || "")) { console.warn(`[research] Gemini rejected the structured-output schema for model ${model}; retrying with plain JSON output.`); try { ({ response, data } = await request({ responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 12000 })); } catch (error) { if (abortSignal?.aborted) throw abortSignal.reason || new Error("Research was stopped by the user."); lastError = error; response = { ok: false, status: 408 }; data = {}; } }
     if (response.ok) { const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim(); if (text) { onActivity?.({ type: "research.model_success", model, attempt: modelIndex + 1, message: `Research synthesis completed with ${model}.` }); return extractJson(text); } lastError = new Error(`Gemini model ${model} returned no brief.`); } else lastError = new Error(data?.error?.message || `Gemini returned ${response.status}.`);
     const message = lastError.message || "Gemini synthesis failed."; const canFailover = isTransientModelFailure(response.status, message) || /invalid argument/i.test(message); onActivity?.({ type: "research.model_failed", model, status: response.status, transient: canFailover, message: `Model ${model} failed: ${message}` }); if (!canFailover) throw lastError; if (models[modelIndex + 1]) { console.warn(`[research] Gemini model ${model} failed (${message}); failing over to ${models[modelIndex + 1]}.`); onActivity?.({ type: "research.model_fallback", from_model: model, to_model: models[modelIndex + 1], message: `Falling back to ${models[modelIndex + 1]} after ${model} failed.` }); }
   }
   throw lastError || new Error("All configured Gemini research models failed.");
 }
 
-export async function deepResearchSignal(signal, { onProgress, onActivity } = {}) {
+export async function deepResearchSignal(signal, { onProgress, onActivity, telemetry } = {}) {
   const topic = String(signal?.title || "").trim(); if (!topic) throw new Error("A research topic is required.");
   const controller = registerResearchController(signal?.id); const abortSignal = controller?.signal;
   try {
@@ -103,7 +131,7 @@ export async function deepResearchSignal(signal, { onProgress, onActivity } = {}
     const readResults = [];
     for (let index = 0; index < readingQueue.length; index += 3) { if (abortSignal?.aborted) throw abortSignal.reason || new Error("Research was stopped by the user."); const batch = await Promise.all(readingQueue.slice(index, index + 3).map((source) => readSource(source, onActivity, abortSignal))); readResults.push(...batch); onProgress?.("reading", Math.min(68, 30 + Math.round((readResults.length / Math.max(1, readingQueue.length)) * 38))); }
     const readable = readResults.filter((item) => item.content).slice(0, MAX_READABLE_SOURCES).map((item) => ({ ...item, researchSourceIndex: readResults.indexOf(item) })); onActivity?.({ type: "verification.started", readable_sources: readable.length, unreadable_sources: readResults.length - readable.length, message: `Evidence check started across ${readResults.length} selected sources.` }); onProgress?.("verifying", 70);
-    const brief = await synthesize(topic, plan, readable.length ? readable : readResults.map((item) => ({ ...item, researchSourceIndex: readResults.indexOf(item) })), onProgress, onActivity, abortSignal); if (abortSignal?.aborted) throw abortSignal.reason || new Error("Research was stopped by the user.");
+    const brief = await synthesize(topic, plan, readable.length ? readable : readResults.map((item) => ({ ...item, researchSourceIndex: readResults.indexOf(item) })), onProgress, onActivity, abortSignal, telemetry); if (abortSignal?.aborted) throw abortSignal.reason || new Error("Research was stopped by the user.");
     const evidenceLinkedBrief = attachExactEvidence(readResults, brief); const sources = readResults.map((item, index) => ({ index, title: item.title, url: item.sourceUrl, note: item.content ? `${item.sourceName || hostname(item.sourceUrl)} — source read successfully.` : `${item.sourceName || hostname(item.sourceUrl)} — source could not be fully read; treat as unverified.`, source_name: item.sourceName, source_class: item.sourceClass, source_reliability: item.sourceReliability, quality_prior: Math.round(sourceQuality(item) * 100), read_status: item.readStatus, read_excerpt: item.content ? item.content.slice(0, MAX_SOURCE_CHARS) : null, published_at: item.publishedAt }));
     const normalizedEvidence = (evidenceLinkedBrief.evidence_preview || []).map((item) => ({ ...item, source_index: Number(item.source_index) })); const finalBrief = { ...evidenceLinkedBrief, evidence_preview: normalizedEvidence }; onProgress?.("ready", 100); onActivity?.({ type: "research.ready", findings: finalBrief.key_findings?.length || 0, evidence_passages: normalizedEvidence.length, message: "Evidence-backed research brief is ready." });
     return { ...finalBrief, research_plan: plan, research_metrics: { discovered_sources: discovered.length, sources_selected: readingQueue.length, sources_read: readable.length, sources_unread: readResults.length - readable.length, evidence_passages: normalizedEvidence.length, exact_passages: normalizedEvidence.length, findings_with_evidence: (finalBrief.key_findings || []).filter((finding) => finding.evidence_indexes?.length).length }, sources, key_facts: (finalBrief.key_findings || []).map((item) => item.claim).slice(0, 15), mechanism_summary: finalBrief.mechanism, monetization_flags: [] };
