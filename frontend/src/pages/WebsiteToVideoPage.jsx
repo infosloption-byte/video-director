@@ -105,7 +105,7 @@ export default function WebsiteToVideoPage() {
         body: JSON.stringify({ ideaId }),
       });
       await refreshProjects();
-      navigate("/research/" + data.projectId);
+      navigate(data.path || ("/storyboard/" + data.projectId + "?stage=setup"));
     } catch (err) { setError(err.message); setCreating(""); }
   }
 
@@ -160,7 +160,10 @@ export default function WebsiteToVideoPage() {
     {report && <div className="wtv-report">
       <div className="wtv-summary">
         <div><p className="wtv-eyebrow">Website research complete</p>
-          <h2>{report.name}</h2><p>{report.description || "No website description was published."}</p>
+          <h2>{report.name}</h2>
+          {report.originalHeading && report.originalHeading !== report.name &&
+            <p className="wtv-site-headline"><span>Website headline</span>{report.originalHeading}</p>}
+          <p>{report.description || "No website description was published."}</p>
           <Source url={report.url}>Visit analyzed website ↗</Source>
         </div>
         <div className="wtv-stats">
@@ -206,10 +209,17 @@ export default function WebsiteToVideoPage() {
         <h2>Suggested videos <span>{report.videoIdeas.length}</span></h2>
         <p>Choose a concept to continue into Voxora's familiar setup, storyboard, narration and MP4 workflow.</p>
         <div className="wtv-ideas">{report.videoIdeas.map(idea=><article className="wtv-idea" key={idea.id}>
-          <span className="wtv-chip">{idea.durationSeconds} sec · Suggested</span><h3>{idea.title}</h3><p>{idea.angle}</p>
+          <span className="wtv-chip">{idea.durationSeconds} sec · Source-backed concept</span>
+          <h3>{idea.title}</h3>
+          {idea.focus && <p className="wtv-idea__focus"><strong>Focus:</strong> {idea.focus}</p>}
+          <p>{idea.angle}</p>
+          {idea.hook && <p className="wtv-idea__brief"><strong>Suggested hook</strong> {idea.hook}</p>}
+          {idea.audience && <p className="wtv-idea__brief"><strong>Audience</strong> {idea.audience}</p>}
+          {idea.cta && <p className="wtv-idea__brief"><strong>CTA</strong> {idea.cta}</p>}
+          <p className="wtv-fine">Website statements are business-published; review claims before advertising.</p>
           <div className="wtv-evidence">{idea.evidenceUrls.map(link=><Source key={link} url={link}>{new URL(link).pathname || "/" } ↗</Source>)}</div>
           <button type="button" className="wtv-primary" onClick={()=>createVideo(idea.id)} disabled={Boolean(creating)}>
-            {creating===idea.id?"Preparing workspace…":analysis.createdVideos?.some(x=>x.ideaId===idea.id)?"Open existing video →":"Create this video →"}</button>
+            {creating===idea.id?"Preparing workspace…":analysis.createdVideos?.some(x=>x.ideaId===idea.id)?"Continue to setup →":"Create video & continue to setup →"}</button>
         </article>)}</div>
       </section>}
       <div className="wtv-notice"><strong>Research boundaries.</strong> {report.limitations.join(" ")}

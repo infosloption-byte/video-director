@@ -22,7 +22,8 @@ test("Website analysis has clear limits, source URLs and marketing concept hando
   assert.match(page, /20 publicly accessible HTML pages/);
   assert.match(page, /sourceUrl/);
   assert.match(page, /createVideo\(idea\.id\)/);
-  assert.match(page, /\/research\//);
+  assert.match(page, /\/storyboard\//);
+  assert.match(page, /stage=setup/);
   assert.match(page, /role="alert"/);
   assert.match(page, /No explicit promotion found/);
 });

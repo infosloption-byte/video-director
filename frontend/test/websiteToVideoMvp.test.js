@@ -27,7 +27,8 @@ test("website report shows evidence, limitations and gated video handoff", async
   assert.match(page, /report\.videoIdeas/);
   assert.match(page, /Source url=\{item\.sourceUrl\}/);
   assert.match(page, /\/videos"/);
-  assert.match(page, /navigate\("\/research\/" \+ data\.projectId\)/);
+  assert.match(page, /navigate\(data\.path \|\|/);
+  assert.match(page, /stage=setup/);
   assert.match(page, /not automatically licensed for reuse/);
 });
 

@@ -6,6 +6,8 @@ import { normalizeWebsiteUrl } from "../services/websiteSafeFetch.js";
 import { getActivePipelineVersion } from "../services/pipelineService.js";
 import { persistResearchGraph } from "../services/researchGraphService.js";
 import { recordGenerationTrace } from "../services/generationTelemetry.js";
+import { refineWebsiteReport } from "../services/websiteReportQuality.js";
+import { buildWebsiteBrief } from "../services/websiteCampaignService.js";
 
 const router = Router();
 const running = new Set();
@@ -16,7 +18,7 @@ function toPublic(row) {
   return {
     id: row.id, url: row.url, status: stale ? "interrupted" : row.status,
     progress: row.progress, stage: row.stage, error: stale ? "Analysis was interrupted. Start it again." : row.error,
-    report: row.status === "completed" ? row.report : null,
+    report: row.status === "completed" ? refineWebsiteReport(row.report) : null,
     projectId: row.projectId || null, createdVideos: Array.isArray(row.createdVideos) ? row.createdVideos : [], createdAt: row.createdAt, completedAt: row.completedAt,
   };
 }
@@ -53,40 +55,6 @@ async function runAnalysis(id, userId, url) {
   } finally {
     running.delete(id);
   }
-}
-
-function buildWebsiteBrief(report, idea) {
-  const selectedPages = report.pages
-    .filter(page => idea.evidenceUrls.includes(page.url)).slice(0, 10);
-  const pages = selectedPages.length ? selectedPages : report.pages.slice(0, 8);
-  const sources = pages.map((page, index) => ({
-    index, url: page.url, title: page.title || page.headings?.[0] || report.name,
-    source_class: "primary", source_reliability: "general_web",
-    read_status: "read", read_excerpt: page.textPreview || page.description || "",
-  }));
-  const evidence_preview = pages.map((page, index) => ({
-    source_index: index, excerpt: (page.description || page.highlights?.[0] || page.textPreview || "").slice(0, 500),
-    locator: "Public website page", evidence_type: "website_statement",
-  })).filter(row => row.excerpt);
-  const key_findings = evidence_preview.map((row, index) => ({
-    claim: row.excerpt, evidence: row.excerpt, evidence_level: "business_published",
-    confidence: 60, source_indexes: [row.source_index],
-  }));
-  return {
-    executive_summary: [report.name, report.summary, "Selected video concept: " + idea.title,
-      "Creative direction: " + idea.angle,
-      "Use only business-published facts; no invented prices, offers, statistics, reviews or results.",
-      "This website snapshot is not independent factual verification."].filter(Boolean).join("\n\n"),
-    sources, evidence_preview, key_findings, key_facts: key_findings.map(x => x.claim),
-    verification: { claims: key_findings.map((claim, index) => ({
-      claim: claim.claim, verification_status: "website_sourced",
-      traceable: true, source_indexes: claim.source_indexes,
-      evidence_indexes: [index], verified_confidence: 60, evidence_level: "business_published",
-      verification_notes: "Present on a public business website; independently unverified.",
-    })) },
-    research_plan: [{ name: "Business-published website evidence", scope: report.url }],
-    websiteMarketing: { analysisUrl: report.url, ideaId: idea.id, ideaTitle: idea.title, angle: idea.angle },
-  };
 }
 
 router.use((req, res, next) => {
@@ -149,7 +117,7 @@ router.post("/:id/videos", async (req, res) => {
     const item = await prisma.websiteAnalysis.findFirst({ where: { id: req.params.id, userId } });
     if (!item) return res.status(404).json({ error: "Website analysis not found." });
     if (item.status !== "completed" || !item.report) return res.status(409).json({ error: "Complete website research first." });
-    const report = item.report;
+    const report = refineWebsiteReport(item.report);
     const idea = report.videoIdeas?.find(x => x.id === req.body?.ideaId);
     if (!idea) return res.status(400).json({ error: "Select one of the suggested video ideas." });
     const createdVideos = Array.isArray(item.createdVideos) ? item.createdVideos : [];
@@ -166,7 +134,7 @@ router.post("/:id/videos", async (req, res) => {
       const pipeline = await getActivePipelineVersion();
       created = await prisma.project.create({
         data: {
-          id: crypto.randomUUID(), userId, title: report.name + " — " + idea.title,
+          id: crypto.randomUUID(), userId, title: (report.name + " — " + idea.title).slice(0, 250),
           signal: { create: {
             origin: "search", sourceType: "brave", sourceReliability: "general_web", category: "WEBSITE_MARKETING",
             title: report.name.slice(0, 255), description: idea.angle,
@@ -186,7 +154,7 @@ router.post("/:id/videos", async (req, res) => {
         createdVideos: [...createdVideos, { ideaId: idea.id, projectId: created.id }],
         status: "completed", stage: "Video workspace ready",
       } });
-      return res.status(201).json({ projectId: created.id, path: "/research/" + created.id });
+      return res.status(201).json({ projectId: created.id, path: "/storyboard/" + created.id + "?stage=setup" });
     } catch (error) {
       if (created) {
         // Cascade deletions remove the research graph and dependent project data.
