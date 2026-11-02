@@ -143,10 +143,16 @@ export default function PlatformAdminPage({ view = "overview" }) {
     <header className="pa-header"><div><span className="eyebrow">Voxora / Administration</span><h1>{VIEWS.find((item) => item.id === view)?.label || "Overview"}</h1><p>Platform-wide operational visibility and customer activity.</p></div>
       <button type="button" className="pa-refresh" onClick={refresh} disabled={loading} aria-label="Refresh platform monitoring">{loading ? "Loading…" : "↻ Refresh"}</button></header>
     {view === "activity" && <div className="pa-tools" aria-label="Activity date range">
-      <label htmlFor="pa-activity-days">Show activity from the past</label>
-      <select id="pa-activity-days" value={activityDays} onChange={(event) => {
-        setActivityDays(Number(event.target.value)); setPage(1); setLoading(true);
-      }}><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option></select>
+      <span>Show activity from the past</span>
+      <div className="pa-activity-range" role="group" aria-label="Activity history period">
+        {[7, 30, 90].map(days => (
+          <button key={days} type="button" aria-pressed={activityDays === days}
+            className={activityDays === days ? "is-active" : ""}
+            onClick={() => { setActivityDays(days); setPage(1); setLoading(true); }}>
+            {days} days
+          </button>
+        ))}
+      </div>
       <p>Combines recorded operations, project and research records, render reservations, and audited admin changes. Historical events are labeled by source.</p>
     </div>}
     {view !== "overview" && <form className="pa-tools" onSubmit={(event) => { event.preventDefault(); setPage(1); setAppliedSearch(search.trim().slice(0, 100)); setLoading(true); setNonce((n) => n + 1); }}>
