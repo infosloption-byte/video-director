@@ -7,6 +7,10 @@ const MAX_BYTES = 600_000;
 const BLOCKED_TLDS = /\.(?:localhost|local|internal|test|invalid|example)$/i;
 const sameCanonicalHost = (a,b) => a === b || a.replace(/^www\./, "") === b.replace(/^www\./, "");
 const BLOCKED_PATHS = /\/(?:wp-admin|admin|login|logout|signin|signup|checkout|cart|account|api|graphql)(?:\/|$)/i;
+// Support only the common apex-to-www canonical redirect, never arbitrary subdomains.
+const canonicalHost = host => String(host).toLowerCase().replace(/^www\./, "");
+const sameCanonicalHost = (left, right) => canonicalHost(left) === canonicalHost(right);
+
 
 function isPublicIp(ip) {
   const type = net.isIP(ip);
