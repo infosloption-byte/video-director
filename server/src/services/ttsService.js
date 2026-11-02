@@ -3,6 +3,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { prisma } from "../db/client.js";
+import { measureGeneration } from "./generationTelemetry.js";
 
 const execFileAsync = promisify(execFile);
 const AUDIO_ROOT = path.resolve(process.cwd(), "storage", "audio");
@@ -229,13 +231,27 @@ async function persistTtsAudio({ projectId, sceneId, text, payload }) {
 }
 
 async function generateRemoteNarration(params) {
-  const payload = await requestSpeech(params);
-  return persistTtsAudio({
+  const project = params.projectId ? await prisma.project.findUnique({
+    where: { id: params.projectId }, select: { userId: true },
+  }).catch(() => null) : null;
+  const identity = {
+    projectId: params.projectId, userId: project?.userId,
+    stage: "narration", provider: "helix-tts",
+    model: params.engine || requireConfig().defaultEngine,
+    metadata: { sceneCount: 1, jobType: "tts" },
+  };
+  const payload = await measureGeneration({
+    ...identity, operation: "narration.tts_inference",
+  }, () => requestSpeech(params));
+  return measureGeneration({
+    ...identity, operation: "narration.wav_to_mp3",
+    metadata: { sceneCount: 1, outputSeconds: Number(payload.duration_seconds || 0) },
+  }, () => persistTtsAudio({
     projectId: params.projectId,
     sceneId: params.sceneId,
     text: params.text,
     payload,
-  });
+  }));
 }
 
 export async function synthesizeVoicePreview({ text, engine, voiceId, voice, language = "English" }) {
