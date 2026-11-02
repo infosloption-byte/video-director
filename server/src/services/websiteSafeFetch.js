@@ -117,7 +117,11 @@ export async function fetchPublicPage(rawUrl, { signal } = {}) {
       url = target;
       continue;
     }
-    if (result.status < 200 || result.status >= 300) throw new Error("Website returned HTTP " + result.status + ".");
+    if (result.status < 200 || result.status >= 300) {
+      const error = new Error("Website returned HTTP " + result.status + ".");
+      error.status = result.status;
+      throw error;
+    }
     return { ...result, url: url.href };
   }
   throw new Error("Too many website redirects.");
