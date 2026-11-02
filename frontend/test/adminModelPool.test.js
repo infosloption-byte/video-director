@@ -18,7 +18,9 @@ test("admin menu is collapsible with accessible button and persisted preference"
 });
 test("pipeline draft has capability-verified pool model choices without publishing them", () => {
   assert.match(builder, /verifiedCapabilities\.includes\(stage\.key\)/);
-  assert.match(builder, /Model Pool assignments remain draft-only/);
+  // The visible warning and the Publish action must both retain the draft-only guard.
+  assert.match(builder, /Pool model assignments remain draft-only\. Publishing this pipeline is blocked until a runtime adapter is integrated\./);
+  assert.match(builder, /disabled=\{busy \|\| !latestPass \|\| unsaved \|\| definition\?\.stages\?\.some\(stage => stage\.modelId\)\}/);
 });
 
 test("OpenRouter cloud provider and model slug guidance are present in the registration form", () => {
