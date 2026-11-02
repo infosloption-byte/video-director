@@ -409,6 +409,7 @@ model User {
   versions        ProjectVersion[]
   activities      ProjectActivity[]
   voiceProfiles  VoiceProfile[]
+  websiteAnalyses WebsiteAnalysis[]
 
   @@map("users")
 }
@@ -841,4 +842,27 @@ model AiPoolCapabilityTest {
 
   @@index([modelId, capability, createdAt])
   @@map("ai_pool_capability_tests")
+}
+
+
+// A user-owned, bounded public website snapshot and its chosen Voxora project.
+model WebsiteAnalysis {
+  id          String   @id @default(uuid()) @db.VarChar(64)
+  userId      String   @map("user_id")
+  url         String   @db.VarChar(2048)
+  status      String   @default("queued") @db.VarChar(24)
+  progress    Int      @default(0)
+  stage       String?  @db.VarChar(120)
+  report      Json?
+  error       String?  @db.Text
+  projectId   String?  @map("project_id") @db.VarChar(64)
+  createdVideos Json? @map("created_videos")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@map("website_analyses")
 }

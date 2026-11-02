@@ -16,6 +16,7 @@ import { AuthProvider, authRequired, useAuth } from "./context/AuthContext";
 import { ProjectProvider } from "./context/ProjectProvider.jsx";
 
 const SignalsPage = lazy(() => import("./pages/SignalsPage"));
+const WebsiteToVideoPage = lazy(() => import("./pages/WebsiteToVideoPage.jsx"));
 const PlatformAdminPage = lazy(() => import("./pages/PlatformAdminPage"));
 const AdminAnalyticsPage = lazy(() => import("./pages/AdminAnalyticsPage"));
 const AdminManagementPage = lazy(() => import("./pages/AdminManagementPage.jsx"));
@@ -66,6 +67,8 @@ export default function App() {
   return <AuthProvider><PreferenceSync /><ProjectProvider><Suspense fallback={<SessionGate label="Loading Voxora…" />}><Routes>
     <Route path="/" element={<LandingPage />} />
     <Route path="/signals" element={<ProtectedRoute><SignalsPage /></ProtectedRoute>} />
+    <Route path="/website-to-video" element={<ProtectedRoute><WebsiteToVideoPage /></ProtectedRoute>} />
+    <Route path="/website-to-video/:id" element={<ProtectedRoute><WebsiteToVideoPage /></ProtectedRoute>} />
     <Route path="/pricing" element={<LandingPage />} />
     <Route path="/privacy" element={<LegalPage type="privacy" />} />
     <Route path="/terms" element={<LegalPage type="terms" />} />

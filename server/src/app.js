@@ -6,6 +6,7 @@ import signalsRouter from "./routes/signals.js";
 import platformAdminRouter from "./routes/platformAdmin.js";
 import { requirePlatformAdmin } from "./middleware/platformAdmin.js";
 import projectsRouter from "./routes/projects.js";
+import websiteAnalysesRouter from "./routes/websiteAnalyses.js";
 import researchRouter from "./routes/research.js";
 import researchControlRouter from "./routes/researchControl.js";
 import researchConversationsRouter from "./routes/researchConversations.js";
@@ -91,6 +92,7 @@ app.use("/api", (req, res, next) => {
 app.use("/api/signals", requireAuth, expensiveOperationRateLimit, signalsRouter);
 app.use("/api", reviewRouter);
 app.use("/api/research-conversations", requireAuth, expensiveOperationRateLimit, researchConversationsRouter);
+app.use("/api/website-analyses", requireAuth, expensiveOperationRateLimit, websiteAnalysesRouter);
 app.use("/api", (req, res, next) => {
   if (req.path === "/tts" || req.path.startsWith("/tts/")) {
     return requireAuth(req, res, next);

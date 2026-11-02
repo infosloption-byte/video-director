@@ -8,6 +8,7 @@ import "./PlatformShell.css";
 
 const NAV = [
   { label: "Signals", icon: "Signals", path: "/signals" },
+  { label: "Website to Video", icon: "Website to Video", path: "/website-to-video", authOnly: true },
   { label: "My Research", icon: "My Research", path: "/my-research", authOnly: true },
   { label: "Voice Profiles", icon: "Voice Profiles", path: "/voice-profiles", authOnly: true },
 ];
@@ -100,6 +101,7 @@ export default function PlatformShell({ children }) {
     const paths = {
       Signals: <><path d="M4 14c2.2 0 2.2-4 4.5-4s2.3 5 4.5 5 2.2-7 4.5-7" /><circle cx="4" cy="14" r="1" fill="currentColor" stroke="none" /><circle cx="18" cy="8" r="1" fill="currentColor" stroke="none" /></>,
       "My Research": <><rect x="5" y="4" width="14" height="16" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+      "Website to Video": <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c-3 3-3 15 0 18M12 3c3 3 3 15 0 18" /></>,
       "Voice Profiles": <><path d="M8 11.5a4 4 0 0 1 8 0v1.5a4 4 0 0 1-8 0z" /><path d="M6 12.5v.5a6 6 0 0 0 12 0v-.5M12 19v2M9 21h6" /></>,
       Research: <><circle cx="10.5" cy="10.5" r="5.5" /><path d="m15 15 4 4" /></>,
       Storyboard: <><rect x="5" y="4" width="14" height="16" rx="2" /><path d="m9 8 2 2-2 2M13 12h3M9 16h7" /></>,

@@ -61,11 +61,12 @@ accountRouter.post("/sessions/revoke-others", async (req, res, next) => {
 accountRouter.get("/export", async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const [projects, voiceProfiles, templates, subscription] = await Promise.all([
+    const [projects, voiceProfiles, templates, subscription, websiteAnalyses] = await Promise.all([
       prisma.project.findMany({ where: { userId }, select: { id: true, title: true, status: true, researchSummary: true, researchSources: true, scriptLengthSeconds: true, selectedFramework: true, createdAt: true } }),
       prisma.voiceProfile.findMany({ where: { userId }, select: { id: true, name: true, status: true, language: true, createdAt: true, consentAcceptedAt: true, consentNoticeVersion: true } }),
       prisma.projectTemplate.findMany({ where: { userId } }),
       prisma.billingSubscription.findUnique({ where: { userId }, select: { plan: true, status: true, periodEnd: true, cancelAtPeriodEnd: true } }),
+      prisma.websiteAnalysis.findMany({ where: { userId }, select: { id: true, url: true, status: true, report: true, createdAt: true, completedAt: true } }),
     ]);
     const u = req.user;
     const payload = {
@@ -73,7 +74,7 @@ accountRouter.get("/export", async (req, res, next) => {
       account: { id: u.id, email: u.email, displayName: u.displayName, createdAt: u.createdAt, emailVerifiedAt: u.emailVerifiedAt, termsAcceptedAt: u.termsAcceptedAt, termsVersion: u.termsVersion, adultConfirmedAt: u.adultConfirmedAt },
       preferences: resolvePreferences(u.preferences),
       subscription,
-      projects, voiceProfiles, templates,
+      projects, voiceProfiles, templates, websiteAnalyses,
       note: "Generated media files (audio, renders) are not included in this export; download them from each project.",
     };
     res.setHeader("Content-Type", "application/json; charset=utf-8");
