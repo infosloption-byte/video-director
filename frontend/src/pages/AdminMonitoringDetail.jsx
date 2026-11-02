@@ -26,7 +26,8 @@ function Infrastructure({ data }) {
     <div className="an-metrics">
       {latest.map(row => <div className="an-metric" key={row.host}>
         <span>{row.host === "gpu-ec2" ? "GPU EC2" : "Lightsail API container"}</span>
-        <strong>{percentage(row.host === "gpu-ec2" ? row.gpuPct : row.cpuPct)}</strong>
+        <strong>{percentage(row.cpuPct)} CPU</strong>
+        {row.host === "gpu-ec2" && <small>GPU utilization: {percentage(row.gpuPct)}</small>}
         <small>Used RAM: {gib(row.ramUsedBytes)} / {gib(row.ramTotalBytes)}
           {row.host === "gpu-ec2" ? " · VRAM " + gib(row.vramUsedBytes) + " / " + gib(row.vramTotalBytes) : ""}
         </small>
@@ -36,9 +37,9 @@ function Infrastructure({ data }) {
     {!gpu.length && <p className="an-notice">GPU telemetry has not been configured or received yet. The GPU host is not being polled or restarted. See the operator guide to enable outbound sampling.</p>}
     <section className="pa-card"><h2>Latest infrastructure samples</h2>
       <p>Numerical samples only. No process names, audio or customer data.</p>
-      <SectionTable headers={["Host", "CPU / GPU utilization", "RAM used", "VRAM used", "Temperature", "UTC timestamp"]}
+      <SectionTable headers={["Host", "CPU utilization", "GPU utilization", "RAM used", "VRAM used", "Temperature", "UTC timestamp"]}
         entries={data.samples.slice(0, 80).map(x => [
-          x.host, percentage(x.host === "gpu-ec2" ? x.gpuPct : x.cpuPct),
+          x.host, percentage(x.cpuPct), percentage(x.gpuPct),
           gib(x.ramUsedBytes), gib(x.vramUsedBytes),
           x.temperatureC == null ? "—" : x.temperatureC + "°C", date(x.collectedAt),
         ])} />
