@@ -17,7 +17,7 @@ function toPublic(row) {
     id: row.id, url: row.url, status: stale ? "interrupted" : row.status,
     progress: row.progress, stage: row.stage, error: stale ? "Analysis was interrupted. Start it again." : row.error,
     report: row.status === "completed" ? row.report : null,
-    projectId: row.projectId || null, createdAt: row.createdAt, completedAt: row.completedAt,
+    projectId: row.projectId || null, createdVideos: Array.isArray(row.createdVideos) ? row.createdVideos : [], createdAt: row.createdAt, completedAt: row.completedAt,
   };
 }
 
@@ -148,11 +148,13 @@ router.post("/:id/videos", async (req, res) => {
   try {
     const item = await prisma.websiteAnalysis.findFirst({ where: { id: req.params.id, userId } });
     if (!item) return res.status(404).json({ error: "Website analysis not found." });
-    if (item.projectId) return res.json({ projectId: item.projectId, reused: true });
     if (item.status !== "completed" || !item.report) return res.status(409).json({ error: "Complete website research first." });
     const report = item.report;
     const idea = report.videoIdeas?.find(x => x.id === req.body?.ideaId);
     if (!idea) return res.status(400).json({ error: "Select one of the suggested video ideas." });
+    const createdVideos = Array.isArray(item.createdVideos) ? item.createdVideos : [];
+    const prior = createdVideos.find(x => x.ideaId === idea.id);
+    if (prior) return res.json({ projectId: prior.projectId, reused: true });
     const reserved = await prisma.websiteAnalysis.updateMany({
       where: { id: item.id, userId, status: "completed", projectId: null },
       data: { status: "converting", stage: "Preparing video workspace" },
@@ -179,7 +181,11 @@ router.post("/:id/videos", async (req, res) => {
         },
       });
       await persistResearchGraph(created.id, brief);
-      await prisma.websiteAnalysis.update({ where: { id: item.id }, data: { projectId: created.id, status: "completed", stage: "Video workspace ready" } });
+      await prisma.websiteAnalysis.update({ where: { id: item.id }, data: {
+        projectId: item.projectId || created.id,
+        createdVideos: [...createdVideos, { ideaId: idea.id, projectId: created.id }],
+        status: "completed", stage: "Video workspace ready",
+      } });
       return res.status(201).json({ projectId: created.id, path: "/research/" + created.id });
     } catch (error) {
       if (created) {
