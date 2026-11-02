@@ -11,6 +11,12 @@ const MENU = [
     { path: "/admin/projects", label: "Projects", icon: "folder" },
     { path: "/admin/subscriptions", label: "Subscriptions", icon: "credit-card" },
   ] },
+  { section: "Analytics", links: [
+    { path: "/admin/analytics", label: "Operations", icon: "layout-dashboard" },
+    { path: "/admin/analytics/pipeline", label: "Pipeline Timings", icon: "activity" },
+    { path: "/admin/analytics/users", label: "User Usage", icon: "users" },
+    { path: "/admin/analytics/costs", label: "Costs & Providers", icon: "credit-card" },
+  ] },
   { section: "Management", links: [
     { path: "/admin/plans", label: "Plans & Limits", icon: "sliders" },
     { path: "/admin/master-data", label: "Master Data", icon: "database" },
