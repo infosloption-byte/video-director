@@ -670,6 +670,26 @@ model RenderCredit {
 }
 
 // Immutable operational measurements, with no prompts, audio or customer content.
+// Numeric container/GPU snapshots, deliberately excluding process names and customer content.
+model InfrastructureSample {
+  id              String   @id @default(uuid()) @db.VarChar(64)
+  host            String   @db.VarChar(35)
+  source          String   @db.VarChar(35)
+  cpuPct          Float?   @map("cpu_pct")
+  ramUsedBytes    BigInt?  @map("ram_used_bytes")
+  ramTotalBytes   BigInt?  @map("ram_total_bytes")
+  gpuPct          Float?   @map("gpu_pct")
+  vramUsedBytes   BigInt?  @map("vram_used_bytes")
+  vramTotalBytes  BigInt?  @map("vram_total_bytes")
+  temperatureC    Float?   @map("temperature_c")
+  collectedAt     DateTime @map("collected_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([host, collectedAt])
+  @@index([createdAt])
+  @@map("infrastructure_samples")
+}
+
 model GenerationTrace {
   id            String    @id @default(uuid()) @db.VarChar(64)
   projectId     String?   @map("project_id") @db.VarChar(64)
