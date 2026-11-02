@@ -107,3 +107,23 @@ Do not deploy until CI has passed and production workers are idle.
 - The report does not crawl competitors or estimate market performance.
 - No external advertising analytics or automated publication is added.
 - No changes to Lightsail→GPU rendering location in this branch.
+
+
+## Batch 2A: report quality and concept-to-Setup handoff
+
+Additive improvement to the current MVP: no schema migration, no standalone video pipeline, and no changes to Signals/Own Topic.
+
+- Resolve the business name from a short og:site_name if available, otherwise the public domain. Show the cleaned original website headline separately.
+- Improve saved reports at API read time. Old analyses do not require recrawling, and the original website passages and source URLs remain intact.
+- Generate specific concept labels for sampled products/services and show hook, audience, focus, CTA and source pages before creation.
+- Selecting Create Video still creates the existing owned Voxora project, with a ResearchSession/Source/Evidence/Claim graph marked business-published.
+- Store source-specific researchSources.websiteMarketing metadata: brand, chosen concept, hook, focus, CTA, audience and supporting website pages.
+- Open the existing /storyboard/:id?stage=setup route for subsequent setup, storyboard, narration, preview and MP4.
+- Marketing storyboard creation and scene rewrites use this chosen campaign; normal Signals/Own Topic prompts remain unchanged.
+
+### Validation
+
+Backend: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/websiteBatch2A.test.js test/generationPerformanceMonitoring.test.js
+Frontend: npm run test:unit && npm run build
+
+After deployment, reopen the previously completed Coderra analysis. The main heading should now be Coderra instead of the repeated homepage headline. Select AISO or another sourced product concept, verify the existing Setup screen opens, then confirm the generated script stays focused on that concept. Claims remain business-published and must be reviewed before advertising.
