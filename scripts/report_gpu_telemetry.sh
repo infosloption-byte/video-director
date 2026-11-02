@@ -11,6 +11,7 @@ source "$ENV_FILE"
 set +a
 : "${VOXORA_METRICS_TOKEN:?Configure VOXORA_METRICS_TOKEN}"
 : "${VOXORA_METRICS_URL:=https://usevoxora.online/api/internal/telemetry/gpu}"
+export VOXORA_METRICS_TOKEN VOXORA_METRICS_URL
 python3 - <<'PY'
 import datetime, json, os, subprocess, time, urllib.request
 
