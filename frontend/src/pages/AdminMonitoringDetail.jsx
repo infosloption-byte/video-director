@@ -22,28 +22,32 @@ function Infrastructure({ data }) {
   const gpu = data.samples.filter(x => x.host === "gpu-ec2");
   const latest = [api[0], gpu[0]].filter(Boolean);
   return <>
-    <div className="an-notice">{data.definitions.lightsail} {data.definitions.gpu}</div>
+    <div className="an-notice">{data.definitions.lightsail} {data.definitions.gpu} {data.definitions.frequency}</div>
     <div className="an-metrics">
       {latest.map(row => <div className="an-metric" key={row.host}>
         <span>{row.host === "gpu-ec2" ? "GPU EC2" : "Lightsail API container"}</span>
+        <small>Measurement source: {row.source}</small>
         <strong>{percentage(row.cpuPct)} CPU</strong>
         {row.host === "gpu-ec2" && <small>GPU utilization: {percentage(row.gpuPct)}</small>}
         <small>Used RAM: {gib(row.ramUsedBytes)} / {gib(row.ramTotalBytes)}
           {row.host === "gpu-ec2" ? " · VRAM " + gib(row.vramUsedBytes) + " / " + gib(row.vramTotalBytes) : ""}
         </small>
+        {row.peakCpuPct != null && data.resolutionMinutes > 1 && <small>Peak CPU during {data.resolutionMinutes}-minute interval: {percentage(row.peakCpuPct)}</small>}
         <small>Last sampled {date(row.collectedAt)}</small>
       </div>)}
     </div>
     {!gpu.length && <p className="an-notice">GPU telemetry has not been configured or received yet. The GPU host is not being polled or restarted. See the operator guide to enable outbound sampling.</p>}
     <section className="pa-card"><h2>Latest infrastructure samples</h2>
       <p>Numerical samples only. No process names, audio or customer data.</p>
-      <SectionTable headers={["Host", "CPU utilization", "GPU utilization", "RAM used", "VRAM used", "Temperature", "UTC timestamp"]}
+      <SectionTable headers={["Host", "Source", "CPU", "Peak CPU", "GPU", "RAM", "Peak RAM", "VRAM", "Temperature", "Sample time"]}
         entries={data.samples.slice(0, 80).map(x => [
-          x.host, percentage(x.cpuPct), percentage(x.gpuPct),
-          gib(x.ramUsedBytes), gib(x.vramUsedBytes),
+          x.host, x.source || "Unknown",
+          percentage(x.cpuPct), percentage(x.peakCpuPct), percentage(x.gpuPct),
+          gib(x.ramUsedBytes), gib(x.peakRamUsedBytes),
+          gib(x.vramUsedBytes),
           x.temperatureC == null ? "—" : x.temperatureC + "°C", date(x.collectedAt),
         ])} />
-      <p className="an-muted">Most recent 80 samples shown. API samples every 60 seconds; a rolling seven-day history is retained.</p>
+      <p className="an-muted">Most recent 80 intervals shown at {data.resolutionMinutes}-minute resolution. Peaks reflect the highest observed sample within each interval, not continuous maxima. Historic rows collected before this correction may still show Node-only metrics.</p>
     </section>
   </>;
 }
