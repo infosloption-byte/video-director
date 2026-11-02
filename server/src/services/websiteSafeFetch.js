@@ -5,6 +5,7 @@ import net from "node:net";
 
 const MAX_BYTES = 600_000;
 const BLOCKED_TLDS = /\.(?:localhost|local|internal|test|invalid|example)$/i;
+const sameCanonicalHost = (a,b) => a === b || a.replace(/^www\./, "") === b.replace(/^www\./, "");
 const BLOCKED_PATHS = /\/(?:wp-admin|admin|login|logout|signin|signup|checkout|cart|account|api|graphql)(?:\/|$)/i;
 
 function isPublicIp(ip) {
@@ -48,7 +49,7 @@ export function normalizeWebsiteUrl(value) {
 export function safeInternalUrl(value, site) {
   try {
     const link = new URL(value, site);
-    if (link.hostname !== site.hostname || link.username || link.password ||
+    if (!sameCanonicalHost(link.hostname, site.hostname) || link.username || link.password ||
       !["http:", "https:"].includes(link.protocol) ||
       (link.port && !["80", "443"].includes(link.port)) ||
       (site.protocol === "https:" && link.protocol !== "https:") ||
@@ -105,7 +106,7 @@ export async function fetchPublicPage(rawUrl, { signal } = {}) {
     const result = await requestText(url, records, signal);
     if ([301, 302, 303, 307, 308].includes(result.status) && result.location) {
       const target = new URL(result.location, url);
-      if (target.hostname !== host || !["http:", "https:"].includes(target.protocol) ||
+      if (!sameCanonicalHost(target.hostname, host) || !["http:", "https:"].includes(target.protocol) ||
         (url.protocol === "https:" && target.protocol !== "https:") ||
         target.username || target.password || (target.port && !["80", "443"].includes(target.port))) {
         throw new Error("The website redirected outside its allowed origin.");
