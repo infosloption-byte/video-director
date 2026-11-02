@@ -208,7 +208,7 @@ export default function WebsiteToVideoPage() {
           <span className="wtv-chip">{idea.durationSeconds} sec · Suggested</span><h3>{idea.title}</h3><p>{idea.angle}</p>
           <div className="wtv-evidence">{idea.evidenceUrls.map(link=><Source key={link} url={link}>{new URL(link).pathname || "/" } ↗</Source>)}</div>
           <button type="button" className="wtv-primary" onClick={()=>createVideo(idea.id)} disabled={Boolean(creating)}>
-            {creating===idea.id?"Preparing workspace…":"Create this video →"}</button>
+            {creating===idea.id?"Preparing workspace…":analysis.createdVideos?.some(x=>x.ideaId===idea.id)?"Open existing video →":"Create this video →"}</button>
         </article>)}</div>
       </section>}
       <div className="wtv-notice"><strong>Research boundaries.</strong> {report.limitations.join(" ")}
