@@ -328,6 +328,9 @@ test("scene route refuses fallback for explicit Gemini calls and reports safe fa
     source.indexOf("// Repair only missing narration;"));
   assert.match(handler,/fallbackOnAiFailure: false/);
   assert.match(handler,/safeCode === "IMAGE_RATE_LIMITED" \? 429 : 502/);
+  assert.match(handler,/quotaReason/);
+  assert.match(handler,/retryAfterSeconds/);
+  assert.match(handler,/res\.setHeader\("Retry-After"/);
   assert.match(handler,/previous scene image was preserved/);
 });
 
