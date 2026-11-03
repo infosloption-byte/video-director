@@ -790,8 +790,19 @@ router.get("/scenes/:sceneId/ai-image-jobs/:jobId", async(req,res)=>{
     const updated=await task;
     return res.json({status:"finished",progress:100,scene:updated,assetCount:1});
   } catch(error) {
-    console.warn("[storyboard] SDXL job status failed",{code:sdxlSafeError(error).code});
-    return res.status(error?.code === "SDXL_NOT_READY" ? 409 : 502).json(sdxlSafeError(error));
+    const safe=sdxlSafeError(error);
+    console.warn("[storyboard] SDXL job status failed",{code:safe.code});
+    if (["SDXL_JOB_FAILED","SDXL_JOB_MISSING"].includes(safe.code)) {
+      try {
+        const current=await loadOwnedScene(req.params.sceneId);
+        if (current?.customization?.sdxlImageJob?.id === req.params.jobId) {
+          const next=normalizeCustomization(current.customization);
+          delete next.sdxlImageJob;
+          await prisma.projectScene.update({where:{id:current.id},data:{customization:next}});
+        }
+      } catch { /* failed cleanup must not expose scene data or secrets */ }
+    }
+    return res.status(error?.code === "SDXL_NOT_READY" ? 409 : 502).json(safe);
   }
 });
 
