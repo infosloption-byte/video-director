@@ -49,9 +49,14 @@ git pull --ff-only origin main
 
 cd gpu-media-service
 python3 -m compileall -q media_service
-python3 -m unittest discover -s tests -p 'test_sdxl_runtime.py' -v
-# Test dependencies may be needed; alternatively run inside a built
-# staging image with pytest preinstalled.
+python3 - <<'PY'
+from media_service.sdxl_runtime import SDXL_WIDTH, SDXL_HEIGHT, image_job_enabled
+assert (SDXL_WIDTH, SDXL_HEIGHT) == (576, 1024)
+assert not image_job_enabled()
+print("Offline SDXL staging config is valid; image inference remains disabled")
+PY
+# After installing requirements-test.txt in an isolated environment:
+# python3 -m pytest -q test/test_api.py tests/test_sdxl_runtime.py
 
 # Check the existing cache layout without writing to either HF volume.
 sudo docker run --rm --network none --entrypoint sh \
