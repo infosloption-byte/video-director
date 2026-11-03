@@ -4,9 +4,11 @@ This page is for operators debugging Website to Video storyboard imagery. A PNG 
 
 ## Which button actually calls Gemini?
 
+**Important:** New Website-to-Video storyboards initially get one **free local FFmpeg starter placeholder** per scene. These are not Gemini images, even when Gemini is enabled. The storyboard now shows an explicit count of verified Gemini AI images versus placeholders.
+
 - **Refresh local brand layout**, **Refresh local brand layout (not AI)** and **Replace all stock with branded visuals** generate *text-free local FFmpeg branded layouts*. These are useful no-provider fallbacks, not AI imagery.
 - **Generate AI brand image** explicitly requests one potentially billable Gemini image for one scene.
-- **Generate AI visuals for all scenes** asks for confirmation before sequential billable requests.
+- **Generate AI visuals for all scenes** asks for confirmation before sequential billable requests and skips already-successful AI scenes; failed explicit requests retain previous artwork.
 - All marketing scene cards now show **Gemini AI-generated illustration**, **local FFmpeg branded layout**, or **AI image not generated** with a safe fallback reason. The scene editor shows the same provenance.
 
 The original narration, scene duration and ordering remain unchanged by image regeneration. Do not interpret AI concept art as a factual screenshot, a verified business claim, or a license to reuse third-party marks.
@@ -21,6 +23,16 @@ VOXORA_MARKETING_IMAGE_MODEL=gemini-3.1-flash-lite-image
 ```
 
 Keep `GEMINI_API_KEY` in `server/.env` (the API container's `env_file`), **not** in the frontend, screenshots or shared issue logs. The model key must have access and quota for image generation. Turning on a feature flag alone does not verify it.
+
+To check model accessibility **without requesting or paying for image generation**, after deployment run:
+
+```bash
+sudo docker exec voxora-api-1 node scripts/checkMarketingImageModel.js
+```
+
+A response such as `{"ok":true,"code":"MODEL_ACCESSIBLE","model":"gemini-3.1-flash-lite-image"}` means the API key can access the Models API entry. It **does not** guarantee an available image quota, a successful generated image, or visual quality. Error codes such as `IMAGE_AUTH_FAILED` or `IMAGE_MODEL_UNAVAILABLE` should be resolved before attempting a paid image.
+
+For higher-quality imagery, an operator may explicitly choose `VOXORA_MARKETING_IMAGE_MODEL=gemini-3.1-flash-image` in `.env.lightsail` and recreate the API. This model can cost more; do not silently change customer billing.
 
 After merging and deploying the approved code, recreate the API to apply changed environment variables (without disturbing the DB or Redis):
 
@@ -78,7 +90,7 @@ Unit tests use an injected fake provider and never call live Gemini. This change
 ## Scene relevance and image-quality safeguards
 
 - If a concept has multiple approved source pages, the scene title, narration and visual search text are used to match the correct product/service page; an unrelated product image is no longer chosen solely by scene position when the subject can be identified.
-- Gemini uses a common brand palette and visual treatment but different deterministic compositions for hook, feature and closing scenes. Prompts use facts from the selected approved product page rather than indiscriminately mixing facts across products.
+- Gemini uses a common brand palette and visual treatment but different deterministic compositions for hook, feature and closing scenes. Prompts use facts from the selected approved product page rather than indiscriminately mixing facts across products. The image prompt now requires a recognizable service-relevant subject, realistic materials, natural environment and photographic depth, explicitly rejecting placeholder rectangles, flat gradients and template cards.
 - Public-site logo files are not sent as Gemini visual reference images. This does not waive the customer's responsibility to review rights for separately used source imagery.
 - The generated source image must have supported dimensions and a portrait aspect ratio approximately matching 9:16. The converted output must be a nontrivial PNG file. Explicit paid scene requests now return a safe error code and **preserve the previous scene artwork** on failure; existing fallback-mode callers can still opt into labeled local branded artwork.
 - For bulk AI generation, a shared authorization/model/quota/request rejection stops remaining paid requests instead of repeatedly attempting scenes. The already completed scenes remain saved.
