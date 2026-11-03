@@ -8,6 +8,7 @@ import {
 } from "../src/services/websiteAiImageService.js";
 import { createWebsiteMarketingVisual, marketingImageAvailable } from "../src/services/websiteMarketingVisualService.js";
 import { brandSceneImagePath } from "../src/services/websiteBrandedVisualService.js";
+import { checkMarketingImageModel } from "../scripts/checkMarketingImageModel.js";
 
 const siteUrl="https://www.coderra.com.au/";
 const productUrl=siteUrl+"products/commops";
@@ -94,6 +95,26 @@ test("capability status exposes the configured image model but not a provider se
   assert.equal(result.model,WEBSITE_IMAGE_MODEL);
   assert.ok(!JSON.stringify(result).includes("test-secret"));
   assert.equal(marketingImageAvailable({...enabled,VOXORA_MARKETING_IMAGE_MODEL:"not-a-real-model"}).enabled,false);
+});
+
+test("non-billable provider probe checks model access without generating images or leaking the key",async()=>{
+  const calls=[];
+  const response=await checkMarketingImageModel({env:enabled,fetchFn:async(url,opts)=>{
+    calls.push({url,opts});return {ok:true,status:200};
+  }});
+  assert.deepEqual(response,{ok:true,code:"MODEL_ACCESSIBLE",model:WEBSITE_IMAGE_MODEL});
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].opts.method,"GET");
+  assert.equal(calls[0].opts.headers["x-goog-api-key"],"test-secret");
+  assert.ok(!calls[0].url.includes("test-secret"));
+  assert.ok(!JSON.stringify(response).includes("test-secret"));
+  const denied=await checkMarketingImageModel({env:enabled,fetchFn:async()=>({ok:false,status:403})});
+  assert.equal(denied.code,"IMAGE_AUTH_FAILED");
+  assert.equal(denied.httpStatus,403);
+  let disabledCalls=0;
+  const disabled=await checkMarketingImageModel({env:{},fetchFn:async()=>{disabledCalls++;}});
+  assert.equal(disabled.code,"AI_IMAGES_DISABLED");
+  assert.equal(disabledCalls,0);
 });
 
 test("provider image bytes must match MIME and be safely bounded",()=>{
