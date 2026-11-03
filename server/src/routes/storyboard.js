@@ -5,6 +5,7 @@ import { generateStoryboard } from "../services/storyboardService.js";
 import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
 import { createWebsiteBrandedVisual } from "../services/websiteBrandedVisualService.js";
+import { createWebsiteMarketingVisual, marketingImageAvailable } from "../services/websiteMarketingVisualService.js";
 import { measureGeneration } from "../services/generationTelemetry.js";
 import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
 import { inspectNarration } from "../services/narrationReadiness.js";
@@ -16,6 +17,7 @@ import { rewriteStoryboardScene } from "../services/storyboardService.js";
 const router = Router();
 router.use("/projects/:id", requireProjectOwner);
 router.use("/scenes/:sceneId", requireSceneOwner);
+router.get("/marketing-visuals/status", (_req,res) => res.json(marketingImageAvailable()));
 
 function normalizeAudioUrl(audioUrl, projectId, sceneId) {
   if (!audioUrl) return null;
@@ -718,10 +720,16 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
     let assets, visualPlan = null;
     if (isMarketing) {
       const count = await prisma.projectScene.count({ where: { projectId: scene.projectId } });
-      const generated = await createWebsiteBrandedVisual({
+      const visualMode = req.body?.visualMode === "ai" ? "ai" : "brand";
+      if (visualMode === "ai" && !marketingImageAvailable().enabled) {
+        return res.status(409).json({ code: "AI_IMAGES_DISABLED",
+          error: "AI marketing images are not enabled on this server. Use branded layouts instead." });
+      }
+      const generated = await createWebsiteMarketingVisual({
         project: scene.project, sceneId: scene.id, scene,
         sceneIndex: Math.max(0, scene.sceneOrder - 1), sceneCount: count,
         variant: Number(scene.customization?.sceneVisualPlan?.variant || 0) + 1,
+        visualMode,
       });
       assets = [generated];
       visualPlan = generated.visualPlan;
@@ -753,8 +761,8 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
     const refreshed = await loadOwnedScene(scene.id);
     res.json({ scene: publicScene({ ...refreshed, projectId: scene.projectId }), query, assetCount: assets.length });
   } catch (error) {
-    console.error(`POST /api/scenes/${req.params.sceneId}/regenerate-assets failed:`, error);
-    res.status(500).json({ error: error.message || "Failed to regenerate scene visuals." });
+    console.error("[storyboard] Scene visual regeneration failed", { code: error?.code || "VISUAL_FAILED", name: error?.name });
+    res.status(500).json({ error: "Visual regeneration failed. Try again or use the branded layout." });
   }
 });
 
