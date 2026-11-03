@@ -53,3 +53,8 @@
 .step-card__swap-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px; }
 .step-card__swap-head > span:last-child { color:var(--muted); font-size:.64rem; }
 @media(max-width:640px){ .step-card__toolbar{align-items:flex-start;flex-direction:column;} .step-card__toolbar-actions{width:100%;justify-content:stretch;} .step-card__tool{flex:1 1 0;} .step-card__swap-head{align-items:flex-start;flex-direction:column;gap:4px;} }
+
+/* Website marketing: distinguish explicitly paid AI generation from the free brand layout. */
+.step-card__tool--ai { background:var(--ink);color:var(--cream-ink);border-color:var(--ink); }
+.step-card__tool--ai:hover { background:var(--ink-dim);color:var(--cream-ink); }
+.step-card__visual-status { margin:8px 0 10px;color:var(--muted);font-size:.71rem;line-height:1.5;overflow-wrap:anywhere; }

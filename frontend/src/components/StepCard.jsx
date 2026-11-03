@@ -19,12 +19,17 @@ export default function StepCard({
   onRewriteScene,
   onChangeSceneVoice,
   onRegenerateVisuals,
+  onRegenerateAiVisuals,
+  aiImagesEnabled = false,
   sceneBusy = "",
 }) {
   const selected = Math.max(0, Math.min(selectedAssetIndex, (step.swatches || []).length - 1));
   const busy = Boolean(sceneBusy);
   const sceneVoiceLabel = step.customization?.voice?.name || customSetup?.voice?.name || "Project voice";
   const isCustomized = Boolean(step.customization?.customized);
+  const plan = step.customization?.sceneVisualPlan;
+  const aiGenerated = plan?.aiStatus === "generated";
+  const aiFallback = plan?.aiStatus === "fallback";
 
   return (
     <article
@@ -68,10 +73,21 @@ export default function StepCard({
               {customizeOpen ? "Close editor" : "Customize scene"}
             </button>
             <button type="button" className="step-card__tool" onClick={() => onRegenerateVisuals?.()} disabled={busy}>
-              {sceneBusy === "visuals" ? "Refreshing…" : "Refresh visuals"}
+              {sceneBusy === "visuals" ? "Generating…" : plan ? "Rebuild basic layout" : "Refresh visuals"}
             </button>
+            {plan && aiImagesEnabled && <button type="button" className="step-card__tool step-card__tool--ai"
+              onClick={() => onRegenerateAiVisuals?.()} disabled={busy}
+              title="Request a paid, scene-specific Gemini image; the original narration stays unchanged"
+            >{sceneBusy === "visuals" ? "Generating…" : "Generate AI image"}</button>}
           </div>
         </div>
+        {plan && <p className="step-card__visual-status" role={aiFallback ? "status" : undefined}>
+          {aiGenerated
+            ? "AI illustration generated · " + (plan.imageModel || plan.imageProvider || "Gemini")
+            : aiFallback
+              ? "AI image unavailable (" + (plan.aiFallbackCode || "IMAGE_GENERATION_UNAVAILABLE") + "). A basic branded layout was used instead."
+              : "Basic branded layout — not an AI-generated image."}
+        </p>}
 
         <div className="step-card__swap">
           <div className="step-card__swap-head">
@@ -112,6 +128,8 @@ export default function StepCard({
               onChangeVoice={onChangeSceneVoice}
               onSelectAsset={onSelectAsset}
               onRegenerateVisuals={onRegenerateVisuals}
+              onRegenerateAiVisuals={onRegenerateAiVisuals}
+              aiImagesEnabled={aiImagesEnabled}
               onClose={onCloseCustomize}
               busy={sceneBusy}
             />

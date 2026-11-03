@@ -379,7 +379,7 @@ function SceneCustomizeDraft({
               {scene.customization?.sceneVisualPlan?.visualMode === "ai_generated_background" &&
                 <p className="scene-customize__hint">AI illustration — not an authentic product screenshot.</p>}
               {scene.customization?.sceneVisualPlan?.aiStatus === "fallback" &&
-                <p className="scene-customize__hint">AI image unavailable — branded layout used instead.</p>}
+                <p className="scene-customize__hint">AI image unavailable ({scene.customization.sceneVisualPlan.aiFallbackCode || "IMAGE_GENERATION_UNAVAILABLE"}) — basic branded layout used.</p>}
             </div>
             <button
               type="button"
@@ -387,7 +387,7 @@ function SceneCustomizeDraft({
               onClick={() => void refreshSceneVisuals()}
               disabled={Boolean(busy)}
             >
-              {busy === "visuals" ? "Regenerating…" : scene.customization?.sceneVisualPlan ? "Regenerate branded visual" : "Regenerate Visuals"}
+              {busy === "visuals" ? "Regenerating…" : scene.customization?.sceneVisualPlan ? "Rebuild basic layout" : "Regenerate Visuals"}
             </button>
             {aiImagesEnabled && scene.customization?.sceneVisualPlan && <button
               type="button" className="scene-customize__refresh"

@@ -70,10 +70,11 @@ export default function PhonePreview({ step, duration, cuts, playing, onTogglePl
   const background = step.selectedAsset?.thumbnailUrl ? `url(${step.selectedAsset.thumbnailUrl}) center / cover no-repeat` : step.thumb;
   const displayDuration = hasAudio && audioDuration ? audioDuration : Number(step.durationSeconds || duration || 0);
   const progress = displayDuration ? Math.min(100, (currentTime / displayDuration) * 100) : 0;
+  const isMarketingVisual = Boolean(step.customization?.sceneVisualPlan);
 
   return (
     <div className="hx-preview">
-      <div className="hx-preview__frame" style={{ background }}>
+      <div className={"hx-preview__frame " + (isMarketingVisual ? "hx-preview__frame--marketing" : "")} style={{ background }}>
         {step.thumbLabel && (
           <div className="hx-preview__altbadge">
             <span className="hx-preview__altdot" aria-hidden="true" />
@@ -84,7 +85,7 @@ export default function PhonePreview({ step, duration, cuts, playing, onTogglePl
         <div className="hx-preview__scrim" />
 
         <div className="hx-preview__captions">
-          <p className="hx-preview__caption-lead">{step.title}</p>
+          {!isMarketingVisual && <p className="hx-preview__caption-lead">{step.title}</p>}
           <p className="hx-preview__caption-sub" aria-live="polite">
             {timestamps.length > 0 ? timestamps.map((item, index) => {
               const isSaid = currentTime >= Number(item.end || 0);

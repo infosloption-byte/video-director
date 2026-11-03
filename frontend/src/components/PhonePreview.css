@@ -47,3 +47,7 @@
   .hx-preview__play { width: 32px; height: 32px; }
   .hx-preview__time { font-size: 9px; }
 }
+/* Website videos already carry brand and narration in Remotion. Preview one
+   caption track, not a second floating scene title over the artwork. */
+.hx-preview__frame--marketing .hx-preview__captions{justify-content:flex-end;padding-top:58px}
+.hx-preview__frame--marketing .hx-preview__caption-sub{margin-bottom:48px;padding:10px 4px;font-size:clamp(16px,2.3vw,20px);text-shadow:0 3px 14px rgba(0,0,0,.85)}
