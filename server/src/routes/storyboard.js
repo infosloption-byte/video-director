@@ -567,12 +567,25 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
     });
 
     const refreshVisuals = req.body?.refreshVisuals !== false;
-    const assets = refreshVisuals ? await searchPexelsVideos(rewritten.broll_search_term, 5) : scene.assets;
-    if (refreshVisuals && assets.length < 5) {
-      throw new Error("Pexels returned fewer than 5 usable visuals for this rewritten scene.");
+    const isMarketing = scene.project.signal?.category === "WEBSITE_MARKETING";
+    let visualPlan = saved.sceneVisualPlan || null;
+    let assets = scene.assets;
+    if (refreshVisuals && isMarketing) {
+      const image = await createWebsiteBrandedVisual({
+        project: scene.project, sceneId: scene.id, scene: rewritten,
+        sceneIndex: Math.max(0, scene.sceneOrder - 1),
+        sceneCount: siblingScenes.length,
+        variant: Number(visualPlan?.variant || 0) + 1,
+      });
+      visualPlan = image.visualPlan;
+      assets = [image];
+    } else if (refreshVisuals) {
+      assets = await searchPexelsVideos(rewritten.broll_search_term, 5);
+      if (assets.length < 5) throw new Error("Pexels returned fewer than 5 usable visuals for this rewritten scene.");
     }
 
     const customization = { ...saved, customized: true, framework, tone, audienceLevel, targetDurationSeconds };
+    if (isMarketing && visualPlan) customization.sceneVisualPlan = visualPlan;
     customization.voice = voice.source === "clone"
       ? { source: "clone", id: voice.id, name: voice.name, engine: voice.engine, voiceId: voice.voiceId, language: voice.language }
       : { source: "preset", id: voice.id, name: voice.name, engine: voice.engine, voice: voice.voice, language: voice.language };
@@ -638,8 +651,21 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
       .slice(0, 120);
     if (!query) return res.status(400).json({ error: "A visual search phrase is required." });
 
-    const assets = await searchPexelsVideos(query, 5);
-    if (assets.length < 5) throw new Error("Pexels returned fewer than 5 usable visuals for this scene.");
+    const isMarketing = scene.project.signal?.category === "WEBSITE_MARKETING";
+    let assets, visualPlan = null;
+    if (isMarketing) {
+      const count = await prisma.projectScene.count({ where: { projectId: scene.projectId } });
+      const generated = await createWebsiteBrandedVisual({
+        project: scene.project, sceneId: scene.id, scene,
+        sceneIndex: Math.max(0, scene.sceneOrder - 1), sceneCount: count,
+        variant: Number(scene.customization?.sceneVisualPlan?.variant || 0) + 1,
+      });
+      assets = [generated];
+      visualPlan = generated.visualPlan;
+    } else {
+      assets = await searchPexelsVideos(query, 5);
+      if (assets.length < 5) throw new Error("Pexels returned fewer than 5 usable visuals for this scene.");
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.sceneAsset.deleteMany({ where: { sceneId: scene.id } });
@@ -652,7 +678,12 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
           isSelected: index === 0,
         })),
       });
-      await tx.projectScene.update({ where: { id: scene.id }, data: { brollSearchTerm: query } });
+      await tx.projectScene.update({
+        where: { id: scene.id },
+        data: isMarketing
+          ? { customization: { ...normalizeCustomization(scene.customization), sceneVisualPlan: visualPlan } }
+          : { brollSearchTerm: query },
+      });
       await tx.project.update({ where: { id: scene.projectId }, data: { renderUrl: null, status: "storyboard" } });
     });
 
