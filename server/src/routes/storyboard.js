@@ -507,6 +507,9 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
   try {
     const scene = await loadOwnedScene(req.params.sceneId);
     if (!scene) return res.status(404).json({ error: "Scene not found." });
+    if (scene.project.signal?.category === "WEBSITE_MARKETING" && scene.project.status === "rendering") {
+      return res.status(409).json({ error: "Finish the active render before editing website scenes." });
+    }
 
     const saved = normalizeCustomization(scene.customization);
     const framework = req.body?.framework || saved.framework || scene.project.selectedFramework || "how-it-works";
@@ -701,6 +704,9 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
   try {
     const scene = await loadOwnedScene(req.params.sceneId);
     if (!scene) return res.status(404).json({ error: "Scene not found." });
+    if (scene.project.signal?.category === "WEBSITE_MARKETING" && scene.project.status === "rendering") {
+      return res.status(409).json({ error: "Finish the active render before replacing branded visuals." });
+    }
 
     const query = String(req.body?.query || scene.brollSearchTerm || scene.title || "technology")
       .trim()
