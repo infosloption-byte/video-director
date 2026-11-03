@@ -640,6 +640,63 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
   }
 });
 
+// Upgrade existing Website-to-Video projects without regenerating narration,
+// spending new TTS calls, or replacing the selected marketing concept.
+router.post("/projects/:id/regenerate-brand-visuals", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: req.params.id },
+      include: { signal: true, scenes: { orderBy: { sceneOrder: "asc" } } },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    if (project.signal?.category !== "WEBSITE_MARKETING") {
+      return res.status(409).json({ error: "Brand visual regeneration is only for website marketing projects." });
+    }
+    if (project.status === "rendering") {
+      return res.status(409).json({ error: "Finish the active render before replacing visuals." });
+    }
+    if (!project.scenes.length) return res.status(409).json({ error: "Generate a storyboard before refreshing visuals." });
+    const generated = [];
+    for (const [index, scene] of project.scenes.entries()) {
+      const visual = await createWebsiteBrandedVisual({
+        project, sceneId: scene.id, scene, sceneIndex: index,
+        sceneCount: project.scenes.length,
+        variant: Number(scene.customization?.sceneVisualPlan?.variant || 0) + 1,
+      });
+      generated.push({ scene, visual });
+    }
+    await prisma.$transaction(async tx => {
+      for (const { scene, visual } of generated) {
+        await tx.sceneAsset.deleteMany({ where: { sceneId: scene.id } });
+        await tx.sceneAsset.create({
+          data: { sceneId: scene.id, videoUrl: visual.videoUrl,
+            thumbnailUrl: visual.thumbnailUrl, sortOrder: 0, isSelected: true },
+        });
+        await tx.projectScene.update({
+          where: { id: scene.id },
+          data: { customization: {
+            ...normalizeCustomization(scene.customization),
+            sceneVisualPlan: visual.visualPlan,
+          } },
+        });
+      }
+      await tx.project.update({
+        where: { id: project.id },
+        data: { renderUrl: null, status: "storyboard" },
+      });
+    });
+    const refreshed = await loadProjectScenes(project.id);
+    return res.json({
+      projectId: project.id, visualsUpdated: generated.length,
+      scenes: refreshed.scenes.map(scene => publicScene({ ...scene, projectId: project.id })),
+      policy: "website_brand_first_no_stock",
+    });
+  } catch (error) {
+    console.error("Website branded visual regeneration failed", error?.code || error?.name);
+    return res.status(500).json({ error: "Unable to regenerate website branding artwork. Check image-generation logs." });
+  }
+});
+
 router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
   try {
     const scene = await loadOwnedScene(req.params.sceneId);
