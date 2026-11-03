@@ -571,7 +571,7 @@ export default function StoryboardPage() {
                   <h2>Review every cut, then tune only what needs changing.</h2>
                   <p>Each scene inherits the project Setup. Customize a single scene without regenerating the rest of the storyboard.</p>
                   {project?.research?.sources?.websiteMarketing && <div className="storyboard-brand-visual-action">
-                    <button type="button" className="btn btn-ghost" onClick={() => void regenerateAllWebsiteVisuals()} disabled={brandVisualLoading || sceneLoading || renderLoading || !scenes.length}>
+                    <button type="button" className="btn btn-ghost" onClick={() => void regenerateAllWebsiteVisuals()} disabled={brandVisualLoading || Boolean(aiVisualProgress) || sceneLoading || renderLoading || !scenes.length}>
                       {brandVisualLoading ? "Building branded artwork…" : "Replace all stock with branded visuals"}
                     </button>
                     {aiImageStatus.enabled && <button type="button" className="btn btn-ghost"
