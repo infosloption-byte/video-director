@@ -60,3 +60,8 @@
 .wtv-idea__brief{display:grid;gap:3px;width:100%;font-size:13px;line-height:1.5;color:var(--body);padding:11px 13px;background:var(--bg-raised);border:1px solid var(--border);border-radius:10px}
 .wtv-idea__brief strong{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.10em;color:var(--muted)}
 .wtv-idea .wtv-fine{margin:0}
+
+.wtv-brandkit-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px;padding:12px 0;color:var(--body);font-size:12px}
+.wtv-brandkit-summary strong{width:100%;font-size:12px;color:var(--ink)}
+.wtv-brandkit-summary span{border-radius:100px;padding:5px 10px;background:var(--surface-soft);border:1px solid var(--border)}
+.wtv-brandkit-summary small{width:100%;font-size:11px;color:var(--muted);line-height:1.5}
