@@ -220,4 +220,5 @@
 .storyboard-brand-visual-action__summary span{color:var(--muted);font-size:13px;line-height:1.5}
 .storyboard-brand-visual-action__disabled{flex:1 1 100%;max-width:680px;font-size:13px;line-height:1.5;color:var(--body)}
 .storyboard-brand-visual-action__notice{flex-basis:100%;max-width:680px;overflow-wrap:anywhere}
+.storyboard-brand-visual-action--preview{margin:0 0 20px;padding:12px;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface-soft)}
 @media(max-width:640px){.storyboard-brand-visual-action .btn{width:100%;justify-content:center}.storyboard-brand-visual-action__summary{max-width:100%}}
