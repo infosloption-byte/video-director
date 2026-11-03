@@ -9,12 +9,16 @@ import { promisify } from "node:util";
 import { createWebsiteBrandedVisual, brandSceneImagePath, brandSceneImageUrl, resolveMarketingBrandKit } from "./websiteBrandedVisualService.js";
 import { planWebsiteSceneVisual } from "./websiteBrandKit.js";
 import { fetchPublicWebsiteImage } from "./websiteSafeFetch.js";
-import { generateWebsiteAiImage, isMarketingAiImagesEnabled } from "./websiteAiImageService.js";
+import { WEBSITE_IMAGE_MODEL, generateWebsiteAiImage, isMarketingAiImagesEnabled, imageModelFromEnv } from "./websiteAiImageService.js";
 import { measureGeneration } from "./generationTelemetry.js";
 
 const execAsync = promisify(execFile);
 export function marketingImageAvailable(env = process.env) {
-  return { enabled:isMarketingAiImagesEnabled(env), provider:"gemini", paid:true,
+  const requestedModel = env.VOXORA_MARKETING_IMAGE_MODEL || WEBSITE_IMAGE_MODEL;
+  let modelValid = true;
+  try { imageModelFromEnv(env); } catch { modelValid = false; }
+  return { enabled:isMarketingAiImagesEnabled(env) && modelValid, provider:"gemini",
+    model: modelValid ? requestedModel : null, paid:true,
     policy:"No Pexels fallback. AI art is illustrative; website asset rights and claims require review." };
 }
 export async function createWebsiteMarketingVisual({
