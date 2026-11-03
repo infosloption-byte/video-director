@@ -142,6 +142,9 @@ export async function createWebsiteMarketingVisual({
     console.warn("[marketing-image] Gemini image generation failed", {
       projectId:project.id, sceneId, code:safeCode,
       providerHttpStatus:Number.isInteger(error?.httpStatus) ? error.httpStatus : null,
+      quotaReason:["FREE_TIER_ZERO","SPEND_LIMIT","DAILY_LIMIT","MINUTE_LIMIT"].includes(error?.quotaReason)
+        ? error.quotaReason : null,
+      retryAfterSeconds:Number.isInteger(error?.retryAfterSeconds) ? error.retryAfterSeconds : null,
       model:env.VOXORA_MARKETING_IMAGE_MODEL || "gemini-3.1-flash-lite-image",
     });
     if (!fallbackOnAiFailure) {
@@ -150,6 +153,10 @@ export async function createWebsiteMarketingVisual({
       const failure = new Error("Gemini could not generate a usable image; the existing scene visual was preserved.");
       failure.code = safeCode;
       failure.httpStatus = Number.isInteger(error?.httpStatus) ? error.httpStatus : null;
+      failure.quotaReason = ["FREE_TIER_ZERO","SPEND_LIMIT","DAILY_LIMIT","MINUTE_LIMIT"].includes(error?.quotaReason)
+        ? error.quotaReason : "UNKNOWN";
+      failure.retryAfterSeconds = Number.isInteger(error?.retryAfterSeconds)
+        ? error.retryAfterSeconds : null;
       throw failure;
     }
     const fallback = await brandGenerate({ ...baseArgs, brandKit });
