@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { websiteAiFallbackReason, websiteVisualStatus } from "../src/utils/websiteVisualStatus.js";
+import { websiteAiFallbackReason, websiteAiQuotaExplanation, websiteVisualStatus } from "../src/utils/websiteVisualStatus.js";
 const read = filename => readFile(new URL("../src/" + filename, import.meta.url), "utf8");
 
 test("Storyboard checks capability and requires confirmation before paid Gemini image requests", async () => {
@@ -79,7 +79,7 @@ test("image conversion and portrait-format failures remain understandable to use
 test("failed paid image requests show their reason and keep prior scene artwork", async () => {
   const page = await read("pages/StoryboardPage.jsx");
   assert.match(page, /body\?\.visualMode === "ai" && data\.code/);
-  assert.match(page, /websiteAiFallbackReason\(data\.code\)/);
+  assert.match(page, /websiteAiQuotaExplanation\(data\)/);
   assert.match(page, /Your previous scene image remains unchanged/);
 });
 
@@ -89,6 +89,22 @@ test("preview warns when video would still use non-AI placeholder layouts", asyn
   assert.match(page, /aiPendingCount > 0/);
   assert.match(page, /still use local placeholders instead of Gemini imagery/);
   assert.match(page, /Go to storyboard to generate AI imagery/);
+});
+
+test("image-quota UI separates free-tier billing requirements from minute and daily limits", () => {
+  const free=websiteAiQuotaExplanation({code:"IMAGE_RATE_LIMITED",quotaReason:"FREE_TIER_ZERO",retryAfterSeconds:42});
+  assert.match(free,/zero free-tier quota/);
+  assert.match(free,/Enable paid Gemini API billing/);
+  assert.doesNotMatch(free,/retrying after/);
+  const daily=websiteAiQuotaExplanation({code:"IMAGE_RATE_LIMITED",quotaReason:"DAILY_LIMIT"});
+  assert.match(daily,/daily image quota/);
+  const minute=websiteAiQuotaExplanation({code:"IMAGE_RATE_LIMITED",quotaReason:"MINUTE_LIMIT",retryAfterSeconds:30});
+  assert.match(minute,/per-minute image quota/);
+  assert.match(minute,/retrying after 30 seconds/);
+  const spend=websiteAiQuotaExplanation({code:"IMAGE_RATE_LIMITED",quotaReason:"SPEND_LIMIT"});
+  assert.match(spend,/spending limit/);
+  const unknown=websiteAiQuotaExplanation({code:"IMAGE_RATE_LIMITED",quotaReason:"UNKNOWN"});
+  assert.match(unknown,/no free API tier/);
 });
 
 test("Brand-first visuals avoid text collisions with Remotion caption layers", async () => {
