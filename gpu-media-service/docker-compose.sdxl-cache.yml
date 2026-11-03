@@ -1,0 +1,15 @@
+# Optional cache-only overlay for the GPU media worker.
+# Use ONLY after verifying this external volume contains the tested SDXL
+# Hugging Face snapshot. It does not enable inference or GPU scheduling.
+# Combine with docker-compose.gpu.yml; do not recreate live workers while busy.
+services:
+  worker:
+    environment:
+      GPU_MEDIA_SDXL_CACHE_DIR: /sdxl-cache/hub
+    volumes:
+      - sdxl-cache:/sdxl-cache:ro
+
+volumes:
+  sdxl-cache:
+    external: true
+    name: voxora-sdxl-cache
