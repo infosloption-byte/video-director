@@ -137,3 +137,32 @@ test("FFmpeg brand fallback does not embed duplicate headings, CTAs or subtitles
   assert.doesNotMatch(source,/drawtext=/);
   assert.match(source,/rendered ONCE by Remotion/);
 });
+
+
+test("billable AI image request budget is shared across distinct scenes",async()=>{
+  const { expensiveOperationRateLimit } = await import("../src/middleware/rateLimit.js");
+  const before=process.env.MARKETING_AI_IMAGE_RATE_LIMIT;
+  process.env.MARKETING_AI_IMAGE_RATE_LIMIT="3";
+  const userId=crypto.randomUUID();
+  try{
+    for(let i=0;i<4;i++){
+      const req={
+        path:"/scenes/"+crypto.randomUUID()+"/regenerate-assets",
+        method:"POST",body:{visualMode:"ai"},
+        user:{id:userId},headers:{},ip:"127.0.0.1",
+      };
+      let status=null, next=false;
+      const res={
+        setHeader(){},
+        status(value){status=value;return this;},
+        json(){return this;},
+      };
+      expensiveOperationRateLimit(req,res,()=>{next=true;});
+      if(i<3)assert.equal(next,true,"the first three paid calls are allowed");
+      else assert.equal(status,429,"fourth request across another scene is rate limited");
+    }
+  }finally{
+    if(before==null)delete process.env.MARKETING_AI_IMAGE_RATE_LIMIT;
+    else process.env.MARKETING_AI_IMAGE_RATE_LIMIT=before;
+  }
+});
