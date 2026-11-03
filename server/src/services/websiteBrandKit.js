@@ -1,6 +1,9 @@
 // Site-owned assets for marketing visuals. This is an observed public-site
 // identity snapshot, NOT a license to reproduce logos or product imagery.
-import { websiteBrandLabel } from "./websiteReportQuality.js";
+function websiteBrandLabel(siteUrl) {
+  const first = new URL(siteUrl).hostname.replace(/^www\./i, "").split(".")[0];
+  return first.replace(/[-_]+/g, " ").replace(/\b[a-z]/g, value => value.toUpperCase());
+}
 
 const fallback = { background: "#14232E", accent: "#50D4B5", text: "#FFFFFF" };
 const unique = arr => [...new Set(arr.filter(Boolean))];
