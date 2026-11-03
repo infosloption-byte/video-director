@@ -55,7 +55,7 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     whyLine: scene.whyLine || "Voxora uses the strongest evidence-led line for this beat.",
     whyPicture: scene.whyPicture || "The visual makes the mechanism concrete before the next cut.",
     thumb: selectedAsset ? `url(${selectedAsset.thumbnailUrl}) center / cover no-repeat` : "linear-gradient(145deg, #17304a, #09131f)",
-    thumbLabel: selectedAsset ? (scene.customization?.sceneVisualPlan?.aiStatus === "generated" ? "Gemini AI image" : scene.customization?.sceneVisualPlan ? "Local branded layout" : "Pexels B-roll") : "Visual pending",
+    thumbLabel: selectedAsset ? (scene.customization?.sceneVisualPlan?.aiStatus === "generated" ? (scene.customization.sceneVisualPlan.imageProvider === "sdxl_local" ? "Local SDXL image" : "Gemini AI image") : scene.customization?.sceneVisualPlan ? "Local branded layout" : "Pexels B-roll") : "Visual pending",
     swatches: (scene.assets || []).map((asset) => `url(${asset.thumbnailUrl}) center / cover no-repeat`),
     selectedAsset,
     assets: scene.assets || [],
@@ -75,7 +75,7 @@ export default function StoryboardPage() {
   const [playing, setPlaying] = useState(false);
   const [sceneLoading, setSceneLoading] = useState(false);
   const [brandVisualLoading, setBrandVisualLoading] = useState(false);
-  const [aiImageStatus, setAiImageStatus] = useState({ enabled:false, model:null });
+  const [aiImageStatus, setAiImageStatus] = useState({ enabled:false, model:null, provider:"sdxl_local", paid:false });
   const [aiVisualProgress, setAiVisualProgress] = useState(null);
   const [aiVisualNotice, setAiVisualNotice] = useState("");
   const [sceneError, setSceneError] = useState("");
@@ -121,8 +121,8 @@ export default function StoryboardPage() {
     if (!project?.research?.sources?.websiteMarketing) return;
     let cancelled = false;
     fetch("/api/marketing-visuals/status").then(response => response.ok ? response.json() : {})
-      .then(data => { if (!cancelled) setAiImageStatus({ enabled:data.enabled === true, model:data.model || null }); })
-      .catch(() => { if (!cancelled) setAiImageStatus({ enabled:false, model:null }); });
+      .then(data => { if (!cancelled) setAiImageStatus({ enabled:data.enabled === true, model:data.model || null, provider:data.provider || "sdxl_local", paid:data.paid === true }); })
+      .catch(() => { if (!cancelled) setAiImageStatus({ enabled:false, model:null, provider:"sdxl_local", paid:false }); });
     return () => { cancelled = true; };
   }, [project?.research?.sources?.websiteMarketing]);
 
@@ -313,7 +313,30 @@ export default function StoryboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body || {}),
       });
-      const data = await response.json().catch(() => ({}));
+      let data = await response.json().catch(() => ({}));
+      // SDXL runs in a separate GPU queue. Poll through the owned-scene API:
+      // no long browser/proxy request and no GPU token in the frontend.
+      if (response.status === 202 && type === "visuals" && body?.visualMode === "ai" &&
+          data.provider === "sdxl_local" && /^[0-9a-f]{32}$/.test(data.jobId || "")) {
+        let completed = false;
+        for (let attempt = 0; attempt < 700; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 2500));
+          const poll = await fetch("/api/scenes/" + encodeURIComponent(sceneId) +
+            "/ai-image-jobs/" + encodeURIComponent(data.jobId), { credentials:"include" });
+          const progress = await poll.json().catch(() => ({}));
+          if (poll.status === 202) continue;
+          if (!poll.ok) {
+            throw new Error(websiteAiQuotaExplanation(progress) +
+              " Your previous scene image remains unchanged.");
+          }
+          data = progress;
+          completed = true;
+          break;
+        }
+        if (!completed) throw new Error(
+          "SDXL image generation is still processing. Reopen this scene and retry to resume the same queued job."
+        );
+      }
       if (!response.ok) {
         if (type === "visuals" && body?.visualMode === "ai" && data.code) {
           throw new Error(websiteAiQuotaExplanation(data) +
@@ -368,7 +391,7 @@ export default function StoryboardPage() {
   async function confirmAiSceneImage(sceneId) {
     if (!aiImageStatus.enabled || brandVisualLoading || aiVisualProgress || renderLoading || sceneLoading) return;
     if (typeof window !== "undefined" && !window.confirm(
-      "Generate a paid Gemini AI image for this scene? Provider charges may apply. Narration and timing will remain unchanged."
+      (aiImageStatus.paid ? "Generate a paid Gemini AI image? Provider charges may apply." : "Generate a local SDXL AI image using the Voxora GPU? No per-image Gemini API fee.") + " Narration and timing will remain unchanged."
     )) return;
     setAiVisualNotice("");
     await regenerateSceneVisuals(sceneId, "", "ai");
@@ -378,12 +401,12 @@ export default function StoryboardPage() {
     if (!aiImageStatus.enabled || aiVisualProgress || brandVisualLoading || renderLoading || sceneLoading) return;
     const pendingScenes = scenes.filter(scene => scene.customization?.sceneVisualPlan?.aiStatus !== "generated");
     if (!pendingScenes.length) {
-      setAiVisualNotice("All scenes already have verified Gemini AI illustrations.");
+      setAiVisualNotice("All scenes already have verified AI illustrations.");
       return;
     }
     if (typeof window !== "undefined" && !window.confirm(
-      "Generate " + pendingScenes.length + " Gemini AI image(s) to replace placeholder layouts? " +
-      "Your image provider may charge for each request. Completed AI scenes will not be charged again. " +
+      "Generate " + pendingScenes.length + " " + (aiImageStatus.paid ? "Gemini" : "local SDXL") + " AI image(s) to replace placeholder layouts? " +
+      (aiImageStatus.paid ? "Your image provider may charge per request. " : "This uses your existing GPU compute and may delay TTS while scheduling permits. ") + "Already generated images are skipped. " +
       "Narration and timing will not change."
     )) return;
     setSceneEditError("");
@@ -412,12 +435,12 @@ export default function StoryboardPage() {
         stopped = true;
         setAiVisualNotice("AI generation stopped after scene " + scene.sceneOrder +
           " to avoid repeated paid requests: " + websiteAiFallbackReason(plan.aiFallbackCode) +
-          " Completed " + generated + " Gemini images and " + fallback + " local fallbacks.");
+          " Completed " + generated + " AI images and " + fallback + " local fallbacks.");
         break;
       }
     }
     if (!stopped && done === pendingScenes.length) {
-      setAiVisualNotice(generated + " new Gemini AI scene images created; " + fallback +
+      setAiVisualNotice(generated + " new AI scene images created; " + fallback +
         " used local FFmpeg fallback. Original narration and timing were preserved." +
         (fallbackDetails.length ? " " + fallbackDetails.slice(0, 3).join(" ") +
           (fallbackDetails.length > 3 ? " See individual scenes for other reasons." : "") : ""));
@@ -440,7 +463,7 @@ export default function StoryboardPage() {
       setScenes(data.scenes || []);
       setSelectedAssetByScene(Object.fromEntries((data.scenes || []).map(scene => [scene.id, 0])));
       setProject(current => ({ ...current, renderUrl: null, status: "storyboard" }));
-      setAiVisualNotice("Local FFmpeg branded layouts updated for " + (data.scenes || []).length + " scenes. Gemini AI was not called.");
+      setAiVisualNotice("Local FFmpeg branded layouts updated for " + (data.scenes || []).length + " scenes. No AI image provider was called.");
     } catch (error) {
       setSceneEditError(error.message || "Unable to regenerate branded visuals.");
     } finally {
@@ -624,10 +647,10 @@ export default function StoryboardPage() {
                   <p>Each scene inherits the project Setup. Customize a single scene without regenerating the rest of the storyboard.</p>
                   {project?.research?.sources?.websiteMarketing && <div className="storyboard-brand-visual-action">
                     <div className="storyboard-brand-visual-action__summary">
-                      <strong>{aiGeneratedCount} of {scenes.length} scenes have verified Gemini AI images</strong>
+                      <strong>{aiGeneratedCount} of {scenes.length} scenes have verified AI images</strong>
                       <span>{aiPendingCount
-                        ? "The colored layouts you see are local FFmpeg starter placeholders, NOT Gemini artwork. Replace them with scene-specific AI illustrations before the final video."
-                        : "All scene backgrounds were generated with Gemini and validated. Captions are rendered separately."}</span>
+                        ? "The colored layouts you see are local FFmpeg starter placeholders, NOT AI artwork. Replace them with scene-specific illustrations before the final video."
+                        : "All scene backgrounds were generated by the configured image provider and validated. Captions are rendered separately."}</span>
                     </div>
                     {aiImageStatus.enabled && <button type="button" className="btn btn-cream"
                       onClick={() => void generateAiImagesForScenes()}
@@ -637,15 +660,15 @@ export default function StoryboardPage() {
                         : aiPendingCount ? "Generate AI visuals for all scenes (" + aiPendingCount + " remaining)" : "All AI visuals ready"}
                     </button>}
                     {!aiImageStatus.enabled && <span className="storyboard-brand-visual-action__disabled" role="status">
-                      Gemini AI images are disabled or not configured on this server. An operator must enable VOXORA_MARKETING_AI_IMAGES_ENABLED and configure the image-model API key.
+                      AI image generation is disabled or not configured. For local SDXL, the operator must connect the private GPU service and complete TTS/GPU scheduling validation.
                     </span>}
                     <button type="button" className="btn btn-ghost" onClick={() => void regenerateAllWebsiteVisuals()}
                       disabled={brandVisualLoading || Boolean(aiVisualProgress) || sceneLoading || renderLoading || !scenes.length}>
                       {brandVisualLoading ? "Building local layouts…" : "Replace all stock with branded visuals (local only)"}
                     </button>
                     <small>{aiImageStatus.enabled
-                      ? "Gemini model: " + (aiImageStatus.model || "configured provider") + ". Image-generation API access requires a paid Google project. Requests are billable; check model quotas in Google AI Studio. Existing successful AI scenes are skipped. Local refresh does not call Gemini."
-                      : "Existing layouts are free, local placeholders. Enabling Gemini is a server-side configuration change; the key is never sent to the browser."}</small>
+                      ? (aiImageStatus.provider === "sdxl_local" ? "Local SDXL model: " : "Gemini model: ") + (aiImageStatus.model || "configured provider") + (aiImageStatus.paid ? ". Requests are billable; check model quotas in Google AI Studio." : ". Images run on the Voxora GPU with no per-image Gemini fee. GPU compute still has a cost.") + " Existing successful AI scenes are skipped. Local refresh does not call the AI provider."
+                      : "Existing layouts are free, local placeholders. Image generation requires server configuration; credentials are never sent to browsers."}</small>
                     {aiVisualNotice && <p role="status" className="storyboard-brand-visual-action__notice">{aiVisualNotice}</p>}
                   </div>}
                 </div>
@@ -724,8 +747,8 @@ export default function StoryboardPage() {
             {project?.research?.sources?.websiteMarketing && aiPendingCount > 0 && <div
               className="storyboard-brand-visual-action storyboard-brand-visual-action--preview" role="status">
               <div className="storyboard-brand-visual-action__summary">
-                <strong>{aiPendingCount} scene(s) still use local placeholders instead of Gemini imagery</strong>
-                <span>You can render with these layouts, but they are not AI-generated marketing illustrations. Return to the storyboard to request real Gemini backgrounds.</span>
+                <strong>{aiPendingCount} scene(s) still use local placeholders instead of AI imagery</strong>
+                <span>You can render with these layouts, but they are not AI-generated marketing illustrations. Return to the storyboard to request generated image backgrounds.</span>
               </div>
               <button type="button" className="btn btn-cream" onClick={() => changeTab("Storyboard")}>
                 Go to storyboard to generate AI imagery
