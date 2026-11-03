@@ -315,6 +315,10 @@ export default function StoryboardPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (type === "visuals" && body?.visualMode === "ai" && data.code) {
+          throw new Error(websiteAiFallbackReason(data.code) +
+            " Your previous scene image remains unchanged.");
+        }
         if (response.status === 429) {
           throw new Error(data.error || "AI quota is temporarily exhausted. Please retry after the Gemini quota window resets.");
         }
