@@ -224,6 +224,43 @@ Keep `GPU_COORDINATION_ENABLED=false` throughout. No GPU
 Whisper, SDXL or Wan workload is enabled by this step. Redis lease loss
 during a native CUDA call and TTS prioritization remain unaddressed.
 
+### Private EC2 host binding health check (November 3, 2026)
+
+The production gateway publishes `8000/tcp` on `172.31.64.234:8000`,
+**not** on `127.0.0.1:8000`. Testing localhost gave a refused
+connection even though Docker reported the private-IP port mapping.
+The original `rollout_gpu_gateway.sh` incorrectly hardcoded localhost for
+preflight, deployment verification, and rollback verification.
+
+The fixed script uses `resolve_gpu_gateway_health_url.py` to inspect the
+running gateway's `8000/tcp` host binding. It accepts only one explicit
+RFC1918 or IPv4 loopback binding; public, wildcard, ambiguous, or missing
+bindings fail closed. It checks the exact expected `helix-tts` health JSON,
+uses `curl --noproxy '*'`, and verifies the binding does not change after
+Compose recreates the gateway or restores its original image.
+
+**Before deployment, perform these read-only checks on GPU EC2:**
+
+```bash
+cd /opt/voxora-gpu/video-director
+python3 -m unittest discover -s scripts/tests \
+  -p test_gpu_gateway_health_binding.py -v
+bash -n scripts/rollout_gpu_gateway.sh
+curl --noproxy '*' -fsS --max-time 5 http://172.31.64.234:8000/health
+bash scripts/rollout_gpu_gateway.sh check \
+  /home/ubuntu/voxora-gpu-rollout-bVXnmzNQ
+```
+
+If the direct private-IP health check or the script's `check` fails,
+**do not deploy or recreate services**; inspect the health response first.
+The protected snapshot remains valid as long as the original gateway, worker,
+images, and untracked Compose/env files have not changed.
+
+The read-only checks do not enable scheduling. Even after a successful
+gateway-only rollout, keep all GPU coordination and heavy inference flags
+disabled until Qwen/Kokoro synthesis, native GPU lock-loss behavior, and
+media-worker admission have separately passed controlled testing.
+
 ### Live TTS Compose service-name compatibility
 
 The first gateway rollout command on the GPU host stopped safely with

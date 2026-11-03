@@ -77,6 +77,12 @@ gateway="$(cd "$tts" && sudo docker compose -p voxora-gpu \
   -f docker-compose.gpu.yml ps -a -q gateway)"
 [[ -n "$gateway" ]] || { echo "BLOCKED: gateway is missing." >&2; exit 1; }
 gateway_image="$(sudo docker inspect "$gateway" --format '{{.Image}}')"
+# Capture the original private Docker-published gateway health URL.
+# For example, the live EC2 gateway binds 172.31.64.234:8000, *not*
+# 127.0.0.1:8000. A wildcard or public host mapping must fail closed.
+gateway_health_url="$(python3 "$root/scripts/resolve_gpu_gateway_health_url.py" "$gateway")" || {
+  echo "BLOCKED: current gateway has no safe private health binding." >&2; exit 1;
+}
 
 # Discover every existing non-gateway container in the LIVE TTS Compose project.
 # This includes locally renamed engine services and protects their image and start time.
@@ -89,11 +95,22 @@ peers_unchanged() {
   current_fingerprint="$(python3 "$root/scripts/tts_peer_fingerprint.py" "$current_gateway")" || return 1
   [[ "$current_fingerprint" == "$peer_fingerprint_before" ]]
 }
+# Re-resolve on every probe: the old container ID becomes invalid when
+# Compose recreates gateway. Refuse changed host mappings after recreation.
+probe_health() {
+  local current_id current_url
+  current_id="$(cd "$tts" && sudo docker compose -p voxora-gpu \
+    -f docker-compose.gpu.yml ps -q gateway)" || return 1
+  [[ -n "$current_id" ]] || return 1
+  current_url="$(python3 "$root/scripts/resolve_gpu_gateway_health_url.py" "$current_id")" || return 1
+  [[ "$current_url" == "$gateway_health_url" ]] || return 1
+  curl --noproxy '*' -fsS --max-time 3 "$current_url" 2>/dev/null |
+    python3 -c 'import json,sys; j=json.load(sys.stdin); sys.exit(0 if j.get("ok") is True and j.get("service")=="helix-tts" else 1)' 2>/dev/null
+}
 healthy() {
   local attempt
   for attempt in $(seq 1 20); do
-    if curl -fsS --max-time 3 http://127.0.0.1:8000/health 2>/dev/null |
-      python3 -c 'import json,sys; j=json.load(sys.stdin); sys.exit(0 if j.get("ok") is True and j.get("service")=="helix-tts" else 1)' 2>/dev/null; then
+    if probe_health; then
       return 0
     fi
     sleep 2
@@ -121,6 +138,8 @@ if [[ "$mode" == check ]]; then
     echo "BLOCKED: gateway changed from snapshot." >&2; exit 1;
   }
   bash "$root/scripts/plan_gpu_gateway_rollout.sh" "$snapshot"
+  probe_health || { echo "BLOCKED: original gateway health failed at its actual private Docker binding." >&2; exit 1; }
+  echo "PASS: gateway health verified on its unchanged private Docker binding."
   echo "PASS: deployment checks completed. No containers changed."
   exit 0
 fi
@@ -142,7 +161,7 @@ fi
   echo "BLOCKED: gateway changed since snapshot." >&2; exit 1;
 }
 bash "$root/scripts/plan_gpu_gateway_rollout.sh" "$snapshot"
-healthy || { echo "BLOCKED: existing gateway health failed before deployment." >&2; exit 1; }
+healthy || { echo "BLOCKED: existing gateway health failed at its private Docker binding before deployment." >&2; exit 1; }
 
 echo "The next action recreates ONLY TTS gateway and briefly interrupts requests."
 echo "Verify that no TTS requests are in flight and upstream traffic is paused."

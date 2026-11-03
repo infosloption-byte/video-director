@@ -9,6 +9,9 @@ on:
       - "tts-service/gateway/gpu_lease.py"
       - "tts-service/gateway/app.py"
       - "tts-service/requirements/gateway.txt"
+      - "scripts/rollout_gpu_gateway.sh"
+      - "scripts/resolve_gpu_gateway_health_url.py"
+      - "scripts/tests/test_gpu_gateway_health_binding.py"
       - ".github/workflows/gpu-coordination-tests.yml"
   push:
     branches: [main]
@@ -19,10 +22,24 @@ on:
       - "gpu-media-service/tests/**"
       - "tts-service/gateway/gpu_lease.py"
       - "tts-service/gateway/app.py"
+      - "scripts/rollout_gpu_gateway.sh"
+      - "scripts/resolve_gpu_gateway_health_url.py"
+      - "scripts/tests/test_gpu_gateway_health_binding.py"
       - ".github/workflows/gpu-coordination-tests.yml"
 permissions:
   contents: read
 jobs:
+  gateway-health-binding-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate gateway rollout shell
+        run: bash -n scripts/rollout_gpu_gateway.sh
+      - name: Test private Docker host binding and rollback health probe
+        run: python -m unittest discover -s scripts/tests -p "test_gpu_gateway_health_binding.py" -v
   lease-unit-tests:
     runs-on: ubuntu-latest
     steps:
