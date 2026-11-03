@@ -124,6 +124,7 @@ export async function createWebsiteBrandedVisual({
       } catch {
         // Public assets are optional and can be blocked or unsupported.
         // Stay brand-grounded by drawing a generated layout, NEVER Pexels.
+        imagePath = null;
         plan.sourceImageUrl = null;
         plan.visualSource = "generated_branded_layout";
         plan.rightsReviewRequired = false;
