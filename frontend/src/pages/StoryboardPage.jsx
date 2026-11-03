@@ -721,6 +721,16 @@ export default function StoryboardPage() {
 
           {tab === "Preview" && (
             <>
+            {project?.research?.sources?.websiteMarketing && aiPendingCount > 0 && <div
+              className="storyboard-brand-visual-action storyboard-brand-visual-action--preview" role="status">
+              <div className="storyboard-brand-visual-action__summary">
+                <strong>{aiPendingCount} scene(s) still use local placeholders instead of Gemini imagery</strong>
+                <span>You can render with these layouts, but they are not AI-generated marketing illustrations. Return to the storyboard to request real Gemini backgrounds.</span>
+              </div>
+              <button type="button" className="btn btn-cream" onClick={() => changeTab("Storyboard")}>
+                Go to storyboard to generate AI imagery
+              </button>
+            </div>}
             <RenderQuota quota={quota} quotaError={quotaError} loading={quotaLoading} refresh={refreshQuota} limitReached={quotaBlocked} />
             <FinalizePanel
               projectId={id}
