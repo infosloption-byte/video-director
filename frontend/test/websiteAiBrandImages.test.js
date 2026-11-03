@@ -27,3 +27,33 @@ test("Brand-first visuals avoid text collisions with Remotion's caption layers",
   const page=await read("pages/StoryboardPage.jsx");
   assert.match(page,/Brand labels and narration captions remain separate/);
 });
+
+
+test("Storyboard StepCard forwards paid AI action and capability to the scene editor", async () => {
+  const step = await read("components/StepCard.jsx");
+  assert.match(step, /onRegenerateAiVisuals,/);
+  assert.match(step, /aiImagesEnabled = false/);
+  assert.match(step, /onRegenerateAiVisuals=\{onRegenerateAiVisuals\}/);
+  assert.match(step, /aiImagesEnabled=\{aiImagesEnabled\}/);
+  assert.match(step, /Generate AI image/);
+  assert.match(step, /Rebuild basic layout/);
+  assert.match(step, /plan\.aiStatus === "generated"/);
+  assert.match(step, /plan\.aiStatus === "fallback"/);
+});
+
+test("marketing previews omit duplicate storyboard titles but preserve narration captions", async () => {
+  const preview = await read("components/PhonePreview.jsx");
+  assert.match(preview, /isMarketingVisual = Boolean\(step\.customization\?\.sceneVisualPlan\)/);
+  assert.match(preview, /\{!isMarketingVisual && <p className="hx-preview__caption-lead">/);
+  assert.match(preview, /hx-preview__caption-sub/);
+});
+
+test("explicit AI scene updates present a visible outcome and provider failure code", async () => {
+  const board = await read("pages/StoryboardPage.jsx");
+  const editor = await read("components/SceneCustomizePanel.jsx");
+  assert.match(board, /result\.visualOutcome/);
+  assert.match(board, /outcome\?\.status === "generated"/);
+  assert.match(board, /outcome\?\.failureCode/);
+  assert.match(editor, /aiFallbackCode/);
+  assert.match(editor, /Rebuild basic layout/);
+});
