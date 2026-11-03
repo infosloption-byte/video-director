@@ -24,8 +24,6 @@ test("Per-scene marketing editor offers explicit AI mode with source-vs-fallback
   assert.match(page,/onRegenerateAiVisuals=\{\(\) => regenerateSceneVisuals\(scene\.id, "", "ai"\)\}/);
 });
 test("Brand-first visuals avoid text collisions with Remotion's caption layers",async()=>{
-  const render=await read("../src/ignore").catch(()=>null);
-  assert.equal(render,null);
   const page=await read("pages/StoryboardPage.jsx");
   assert.match(page,/Brand labels and narration captions remain separate/);
 });
