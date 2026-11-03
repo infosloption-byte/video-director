@@ -20,6 +20,9 @@ export function marketingImageAvailable(env = process.env) {
 export async function createWebsiteMarketingVisual({
   project, sceneId, scene, sceneIndex = 0, sceneCount = 1, variant = 0,
   visualMode = "brand",
+  // Explicit paid scene requests must leave an existing visual intact on failure.
+  // Legacy/test callers may still opt into a labeled local-brand fallback.
+  fallbackOnAiFailure = true,
   brandKit: suppliedKit = null,
   aiGenerate = generateWebsiteAiImage,
   brandGenerate = createWebsiteBrandedVisual,
@@ -123,8 +126,7 @@ export async function createWebsiteMarketingVisual({
     };
   } catch (error) {
     // Never let a paid provider interruption re-introduce irrelevant Pexels.
-    // Preserve generated narration and surface a specific fallback indicator.
-    const fallback = await brandGenerate({ ...baseArgs, brandKit });
+    // Classify the error before deciding whether a local fallback is allowed.
     const safeCode = [
       "IMAGE_RATE_LIMITED", "AI_IMAGES_DISABLED", "BAD_IMAGE_DIMENSIONS",
       "BAD_IMAGE_ASPECT_RATIO", "BAD_IMAGE_OUTPUT",
@@ -133,11 +135,20 @@ export async function createWebsiteMarketingVisual({
       "IMAGE_INVALID_OUTPUT", "IMAGE_INVALID_RESPONSE",
     ].includes(error?.code) ? error.code : "IMAGE_GENERATION_UNAVAILABLE";
     // Avoid logging raw provider errors, prompts, reference images, or API keys.
-    console.warn("[marketing-image] Gemini image replaced by local branded fallback", {
+    console.warn("[marketing-image] Gemini image generation failed", {
       projectId:project.id, sceneId, code:safeCode,
       providerHttpStatus:Number.isInteger(error?.httpStatus) ? error.httpStatus : null,
       model:env.VOXORA_MARKETING_IMAGE_MODEL || "gemini-3.1-flash-lite-image",
     });
+    if (!fallbackOnAiFailure) {
+      // The API has not yet touched SceneAsset rows. A failed paid request
+      // should not silently overwrite a previously good image or its provenance.
+      const failure = new Error("Gemini could not generate a usable image; the existing scene visual was preserved.");
+      failure.code = safeCode;
+      failure.httpStatus = Number.isInteger(error?.httpStatus) ? error.httpStatus : null;
+      throw failure;
+    }
+    const fallback = await brandGenerate({ ...baseArgs, brandKit });
     return { ...fallback, visualPlan:{
       ...fallback.visualPlan,
       stockUsed:false,
