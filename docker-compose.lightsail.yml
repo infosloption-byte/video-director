@@ -60,6 +60,12 @@ services:
       TTS_SERVICE_AUTH_TOKEN: ${TTS_SERVICE_AUTH_TOKEN:-}
       GPU_TELEMETRY_INGEST_TOKEN: ${GPU_TELEMETRY_INGEST_TOKEN:-}
       VOXORA_MARKETING_AI_IMAGES_ENABLED: ${VOXORA_MARKETING_AI_IMAGES_ENABLED:-false}
+      # SDXL is the default selected provider, but is separately disabled until
+      # authenticated private networking and cross-stack TTS scheduling pass.
+      VOXORA_MARKETING_IMAGE_PROVIDER: ${VOXORA_MARKETING_IMAGE_PROVIDER:-sdxl_local}
+      VOXORA_SDXL_ENABLED: ${VOXORA_SDXL_ENABLED:-false}
+      VOXORA_SDXL_API_URL: ${VOXORA_SDXL_API_URL:-}
+      # VOXORA_SDXL_API_TOKEN lives only in ./server/.env (env_file).
       VOXORA_MARKETING_IMAGE_MODEL: ${VOXORA_MARKETING_IMAGE_MODEL:-gemini-3.1-flash-lite-image}
       VOXORA_MARKETING_IMAGE_TIMEOUT_MS: ${VOXORA_MARKETING_IMAGE_TIMEOUT_MS:-45000}
       INFRA_SAMPLING_ENABLED: "true"
