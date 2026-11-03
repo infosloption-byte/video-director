@@ -759,7 +759,18 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
     });
 
     const refreshed = await loadOwnedScene(scene.id);
-    res.json({ scene: publicScene({ ...refreshed, projectId: scene.projectId }), query, assetCount: assets.length });
+    const reportedPlan = isMarketing ? refreshed.customization?.sceneVisualPlan : null;
+    res.json({
+      scene: publicScene({ ...refreshed, projectId: scene.projectId }),
+      query, assetCount: assets.length,
+      ...(isMarketing ? { visualOutcome: {
+        requestedMode: req.body?.visualMode === "ai" ? "ai" : "brand",
+        status: reportedPlan?.aiStatus || "basic_branded_layout",
+        source: reportedPlan?.visualSource || "generated_branded_layout",
+        failureCode: reportedPlan?.aiFallbackCode || null,
+        model: reportedPlan?.imageModel || null,
+      } } : {}),
+    });
   } catch (error) {
     console.error("[storyboard] Scene visual regeneration failed", { code: error?.code || "VISUAL_FAILED", name: error?.name });
     res.status(500).json({ error: "Visual regeneration failed. Try again or use the branded layout." });
