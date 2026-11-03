@@ -4,7 +4,7 @@
 // existing captions/audio above it. Site assets require rights review.
 import crypto from "node:crypto";
 import path from "node:path";
-import { access, mkdir, writeFile, rm, rename } from "node:fs/promises";
+import { mkdir, writeFile, rm, rename } from "node:fs/promises";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { prisma } from "../db/client.js";
@@ -14,16 +14,6 @@ import { refineWebsiteReport } from "./websiteReportQuality.js";
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(process.cwd(), "storage", "render-assets");
-async function ffmpegFont() {
-  for (const path of [
-    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-  ]) {
-    try { await access(path); return "fontfile=" + path; } catch { /* next font */ }
-  }
-  // FFmpeg's fontconfig lookup is available when distribution font paths vary.
-  return "font=Sans";
-}
 function uuid(value) {
   if (!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(String(value))) {
     throw new Error("Invalid project or scene identifier for branded artwork.");
@@ -39,24 +29,6 @@ export function brandSceneImageUrl(projectId, sceneId, version = null) {
 }
 export function isBrandStillUrl(url, projectId, sceneId) {
   return String(url || "").split("?")[0] === brandSceneImageUrl(projectId, sceneId);
-}
-function safeWords(value, max = 120) {
-  return String(value || "").replace(/[\x00-\x1f\x7f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
-}
-function wrap(value, width = 25, maxLines = 4) {
-  const words = safeWords(value, width * maxLines * 2).split(/\s+/);
-  const result = [];
-  let line = "";
-  for (const original of words) {
-    const word = original.slice(0, width);
-    if (line && (line + " " + word).length > width) {
-      result.push(line);
-      line = word;
-    } else line = line ? line + " " + word : word;
-    if (result.length >= maxLines) break;
-  }
-  if (result.length < maxLines && line) result.push(line);
-  return result.slice(0, maxLines).join("\n");
 }
 function ffColor(color, otherwise) {
   return "0x" + (normalizeBrandColor(color) || otherwise).slice(1);
@@ -97,21 +69,9 @@ export async function createWebsiteBrandedVisual({
   const identifier = crypto.randomUUID();
   const tempPrefix = path.join(directory, "." + identifier);
   const files = [];
-  const labels = [
-    safeWords(plan.brandName, 55),
-    wrap(scene.title || campaign.focus || "Product overview", 25, 3),
-    wrap(campaign.focus || scene.title || "Website product", 27, 2),
-    wrap(campaign.cta || "Learn more on our website", 33, 2),
-    (plan.scenePurpose === "hook" ? "INTRODUCING" : plan.scenePurpose === "cta" ? "DISCOVER MORE" : "PRODUCT HIGHLIGHT"),
-  ];
   try {
-    const texts = [];
-    for (let i = 0; i < labels.length; i += 1) {
-      const file = tempPrefix + "-text-" + i + ".txt";
-      await writeFile(file, labels[i] || " ", "utf8");
-      files.push(file);
-      texts.push(file);
-    }
+    // Brand text, factual CTA and subtitles are rendered ONCE by Remotion.
+    // The artwork must remain text-free to prevent doubled/overlapping labels.
     let imagePath = null;
     if (plan.sourceImageUrl) {
       try {
@@ -142,33 +102,21 @@ export async function createWebsiteBrandedVisual({
     const palette = plan.palette;
     const background = ffColor(palette.background, "#14232E");
     const accent = ffColor(palette.accent, "#50D4B5");
-    const fontOption = await ffmpegFont();
-    const font = (file, size, x, y, color = "white") =>
-      "drawtext=" + fontOption + ":textfile=" + file +
-      ":fontsize=" + size + ":fontcolor=" + color + ":x=" + x +
-      ":y=" + y + ":line_spacing=12:expansion=none";
-    let filters = [
-      "drawbox=x=0:y=0:w=720:h=14:color=" + accent + ":t=fill",
-      "drawbox=x=44:y=310:w=632:h=625:color=white@0.07:t=fill",
-      "drawbox=x=44:y=1015:w=632:h=150:color=" + accent + "@0.19:t=fill",
-      font(texts[0], 36, 52, 68),
-      font(texts[4], 19, 52, 132, accent),
-      font(texts[1], 32, 52, 181),
+    const filters = [
+      "drawbox=x=0:y=0:w=720:h=11:color=" + accent + "@0.70:t=fill",
+      "drawbox=x=52:y=184:w=616:h=680:color=white@0.045:t=fill",
+      "drawbox=x=52:y=184:w=12:h=680:color=" + accent + "@0.40:t=fill",
     ];
     if (!imagePath) {
-      // Distinct intentional SaaS visual geometry, not a fake dashboard.
-      const shift = (variant % 3) * 24;
+      // Clean, text-free abstract brand geometry; no pretend UI controls,
+      // prices, fake dashboard metrics or second caption layer.
+      const shift = (variant % 3) * 18;
       filters.push(
-        "drawbox=x=85:y=" + (415 + shift) + ":w=550:h=88:color=white@0.13:t=fill",
-        "drawbox=x=110:y=" + (443 + shift) + ":w=260:h=16:color=" + accent + ":t=fill",
-        "drawbox=x=85:y=" + (548 + shift) + ":w=550:h=100:color=white@0.09:t=fill",
-        "drawbox=x=110:y=" + (577 + shift) + ":w=425:h=14:color=white@0.60:t=fill",
-        "drawbox=x=85:y=" + (688 + shift) + ":w=550:h=100:color=white@0.09:t=fill",
-        "drawbox=x=110:y=" + (719 + shift) + ":w=340:h=14:color=" + accent + "@0.75:t=fill",
-        font(texts[2], 27, 91, 854),
+        "drawbox=x=112:y=" + (332+shift) + ":w=495:h=210:color=" + accent + "@0.18:t=fill",
+        "drawbox=x=178:y=" + (585+shift) + ":w=372:h=52:color=white@0.11:t=fill",
+        "drawbox=x=252:y=" + (682+shift) + ":w=238:h=34:color=" + accent + "@0.45:t=fill",
       );
     }
-    filters.push(font(texts[3], 25, 76, 1062));
     const args = ["-hide_banner", "-loglevel", "error", "-max_alloc", "134217728", "-y",
       "-f", "lavfi", "-i", "color=c=" + background + ":s=720x1280:r=1"];
     let graph;
