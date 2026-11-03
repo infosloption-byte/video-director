@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import {
   WEBSITE_IMAGE_MODEL, isMarketingAiImagesEnabled, imageModelFromEnv, marketingVisualPrompt,
-  detectImageFormat, readGeminiImage, generateWebsiteAiImage,
+  marketingVisualSubject, detectImageFormat, readGeminiImage, generateWebsiteAiImage,
 } from "../src/services/websiteAiImageService.js";
 import { createWebsiteMarketingVisual, marketingImageAvailable } from "../src/services/websiteMarketingVisualService.js";
 import { brandSceneImagePath } from "../src/services/websiteBrandedVisualService.js";
@@ -70,6 +70,30 @@ test("AI scene prompts keep one brand style but vary focal composition and cite 
     assert.doesNotMatch(prompt,/AISO supports a distinct/);
     assert.match(prompt,/DO NOT include any readable text/);
   }
+});
+
+test("marketing prompts describe concrete software and AI subjects instead of abstract rectangles",()=>{
+  const softwareScene={title:"Key Services",spokenText:
+    "They deliver custom software, web and mobile apps, SaaS platforms and practical AI."};
+  const subject=marketingVisualSubject({scene:softwareScene,campaign});
+  assert.match(subject,/software team/);
+  assert.match(subject,/laptop, smartphone and tablet/);
+  const prompt=marketingVisualPrompt({campaign,brandKit:kit,scene:softwareScene,plan});
+  assert.match(prompt,/Required visual subject for this cut/);
+  assert.match(prompt,/NEVER output an abstract layout/);
+  assert.match(prompt,/realistic proportions/);
+  assert.match(prompt,/lower 30 percent/);
+  assert.match(prompt,/DO NOT include any readable text/);
+  assert.doesNotMatch(prompt,/AISO supports a distinct search-content product/);
+  const aiSubject=marketingVisualSubject({scene:{title:"Practical AI",spokenText:"AI-powered automation"},campaign:{focus:""}});
+  assert.match(aiSubject,/human-led technology workflow/);
+});
+test("capability status exposes the configured image model but not a provider secret",()=>{
+  const result=marketingImageAvailable(enabled);
+  assert.equal(result.enabled,true);
+  assert.equal(result.model,WEBSITE_IMAGE_MODEL);
+  assert.ok(!JSON.stringify(result).includes("test-secret"));
+  assert.equal(marketingImageAvailable({...enabled,VOXORA_MARKETING_IMAGE_MODEL:"not-a-real-model"}).enabled,false);
 });
 
 test("provider image bytes must match MIME and be safely bounded",()=>{
