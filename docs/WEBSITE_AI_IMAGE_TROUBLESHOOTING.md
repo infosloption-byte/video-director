@@ -41,7 +41,7 @@ sudo docker exec voxora-api-1 sh -c \
 
 1. With production background operations idle, open an existing **Website to Video** storyboard and one scene's **Customize scene** editor.
 2. Click **Generate AI brand image** (not Refresh local brand layout), confirm the paid request, and wait for its result.
-3. Check the scene's visual provenance. **Gemini AI-generated illustration** means the model output was validated, converted to the authenticated PNG and persisted. **AI image not generated** means the server used local FFmpeg artwork; inspect the code and server log.
+3. Check the scene's visual provenance. **Gemini AI-generated illustration** means the model output was validated, converted to the authenticated PNG and persisted. If an explicit paid request fails, the API returns a classified error and preserves the existing scene artwork (no silent replacement). Previously saved fallback artwork remains visibly labeled.
 4. Check the fallback codes without exposing the key or raw provider response:
 
 ```bash
@@ -80,6 +80,6 @@ Unit tests use an injected fake provider and never call live Gemini. This change
 - If a concept has multiple approved source pages, the scene title, narration and visual search text are used to match the correct product/service page; an unrelated product image is no longer chosen solely by scene position when the subject can be identified.
 - Gemini uses a common brand palette and visual treatment but different deterministic compositions for hook, feature and closing scenes. Prompts use facts from the selected approved product page rather than indiscriminately mixing facts across products.
 - Public-site logo files are not sent as Gemini visual reference images. This does not waive the customer's responsibility to review rights for separately used source imagery.
-- The generated source image must have supported dimensions and a portrait aspect ratio approximately matching 9:16. The converted output must be a nontrivial PNG file; otherwise Voxora explicitly records a **local branded fallback** and a safe diagnostic code.
+- The generated source image must have supported dimensions and a portrait aspect ratio approximately matching 9:16. The converted output must be a nontrivial PNG file. Explicit paid scene requests now return a safe error code and **preserve the previous scene artwork** on failure; existing fallback-mode callers can still opt into labeled local branded artwork.
 - For bulk AI generation, a shared authorization/model/quota/request rejection stops remaining paid requests instead of repeatedly attempting scenes. The already completed scenes remain saved.
 - These safeguards verify input relevance rules, technical image validity and failure behavior, **not** artistic quality or factual accuracy. Review the first real produced scene on the website, in the storyboard, and in a rendered preview before using bulk generation.
