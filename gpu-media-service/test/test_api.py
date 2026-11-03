@@ -48,6 +48,9 @@ def setup(monkeypatch, tmp_path):
     q = FakeQueue()
     monkeypatch.setenv("GPU_MEDIA_AUTH_TOKEN", "test-only-very-long-admin-secret")
     monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "false")
+    monkeypatch.setenv("GPU_MEDIA_IMAGE_ENABLED", "false")
+    monkeypatch.setenv("GPU_MEDIA_VIDEO_ENABLED", "false")
+    monkeypatch.setenv("GPU_COORDINATION_ENABLED", "false")
     monkeypatch.setattr(api, "job_dir", lambda job_id: tmp_path / job_id)
     monkeypatch.setattr(api, "redis_connection", lambda: object())
     monkeypatch.setattr(api, "queue", lambda conn=None: q)
@@ -72,6 +75,8 @@ def test_fails_closed_without_auth(setup, monkeypatch):
 def test_generation_queued_without_starting_gpu(setup, monkeypatch):
     client, q, root = setup
     monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
+    monkeypatch.setenv("GPU_MEDIA_VIDEO_ENABLED", "true")
+    monkeypatch.setenv("GPU_COORDINATION_ENABLED", "true")
     result = client.post("/v1/jobs", headers=headers(), json={
         "kind": "video", "prompt": "Documentary footage of cargo ships entering a port."})
     assert result.status_code == 202, result.text
@@ -105,6 +110,8 @@ def test_audio_upload_enqueues_existing_private_directory(setup):
 def test_media_api_cancel_queued_job(setup, monkeypatch):
     client, q, _ = setup
     monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
+    monkeypatch.setenv("GPU_MEDIA_IMAGE_ENABLED", "true")
+    monkeypatch.setenv("GPU_COORDINATION_ENABLED", "true")
     response = client.post("/v1/jobs", headers=headers(), json={
         "kind": "image", "prompt": "Cinematic mountain valley at sunrise."})
     id = response.json()["id"]
@@ -118,6 +125,30 @@ def test_heavy_api_requires_explicit_opt_in(setup):
         "kind": "image", "prompt": "Documentary view of a busy container port."})
     assert denied.status_code == 409
     assert not q.jobs
+
+def test_heavy_jobs_need_shared_coordination_and_specific_kind_approval(setup, monkeypatch):
+    client, q, _ = setup
+    monkeypatch.setenv("GPU_MEDIA_HEAVY_ENABLED", "true")
+    # Heavy switch alone is not sufficient: TTS must share a coordinator.
+    denied = client.post("/v1/jobs", headers=headers(), json={
+        "kind": "image", "prompt": "Documentary photo of a creative software team at work."})
+    assert denied.status_code == 409
+    monkeypatch.setenv("GPU_COORDINATION_ENABLED", "true")
+    # A coordinated worker still cannot generate images unless approved.
+    denied = client.post("/v1/jobs", headers=headers(), json={
+        "kind": "image", "prompt": "Documentary photo of a creative software team at work."})
+    assert denied.status_code == 409
+    monkeypatch.setenv("GPU_MEDIA_IMAGE_ENABLED", "true")
+    ok = client.post("/v1/jobs", headers=headers(), json={
+        "kind": "image", "prompt": "Documentary photo of a creative software team at work."})
+    assert ok.status_code == 202
+    assert ok.json()["kind"] == "image"
+    # Image enablement must NOT implicitly enable video inference.
+    denied_video = client.post("/v1/jobs", headers=headers(), json={
+        "kind": "video", "prompt": "A realistic panoramic view of ocean cargo vessels."})
+    assert denied_video.status_code == 409
+    assert len(q.jobs) == 1
+
 
 def test_heavy_jobs_are_disabled_by_default(setup, tmp_path):
     with pytest.raises(RuntimeError, match="disabled"):
