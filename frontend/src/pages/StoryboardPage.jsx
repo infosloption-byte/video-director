@@ -67,6 +67,9 @@ export default function StoryboardPage() {
   const [playing, setPlaying] = useState(false);
   const [sceneLoading, setSceneLoading] = useState(false);
   const [brandVisualLoading, setBrandVisualLoading] = useState(false);
+  const [aiImageStatus, setAiImageStatus] = useState({ enabled:false });
+  const [aiVisualProgress, setAiVisualProgress] = useState(null);
+  const [aiVisualNotice, setAiVisualNotice] = useState("");
   const [sceneError, setSceneError] = useState("");
   const [sceneRetry, setSceneRetry] = useState(0);
   const [persisting, setPersisting] = useState(false);
@@ -105,6 +108,15 @@ export default function StoryboardPage() {
     loadProject();
     return () => { cancelled = true; };
   }, [id]);
+
+  useEffect(() => {
+    if (!project?.research?.sources?.websiteMarketing) return;
+    let cancelled = false;
+    fetch("/api/marketing-visuals/status").then(response => response.ok ? response.json() : {})
+      .then(data => { if (!cancelled) setAiImageStatus({ enabled:data.enabled === true }); })
+      .catch(() => { if (!cancelled) setAiImageStatus({ enabled:false }); });
+    return () => { cancelled = true; };
+  }, [project?.research?.sources?.websiteMarketing]);
 
   const realProject = Boolean(project);
   const tab = normalizeStage(searchParams.get("stage")) || "Setup";
@@ -332,8 +344,36 @@ export default function StoryboardPage() {
     return runSceneAction(sceneId, "voice", "/api/scenes/" + encodeURIComponent(sceneId) + "/voice", body);
   }
 
-  async function regenerateSceneVisuals(sceneId, query = "") {
-    return runSceneAction(sceneId, "visuals", "/api/scenes/" + encodeURIComponent(sceneId) + "/regenerate-assets", query ? { query } : {});
+  async function regenerateSceneVisuals(sceneId, query = "", visualMode = "brand") {
+    return runSceneAction(sceneId, "visuals", "/api/scenes/" + encodeURIComponent(sceneId) + "/regenerate-assets",
+      { ...(query ? { query } : {}), visualMode });
+  }
+
+  async function generateAiImagesForScenes() {
+    if (!aiImageStatus.enabled || aiVisualProgress || brandVisualLoading || renderLoading || sceneLoading) return;
+    if (typeof window !== "undefined" && !window.confirm(
+      "Generate one AI background per scene? Your image provider may charge for each request. Narration will not change."
+    )) return;
+    setSceneEditError("");
+    setAiVisualNotice("");
+    let generated = 0, fallback = 0, done = 0;
+    setAiVisualProgress({ done:0, total:scenes.length });
+    for (const scene of scenes) {
+      const result = await regenerateSceneVisuals(scene.id, "", "ai");
+      if (!result) {
+        setAiVisualNotice("AI artwork stopped after " + done + " scenes. Earlier visual changes were saved.");
+        break;
+      }
+      if (result.scene?.customization?.sceneVisualPlan?.aiStatus === "generated") generated++;
+      else fallback++;
+      done++;
+      setAiVisualProgress({ done, total:scenes.length });
+    }
+    if (done === scenes.length) {
+      setAiVisualNotice(generated + " AI scene images created; " + fallback +
+        " used branded fallback. Original narration and timing were preserved.");
+    }
+    setAiVisualProgress(null);
   }
 
 
@@ -531,10 +571,20 @@ export default function StoryboardPage() {
                   <h2>Review every cut, then tune only what needs changing.</h2>
                   <p>Each scene inherits the project Setup. Customize a single scene without regenerating the rest of the storyboard.</p>
                   {project?.research?.sources?.websiteMarketing && <div className="storyboard-brand-visual-action">
-                    <button type="button" className="btn btn-ghost" onClick={() => void regenerateAllWebsiteVisuals()} disabled={brandVisualLoading || sceneLoading || renderLoading || !scenes.length}>
+                    <button type="button" className="btn btn-ghost" onClick={() => void regenerateAllWebsiteVisuals()} disabled={brandVisualLoading || Boolean(aiVisualProgress) || sceneLoading || renderLoading || !scenes.length}>
                       {brandVisualLoading ? "Building branded artwork…" : "Replace all stock with branded visuals"}
                     </button>
-                    <small>Uses site-supported images and generated layouts; your existing narration stays unchanged. Confirm brand asset rights before publishing.</small>
+                    {aiImageStatus.enabled && <button type="button" className="btn btn-ghost"
+                      onClick={() => void generateAiImagesForScenes()}
+                      disabled={brandVisualLoading || Boolean(aiVisualProgress) || sceneLoading || renderLoading || !scenes.length}>
+                      {aiVisualProgress
+                        ? "Generating AI imagery " + aiVisualProgress.done + "/" + aiVisualProgress.total + "…"
+                        : "Generate AI visuals for all scenes"}
+                    </button>}
+                    <small>{aiImageStatus.enabled
+                      ? "AI images may incur provider charges. Brand labels and narration captions remain separate. Source-backed artwork replaces generic stock."
+                      : "Brand-only artwork is available. AI imagery requires explicit server enablement."}</small>
+                    {aiVisualNotice && <p role="status" className="storyboard-brand-visual-action__notice">{aiVisualNotice}</p>}
                   </div>}
                 </div>
                 <div className="storyboard-editor-intro__stats" aria-label="Storyboard summary">
@@ -579,6 +629,8 @@ export default function StoryboardPage() {
                         onRewriteScene={(options) => rewriteScene(scene.id, options)}
                         onChangeSceneVoice={(voice, narration) => changeSceneVoice(scene.id, voice, narration)}
                         onRegenerateVisuals={(query) => regenerateSceneVisuals(scene.id, query)}
+                        onRegenerateAiVisuals={() => regenerateSceneVisuals(scene.id, "", "ai")}
+                        aiImagesEnabled={aiImageStatus.enabled}
                         sceneBusy={sceneActionFor(scene.id)}
                       />)}
                     </div>

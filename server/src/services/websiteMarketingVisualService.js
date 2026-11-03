@@ -1,0 +1,119 @@
+// Per-scene opt-in AI art. Keep the source-grounded FFmpeg layout as a
+// non-stock fallback; return the fallback reason so the UI is transparent.
+// Output remains an authenticated project/scene PNG and is never a provider URL.
+import crypto from "node:crypto";
+import path from "node:path";
+import { writeFile, rm, rename, mkdir } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { createWebsiteBrandedVisual, brandSceneImagePath, brandSceneImageUrl, resolveMarketingBrandKit } from "./websiteBrandedVisualService.js";
+import { planWebsiteSceneVisual } from "./websiteBrandKit.js";
+import { fetchPublicWebsiteImage } from "./websiteSafeFetch.js";
+import { generateWebsiteAiImage, isMarketingAiImagesEnabled } from "./websiteAiImageService.js";
+import { measureGeneration } from "./generationTelemetry.js";
+
+const execAsync = promisify(execFile);
+export function marketingImageAvailable(env = process.env) {
+  return { enabled:isMarketingAiImagesEnabled(env), provider:"gemini", paid:true,
+    policy:"No Pexels fallback. AI art is illustrative; website asset rights and claims require review." };
+}
+export async function createWebsiteMarketingVisual({
+  project, sceneId, scene, sceneIndex = 0, sceneCount = 1, variant = 0,
+  visualMode = "brand",
+  brandKit: suppliedKit = null,
+  aiGenerate = generateWebsiteAiImage,
+  brandGenerate = createWebsiteBrandedVisual,
+  imageFetch = fetchPublicWebsiteImage,
+  runCommand = execAsync,
+  trace = measureGeneration,
+  env = process.env,
+}) {
+  if (!project?.researchSources?.websiteMarketing || project.signal?.category !== "WEBSITE_MARKETING") {
+    throw new Error("AI visuals are only available for Website to Video projects.");
+  }
+  if (!["brand","ai"].includes(visualMode)) {
+    const error = new Error("Unsupported marketing visual mode.");
+    error.code = "INVALID_VISUAL_MODE";
+    throw error;
+  }
+  const baseArgs = { project,sceneId,scene,sceneIndex,sceneCount,variant,brandKit:suppliedKit };
+  if (visualMode === "brand") return brandGenerate(baseArgs);
+  if (!isMarketingAiImagesEnabled(env)) {
+    const error = new Error("AI image generation is not enabled for this workspace.");
+    error.code = "AI_IMAGES_DISABLED";
+    throw error;
+  }
+  const campaign = project.researchSources.websiteMarketing;
+  const brandKit = suppliedKit || await resolveMarketingBrandKit(project);
+  const plan = planWebsiteSceneVisual({ campaign, brandKit, scene, sceneIndex, sceneCount, variant });
+  const output = brandSceneImagePath(project.id,sceneId);
+  await mkdir(path.dirname(output),{recursive:true});
+  const tmpPath = path.join(path.dirname(output),"." + crypto.randomUUID());
+  let candidate = null;
+  try {
+    // Optional public website reference image: the fetcher checks DNS,
+    // redirects and file signatures. Avoid downloading random third-party
+    // assets or sending customer/private assets to a hosted model.
+    if (plan.sourceImageUrl) {
+      try {
+        const original = await imageFetch(plan.sourceImageUrl,campaign.analysisUrl);
+        candidate = { bytes:original.bytes, mimeType:
+          original.extension === "jpg" ? "image/jpeg" : "image/" + original.extension };
+      } catch { /* keep image generation text-only */ }
+    }
+    const generated = await trace({
+      stage:"storyboard", operation:"storyboard.website_ai_image",
+      projectId:project.id, userId:project.userId, provider:"gemini",
+      model:env.VOXORA_MARKETING_IMAGE_MODEL || "gemini-3.1-flash-lite-image",
+      metadata: { sceneCount:1 },
+    },() => aiGenerate({campaign,brandKit,scene,plan,referenceImage:candidate,env}));
+    const sourcePath = tmpPath + "." + generated.extension;
+    const tempOutput = tmpPath + "-composed.png";
+    await writeFile(sourcePath,generated.bytes);
+    const probe = await runCommand("ffprobe",[
+      "-v","error","-select_streams","v:0","-show_entries","stream=width,height",
+      "-of","json",sourcePath,
+    ],{timeout:8000,maxBuffer:8192});
+    const dimensions = JSON.parse(probe.stdout).streams?.[0] || {};
+    const width = Number(dimensions.width), height = Number(dimensions.height);
+    if (!(width>=320&&width<=4096&&height>=540&&height<=4096&&width*height<=12_000_000)) {
+      throw Object.assign(new Error("Invalid AI image dimensions."),{code:"BAD_IMAGE_DIMENSIONS"});
+    }
+    await runCommand("ffmpeg",[
+      "-hide_banner","-loglevel","error","-max_alloc","134217728","-y",
+      "-i",sourcePath,"-vf",
+      "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,format=rgb24",
+      "-frames:v","1","-update","1",tempOutput,
+    ],{timeout:45000,maxBuffer:1024*1024});
+    await rename(tempOutput,output);
+    const url = brandSceneImageUrl(project.id,sceneId,Date.now());
+    return {
+      videoUrl:url, thumbnailUrl:url, assetCount:1,
+      visualPlan:{
+        ...plan,
+        visualMode:"ai_generated_background",
+        visualSource:"gemini_generated_illustration",
+        imageProvider:"gemini",
+        imageModel:generated.model || "gemini-3.1-flash-lite-image",
+        sourceImageUrl:candidate ? plan.sourceImageUrl : null,
+        stockUsed:false, rightsReviewRequired:Boolean(candidate),
+        aiStatus:"generated",
+      },
+    };
+  } catch (error) {
+    // Never let a paid provider interruption re-introduce irrelevant Pexels.
+    // Preserve generated narration and surface a specific fallback indicator.
+    const fallback = await brandGenerate({ ...baseArgs, brandKit });
+    const safeCode = ["IMAGE_RATE_LIMITED","AI_IMAGES_DISABLED","BAD_IMAGE_DIMENSIONS"].includes(error?.code)
+      ? error.code : "IMAGE_GENERATION_UNAVAILABLE";
+    return { ...fallback, visualPlan:{
+      ...fallback.visualPlan,
+      stockUsed:false,
+      aiStatus:"fallback",
+      aiFallbackCode:safeCode,
+    }};
+  } finally {
+    await Promise.allSettled(["png","jpg","webp"].map(ext => rm(tmpPath + "." + ext,{force:true})));
+    await rm(tmpPath + "-composed.png",{force:true});
+  }
+}

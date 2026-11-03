@@ -10,17 +10,21 @@ on:
       - 'server/src/services/websiteVideoProjectCreate.js'
       - 'server/src/services/websiteBrandKit.js'
       - 'server/src/services/websiteBrandedVisualService.js'
+      - 'server/src/services/websiteAiImageService.js'
+      - 'server/src/services/websiteMarketingVisualService.js'
       - 'server/src/services/renderAssetService.js'
       - 'server/src/services/renderService.js'
       - 'server/src/remotion/Composition.jsx'
       - 'server/scripts/smokeWebsiteVideoProjectCreate.js'
       - 'server/scripts/smokeWebsiteBrandedVisual.js'
+      - 'server/scripts/smokeWebsiteAiVisual.js'
       - 'server/src/services/storyboardService.js'
       - 'server/prisma/**'
       - 'server/test/websiteToVideoMvp.test.js'
       - 'server/test/websiteBatch2A.test.js'
       - 'server/test/websiteVideoProjectCreate.test.js'
       - 'server/test/websiteBrandVisuals.test.js'
+      - 'server/test/websiteAiBrandImages.test.js'
       - 'server/test/websiteToVideo.test.js'
       - 'server/src/app.js'
       - 'frontend/src/pages/WebsiteToVideoPage.*'
@@ -32,7 +36,10 @@ on:
       - 'frontend/test/websiteToVideoMvp.test.js'
       - 'frontend/test/websiteBatch2A.test.js'
       - 'frontend/test/websiteBrandVisuals.test.js'
+      - 'frontend/test/websiteAiBrandImages.test.js'
       - '.github/workflows/website-to-video.yml'
+      - 'docker-compose.lightsail.yml'
+      - '.env.lightsail.example'
   workflow_dispatch:
 
 jobs:
@@ -67,6 +74,9 @@ jobs:
           node --check src/services/websiteVideoProjectCreate.js
           node --check src/services/websiteBrandKit.js
           node --check src/services/websiteBrandedVisualService.js
+          node --check src/services/websiteAiImageService.js
+          node --check src/services/websiteMarketingVisualService.js
+          node --check scripts/smokeWebsiteAiVisual.js
           node --check scripts/smokeWebsiteBrandedVisual.js
           node --check src/services/renderAssetService.js
           node --check src/services/renderService.js
@@ -74,7 +84,7 @@ jobs:
           node --check src/services/storyboardService.js
       - name: Website crawler and API integration tests
         working-directory: server
-        run: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/websiteBatch2A.test.js test/websiteVideoProjectCreate.test.js test/websiteBrandVisuals.test.js test/generationPerformanceMonitoring.test.js
+        run: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/websiteBatch2A.test.js test/websiteVideoProjectCreate.test.js test/websiteBrandVisuals.test.js test/websiteAiBrandImages.test.js test/generationPerformanceMonitoring.test.js
       - name: Install frontend
         working-directory: frontend
         run: npm ci --no-audit --no-fund

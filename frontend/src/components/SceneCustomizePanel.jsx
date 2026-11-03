@@ -124,6 +124,8 @@ function SceneCustomizeDraft({
   onChangeVoice,
   onSelectAsset,
   onRegenerateVisuals,
+  onRegenerateAiVisuals,
+  aiImagesEnabled = false,
   onClose,
   busy = "",
 }) {
@@ -372,8 +374,12 @@ function SceneCustomizeDraft({
               <span className="mono-label">VISUALS</span>
               <strong>{scene.customization?.sceneVisualPlan ? "Regenerate branded marketing artwork" : "Regenerate visuals from the current narration"}</strong>
               {scene.customization?.sceneVisualPlan && <p className="scene-customize__hint">
-                Website and product visuals only. No Pexels fallback. Verify asset-use rights before publishing.
+                Artwork and product visuals are kept separate from narration captions. No Pexels fallback. Verify usage rights.
               </p>}
+              {scene.customization?.sceneVisualPlan?.visualMode === "ai_generated_background" &&
+                <p className="scene-customize__hint">AI illustration — not an authentic product screenshot.</p>}
+              {scene.customization?.sceneVisualPlan?.aiStatus === "fallback" &&
+                <p className="scene-customize__hint">AI image unavailable — branded layout used instead.</p>}
             </div>
             <button
               type="button"
@@ -383,6 +389,11 @@ function SceneCustomizeDraft({
             >
               {busy === "visuals" ? "Regenerating…" : scene.customization?.sceneVisualPlan ? "Regenerate branded visual" : "Regenerate Visuals"}
             </button>
+            {aiImagesEnabled && scene.customization?.sceneVisualPlan && <button
+              type="button" className="scene-customize__refresh"
+              onClick={() => void onRegenerateAiVisuals?.()} disabled={Boolean(busy)}
+              title="Generate a branded illustration with the configured paid image model"
+            >{busy === "visuals" ? "Generating…" : "Generate AI brand image"}</button>}
           </div>
 
           <div className="scene-customize__visual-group">
