@@ -584,7 +584,7 @@ export default function StoryboardPage() {
                     <small>{aiImageStatus.enabled
                       ? "AI images may incur provider charges. Brand labels and narration captions remain separate. Source-backed artwork replaces generic stock."
                       : "Brand-only artwork is available. AI imagery requires explicit server enablement."}</small>
-                    {aiVisualNotice && <p role="status" className="storyboard-brand-visual-action__notice">{aiVisualNotice}</p>
+                    {aiVisualNotice && <p role="status" className="storyboard-brand-visual-action__notice">{aiVisualNotice}</p>}
                   </div>}
                 </div>
                 <div className="storyboard-editor-intro__stats" aria-label="Storyboard summary">
