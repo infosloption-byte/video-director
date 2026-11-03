@@ -4,7 +4,7 @@
 // existing captions/audio above it. Site assets require rights review.
 import crypto from "node:crypto";
 import path from "node:path";
-import { mkdir, writeFile, rm, rename } from "node:fs/promises";
+import { access, mkdir, writeFile, rm, rename } from "node:fs/promises";
 import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { prisma } from "../db/client.js";
@@ -14,7 +14,16 @@ import { refineWebsiteReport } from "./websiteReportQuality.js";
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(process.cwd(), "storage", "render-assets");
-const FONT = "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf";
+async function ffmpegFont() {
+  for (const path of [
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+  ]) {
+    try { await access(path); return "fontfile=" + path; } catch { /* next font */ }
+  }
+  // FFmpeg's fontconfig lookup is available when distribution font paths vary.
+  return "font=Sans";
+}
 function uuid(value) {
   if (!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(String(value))) {
     throw new Error("Invalid project or scene identifier for branded artwork.");
@@ -133,8 +142,9 @@ export async function createWebsiteBrandedVisual({
     const palette = plan.palette;
     const background = ffColor(palette.background, "#14232E");
     const accent = ffColor(palette.accent, "#50D4B5");
+    const fontOption = await ffmpegFont();
     const font = (file, size, x, y, color = "white") =>
-      "drawtext=fontfile=" + FONT + ":textfile=" + file +
+      "drawtext=" + fontOption + ":textfile=" + file +
       ":fontsize=" + size + ":fontcolor=" + color + ":x=" + x +
       ":y=" + y + ":line_spacing=12:expansion=none";
     let filters = [
