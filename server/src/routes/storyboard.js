@@ -730,6 +730,7 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
         sceneIndex: Math.max(0, scene.sceneOrder - 1), sceneCount: count,
         variant: Number(scene.customization?.sceneVisualPlan?.variant || 0) + 1,
         visualMode,
+        fallbackOnAiFailure: false,
       });
       assets = [generated];
       visualPlan = generated.visualPlan;
@@ -761,7 +762,20 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
     const refreshed = await loadOwnedScene(scene.id);
     res.json({ scene: publicScene({ ...refreshed, projectId: scene.projectId }), query, assetCount: assets.length });
   } catch (error) {
-    console.error("[storyboard] Scene visual regeneration failed", { code: error?.code || "VISUAL_FAILED", name: error?.name });
+    const safeCode = [
+      "IMAGE_RATE_LIMITED", "IMAGE_AUTH_FAILED", "IMAGE_MODEL_UNAVAILABLE",
+      "IMAGE_PROVIDER_REJECTED", "IMAGE_PROVIDER_ERROR", "IMAGE_TIMEOUT",
+      "IMAGE_NO_OUTPUT", "IMAGE_INVALID_OUTPUT", "IMAGE_INVALID_RESPONSE",
+      "BAD_IMAGE_DIMENSIONS", "BAD_IMAGE_ASPECT_RATIO", "BAD_IMAGE_OUTPUT",
+      "IMAGE_GENERATION_UNAVAILABLE",
+    ].includes(error?.code) ? error.code : null;
+    console.error("[storyboard] Scene visual regeneration failed", { code: safeCode || "VISUAL_FAILED", name: error?.name });
+    if (safeCode) {
+      return res.status(safeCode === "IMAGE_RATE_LIMITED" ? 429 : 502).json({
+        code: safeCode,
+        error: "Gemini image generation failed. Your previous scene image was preserved. Review the image error and try again.",
+      });
+    }
     res.status(500).json({ error: "Visual regeneration failed. Try again or use the branded layout." });
   }
 });
