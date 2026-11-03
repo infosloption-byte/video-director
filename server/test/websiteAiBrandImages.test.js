@@ -77,6 +77,33 @@ test("Gemini request is only sent with explicit enablement and uses vertical ima
     fetchFn:async()=>{throw new Error("network should not be called");},
   }),/not enabled/);
 });
+test("Gemini HTTP failures return safe codes instead of opaque successful image fallbacks",async()=>{
+  for (const [httpStatus,code] of [
+    [400,"IMAGE_PROVIDER_REJECTED"],
+    [401,"IMAGE_AUTH_FAILED"],
+    [403,"IMAGE_AUTH_FAILED"],
+    [404,"IMAGE_MODEL_UNAVAILABLE"],
+    [429,"IMAGE_RATE_LIMITED"],
+    [503,"IMAGE_PROVIDER_ERROR"],
+  ]) {
+    await assert.rejects(generateWebsiteAiImage({
+      campaign,brandKit:kit,scene,plan,env:enabled,
+      fetchFn:async()=>({ok:false,status:httpStatus}),
+    }),error=>error.code===code && error.httpStatus===httpStatus);
+  }
+});
+test("Gemini malformed responses distinguish invalid JSON from no generated image",async()=>{
+  for (const [body,code] of [
+    ["not-json","IMAGE_INVALID_RESPONSE"],
+    [JSON.stringify({candidates:[{content:{parts:[{text:"No output"}]}}]}),"IMAGE_NO_OUTPUT"],
+  ]) {
+    await assert.rejects(generateWebsiteAiImage({
+      campaign,brandKit:kit,scene,plan,env:enabled,
+      fetchFn:async()=>({ok:true,headers:{get:()=>null},text:async()=>body}),
+    }),error=>error.code===code);
+  }
+});
+
 test("one AI scene writes only authenticated PNG and preserves provider provenance without Pexels",async()=>{
   const projectId=crypto.randomUUID(),sceneId=crypto.randomUUID();
   const project={id:projectId,userId:"u",signal:{category:"WEBSITE_MARKETING"},
@@ -115,6 +142,8 @@ test("provider failure yields a transparent branded fallback, without retrying s
   });
   assert.equal(fallbackCount,1);
   assert.equal(result.visualPlan.aiStatus,"fallback");
+  assert.equal(result.visualPlan.imageProvider,"gemini");
+  assert.equal(result.visualPlan.imageModel,WEBSITE_IMAGE_MODEL);
   assert.equal(result.visualPlan.aiFallbackCode,"IMAGE_RATE_LIMITED");
   assert.equal(result.visualPlan.stockUsed,false);
   await assert.rejects(createWebsiteMarketingVisual({
