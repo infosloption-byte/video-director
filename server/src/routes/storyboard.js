@@ -1,8 +1,10 @@
 import { Router } from "express";
+import crypto from "node:crypto";
 import { prisma } from "../db/client.js";
 import { generateStoryboard } from "../services/storyboardService.js";
 import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
+import { createWebsiteBrandedVisual } from "../services/websiteBrandedVisualService.js";
 import { measureGeneration } from "../services/generationTelemetry.js";
 import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
 import { inspectNarration } from "../services/narrationReadiness.js";
@@ -201,16 +203,37 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
     const researchCorpus = await loadResearchCorpus(project.id);
     if (!researchCorpus) return res.status(409).json({ error: "The persisted research corpus is not available. Complete research before generating scenes." });
     const scenes = await generateStoryboard({ project, signal: project.signal, researchCorpus });
-    const withAssets = await Promise.all(scenes.map(async (scene) => ({
-      scene,
-      assets: await measureGeneration({
-        stage: "storyboard", operation: "storyboard.pexels_search",
-        projectId: project.id, userId: req.user.id, provider: "pexels",
-        metadata: { sceneCount: 1 },
-      }, () => searchPexelsVideos(scene.broll_search_term, 5)),
-    })));
-    const missingAssets = withAssets.find((item) => item.assets.length < 5);
-    if (missingAssets) throw new Error(`Pexels returned fewer than 5 usable visuals for scene ${missingAssets.scene.scene_order}.`);
+    const websiteMarketing = project.signal?.category === "WEBSITE_MARKETING";
+    let withAssets;
+    if (websiteMarketing) {
+      // A website project must never select unrelated Pexels imagery. Create
+      // one source-grounded branded still per scene, directly renderable by
+      // Remotion. Sequential generation avoids spiking Lightsail CPU.
+      withAssets = [];
+      for (const [index, scene] of scenes.entries()) {
+        const sceneId = crypto.randomUUID();
+        const asset = await measureGeneration({
+          stage: "storyboard", operation: "storyboard.website_brand_artwork",
+          projectId: project.id, userId: req.user.id,
+          provider: "local-ffmpeg",
+        }, () => createWebsiteBrandedVisual({
+          project, sceneId, scene, sceneIndex: index, sceneCount: scenes.length,
+        }));
+        withAssets.push({ scene: { ...scene, id: sceneId },
+          assets: [asset], visualPlan: asset.visualPlan });
+      }
+    } else {
+      withAssets = await Promise.all(scenes.map(async (scene) => ({
+        scene,
+        assets: await measureGeneration({
+          stage: "storyboard", operation: "storyboard.pexels_search",
+          projectId: project.id, userId: req.user.id, provider: "pexels",
+          metadata: { sceneCount: 1 },
+        }, () => searchPexelsVideos(scene.broll_search_term, 5)),
+      })));
+      const missingAssets = withAssets.find(item => item.assets.length < 5);
+      if (missingAssets) throw new Error("Pexels returned fewer than 5 usable visuals.");
+    }
     await prisma.$transaction(async (tx) => {
       const existing = await tx.projectScene.findMany({ where: { projectId: project.id }, select: { id: true } });
       if (existing.length) await tx.sceneAsset.deleteMany({ where: { sceneId: { in: existing.map((item) => item.id) } } });
@@ -218,6 +241,7 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
       for (const item of withAssets) {
         const createdScene = await tx.projectScene.create({
           data: {
+            ...(item.scene.id ? { id: item.scene.id } : {}),
             projectId: project.id,
             sceneOrder: item.scene.scene_order,
             title: item.scene.title,
@@ -232,6 +256,7 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
               audienceLevel: project.audienceLevel,
               targetDurationSeconds: item.scene.duration_seconds,
               customized: false,
+              ...(item.visualPlan ? { sceneVisualPlan: item.visualPlan } : {}),
               voice: narrationVoice.source === "clone"
                 ? { source: "clone", id: narrationVoice.id, engine: narrationVoice.engine, voiceId: narrationVoice.voiceId, language: narrationVoice.language }
                 : { source: "preset", id: narrationVoice.id, engine: narrationVoice.engine, voice: narrationVoice.voice, language: narrationVoice.language },
