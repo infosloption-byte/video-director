@@ -8,6 +8,7 @@ import { persistResearchGraph } from "../services/researchGraphService.js";
 import { recordGenerationTrace } from "../services/generationTelemetry.js";
 import { refineWebsiteReport } from "../services/websiteReportQuality.js";
 import { buildWebsiteBrief } from "../services/websiteCampaignService.js";
+import { buildWebsiteVideoProjectData } from "../services/websiteVideoProjectCreate.js";
 
 const router = Router();
 const running = new Set();
@@ -122,7 +123,7 @@ router.post("/:id/videos", async (req, res) => {
     if (!idea) return res.status(400).json({ error: "Select one of the suggested video ideas." });
     const createdVideos = Array.isArray(item.createdVideos) ? item.createdVideos : [];
     const prior = createdVideos.find(x => x.ideaId === idea.id);
-    if (prior) return res.json({ projectId: prior.projectId, reused: true });
+    if (prior) return res.json({ projectId: prior.projectId, path: "/storyboard/" + prior.projectId + "?stage=setup", reused: true });
     const reserved = await prisma.websiteAnalysis.updateMany({
       where: { id: item.id, userId, status: "completed", projectId: null },
       data: { status: "converting", stage: "Preparing video workspace" },
@@ -132,22 +133,10 @@ router.post("/:id/videos", async (req, res) => {
     try {
       const brief = buildWebsiteBrief(report, idea);
       const pipeline = await getActivePipelineVersion();
-      created = await prisma.project.create({
-        data: {
-          id: crypto.randomUUID(), userId, title: (report.name + " — " + idea.title).slice(0, 250),
-          signal: { create: {
-            origin: "search", sourceType: "brave", sourceReliability: "general_web", category: "WEBSITE_MARKETING",
-            title: report.name.slice(0, 255), description: idea.angle,
-            sourceUrl: report.url, sourceName: new URL(report.url).hostname,
-            whyReasoning: "Created from bounded website research and selected video concept.",
-            status: "used",
-          } },
-          status: "setup", pipelineVersionId: pipeline.id,
-          researchSummary: brief.executive_summary, researchSources: brief,
-          suggestedFramework: "EXPLAINER", suggestedLengthSeconds: idea.durationSeconds,
-          suggestedTone: "Conversational",
-        },
-      });
+      created = await prisma.project.create({ data: buildWebsiteVideoProjectData({
+        id: crypto.randomUUID(), userId, report, idea, brief,
+        pipelineVersionId: pipeline.id,
+      }) });
       await persistResearchGraph(created.id, brief);
       await prisma.websiteAnalysis.update({ where: { id: item.id }, data: {
         projectId: item.projectId || created.id,
@@ -164,7 +153,12 @@ router.post("/:id/videos", async (req, res) => {
       throw error;
     }
   } catch (error) {
-    console.error("[website] Video project creation failed", error?.code || error?.message);
+    // Prisma validation errors include a complete, potentially sensitive
+    // research brief. Avoid logging request payloads or business contacts.
+    console.error("[website] Video project creation failed", {
+      code: error?.code || "UNEXPECTED_CREATE_ERROR",
+      name: error?.name || "Error",
+    });
     res.status(500).json({ error: "Unable to create the video project. Try again." });
   }
 });
