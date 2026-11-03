@@ -49,6 +49,28 @@ sudo docker exec voxora-api-1 sh -c \
   'echo "AI enabled: ${VOXORA_MARKETING_AI_IMAGES_ENABLED:-false}; model: ${VOXORA_MARKETING_IMAGE_MODEL:-default}"; if [ -n "$GEMINI_API_KEY" ]; then echo "Gemini key present"; else echo "Gemini key missing"; fi'
 ```
 
+## The image model has no free API tier
+
+As of November 2026, Google lists **no free API tier** for
+`gemini-3.1-flash-lite-image` (the default Voxora image model).
+A configured key and a successful `checkMarketingImageModel.js` result do not
+prove that the project has paid generation quota: the Model lookup can succeed
+even when `generateContent` returns HTTP 429.
+
+Before retrying, select the **same Google Cloud project** that owns the key in:
+- [Google AI Studio Billing](https://aistudio.google.com/) — verify paid API tier,
+  sufficient credits, and no project spend cap or account restriction.
+- [Google AI Studio Rate Limits](https://aistudio.google.com/rate-limit) —
+  check the model's RPM, RPD and image quota for that project.
+
+If the provider returns a structured 429 error, Voxora now exposes only a
+sanitized `quotaReason`: `FREE_TIER_ZERO`, `DAILY_LIMIT`,
+`MINUTE_LIMIT`, `SPEND_LIMIT` or `UNKNOWN`, plus an optional
+`retryAfterSeconds`. Do not paste your Google API key or an unredacted
+provider response into chat or issue trackers. Zero free-tier quota cannot
+be solved by immediate retries or by creating a second key for the same project.
+Never switch to a more expensive image model automatically.
+
 ## Lowest-risk live verification
 
 1. With production background operations idle, open an existing **Website to Video** storyboard and one scene's **Customize scene** editor.
