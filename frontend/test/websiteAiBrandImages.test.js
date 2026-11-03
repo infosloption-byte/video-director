@@ -24,7 +24,7 @@ test("marketing storyboard explains local placeholders and generates only missin
   assert.match(page, /const pendingScenes = scenes\.filter\(/);
   assert.match(page, /scene\.customization\?\.sceneVisualPlan\?\.aiStatus !== "generated"/);
   assert.match(page, /pendingScenes\.length \+ " Gemini AI image/);
-  assert.match(page, /AI requests may be billable/);
+  assert.match(page, /Requests are billable; check model quotas in Google AI Studio/);
   assert.match(page, /Gemini AI images are disabled or not configured/);
   assert.match(page, /aiImageStatus\.model/);
   assert.match(page, /Generate AI visuals for all scenes/);
@@ -107,7 +107,9 @@ test("image-quota UI separates free-tier billing requirements from minute and da
   assert.match(unknown,/no free API tier/);
 });
 
-test("Brand-first visuals avoid text collisions with Remotion caption layers", async () => {
+test("Brand-first artwork keeps caption overlays separate and local refresh distinct from Gemini", async () => {
+  const panel = await read("components/SceneCustomizePanel.jsx");
   const page = await read("pages/StoryboardPage.jsx");
-  assert.match(page, /Brand labels and narration captions remain separate/);
+  assert.match(panel, /Artwork and product visuals are kept separate from narration captions/);
+  assert.match(page, /Local refresh does not call Gemini/);
 });
