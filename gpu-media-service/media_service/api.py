@@ -17,6 +17,7 @@ from rq.command import send_stop_job_command
 from .config import (ARTIFACTS, JOB_QUEUE_TTL_SECONDS, JOB_RETENTION_SECONDS,
                      JOB_TIMEOUT_SECONDS, MAX_QUEUED_JOBS, MAX_UPLOAD_BYTES,
                      ROOT, auth_token, job_dir, queue, redis_connection)
+from .sdxl_runtime import image_job_enabled, video_job_enabled
 
 app = FastAPI(title="Voxora Private GPU Media Engine", version="0.1.0",
               docs_url=None, redoc_url=None, openapi_url=None)
@@ -102,14 +103,18 @@ def status():
         connection.ping()
         q = queue(connection)
         return {"ok": True, "queueDepth": q.count,
-                "heavyJobsEnabled": os.getenv("GPU_MEDIA_HEAVY_ENABLED", "false").lower() == "true"}
+                "heavyJobsEnabled": os.getenv("GPU_MEDIA_HEAVY_ENABLED", "false").lower() == "true",
+                "imageJobsEnabled": image_job_enabled(),
+                "videoJobsEnabled": video_job_enabled()}
     except RedisError:
         raise HTTPException(503, "GPU media queue unavailable.")
 
 @app.post("/v1/jobs", status_code=202, dependencies=[Depends(require_auth)])
 def submit_generation(data: GenerationRequest):
-    if os.getenv("GPU_MEDIA_HEAVY_ENABLED", "false").lower() != "true":
-        raise HTTPException(409, "Image/video inference is disabled pending cross-stack TTS GPU scheduling.")
+    if data.kind == "image" and not image_job_enabled():
+        raise HTTPException(409, "SDXL image jobs are disabled pending safe shared GPU scheduling.")
+    if data.kind == "video" and not video_job_enabled():
+        raise HTTPException(409, "GPU video jobs are not separately approved.")
     try:
         return enqueue_job(data.kind, prompt=data.prompt,
                            negative_prompt=data.negative_prompt)
