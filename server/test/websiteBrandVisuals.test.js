@@ -63,6 +63,37 @@ test("scene artwork uses selected product page assets, never another product or 
   assert.equal(plan.rightsReviewRequired, true);
   assert.equal(plan.scenePurpose, "hook");
 });
+test("multi-product scenes choose relevant source pages instead of arbitrary storyboard index", () => {
+  const kit = createWebsiteBrandKit(report());
+  const aiso = url + "products/aiso";
+  const campaign = {
+    brandName:"Coderra", analysisUrl:url, sourceUrls:[product,aiso],
+    focus:"CommOps",
+    sourceFacts:[
+      {url:product,detail:"CommOps handles customer SMS conversations."},
+      {url:aiso,detail:"AISO organizes AI search content."},
+    ],
+  };
+  const aisoPlan = planWebsiteSceneVisual({
+    campaign,brandKit:kit,scene:{title:"AISO search content",spokenText:"AISO organizes content."},
+    sceneIndex:0,sceneCount:4,
+  });
+  assert.equal(aisoPlan.focusSourceUrl,aiso,"scene language overrides the default first product");
+  assert.equal(aisoPlan.sourceImageUrl,url+"images/aiso.png");
+  assert.equal(aisoPlan.sourceImageRole,"website_image");
+
+  const commopsPlan = planWebsiteSceneVisual({
+    campaign,brandKit:kit,
+    scene:{title:"Helping customers reply",spokenText:"CommOps supports customer conversations."},
+    sceneIndex:1,sceneCount:4,
+  });
+  assert.equal(commopsPlan.focusSourceUrl,product,"second scene still points at CommOps");
+  assert.equal(commopsPlan.sourceImageUrl,url+"images/commops-dashboard.png");
+  assert.equal(commopsPlan.sourceImageRole,"product");
+  assert.equal(commopsPlan.sceneIndex,1);
+  assert.equal(commopsPlan.sceneCount,4);
+});
+
 test("brand-only fallback uses actual brand label and generated layout without stock", () => {
   const kit=createWebsiteBrandKit({url,name:"Coderra",pages:[]});
   const plan=planWebsiteSceneVisual({campaign:{brandName:"Coderra",sourceUrls:[product]},brandKit:kit,scene:{title:"Features"},sceneIndex:2,sceneCount:4});
