@@ -110,6 +110,17 @@ export async function createWebsiteBrandedVisual({
         imagePath = tempPrefix + "." + image.extension;
         await writeFile(imagePath, image.bytes);
         files.push(imagePath);
+        // Size-limited files may still decode into huge bitmaps. Probe the
+        // dimensions before asking FFmpeg to allocate a full-resolution frame.
+        const probe = await execFileAsync("ffprobe", [
+          "-v", "error", "-select_streams", "v:0",
+          "-show_entries", "stream=width,height", "-of", "json", imagePath,
+        ], { timeout: 8000, maxBuffer: 8192 });
+        const frame = JSON.parse(probe.stdout).streams?.[0] || {};
+        const width = Number(frame.width), height = Number(frame.height);
+        if (!(width >= 160 && width <= 4096 && height >= 120 && height <= 4096 && width * height <= 12_000_000)) {
+          throw new Error("Website image dimensions are outside supported bounds.");
+        }
       } catch {
         // Public assets are optional and can be blocked or unsupported.
         // Stay brand-grounded by drawing a generated layout, NEVER Pexels.
@@ -147,7 +158,7 @@ export async function createWebsiteBrandedVisual({
       );
     }
     filters.push(font(texts[3], 25, 76, 1062));
-    const args = ["-hide_banner", "-loglevel", "error", "-y",
+    const args = ["-hide_banner", "-loglevel", "error", "-max_alloc", "134217728", "-y",
       "-f", "lavfi", "-i", "color=c=" + background + ":s=720x1280:r=1"];
     let graph;
     if (imagePath) {
@@ -170,7 +181,7 @@ export async function createWebsiteBrandedVisual({
       plan.sourceImageUrl = null;
       plan.visualSource = "generated_branded_layout";
       plan.rightsReviewRequired = false;
-      const fallback = ["-hide_banner", "-loglevel", "error", "-y",
+      const fallback = ["-hide_banner", "-loglevel", "error", "-max_alloc", "134217728", "-y",
         "-f", "lavfi", "-i", "color=c=" + background + ":s=720x1280:r=1",
         "-filter_complex", "[0:v]" + filters.join(",") + "[final]",
           "-map", "[final]", "-frames:v", "1", "-update", "1",
