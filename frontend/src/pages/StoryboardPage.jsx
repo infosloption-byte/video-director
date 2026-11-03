@@ -75,7 +75,7 @@ export default function StoryboardPage() {
   const [playing, setPlaying] = useState(false);
   const [sceneLoading, setSceneLoading] = useState(false);
   const [brandVisualLoading, setBrandVisualLoading] = useState(false);
-  const [aiImageStatus, setAiImageStatus] = useState({ enabled:false });
+  const [aiImageStatus, setAiImageStatus] = useState({ enabled:false, model:null });
   const [aiVisualProgress, setAiVisualProgress] = useState(null);
   const [aiVisualNotice, setAiVisualNotice] = useState("");
   const [sceneError, setSceneError] = useState("");
@@ -121,8 +121,8 @@ export default function StoryboardPage() {
     if (!project?.research?.sources?.websiteMarketing) return;
     let cancelled = false;
     fetch("/api/marketing-visuals/status").then(response => response.ok ? response.json() : {})
-      .then(data => { if (!cancelled) setAiImageStatus({ enabled:data.enabled === true }); })
-      .catch(() => { if (!cancelled) setAiImageStatus({ enabled:false }); });
+      .then(data => { if (!cancelled) setAiImageStatus({ enabled:data.enabled === true, model:data.model || null }); })
+      .catch(() => { if (!cancelled) setAiImageStatus({ enabled:false, model:null }); });
     return () => { cancelled = true; };
   }, [project?.research?.sources?.websiteMarketing]);
 
@@ -376,20 +376,28 @@ export default function StoryboardPage() {
 
   async function generateAiImagesForScenes() {
     if (!aiImageStatus.enabled || aiVisualProgress || brandVisualLoading || renderLoading || sceneLoading) return;
+    const pendingScenes = scenes.filter(scene => scene.customization?.sceneVisualPlan?.aiStatus !== "generated");
+    if (!pendingScenes.length) {
+      setAiVisualNotice("All scenes already have verified Gemini AI illustrations.");
+      return;
+    }
     if (typeof window !== "undefined" && !window.confirm(
-      "Generate one AI background per scene? Your image provider may charge for each request. Narration will not change."
+      "Generate " + pendingScenes.length + " Gemini AI image(s) to replace placeholder layouts? " +
+      "Your image provider may charge for each request. Completed AI scenes will not be charged again. " +
+      "Narration and timing will not change."
     )) return;
     setSceneEditError("");
     setAiVisualNotice("");
     let generated = 0, fallback = 0, done = 0;
     let stopped = false;
     const fallbackDetails = [];
-    setAiVisualProgress({ done:0, total:scenes.length });
-    for (const scene of scenes) {
+    setAiVisualProgress({ done:0, total:pendingScenes.length });
+    for (const scene of pendingScenes) {
       const result = await regenerateSceneVisuals(scene.id, "", "ai", { quiet: true });
       if (!result) {
         stopped = true;
-        setAiVisualNotice("AI artwork stopped after " + done + " scenes. Earlier visual changes were saved.");
+        setAiVisualNotice("AI image generation stopped after " + done +
+          " scenes. Previous scene images were preserved on failure. Review the error above.");
         break;
       }
       const plan = result.scene?.customization?.sceneVisualPlan;
@@ -399,7 +407,7 @@ export default function StoryboardPage() {
         fallbackDetails.push("Scene " + scene.sceneOrder + ": " + websiteAiFallbackReason(plan?.aiFallbackCode));
       }
       done++;
-      setAiVisualProgress({ done, total:scenes.length });
+      setAiVisualProgress({ done, total:pendingScenes.length });
       if (plan?.aiStatus === "fallback" && AI_BATCH_STOP_CODES.has(plan.aiFallbackCode)) {
         stopped = true;
         setAiVisualNotice("AI generation stopped after scene " + scene.sceneOrder +
@@ -408,8 +416,8 @@ export default function StoryboardPage() {
         break;
       }
     }
-    if (!stopped && done === scenes.length) {
-      setAiVisualNotice(generated + " Gemini AI scene images created; " + fallback +
+    if (!stopped && done === pendingScenes.length) {
+      setAiVisualNotice(generated + " new Gemini AI scene images created; " + fallback +
         " used local FFmpeg fallback. Original narration and timing were preserved." +
         (fallbackDetails.length ? " " + fallbackDetails.slice(0, 3).join(" ") +
           (fallbackDetails.length > 3 ? " See individual scenes for other reasons." : "") : ""));
@@ -544,6 +552,8 @@ export default function StoryboardPage() {
   const narratedSceneCount = narrationSummary?.readyScenes ?? scenes.filter((scene) => Boolean(scene.audioUrl)).length;
   const missingNarrationOrders = narrationSummary?.scenes?.filter((scene) => !scene.ready).map((scene) => scene.sceneOrder) || [];
   const customizedSceneCount = useMemo(() => scenes.filter((scene) => Boolean(scene.customization?.customized)).length, [scenes]);
+  const aiGeneratedCount = useMemo(() => scenes.filter((scene) => scene.customization?.sceneVisualPlan?.aiStatus === "generated").length, [scenes]);
+  const aiPendingCount = Math.max(0, scenes.length - aiGeneratedCount);
 
   const activeSceneStep = useMemo(() => {
     if (!scenes.length) return null;
@@ -613,19 +623,29 @@ export default function StoryboardPage() {
                   <h2>Review every cut, then tune only what needs changing.</h2>
                   <p>Each scene inherits the project Setup. Customize a single scene without regenerating the rest of the storyboard.</p>
                   {project?.research?.sources?.websiteMarketing && <div className="storyboard-brand-visual-action">
-                    <button type="button" className="btn btn-ghost" onClick={() => void regenerateAllWebsiteVisuals()} disabled={brandVisualLoading || Boolean(aiVisualProgress) || sceneLoading || renderLoading || !scenes.length}>
-                      {brandVisualLoading ? "Building branded artwork…" : "Replace all stock with branded visuals"}
-                    </button>
-                    {aiImageStatus.enabled && <button type="button" className="btn btn-ghost"
+                    <div className="storyboard-brand-visual-action__summary">
+                      <strong>{aiGeneratedCount} of {scenes.length} scenes have verified Gemini AI images</strong>
+                      <span>{aiPendingCount
+                        ? "The colored layouts you see are local FFmpeg starter placeholders, NOT Gemini artwork. Replace them with scene-specific AI illustrations before the final video."
+                        : "All scene backgrounds were generated with Gemini and validated. Captions are rendered separately."}</span>
+                    </div>
+                    {aiImageStatus.enabled && <button type="button" className="btn btn-cream"
                       onClick={() => void generateAiImagesForScenes()}
-                      disabled={brandVisualLoading || Boolean(aiVisualProgress) || sceneLoading || renderLoading || !scenes.length}>
+                      disabled={brandVisualLoading || Boolean(aiVisualProgress) || sceneLoading || renderLoading || !aiPendingCount}>
                       {aiVisualProgress
                         ? "Generating AI imagery " + aiVisualProgress.done + "/" + aiVisualProgress.total + "…"
-                        : "Generate AI visuals for all scenes"}
+                        : aiPendingCount ? "Generate AI visuals for all scenes (" + aiPendingCount + " remaining)" : "All AI visuals ready"}
                     </button>}
+                    {!aiImageStatus.enabled && <span className="storyboard-brand-visual-action__disabled" role="status">
+                      Gemini AI images are disabled or not configured on this server. An operator must enable VOXORA_MARKETING_AI_IMAGES_ENABLED and configure the image-model API key.
+                    </span>}
+                    <button type="button" className="btn btn-ghost" onClick={() => void regenerateAllWebsiteVisuals()}
+                      disabled={brandVisualLoading || Boolean(aiVisualProgress) || sceneLoading || renderLoading || !scenes.length}>
+                      {brandVisualLoading ? "Building local layouts…" : "Replace all stock with branded visuals (local only)"}
+                    </button>
                     <small>{aiImageStatus.enabled
-                      ? "Refresh/Replace builds local FFmpeg layouts, not AI images. Generate AI uses the paid Gemini model. AI images may incur provider charges. Brand labels and narration captions remain separate."
-                      : "Refresh/Replace builds local FFmpeg artwork, not AI images. AI imagery requires explicit server enablement."}</small>
+                      ? "Gemini model: " + (aiImageStatus.model || "configured provider") + ". AI requests may be billable. Existing successful AI scenes are skipped. Local refresh does not call Gemini. Brand labels and narration captions remain separate."
+                      : "Existing layouts are free, local placeholders. Enabling Gemini is a server-side configuration change; the key is never sent to the browser."}</small>
                     {aiVisualNotice && <p role="status" className="storyboard-brand-visual-action__notice">{aiVisualNotice}</p>}
                   </div>}
                 </div>
