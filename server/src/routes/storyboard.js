@@ -771,8 +771,16 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
     ].includes(error?.code) ? error.code : null;
     console.error("[storyboard] Scene visual regeneration failed", { code: safeCode || "VISUAL_FAILED", name: error?.name });
     if (safeCode) {
+      const quotaReason = ["FREE_TIER_ZERO", "SPEND_LIMIT", "DAILY_LIMIT", "MINUTE_LIMIT"].includes(error?.quotaReason)
+        ? error.quotaReason : "UNKNOWN";
+      const retryAfterSeconds = safeCode === "IMAGE_RATE_LIMITED" &&
+        Number.isInteger(error?.retryAfterSeconds) && error.retryAfterSeconds > 0 &&
+        error.retryAfterSeconds <= 86400 ? error.retryAfterSeconds : null;
+      if (retryAfterSeconds) res.setHeader("Retry-After", String(retryAfterSeconds));
       return res.status(safeCode === "IMAGE_RATE_LIMITED" ? 429 : 502).json({
         code: safeCode,
+        ...(safeCode === "IMAGE_RATE_LIMITED" ? { quotaReason } : {}),
+        ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
         error: "Gemini image generation failed. Your previous scene image was preserved. Review the image error and try again.",
       });
     }
