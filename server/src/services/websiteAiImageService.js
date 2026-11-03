@@ -29,19 +29,49 @@ function visualShotDirection(plan) {
   const sceneIndex = Math.max(0, Math.trunc(Number(plan?.sceneIndex) || 0));
   const variant = Math.max(0, Math.trunc(Number(plan?.variant) || 0));
   const featureShots = [
-    "Three-quarter cinematic composition with a clear physical or abstract subject representing the specific service, and subtle depth.",
-    "Editorial close-up with one concrete service-relevant focal detail and a restrained environmental background.",
-    "Wide contextual illustration showing the interaction or workflow metaphor, with a strong visual hierarchy and no UI.",
-    "Macro-inspired product mood shot using materials, light and shapes that relate to this scene rather than generic technology symbols.",
+    "Cinematic three-quarter view of identifiable people, devices or equipment actually relevant to this service, with environmental depth.",
+    "Editorial documentary close-up showing a real hands-on activity or tangible detail that illustrates this exact service.",
+    "Wide environmental scene showing the real-world people or workflow the narration describes, with strong editorial framing.",
+    "Over-the-shoulder photograph-style scene with authentic subject materials and believable depth of field; screens remain text-free.",
   ];
   if (plan?.scenePurpose === "hook") {
-    return "Opening hero frame: one immediate, memorable scene-specific focal subject, bold silhouette and cinematic lighting; not a logo-only title card.";
+    return "Opening hero frame: one memorable real-world subject connected to the narration, cinematic atmosphere and believable detail; not a logo or gradient title card.";
   }
   if (plan?.scenePurpose === "cta") {
-    return "Closing frame: calm premium brand atmosphere, simple single focal motif, generous negative space for Voxora's real CTA overlay.";
+    return "Closing frame: compelling real-world service outcome or human moment, visually calmer than the opening with generous negative space for Voxora's actual CTA overlay.";
   }
   return featureShots[(sceneIndex + variant) % featureShots.length];
 }
+// These are illustrative directions, not claims about the company. A concrete
+// subject gives the image model enough information to avoid generic FFmpeg-like
+// geometry. Never require a fictional product screenshot or invented UI.
+export function marketingVisualSubject({scene, campaign}) {
+  const text = [scene?.title, scene?.spoken_text, scene?.spokenText,
+    scene?.why_picture, scene?.whyPicture, campaign?.focus].filter(Boolean).join(" ").toLowerCase();
+  if (/software|saas|web app|mobile app|app development|platform|developer|engineering/.test(text)) {
+    return "A believable professional software team working together at a modern studio desk: human hands, laptop, smartphone and tablet as physical subjects, subtle reflections and natural lighting. Device displays show only tasteful non-readable color, never fictional interfaces.";
+  }
+  if (/artificial intelligence|machine learning|automation|\bai\b|intelligent/.test(text)) {
+    return "A believable human-led technology workflow: a specialist examining a physical device or collaborating at a workstation, with subtle visual cues of automation. Ground the composition in real people and materials, not glowing floating brains or imaginary interfaces.";
+  }
+  if (/cloud|data|hosting|infrastructure|network|server/.test(text)) {
+    return "A detailed, physically plausible data-center or engineering environment with real equipment, subtle status lights and cinematic depth, never fabricated dashboard UI.";
+  }
+  if (/security|privacy|cyber|protect|safe/.test(text)) {
+    return "A professional technology security environment with a real specialist and physical equipment, conveying careful review without fake padlock logos or invented device UI.";
+  }
+  if (/logistics|shipping|delivery|freight|vehicle|travel|transport/.test(text)) {
+    return "A believable real-world transport and logistics operation with vehicles, staff or cargo relevant to the stated service, in an editorial photography style.";
+  }
+  if (/health|clinic|medical|care|hospital/.test(text)) {
+    return "A respectful real-world care environment with professionals and people, without depicting unsupported procedures or outcomes.";
+  }
+  if (/learn|education|school|training|student/.test(text)) {
+    return "A believable collaborative learning environment with people engaged in the described activity, natural lighting and authentic physical materials.";
+  }
+  return "A concrete, believable real-world scene showing people, objects, or an environment connected to the precise narration. Make the chosen subject unmistakable; do not illustrate an abstract business concept using colored blocks.";
+}
+
 export function marketingVisualPrompt({campaign, brandKit, scene, plan}) {
   const sources = Array.isArray(campaign?.sourceUrls) ? campaign.sourceUrls : [];
   const sourceUrl = plan?.focusSourceUrl || (sources.length === 1 ? sources[0] : null);
@@ -64,8 +94,11 @@ export function marketingVisualPrompt({campaign, brandKit, scene, plan}) {
     "Maintain the SAME palette, lighting sophistication, believable materials and premium visual language across all scenes in the video.",
     "This scene is a " + phase + ". Product/service focus: " + focus + ".",
     "Scene title: " + sceneTitle + ". Scene narration is: " + narration + ".",
+    "Required visual subject for this cut: " + marketingVisualSubject({scene,campaign}),
     "Specific composition for this cut: " + visualShotDirection(plan),
-    "Use a visually distinct, scene-specific subject and camera framing. Do not simply change the position of generic gradients or rectangles.",
+    "Create an image with recognizable people, places, devices or materials, realistic proportions, rich photographic texture and environmental depth.",
+    "NEVER output an abstract layout, wireframe, flat color rectangles, colored bars, UI placeholders, template card, icon grid or empty poster background.",
+    "Use a visually distinct, scene-specific subject and camera framing; the actual subject must occupy a meaningful area of the image.",
     "Approved public website facts (unverified business claims, context only): " + (facts.join(" | ") || "No detailed product evidence supplied for this scene."),
     "Use the supplied reference product image if present as visual inspiration only, preserving its subject and broad styling.",
     "Show coherent product-relevant metaphor or professionally designed brand mood; do not substitute unrelated stock-photo subjects.",
