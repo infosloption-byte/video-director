@@ -2,6 +2,7 @@ import dns from "node:dns/promises";
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
+import { siteImageUrl } from "./websiteBrandKit.js";
 
 const MAX_BYTES = 600_000;
 const BLOCKED_TLDS = /\.(?:localhost|local|internal|test|invalid|example)$/i;
@@ -86,25 +87,26 @@ export function createPinnedLookup(records) {
   };
 }
 
-function requestText(url, records, signal) {
+function requestText(url, records, signal, { maxBytes = MAX_BYTES, accept = "text/html,application/xml,text/plain;q=0.8" } = {}) {
   return new Promise((resolve, reject) => {
     const transport = url.protocol === "https:" ? https : http;
     let ended = false;
     const req = transport.get(url, {
       timeout: 10000,
-      headers: { "User-Agent": "VoxoraWebsiteResearch/1.0 (+https://usevoxora.online)", Accept: "text/html,application/xml,text/plain;q=0.8" },
+      headers: { "User-Agent": "VoxoraWebsiteResearch/1.0 (+https://usevoxora.online)", Accept: accept },
       lookup: createPinnedLookup(records),
       signal,
     }, res => {
       const parts = []; let bytes = 0;
       res.on("data", chunk => {
         bytes += chunk.length;
-        if (bytes > MAX_BYTES) { req.destroy(new Error("Website response exceeds the page size limit.")); return; }
+        if (bytes > maxBytes) { req.destroy(new Error("Website response exceeds the safe size limit.")); return; }
         parts.push(chunk);
       });
       res.on("end", () => {
         ended = true;
-        resolve({ status: res.statusCode, type: String(res.headers["content-type"] || ""), location: res.headers.location, text: Buffer.concat(parts).toString("utf8") });
+        const buffer = Buffer.concat(parts);
+        resolve({ status: res.statusCode, type: String(res.headers["content-type"] || ""), location: res.headers.location, text: buffer.toString("utf8"), buffer });
       });
     });
     req.on("timeout", () => req.destroy(new Error("Website request timed out.")));
@@ -136,6 +138,44 @@ export async function fetchPublicPage(rawUrl, { signal } = {}) {
     return { ...result, url: url.href };
   }
   throw new Error("Too many website redirects.");
+}
+
+// Read a small public image with the same DNS-pinned, no-private-network policy
+// as the website crawler. Never send user credentials or follow CDN redirects.
+export async function fetchPublicWebsiteImage(candidate, siteUrl, { signal } = {}) {
+  const approvedUrl = siteImageUrl(candidate, siteUrl);
+  if (!approvedUrl) throw new Error("Only image files hosted on the analyzed website are supported.");
+  const start = normalizeWebsiteUrl(approvedUrl);
+  let url = start;
+  const host = start.hostname;
+  for (let hops = 0; hops < 3; hops += 1) {
+    const records = await approvedAddresses(url.hostname);
+    const response = await requestText(url, records, signal, {
+      maxBytes: 5_000_000, accept: "image/png,image/jpeg,image/webp",
+    });
+    if ([301, 302, 303, 307, 308].includes(response.status) && response.location) {
+      const target = new URL(response.location, url);
+      if (!sameCanonicalHost(target.hostname, host) ||
+        !siteImageUrl(target.href, siteUrl) ||
+        (url.protocol === "https:" && target.protocol !== "https:")) {
+        throw new Error("Website image redirected outside approved public assets.");
+      }
+      url = target;
+      continue;
+    }
+    if (response.status !== 200) throw new Error("Website image returned HTTP " + response.status + ".");
+    const contentType = response.type.split(";")[0].trim().toLowerCase();
+    const data = response.buffer;
+    const png = data.length > 8 && data.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+    const jpeg = data.length > 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+    const webp = data.length > 12 && data.toString("ascii", 0, 4) === "RIFF" && data.toString("ascii", 8, 12) === "WEBP";
+    const extension = png && contentType === "image/png" ? "png"
+      : jpeg && contentType === "image/jpeg" ? "jpg"
+      : webp && contentType === "image/webp" ? "webp" : null;
+    if (!extension) throw new Error("Website image type or file signature is unsupported.");
+    return { bytes: data, extension, sourceUrl: url.href };
+  }
+  throw new Error("Too many website image redirects.");
 }
 
 export function robotsAllowed(pathname, robots) {

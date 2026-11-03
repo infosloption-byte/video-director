@@ -5,6 +5,7 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 import { prisma } from "../db/client.js";
 import { getNarrationFilePath } from "./ttsService.js";
 import { ensureRenderAssets } from "./renderAssetService.js";
+import { isBrandStillUrl } from "./websiteBrandedVisualService.js";
 import { measureGeneration, recordGenerationTrace } from "./generationTelemetry.js";
 
 const RENDER_ROOT = path.resolve(process.cwd(), "storage", "renders");
@@ -62,9 +63,10 @@ function buildDurationPlan(project) {
   };
 }
 
-function toRenderScene(scene, localAssetUrl = null) {
+function toRenderScene(scene, localAssetUrl = null, project = null) {
   const selectedAsset = scene.assets?.find((asset) => asset.isSelected) || scene.assets?.[0] || null;
   const sourceDuration = Number(scene.durationSeconds || 1);
+  const isBrandStill = project?.id && isBrandStillUrl(selectedAsset?.videoUrl, project.id, scene.id);
   const audioPath = scene.audioUrl ? `${getBaseUrl()}${normalizeAudioUrl(scene.audioUrl)}` : null;
   return {
     id: scene.id,
@@ -77,9 +79,11 @@ function toRenderScene(scene, localAssetUrl = null) {
     timestampScale: 1,
     wordTimestamps: scene.wordTimestamps || [],
     selectedAsset: selectedAsset ? {
-      videoUrl: localAssetUrl || selectedAsset.videoUrl,
+      videoUrl: isBrandStill ? null : (localAssetUrl || selectedAsset.videoUrl),
+      imageUrl: isBrandStill ? localAssetUrl : null,
       thumbnailUrl: selectedAsset.thumbnailUrl,
     } : null,
+    brandName: project?.researchSources?.websiteMarketing?.brandName || null,
     audioUrl: audioPath ? appendRenderToken(audioPath) : null,
   };
 }
@@ -178,7 +182,7 @@ export async function renderProject(projectId, { onProgress } = {}) {
   }));
   const localAssetUrlByScene = new Map(project.scenes.map((scene, index) => [scene.id, `${getBaseUrl()}${renderAssets[index].url}`]));
 
-  const scenes = project.scenes.map((scene) => toRenderScene(scene, localAssetUrlByScene.get(scene.id)));
+  const scenes = project.scenes.map((scene) => toRenderScene(scene, localAssetUrlByScene.get(scene.id), project));
   const effectiveDuration = scenes.reduce((sum, scene) => sum + Number(scene.durationSeconds || 0), 0);
   await prisma.project.update({
     where: { id: project.id },

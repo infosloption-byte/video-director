@@ -210,3 +210,8 @@
 .storyboard-error--scene{margin-bottom:18px}
 @media(max-width:900px){.storyboard-editor-intro{align-items:flex-start;flex-direction:column;gap:12px}.storyboard-editor-intro__stats{width:100%;flex-basis:auto}}
 @media(max-width:640px){.storyboard-editor-intro{margin-bottom:18px;padding-top:6px}.storyboard-editor-intro__copy h2{font-size:25px}.storyboard-editor-intro__stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+.storyboard-brand-visual-action{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px}
+.storyboard-brand-visual-action .btn{min-height:42px;border-radius:10px}
+.storyboard-brand-visual-action small{max-width:48ch;color:var(--muted);font-size:12px;line-height:1.45}

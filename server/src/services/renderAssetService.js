@@ -1,3 +1,4 @@
+import { brandSceneImagePath, brandSceneImageUrl, isBrandStillUrl } from "./websiteBrandedVisualService.js";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -63,6 +64,23 @@ export async function ensureRenderAsset(projectId, scene, { sceneIndex = 0, scen
   const url = scene.assets?.find((asset) => asset.isSelected)?.videoUrl || scene.assets?.[0]?.videoUrl;
   if (!url) throw new Error(`Scene ${scene.sceneOrder} has no selected B-roll video.`);
 
+  // Brand-first scenes have a locally generated PNG; never download it as a
+  // Pexels MP4. Serve it via the same authenticated render-assets endpoint.
+  if (isBrandStillUrl(url, projectId, scene.id)) {
+    const still = brandSceneImagePath(projectId, scene.id);
+    if (!(await fileExists(still))) {
+      throw new Error("The branded scene image is missing. Regenerate this scene's visuals before rendering.");
+    }
+    onProgress({
+      sceneIndex, sceneCount, sceneOrder: scene.sceneOrder, phase: "cached",
+      progress: 100, receivedBytes: 0, totalBytes: 0,
+      message: "Scene " + scene.sceneOrder + ": branded artwork ready",
+    });
+    const token = String(process.env.RENDER_ASSET_TOKEN || "").trim();
+    const pathPart = brandSceneImageUrl(projectId, scene.id);
+    const withToken = token ? pathPart + "?renderToken=" + encodeURIComponent(token) : pathPart;
+    return { path: still, url: withToken, downloaded: false, kind: "image" };
+  }
   const target = getRenderAssetPath(projectId, scene.id);
   if (await fileExists(target)) {
     onProgress({

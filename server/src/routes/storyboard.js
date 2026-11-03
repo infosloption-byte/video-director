@@ -1,8 +1,10 @@
 import { Router } from "express";
+import crypto from "node:crypto";
 import { prisma } from "../db/client.js";
 import { generateStoryboard } from "../services/storyboardService.js";
 import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
+import { createWebsiteBrandedVisual } from "../services/websiteBrandedVisualService.js";
 import { measureGeneration } from "../services/generationTelemetry.js";
 import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
 import { inspectNarration } from "../services/narrationReadiness.js";
@@ -201,16 +203,37 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
     const researchCorpus = await loadResearchCorpus(project.id);
     if (!researchCorpus) return res.status(409).json({ error: "The persisted research corpus is not available. Complete research before generating scenes." });
     const scenes = await generateStoryboard({ project, signal: project.signal, researchCorpus });
-    const withAssets = await Promise.all(scenes.map(async (scene) => ({
-      scene,
-      assets: await measureGeneration({
-        stage: "storyboard", operation: "storyboard.pexels_search",
-        projectId: project.id, userId: req.user.id, provider: "pexels",
-        metadata: { sceneCount: 1 },
-      }, () => searchPexelsVideos(scene.broll_search_term, 5)),
-    })));
-    const missingAssets = withAssets.find((item) => item.assets.length < 5);
-    if (missingAssets) throw new Error(`Pexels returned fewer than 5 usable visuals for scene ${missingAssets.scene.scene_order}.`);
+    const websiteMarketing = project.signal?.category === "WEBSITE_MARKETING";
+    let withAssets;
+    if (websiteMarketing) {
+      // A website project must never select unrelated Pexels imagery. Create
+      // one source-grounded branded still per scene, directly renderable by
+      // Remotion. Sequential generation avoids spiking Lightsail CPU.
+      withAssets = [];
+      for (const [index, scene] of scenes.entries()) {
+        const sceneId = crypto.randomUUID();
+        const asset = await measureGeneration({
+          stage: "storyboard", operation: "storyboard.website_brand_artwork",
+          projectId: project.id, userId: req.user.id,
+          provider: "local-ffmpeg",
+        }, () => createWebsiteBrandedVisual({
+          project, sceneId, scene, sceneIndex: index, sceneCount: scenes.length,
+        }));
+        withAssets.push({ scene: { ...scene, id: sceneId },
+          assets: [asset], visualPlan: asset.visualPlan });
+      }
+    } else {
+      withAssets = await Promise.all(scenes.map(async (scene) => ({
+        scene,
+        assets: await measureGeneration({
+          stage: "storyboard", operation: "storyboard.pexels_search",
+          projectId: project.id, userId: req.user.id, provider: "pexels",
+          metadata: { sceneCount: 1 },
+        }, () => searchPexelsVideos(scene.broll_search_term, 5)),
+      })));
+      const missingAssets = withAssets.find(item => item.assets.length < 5);
+      if (missingAssets) throw new Error("Pexels returned fewer than 5 usable visuals.");
+    }
     await prisma.$transaction(async (tx) => {
       const existing = await tx.projectScene.findMany({ where: { projectId: project.id }, select: { id: true } });
       if (existing.length) await tx.sceneAsset.deleteMany({ where: { sceneId: { in: existing.map((item) => item.id) } } });
@@ -218,6 +241,7 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
       for (const item of withAssets) {
         const createdScene = await tx.projectScene.create({
           data: {
+            ...(item.scene.id ? { id: item.scene.id } : {}),
             projectId: project.id,
             sceneOrder: item.scene.scene_order,
             title: item.scene.title,
@@ -232,6 +256,7 @@ router.post("/projects/:id/generate-scenes", async (req, res) => {
               audienceLevel: project.audienceLevel,
               targetDurationSeconds: item.scene.duration_seconds,
               customized: false,
+              ...(item.visualPlan ? { sceneVisualPlan: item.visualPlan } : {}),
               voice: narrationVoice.source === "clone"
                 ? { source: "clone", id: narrationVoice.id, engine: narrationVoice.engine, voiceId: narrationVoice.voiceId, language: narrationVoice.language }
                 : { source: "preset", id: narrationVoice.id, engine: narrationVoice.engine, voice: narrationVoice.voice, language: narrationVoice.language },
@@ -482,6 +507,9 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
   try {
     const scene = await loadOwnedScene(req.params.sceneId);
     if (!scene) return res.status(404).json({ error: "Scene not found." });
+    if (scene.project.signal?.category === "WEBSITE_MARKETING" && scene.project.status === "rendering") {
+      return res.status(409).json({ error: "Finish the active render before editing website scenes." });
+    }
 
     const saved = normalizeCustomization(scene.customization);
     const framework = req.body?.framework || saved.framework || scene.project.selectedFramework || "how-it-works";
@@ -542,12 +570,25 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
     });
 
     const refreshVisuals = req.body?.refreshVisuals !== false;
-    const assets = refreshVisuals ? await searchPexelsVideos(rewritten.broll_search_term, 5) : scene.assets;
-    if (refreshVisuals && assets.length < 5) {
-      throw new Error("Pexels returned fewer than 5 usable visuals for this rewritten scene.");
+    const isMarketing = scene.project.signal?.category === "WEBSITE_MARKETING";
+    let visualPlan = saved.sceneVisualPlan || null;
+    let assets = scene.assets;
+    if (refreshVisuals && isMarketing) {
+      const image = await createWebsiteBrandedVisual({
+        project: scene.project, sceneId: scene.id, scene: rewritten,
+        sceneIndex: Math.max(0, scene.sceneOrder - 1),
+        sceneCount: siblingScenes.length,
+        variant: Number(visualPlan?.variant || 0) + 1,
+      });
+      visualPlan = image.visualPlan;
+      assets = [image];
+    } else if (refreshVisuals) {
+      assets = await searchPexelsVideos(rewritten.broll_search_term, 5);
+      if (assets.length < 5) throw new Error("Pexels returned fewer than 5 usable visuals for this rewritten scene.");
     }
 
     const customization = { ...saved, customized: true, framework, tone, audienceLevel, targetDurationSeconds };
+    if (isMarketing && visualPlan) customization.sceneVisualPlan = visualPlan;
     customization.voice = voice.source === "clone"
       ? { source: "clone", id: voice.id, name: voice.name, engine: voice.engine, voiceId: voice.voiceId, language: voice.language }
       : { source: "preset", id: voice.id, name: voice.name, engine: voice.engine, voice: voice.voice, language: voice.language };
@@ -602,10 +643,70 @@ router.post("/scenes/:sceneId/rewrite", async (req, res) => {
   }
 });
 
+// Upgrade existing Website-to-Video projects without regenerating narration,
+// spending new TTS calls, or replacing the selected marketing concept.
+router.post("/projects/:id/regenerate-brand-visuals", async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: req.params.id },
+      include: { signal: true, scenes: { orderBy: { sceneOrder: "asc" } } },
+    });
+    if (!project) return res.status(404).json({ error: "Project not found." });
+    if (project.signal?.category !== "WEBSITE_MARKETING") {
+      return res.status(409).json({ error: "Brand visual regeneration is only for website marketing projects." });
+    }
+    if (project.status === "rendering") {
+      return res.status(409).json({ error: "Finish the active render before replacing visuals." });
+    }
+    if (!project.scenes.length) return res.status(409).json({ error: "Generate a storyboard before refreshing visuals." });
+    const generated = [];
+    for (const [index, scene] of project.scenes.entries()) {
+      const visual = await createWebsiteBrandedVisual({
+        project, sceneId: scene.id, scene, sceneIndex: index,
+        sceneCount: project.scenes.length,
+        variant: Number(scene.customization?.sceneVisualPlan?.variant || 0) + 1,
+      });
+      generated.push({ scene, visual });
+    }
+    await prisma.$transaction(async tx => {
+      for (const { scene, visual } of generated) {
+        await tx.sceneAsset.deleteMany({ where: { sceneId: scene.id } });
+        await tx.sceneAsset.create({
+          data: { sceneId: scene.id, videoUrl: visual.videoUrl,
+            thumbnailUrl: visual.thumbnailUrl, sortOrder: 0, isSelected: true },
+        });
+        await tx.projectScene.update({
+          where: { id: scene.id },
+          data: { customization: {
+            ...normalizeCustomization(scene.customization),
+            sceneVisualPlan: visual.visualPlan,
+          } },
+        });
+      }
+      await tx.project.update({
+        where: { id: project.id },
+        data: { renderUrl: null, status: "storyboard" },
+      });
+    });
+    const refreshed = await loadProjectScenes(project.id);
+    return res.json({
+      projectId: project.id, visualsUpdated: generated.length,
+      scenes: refreshed.scenes.map(scene => publicScene({ ...scene, projectId: project.id })),
+      policy: "website_brand_first_no_stock",
+    });
+  } catch (error) {
+    console.error("Website branded visual regeneration failed", error?.code || error?.name);
+    return res.status(500).json({ error: "Unable to regenerate website branding artwork. Check image-generation logs." });
+  }
+});
+
 router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
   try {
     const scene = await loadOwnedScene(req.params.sceneId);
     if (!scene) return res.status(404).json({ error: "Scene not found." });
+    if (scene.project.signal?.category === "WEBSITE_MARKETING" && scene.project.status === "rendering") {
+      return res.status(409).json({ error: "Finish the active render before replacing branded visuals." });
+    }
 
     const query = String(req.body?.query || scene.brollSearchTerm || scene.title || "technology")
       .trim()
@@ -613,8 +714,21 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
       .slice(0, 120);
     if (!query) return res.status(400).json({ error: "A visual search phrase is required." });
 
-    const assets = await searchPexelsVideos(query, 5);
-    if (assets.length < 5) throw new Error("Pexels returned fewer than 5 usable visuals for this scene.");
+    const isMarketing = scene.project.signal?.category === "WEBSITE_MARKETING";
+    let assets, visualPlan = null;
+    if (isMarketing) {
+      const count = await prisma.projectScene.count({ where: { projectId: scene.projectId } });
+      const generated = await createWebsiteBrandedVisual({
+        project: scene.project, sceneId: scene.id, scene,
+        sceneIndex: Math.max(0, scene.sceneOrder - 1), sceneCount: count,
+        variant: Number(scene.customization?.sceneVisualPlan?.variant || 0) + 1,
+      });
+      assets = [generated];
+      visualPlan = generated.visualPlan;
+    } else {
+      assets = await searchPexelsVideos(query, 5);
+      if (assets.length < 5) throw new Error("Pexels returned fewer than 5 usable visuals for this scene.");
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.sceneAsset.deleteMany({ where: { sceneId: scene.id } });
@@ -627,7 +741,12 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
           isSelected: index === 0,
         })),
       });
-      await tx.projectScene.update({ where: { id: scene.id }, data: { brollSearchTerm: query } });
+      await tx.projectScene.update({
+        where: { id: scene.id },
+        data: isMarketing
+          ? { customization: { ...normalizeCustomization(scene.customization), sceneVisualPlan: visualPlan } }
+          : { brollSearchTerm: query },
+      });
       await tx.project.update({ where: { id: scene.projectId }, data: { renderUrl: null, status: "storyboard" } });
     });
 

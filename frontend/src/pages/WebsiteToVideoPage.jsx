@@ -165,6 +165,14 @@ export default function WebsiteToVideoPage() {
             <p className="wtv-site-headline"><span>Website headline</span>{report.originalHeading}</p>}
           <p>{report.description || "No website description was published."}</p>
           <Source url={report.url}>Visit analyzed website ↗</Source>
+          {report.brandKit && <div className="wtv-brandkit-summary">
+            <strong>Brand visual sources</strong>
+            <span>{report.brandKit.assets?.length || 0} public website image candidates</span>
+            <span>{report.brandKit.paletteSource === "website_meta_theme_color"
+              ? "Website theme color detected" : "Neutral fallback palette — brand colors need review"}</span>
+            <span>Branded scene artwork · No automatic Pexels fallback</span>
+            <small>Website assets and logos require permission before commercial publishing.</small>
+          </div>}
         </div>
         <div className="wtv-stats">
           <div><strong>{report.pagesScanned}</strong><span>Pages scanned</span></div>

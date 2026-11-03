@@ -1,4 +1,5 @@
 import { fetchPublicPage, normalizeWebsiteUrl, robotsAllowed, safeInternalUrl } from "./websiteSafeFetch.js";
+import { createWebsiteBrandKit } from "./websiteBrandKit.js";
 
 const PAGE_LIMIT = 20;
 const unique = values => [...new Set(values.filter(Boolean))];
@@ -52,7 +53,7 @@ export function extractWebsitePage(html, url) {
     if(!src)return null;
     try{const dest=new URL(src,url);return ["https:","http:"].includes(dest.protocol)?dest.href:null;}catch{return null;}
   })).slice(0,10);
-  return {url,title,siteName:meta(safeHtml,"og:site_name")||meta(safeHtml,"application-name"),description:meta(safeHtml,"description")||meta(safeHtml,"og:description"),
+  return {url,title,siteName:meta(safeHtml,"og:site_name")||meta(safeHtml,"application-name"),brandColor:meta(safeHtml,"theme-color"),description:meta(safeHtml,"description")||meta(safeHtml,"og:description"),
     category,headings,highlights,paragraphs:paragraphs.slice(0,14),prices,offers,emails,phones,social,images,links,
     textPreview:mainText.slice(0,1500)};
 }
@@ -90,6 +91,7 @@ export function assembleWebsiteReport(url,pages,failures=[]) {
   if(report.offers.length)ideas.push({id:"verified-offer",title:"Published offer spotlight",angle:"Explain a published offer; confirm availability, conditions and expiration first.",evidenceUrls:unique(report.offers.map(x=>x.sourceUrl)),durationSeconds:15});
   if(report.faq.length)ideas.push({id:"common-questions",title:"Frequently asked questions",angle:"Answer common questions using the business's published information.",evidenceUrls:unique(report.faq.map(x=>x.sourceUrl)),durationSeconds:30});
   report.videoIdeas=ideas.slice(0,5);
+  report.brandKit=createWebsiteBrandKit(report);
   return report;
 }
 
