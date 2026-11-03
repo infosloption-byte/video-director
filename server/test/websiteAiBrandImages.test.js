@@ -340,9 +340,19 @@ test("website API offers AI scene images only explicitly, with server feature ga
   assert.match(source,/visualMode = req\.body\?\.visualMode === "ai"/);
   assert.match(source,/createWebsiteMarketingVisual/);
   assert.match(source,/AI_IMAGES_DISABLED/);
-  const bulk=source.slice(source.indexOf('router.post("/projects/:id/regenerate-brand-visuals"'),
-    source.indexOf('router.post("/scenes/:sceneId/regenerate-assets"'));
+  const bulkStart=source.indexOf('router.post("/projects/:id/regenerate-brand-visuals"');
+  // SDXL now has its own job-finalization handler between the local bulk
+  // refresh route and the per-scene image route. Bound the assertion to the
+  // exact local refresh handler instead of catching those later SDXL calls.
+  const sdxlStart=source.indexOf("// A finished GPU job is imported only when the scene owner polls for it.",bulkStart);
+  assert.ok(bulkStart>=0 && sdxlStart>bulkStart,"expected separate local refresh and SDXL sections");
+  const bulk=source.slice(bulkStart,sdxlStart);
+  assert.match(bulk,/createWebsiteBrandedVisual/);
   assert.doesNotMatch(bulk,/createWebsiteMarketingVisual/);
+  const sdxl=source.slice(sdxlStart,source.indexOf('router.post("/scenes/:sceneId/regenerate-assets"',sdxlStart));
+  assert.match(sdxl,/getSdxlSceneImageArtifact/);
+  assert.match(sdxl,/createWebsiteMarketingVisual/);
+  assert.match(sdxl,/fallbackOnAiFailure:false/);
 });
 test("FFmpeg brand fallback does not embed duplicate headings, CTAs or subtitles",async()=>{
   const source=await readFile(new URL("../src/services/websiteBrandedVisualService.js",import.meta.url),"utf8");
