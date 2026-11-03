@@ -17,11 +17,11 @@ test("storyboard keeps existing marketing narration and offers bulk stock replac
   assert.match(board,/Replace all stock with branded visuals/);
   assert.match(board,/Original narration and timing were preserved\./);
   assert.match(board,/scene\.assets\?\.length/);
-  assert.match(board,/Website branded visual/);
+  assert.match(board,/Local branded layout/);
 });
 test("single scene customization uses brand-specific visual copy",async()=>{
   const editor=await read("components/SceneCustomizePanel.jsx");
-  assert.match(editor,/Regenerate branded marketing artwork/);
+  assert.match(editor,/Website marketing visuals/);
   assert.match(editor,/No Pexels fallback/);
   assert.match(editor,/scene\.customization\?\.sceneVisualPlan/);
 });
