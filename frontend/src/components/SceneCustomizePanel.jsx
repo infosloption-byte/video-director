@@ -393,12 +393,12 @@ function SceneCustomizeDraft({
             {aiImagesEnabled && isWebsiteMarketing && <button
               type="button" className="scene-customize__refresh"
               onClick={() => void onRegenerateAiVisuals?.()} disabled={Boolean(busy)}
-              title="Explicitly request one paid Gemini image; it may incur provider charges"
+              title="Request an illustrative scene image from the configured AI provider. Existing narration remains unchanged."
             >{busy === "visuals" ? "Generating…" : "Generate AI brand image"}</button>}
           </div>
 
           <div className="scene-customize__visual-group">
-            <span className="scene-customize__visual-label">{isWebsiteMarketing ? (scene.customization?.sceneVisualPlan?.aiStatus === "generated" ? "GEMINI AI ARTWORK · ILLUSTRATIVE" : "LOCAL WEBSITE BRAND ARTWORK · NOT AI") : "VISUALS · SELECT ONE"}</span>
+            <span className="scene-customize__visual-label">{isWebsiteMarketing ? (scene.customization?.sceneVisualPlan?.aiStatus === "generated" ? (scene.customization?.sceneVisualPlan?.imageProvider === "sdxl_local" ? "LOCAL SDXL AI ARTWORK · ILLUSTRATIVE" : "GEMINI AI ARTWORK · ILLUSTRATIVE") : "LOCAL WEBSITE BRAND ARTWORK · NOT AI") : "VISUALS · SELECT ONE"}</span>
             <div className="scene-customize__visual-strip">
               {(Array.isArray(scene.assets) ? scene.assets.slice(0, 5) : []).map((asset, index) => (
                 <button
