@@ -127,3 +127,29 @@ Backend: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js 
 Frontend: npm run test:unit && npm run build
 
 After deployment, reopen the previously completed Coderra analysis. The main heading should now be Coderra instead of the repeated homepage headline. Select AISO or another sourced product concept, verify the existing Setup screen opens, then confirm the generated script stays focused on that concept. Claims remain business-published and must be reviewed before advertising.
+
+
+## Batch 2B.1 — brand-grounded marketing visual production
+
+Website marketing projects now use public site image candidates plus generated branded design cards. Normal Signals and Own Topic continue using Pexels. No schema migration.
+
+- Website analysis now captures a brandKit containing the site name, public theme color where present, same-site PNG/JPEG/WebP candidates, page attribution, logo candidates and rights warnings.
+- Previously completed reports derive brandKit on read without recrawling.
+- Selected ideas copy brandKit into researchSources.websiteMarketing, with visualSourcePolicy=website_brand_first and allowStock=false.
+- Generate Scenes creates one local 720x1280 PNG per website scene using FFmpeg text and shape layers and, when validated, a same-site product image. If that image is unusable, draw a branded layout without Pexels.
+- Protected render-asset PNG files live under storage/render-assets/<projectId>/scenes/<sceneId>.png and are referenced in existing SceneAsset URL fields. Remotion renders these with Img; regular stock clips still use OffthreadVideo.
+- scene.customization.sceneVisualPlan records the brand, source page, artwork mode, stockUsed=false, palette provenance and asset-rights warning.
+- Scene rewrite and Regenerate Visuals keep the website brand-first policy, including for existing marketing storyboards.
+- Website research UI shows image candidate counts and whether theme colors were observed or the neutral fallback palette is in use.
+
+### Deliberate limits
+
+This batch produces programmatically composed promotional still images, NOT AI-model-generated images or full browser screenshots. AI-image variants and safe isolated browser screenshot capture are future work. A public URL does not prove commercial usage rights; the customer must review claims and assets before publishing.
+
+### Validation
+
+Backend: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/websiteBatch2A.test.js test/websiteVideoProjectCreate.test.js test/websiteBrandVisuals.test.js test/generationPerformanceMonitoring.test.js
+FFmpeg smoke (isolated API image): node scripts/smokeWebsiteBrandedVisual.js
+Frontend: npm run test:unit and npm run build
+
+After deployment, open the existing Coderra CommOps storyboard. Use Regenerate Visuals on a scene, confirm the branded still appears without stock, then verify the preview and rendered MP4 use the same image. Keep research, website analyses and both render queues idle during API redeployment.
