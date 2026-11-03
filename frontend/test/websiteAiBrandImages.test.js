@@ -83,6 +83,14 @@ test("failed paid image requests show their reason and keep prior scene artwork"
   assert.match(page, /Your previous scene image remains unchanged/);
 });
 
+test("preview warns when video would still use non-AI placeholder layouts", async () => {
+  const page = await read("pages/StoryboardPage.jsx");
+  assert.match(page, /tab === "Preview"/);
+  assert.match(page, /aiPendingCount > 0/);
+  assert.match(page, /still use local placeholders instead of Gemini imagery/);
+  assert.match(page, /Go to storyboard to generate AI imagery/);
+});
+
 test("Brand-first visuals avoid text collisions with Remotion caption layers", async () => {
   const page = await read("pages/StoryboardPage.jsx");
   assert.match(page, /Brand labels and narration captions remain separate/);
