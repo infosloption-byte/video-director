@@ -63,6 +63,13 @@ test("image conversion and portrait-format failures remain understandable to use
   assert.match(websiteAiFallbackReason("BAD_IMAGE_OUTPUT"), /validated after conversion/);
 });
 
+test("failed paid image requests show their reason and keep prior scene artwork", async () => {
+  const page = await read("pages/StoryboardPage.jsx");
+  assert.match(page, /body\?\.visualMode === "ai" && data\.code/);
+  assert.match(page, /websiteAiFallbackReason\(data\.code\)/);
+  assert.match(page, /Your previous scene image remains unchanged/);
+});
+
 test("Brand-first visuals avoid text collisions with Remotion caption layers", async () => {
   const page = await read("pages/StoryboardPage.jsx");
   assert.match(page, /Brand labels and narration captions remain separate/);
