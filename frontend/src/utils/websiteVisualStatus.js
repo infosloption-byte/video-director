@@ -20,6 +20,23 @@ export function websiteAiFallbackReason(code) {
   return FALLBACK_REASONS[code] || FALLBACK_REASONS.IMAGE_GENERATION_UNAVAILABLE;
 }
 
+export function websiteAiQuotaExplanation({ code, quotaReason, retryAfterSeconds } = {}) {
+  if (code !== "IMAGE_RATE_LIMITED") return websiteAiFallbackReason(code);
+  const explanation = quotaReason === "FREE_TIER_ZERO"
+    ? "Google reports zero free-tier quota for this image model. Enable paid Gemini API billing on the project associated with your API key."
+    : quotaReason === "DAILY_LIMIT"
+    ? "Gemini daily image quota exhausted. Check your project's model quota in Google AI Studio; daily quotas reset at midnight Pacific time."
+    : quotaReason === "MINUTE_LIMIT"
+    ? "Gemini per-minute image quota exceeded. Reduce image requests and check the model's active limits in Google AI Studio."
+    : quotaReason === "SPEND_LIMIT"
+    ? "Gemini project spending limit reached. Review project billing, credits and spend caps in Google AI Studio."
+    : "Gemini rate limit or quota reached. This image model has no free API tier; check the project billing tier and image-model quotas in Google AI Studio.";
+  const retry = Number(retryAfterSeconds);
+  return explanation + (quotaReason !== "FREE_TIER_ZERO" &&
+    Number.isInteger(retry) && retry > 0 && retry <= 86400
+    ? " Google suggested retrying after " + retry + " seconds." : "");
+}
+
 export function websiteVisualStatus(plan) {
   if (plan?.aiStatus === "generated") {
     return "Gemini AI-generated illustration" + (plan.imageModel ? " (" + plan.imageModel + ")" : "") + ".";
