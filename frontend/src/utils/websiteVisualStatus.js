@@ -14,6 +14,17 @@ const FALLBACK_REASONS = {
   BAD_IMAGE_ASPECT_RATIO: "Gemini returned an image with an incorrect aspect ratio.",
   BAD_IMAGE_OUTPUT: "The generated image could not be validated after conversion.",
   IMAGE_GENERATION_UNAVAILABLE: "AI generation or image processing failed; check the API logs.",
+  SDXL_NOT_CONFIGURED: "Local SDXL service is not configured; ask an operator to enable the private GPU connection.",
+  SDXL_NOT_READY: "Local SDXL is not ready. Shared GPU scheduling and model admission must be approved first.",
+  SDXL_JOB_REQUIRED: "Local SDXL requires a completed authenticated GPU image job.",
+  SDXL_AUTH_FAILED: "The private GPU service rejected the configured service credentials.",
+  SDXL_QUEUE_FULL: "The GPU image queue is full. Try again after other jobs complete.",
+  SDXL_JOB_MISSING: "The requested image job is no longer available. Start a new image request.",
+  SDXL_UNAVAILABLE: "The local SDXL service is unreachable. Existing artwork has been kept.",
+  SDXL_TIMEOUT: "The private SDXL service did not respond before its request timeout.",
+  SDXL_JOB_FAILED: "The SDXL model failed to generate an image. Existing artwork has been kept.",
+  SDXL_INVALID_OUTPUT: "The SDXL image artifact is invalid; no scene artwork was replaced.",
+  SDXL_INVALID_RESPONSE: "The private SDXL service returned an unexpected job response.",
 };
 
 export function websiteAiFallbackReason(code) {
@@ -39,7 +50,7 @@ export function websiteAiQuotaExplanation({ code, quotaReason, retryAfterSeconds
 
 export function websiteVisualStatus(plan) {
   if (plan?.aiStatus === "generated") {
-    return "Gemini AI-generated illustration" + (plan.imageModel ? " (" + plan.imageModel + ")" : "") + ".";
+    return (plan.imageProvider === "sdxl_local" ? "Local SDXL AI-generated illustration" : "Gemini AI-generated illustration") + (plan.imageModel ? " (" + plan.imageModel + ")" : "") + ".";
   }
   if (plan?.aiStatus === "fallback") {
     return "AI image not generated: " + websiteAiFallbackReason(plan.aiFallbackCode) +
