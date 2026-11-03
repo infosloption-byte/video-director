@@ -15,6 +15,13 @@ import "../components/SetupPanel.css";
 import "../pages/ResearchStageUX.css";
 import "./StoryboardPage.css";
 
+// Account/model/quota failures are shared by all scenes. Stop the paid batch
+// instead of repeatedly submitting requests that cannot succeed.
+const AI_BATCH_STOP_CODES = new Set([
+  "IMAGE_RATE_LIMITED", "IMAGE_AUTH_FAILED", "IMAGE_MODEL_UNAVAILABLE",
+  "IMAGE_PROVIDER_REJECTED", "AI_IMAGES_DISABLED",
+]);
+
 const TABS = [
   { n: "00", label: "Research" },
   { n: "01", label: "Setup" },
@@ -371,11 +378,13 @@ export default function StoryboardPage() {
     setSceneEditError("");
     setAiVisualNotice("");
     let generated = 0, fallback = 0, done = 0;
+    let stopped = false;
     const fallbackDetails = [];
     setAiVisualProgress({ done:0, total:scenes.length });
     for (const scene of scenes) {
       const result = await regenerateSceneVisuals(scene.id, "", "ai", { quiet: true });
       if (!result) {
+        stopped = true;
         setAiVisualNotice("AI artwork stopped after " + done + " scenes. Earlier visual changes were saved.");
         break;
       }
@@ -387,8 +396,15 @@ export default function StoryboardPage() {
       }
       done++;
       setAiVisualProgress({ done, total:scenes.length });
+      if (plan?.aiStatus === "fallback" && AI_BATCH_STOP_CODES.has(plan.aiFallbackCode)) {
+        stopped = true;
+        setAiVisualNotice("AI generation stopped after scene " + scene.sceneOrder +
+          " to avoid repeated paid requests: " + websiteAiFallbackReason(plan.aiFallbackCode) +
+          " Completed " + generated + " Gemini images and " + fallback + " local fallbacks.");
+        break;
+      }
     }
-    if (done === scenes.length) {
+    if (!stopped && done === scenes.length) {
       setAiVisualNotice(generated + " Gemini AI scene images created; " + fallback +
         " used local FFmpeg fallback. Original narration and timing were preserved." +
         (fallbackDetails.length ? " " + fallbackDetails.slice(0, 3).join(" ") +
