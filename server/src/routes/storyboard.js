@@ -4,7 +4,9 @@ import { prisma } from "../db/client.js";
 import { generateStoryboard } from "../services/storyboardService.js";
 import { loadResearchCorpus } from "../services/researchCorpusService.js";
 import { searchPexelsVideos } from "../services/pexelsService.js";
-import { createWebsiteBrandedVisual } from "../services/websiteBrandedVisualService.js";
+import { createWebsiteBrandedVisual, resolveMarketingBrandKit } from "../services/websiteBrandedVisualService.js";
+import { planWebsiteSceneVisual } from "../services/websiteBrandKit.js";
+import { submitSdxlSceneImage, getSdxlSceneImageStatus, getSdxlSceneImageArtifact } from "../services/websiteSdxlImageService.js";
 import { createWebsiteMarketingVisual, marketingImageAvailable } from "../services/websiteMarketingVisualService.js";
 import { measureGeneration } from "../services/generationTelemetry.js";
 import { getTtsDiagnostics, synthesizeSpeech, narrationFileExists } from "../services/ttsService.js";
@@ -702,6 +704,97 @@ router.post("/projects/:id/regenerate-brand-visuals", async (req, res) => {
   }
 });
 
+// A finished GPU job is imported only when the scene owner polls for it.
+// This avoids reverse-proxy timeouts on >60-second T4 inference requests.
+// The pending job ID is persisted in scene customization, so reconnects can
+// resume without paying for / scheduling the same image again.
+const sdxlFinalizations = new Map();
+const SDXL_PENDING_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+function pendingSdxlJob(scene) {
+  const job = scene?.customization?.sdxlImageJob;
+  if (!/^[0-9a-f]{32}$/.test(String(job?.id || ""))) return null;
+  if (!Number.isFinite(Date.parse(job.requestedAt)) ||
+    Date.now() - Date.parse(job.requestedAt) > SDXL_PENDING_MAX_AGE_MS ||
+    Date.parse(job.requestedAt) > Date.now() + 60000) return null;
+  return job;
+}
+function sdxlSafeError(error) {
+  const code = [
+    "SDXL_NOT_CONFIGURED", "SDXL_NOT_READY", "SDXL_AUTH_FAILED",
+    "SDXL_QUEUE_FULL", "SDXL_JOB_MISSING", "SDXL_UNAVAILABLE",
+    "SDXL_TIMEOUT", "SDXL_JOB_FAILED", "SDXL_INVALID_OUTPUT",
+    "SDXL_INVALID_RESPONSE", "SDXL_JOB_REQUIRED",
+    "BAD_IMAGE_DIMENSIONS", "BAD_IMAGE_ASPECT_RATIO", "BAD_IMAGE_OUTPUT",
+    "IMAGE_GENERATION_UNAVAILABLE",
+  ].includes(error?.code) ? error.code : "SDXL_UNAVAILABLE";
+  return { code, error: "Local SDXL image generation could not complete. Your previous scene image was preserved." };
+}
+
+async function finishOwnedSdxlJob(sceneId, jobId) {
+  const scene = await loadOwnedScene(sceneId);
+  if (!scene || !pendingSdxlJob(scene) || scene.customization.sdxlImageJob.id !== jobId)
+    throw Object.assign(new Error("SDXL job is no longer current."),{code:"SDXL_JOB_MISSING"});
+  if (scene.project.status === "rendering")
+    throw Object.assign(new Error("Cannot replace scene during rendering."),{code:"SDXL_NOT_READY"});
+  const count = await prisma.projectScene.count({where:{projectId:scene.projectId}});
+  const artifact = await getSdxlSceneImageArtifact(jobId);
+  // Explicitly inject ONLY authenticated, validated GPU PNG output. The SDXL
+  // branch never calls Gemini and never uploads website reference images.
+  const generated = await createWebsiteMarketingVisual({
+    project:scene.project,sceneId:scene.id,scene,
+    sceneIndex:Math.max(0,scene.sceneOrder-1),sceneCount:count,
+    variant:Number(scene.customization.sdxlImageJob.variant) || 0,
+    visualMode:"ai",fallbackOnAiFailure:false,
+    aiGenerate:async()=>artifact,
+  });
+  await prisma.$transaction(async tx => {
+    const current = await tx.projectScene.findUnique({where:{id:scene.id}});
+    if (current?.customization?.sdxlImageJob?.id !== jobId)
+      throw Object.assign(new Error("SDXL job was superseded."),{code:"SDXL_JOB_MISSING"});
+    await tx.sceneAsset.deleteMany({where:{sceneId:scene.id}});
+    await tx.sceneAsset.create({
+      data:{sceneId:scene.id,videoUrl:generated.videoUrl,
+        thumbnailUrl:generated.thumbnailUrl,sortOrder:0,isSelected:true},
+    });
+    const customization=normalizeCustomization(current.customization);
+    delete customization.sdxlImageJob;
+    await tx.projectScene.update({where:{id:scene.id},data:{customization:{
+      ...customization,sceneVisualPlan:generated.visualPlan,
+    }}});
+    await tx.project.update({where:{id:scene.projectId},
+      data:{renderUrl:null,status:"storyboard"}});
+  });
+  return publicScene({...await loadOwnedScene(scene.id),projectId:scene.projectId});
+}
+
+router.get("/scenes/:sceneId/ai-image-jobs/:jobId", async(req,res)=>{
+  try {
+    const scene=await loadOwnedScene(req.params.sceneId);
+    if (!scene || scene.project.signal?.category !== "WEBSITE_MARKETING")
+      return res.status(404).json({error:"Scene not found."});
+    if (marketingImageAvailable().provider !== "sdxl_local")
+      return res.status(409).json({code:"SDXL_NOT_CONFIGURED",error:"Local image provider is not selected."});
+    const active=pendingSdxlJob(scene);
+    if (!active || active.id !== req.params.jobId)
+      return res.status(404).json({code:"SDXL_JOB_MISSING",error:"Active image job not found."});
+    const status=await getSdxlSceneImageStatus(active.id);
+    if (status.status !== "finished") return res.status(202).json(status);
+    let task=sdxlFinalizations.get(active.id);
+    if (!task) {
+      task=finishOwnedSdxlJob(scene.id,active.id);
+      sdxlFinalizations.set(active.id,task);
+      task.finally(()=>{
+        if(sdxlFinalizations.get(active.id)===task)sdxlFinalizations.delete(active.id);
+      }).catch(()=>{});
+    }
+    const updated=await task;
+    return res.json({status:"finished",progress:100,scene:updated,assetCount:1});
+  } catch(error) {
+    console.warn("[storyboard] SDXL job status failed",{code:sdxlSafeError(error).code});
+    return res.status(error?.code === "SDXL_NOT_READY" ? 409 : 502).json(sdxlSafeError(error));
+  }
+});
+
 router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
   try {
     const scene = await loadOwnedScene(req.params.sceneId);
@@ -721,9 +814,29 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
     if (isMarketing) {
       const count = await prisma.projectScene.count({ where: { projectId: scene.projectId } });
       const visualMode = req.body?.visualMode === "ai" ? "ai" : "brand";
-      if (visualMode === "ai" && !marketingImageAvailable().enabled) {
+      const imageCapability=marketingImageAvailable();
+      if (visualMode === "ai" && !imageCapability.enabled) {
         return res.status(409).json({ code: "AI_IMAGES_DISABLED",
           error: "AI marketing images are not enabled on this server. Use branded layouts instead." });
+      }
+      if (visualMode === "ai" && imageCapability.provider === "sdxl_local") {
+        const pending=pendingSdxlJob(scene);
+        if (pending) {
+          return res.status(202).json({jobId:pending.id,
+            status:"queued",provider:"sdxl_local",resumed:true});
+        }
+        const campaign=scene.project.researchSources?.websiteMarketing;
+        const brandKit=await resolveMarketingBrandKit(scene.project);
+        const variant=Number(scene.customization?.sceneVisualPlan?.variant || 0)+1;
+        const plan=planWebsiteSceneVisual({campaign,brandKit,scene,
+          sceneIndex:Math.max(0,scene.sceneOrder-1),sceneCount:count,variant});
+        const job=await submitSdxlSceneImage({campaign,brandKit,scene,plan});
+        await prisma.projectScene.update({where:{id:scene.id},data:{customization:{
+          ...normalizeCustomization(scene.customization),
+          sdxlImageJob:{id:job.jobId,requestedAt:new Date().toISOString(),variant},
+        }}});
+        return res.status(202).json({jobId:job.jobId,status:job.status,
+          provider:"sdxl_local"});
       }
       const generated = await createWebsiteMarketingVisual({
         project: scene.project, sceneId: scene.id, scene,
@@ -769,6 +882,10 @@ router.post("/scenes/:sceneId/regenerate-assets", async (req, res) => {
       "BAD_IMAGE_DIMENSIONS", "BAD_IMAGE_ASPECT_RATIO", "BAD_IMAGE_OUTPUT",
       "IMAGE_GENERATION_UNAVAILABLE",
     ].includes(error?.code) ? error.code : null;
+    if (String(error?.code || "").startsWith("SDXL_")) {
+      const safe=sdxlSafeError(error);
+      return res.status(error?.code === "SDXL_QUEUE_FULL" ? 429 : 502).json(safe);
+    }
     console.error("[storyboard] Scene visual regeneration failed", { code: safeCode || "VISUAL_FAILED", name: error?.name });
     if (safeCode) {
       const quotaReason = ["FREE_TIER_ZERO", "SPEND_LIMIT", "DAILY_LIMIT", "MINUTE_LIMIT"].includes(error?.quotaReason)
