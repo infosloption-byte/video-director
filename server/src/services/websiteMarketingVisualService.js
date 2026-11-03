@@ -104,11 +104,26 @@ export async function createWebsiteMarketingVisual({
     // Never let a paid provider interruption re-introduce irrelevant Pexels.
     // Preserve generated narration and surface a specific fallback indicator.
     const fallback = await brandGenerate({ ...baseArgs, brandKit });
-    const safeCode = ["IMAGE_RATE_LIMITED","AI_IMAGES_DISABLED","BAD_IMAGE_DIMENSIONS"].includes(error?.code)
+    const supportedFailureCodes = new Set([
+      "IMAGE_RATE_LIMITED", "AI_IMAGES_DISABLED", "BAD_IMAGE_DIMENSIONS",
+      "IMAGE_REQUEST_REJECTED", "IMAGE_INVALID_API_KEY", "IMAGE_ACCESS_DENIED",
+      "IMAGE_MODEL_UNAVAILABLE", "IMAGE_PROVIDER_UNAVAILABLE", "IMAGE_PROVIDER_ERROR",
+      "IMAGE_PROVIDER_TIMEOUT", "IMAGE_EMPTY_OUTPUT", "IMAGE_NETWORK_ERROR",
+    ]);
+    const safeCode = supportedFailureCodes.has(error?.code)
       ? error.code : "IMAGE_GENERATION_UNAVAILABLE";
+    // Log only status/code and identifiers — NEVER log prompts, provider
+    // response bodies, API keys, source page text, or uploaded brand imagery.
+    console.warn("[website-ai-image] AI illustration unavailable; branded fallback used", {
+      projectId:project.id, sceneId, provider:"gemini",
+      model:env.VOXORA_MARKETING_IMAGE_MODEL || "gemini-3.1-flash-lite-image",
+      reason:safeCode,
+      httpStatus:Number.isInteger(error?.httpStatus) ? error.httpStatus : null,
+    });
     return { ...fallback, visualPlan:{
       ...fallback.visualPlan,
       stockUsed:false,
+      attemptedProvider:"gemini",
       aiStatus:"fallback",
       aiFallbackCode:safeCode,
     }};
