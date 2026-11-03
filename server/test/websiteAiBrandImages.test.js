@@ -230,6 +230,32 @@ test("provider failure yields a transparent branded fallback, without retrying s
     project,sceneId,scene,visualMode:"ai",brandKit:kit,env:{},
   }),/not enabled/);
 });
+test("explicit AI failure preserves the existing scene without producing a fallback image",async()=>{
+  const projectId=crypto.randomUUID(),sceneId=crypto.randomUUID();
+  const project={id:projectId,userId:"u",signal:{category:"WEBSITE_MARKETING"},
+    researchSources:{websiteMarketing:campaign}};
+  let fallbackCalls=0;
+  await assert.rejects(createWebsiteMarketingVisual({
+    project,sceneId,scene,visualMode:"ai",brandKit:kit,env:enabled,
+    fallbackOnAiFailure:false,
+    aiGenerate:async()=>{throw Object.assign(new Error("mock rejected"),{
+      code:"IMAGE_AUTH_FAILED",httpStatus:403,
+    });},
+    trace:async(_meta,work)=>work(),
+    brandGenerate:async()=>{fallbackCalls++;return {videoUrl:"/local.png"};},
+  }),error=>error.code==="IMAGE_AUTH_FAILED" && error.httpStatus===403 &&
+    /existing scene visual was preserved/.test(error.message));
+  assert.equal(fallbackCalls,0,"paid AI failure must not replace a previous scene image");
+});
+test("scene route refuses fallback for explicit Gemini calls and reports safe failure codes",async()=>{
+  const source=await readFile(new URL("../src/routes/storyboard.js",import.meta.url),"utf8");
+  const handler=source.slice(source.indexOf('router.post("/scenes/:sceneId/regenerate-assets"'),
+    source.indexOf("// Repair only missing narration;"));
+  assert.match(handler,/fallbackOnAiFailure: false/);
+  assert.match(handler,/safeCode === "IMAGE_RATE_LIMITED" \? 429 : 502/);
+  assert.match(handler,/previous scene image was preserved/);
+});
+
 test("website API offers AI scene images only explicitly, with server feature gate and no paid bulk surprises",async()=>{
   const source=await readFile(new URL("../src/routes/storyboard.js",import.meta.url),"utf8");
   assert.match(source,/router\.get\("\/marketing-visuals\/status"/);
