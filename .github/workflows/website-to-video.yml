@@ -25,11 +25,13 @@ on:
       - 'server/src/app.js'
       - 'frontend/src/pages/WebsiteToVideoPage.*'
       - 'frontend/src/pages/StoryboardPage.jsx'
+      - 'frontend/src/pages/StoryboardPage.css'
       - 'frontend/src/components/SceneCustomizePanel.jsx'
       - 'frontend/src/components/PlatformShell.jsx'
       - 'frontend/src/App.jsx'
       - 'frontend/test/websiteToVideoMvp.test.js'
       - 'frontend/test/websiteBatch2A.test.js'
+      - 'frontend/test/websiteBrandVisuals.test.js'
       - '.github/workflows/website-to-video.yml'
   workflow_dispatch:
 
