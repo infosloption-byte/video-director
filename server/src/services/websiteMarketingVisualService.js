@@ -11,9 +11,14 @@ import { planWebsiteSceneVisual } from "./websiteBrandKit.js";
 import { fetchPublicWebsiteImage } from "./websiteSafeFetch.js";
 import { WEBSITE_IMAGE_MODEL, generateWebsiteAiImage, isMarketingAiImagesEnabled, imageModelFromEnv } from "./websiteAiImageService.js";
 import { measureGeneration } from "./generationTelemetry.js";
+import { SDXL_MODEL, isSdxlImageEnabled } from "./websiteSdxlImageService.js";
 
 const execAsync = promisify(execFile);
 export function marketingImageAvailable(env = process.env) {
+  if (env.VOXORA_MARKETING_IMAGE_PROVIDER === "sdxl_local") {
+    return {enabled:isSdxlImageEnabled(env),provider:"sdxl_local",model:SDXL_MODEL,
+      paid:false,policy:"Local SDXL is illustrative artwork, not authentic website proof. No hosted image API calls."};
+  }
   const requestedModel = env.VOXORA_MARKETING_IMAGE_MODEL || WEBSITE_IMAGE_MODEL;
   let modelValid = true;
   try { imageModelFromEnv(env); } catch { modelValid = false; }
@@ -45,10 +50,15 @@ export async function createWebsiteMarketingVisual({
   }
   const baseArgs = { project,sceneId,scene,sceneIndex,sceneCount,variant,brandKit:suppliedKit };
   if (visualMode === "brand") return brandGenerate(baseArgs);
-  if (!isMarketingAiImagesEnabled(env)) {
+  const capability=marketingImageAvailable(env);
+  if (!capability.enabled) {
     const error = new Error("AI image generation is not enabled for this workspace.");
-    error.code = "AI_IMAGES_DISABLED";
+    error.code = capability.provider === "sdxl_local" ? "SDXL_NOT_CONFIGURED" : "AI_IMAGES_DISABLED";
     throw error;
+  }
+  if (capability.provider === "sdxl_local" && aiGenerate === generateWebsiteAiImage) {
+    throw Object.assign(new Error("Local SDXL requires an authenticated completed GPU job."),
+      {code:"SDXL_JOB_REQUIRED"});
   }
   const campaign = project.researchSources.websiteMarketing;
   const brandKit = suppliedKit || await resolveMarketingBrandKit(project);
@@ -61,7 +71,8 @@ export async function createWebsiteMarketingVisual({
     // Optional public website reference image: the fetcher checks DNS,
     // redirects and file signatures. Avoid downloading random third-party
     // assets or sending customer/private assets to a hosted model.
-    if (plan.sourceImageUrl && plan.sourceImageRole !== "logo") {
+    if (capability.provider === "gemini" &&
+        plan.sourceImageUrl && plan.sourceImageRole !== "logo") {
       try {
         const original = await imageFetch(plan.sourceImageUrl,campaign.analysisUrl);
         candidate = { bytes:original.bytes, mimeType:
@@ -70,8 +81,8 @@ export async function createWebsiteMarketingVisual({
     }
     const generated = await trace({
       stage:"storyboard", operation:"storyboard.website_ai_image",
-      projectId:project.id, userId:project.userId, provider:"gemini",
-      model:env.VOXORA_MARKETING_IMAGE_MODEL || "gemini-3.1-flash-lite-image",
+      projectId:project.id, userId:project.userId, provider:capability.provider,
+      model:capability.model,
       metadata: { sceneCount:1 },
     },() => aiGenerate({campaign,brandKit,scene,plan,referenceImage:candidate,env}));
     const sourcePath = tmpPath + "." + generated.extension;
@@ -119,9 +130,10 @@ export async function createWebsiteMarketingVisual({
       visualPlan:{
         ...plan,
         visualMode:"ai_generated_background",
-        visualSource:"gemini_generated_illustration",
-        imageProvider:"gemini",
-        imageModel:generated.model || "gemini-3.1-flash-lite-image",
+        visualSource:capability.provider === "sdxl_local"
+          ? "sdxl_generated_illustration" : "gemini_generated_illustration",
+        imageProvider:capability.provider,
+        imageModel:generated.model || capability.model,
         imageWidth:width, imageHeight:height,
         sourceImageUrl:candidate ? plan.sourceImageUrl : null,
         stockUsed:false, rightsReviewRequired:Boolean(candidate),
@@ -137,20 +149,24 @@ export async function createWebsiteMarketingVisual({
       "IMAGE_AUTH_FAILED", "IMAGE_MODEL_UNAVAILABLE", "IMAGE_PROVIDER_REJECTED",
       "IMAGE_PROVIDER_ERROR", "IMAGE_TIMEOUT", "IMAGE_NO_OUTPUT",
       "IMAGE_INVALID_OUTPUT", "IMAGE_INVALID_RESPONSE",
+      "SDXL_NOT_CONFIGURED", "SDXL_NOT_READY", "SDXL_JOB_REQUIRED",
+      "SDXL_AUTH_FAILED", "SDXL_QUEUE_FULL", "SDXL_JOB_MISSING",
+      "SDXL_UNAVAILABLE", "SDXL_TIMEOUT", "SDXL_JOB_FAILED",
+      "SDXL_INVALID_OUTPUT", "SDXL_INVALID_RESPONSE",
     ].includes(error?.code) ? error.code : "IMAGE_GENERATION_UNAVAILABLE";
     // Avoid logging raw provider errors, prompts, reference images, or API keys.
-    console.warn("[marketing-image] Gemini image generation failed", {
+    console.warn("[marketing-image] Marketing image generation failed", {
       projectId:project.id, sceneId, code:safeCode,
       providerHttpStatus:Number.isInteger(error?.httpStatus) ? error.httpStatus : null,
       quotaReason:["FREE_TIER_ZERO","SPEND_LIMIT","DAILY_LIMIT","MINUTE_LIMIT"].includes(error?.quotaReason)
         ? error.quotaReason : null,
       retryAfterSeconds:Number.isInteger(error?.retryAfterSeconds) ? error.retryAfterSeconds : null,
-      model:env.VOXORA_MARKETING_IMAGE_MODEL || "gemini-3.1-flash-lite-image",
+      model:capability.model,
     });
     if (!fallbackOnAiFailure) {
       // The API has not yet touched SceneAsset rows. A failed paid request
       // should not silently overwrite a previously good image or its provenance.
-      const failure = new Error("Gemini could not generate a usable image; the existing scene visual was preserved.");
+      const failure = new Error("The image provider could not generate a usable image; the existing scene visual was preserved.");
       failure.code = safeCode;
       failure.httpStatus = Number.isInteger(error?.httpStatus) ? error.httpStatus : null;
       failure.quotaReason = ["FREE_TIER_ZERO","SPEND_LIMIT","DAILY_LIMIT","MINUTE_LIMIT"].includes(error?.quotaReason)
@@ -163,8 +179,8 @@ export async function createWebsiteMarketingVisual({
     return { ...fallback, visualPlan:{
       ...fallback.visualPlan,
       stockUsed:false,
-      imageProvider:"gemini",
-      imageModel:env.VOXORA_MARKETING_IMAGE_MODEL || "gemini-3.1-flash-lite-image",
+      imageProvider:capability.provider,
+      imageModel:capability.model,
       aiStatus:"fallback",
       aiFallbackCode:safeCode,
     }};
