@@ -47,7 +47,11 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     whyLine: scene.whyLine || "Voxora uses the strongest evidence-led line for this beat.",
     whyPicture: scene.whyPicture || "The visual makes the mechanism concrete before the next cut.",
     thumb: selectedAsset ? `url(${selectedAsset.thumbnailUrl}) center / cover no-repeat` : "linear-gradient(145deg, #17304a, #09131f)",
-    thumbLabel: selectedAsset ? (scene.customization?.sceneVisualPlan ? "Website branded visual" : "Pexels B-roll") : "Visual pending",
+    thumbLabel: selectedAsset ? (
+      scene.customization?.sceneVisualPlan?.aiStatus === "generated" ? "AI-generated marketing visual"
+      : scene.customization?.sceneVisualPlan?.aiStatus === "fallback" ? "AI unavailable · simple layout"
+      : scene.customization?.sceneVisualPlan ? "Basic branded layout" : "Pexels B-roll"
+    ) : "Visual pending",
     swatches: (scene.assets || []).map((asset) => `url(${asset.thumbnailUrl}) center / cover no-repeat`),
     selectedAsset,
     assets: scene.assets || [],
@@ -345,8 +349,17 @@ export default function StoryboardPage() {
   }
 
   async function regenerateSceneVisuals(sceneId, query = "", visualMode = "brand") {
-    return runSceneAction(sceneId, "visuals", "/api/scenes/" + encodeURIComponent(sceneId) + "/regenerate-assets",
+    const result = await runSceneAction(sceneId, "visuals",
+      "/api/scenes/" + encodeURIComponent(sceneId) + "/regenerate-assets",
       { ...(query ? { query } : {}), visualMode });
+    if (visualMode === "ai" && result) {
+      const outcome = result.visualOutcome;
+      setAiVisualNotice(outcome?.status === "generated"
+        ? "AI illustration generated for this scene. Review it before publishing."
+        : "AI image was not generated (" + (outcome?.failureCode || "IMAGE_GENERATION_UNAVAILABLE") +
+          "). A basic layout was used instead; check the AI provider configuration.");
+    }
+    return result;
   }
 
   async function generateAiImagesForScenes() {
