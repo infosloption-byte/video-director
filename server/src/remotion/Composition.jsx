@@ -1,5 +1,5 @@
 import React from "react";
-import { Audio, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
+import { Audio, Img, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 
 function sceneDurationFrames(scene, fps) {
   return Math.max(1, Math.round(Number(scene.durationSeconds || 1) * fps));
@@ -46,7 +46,9 @@ function Scene({ scene }) {
 
   return (
     <div style={styles.scene}>
-      {selectedAsset?.videoUrl ? (
+      {selectedAsset?.imageUrl ? (
+        <Img src={selectedAsset.imageUrl} style={styles.video} />
+      ) : selectedAsset?.videoUrl ? (
         <OffthreadVideo
           src={selectedAsset.videoUrl}
           muted
@@ -63,7 +65,7 @@ function Scene({ scene }) {
       <div style={styles.sceneNumber}>{String(scene.sceneOrder).padStart(2, "0")}</div>
       <Caption scene={scene} />
       {scene.audioUrl && <Audio src={scene.audioUrl} volume={1} playbackRate={scene.playbackRate || 1} />}
-      <div style={styles.brand}>HELIX</div>
+      <div style={styles.brand}>{scene.brandName || "HELIX"}</div>
       <div style={styles.duration}>{Math.round((duration / fps) * 10) / 10}s</div>
     </div>
   );
