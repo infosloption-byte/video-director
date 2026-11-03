@@ -72,9 +72,53 @@ export function createWebsiteBrandKit(report) {
     brandAssetsRequireRightsApproval: true,
   };
 }
+// Choose evidence pages by what a scene actually discusses, instead of
+// blindly cycling unrelated product screenshots through the storyboard.
+const IGNORED_SCENE_WORDS = new Set([
+  "about", "brand", "business", "company", "customer", "customers", "feature",
+  "features", "helps", "more", "product", "products", "service", "services",
+  "their", "these", "this", "those", "through", "using", "website", "where",
+  "which", "with", "your", "from", "have", "will", "visit", "learn",
+]);
+function sceneWords(value) {
+  return new Set((String(value || "").toLowerCase().match(/[a-z0-9]{4,}/g) || [])
+    .filter(word => !IGNORED_SCENE_WORDS.has(word)));
+}
+function imageSourceMatchScore(url, sceneTerms, sourceFacts) {
+  let pathWords = [];
+  try {
+    const segments = new URL(url).pathname.split("/").filter(Boolean).slice(-2);
+    pathWords = [...sceneWords(segments.join(" ").replace(/[-_]/g, " "))];
+  } catch { /* invalid source receives no match score */ }
+  const slugMatches = pathWords.filter(word => sceneTerms.has(word)).length;
+  const facts = sourceFacts.filter(fact => fact?.url === url);
+  const factWords = sceneWords(facts.map(fact => String(fact.detail || "").slice(0, 300)).join(" "));
+  const factMatches = [...factWords].filter(word => sceneTerms.has(word)).length;
+  return slugMatches * 5 + Math.min(3, factMatches);
+}
+function relevantSourcePage(campaign, scene, sceneIndex) {
+  const sources = Array.isArray(campaign?.sourceUrls) ? campaign.sourceUrls.filter(Boolean) : [];
+  if (!sources.length) return campaign?.analysisUrl || null;
+  if (sources.length === 1) return sources[0];
+  const facts = Array.isArray(campaign?.sourceFacts) ? campaign.sourceFacts : [];
+  const text = [scene?.title, scene?.spoken_text, scene?.spokenText,
+    scene?.broll_search_term, scene?.brollSearchTerm].filter(Boolean).join(" ");
+  const terms = sceneWords(text);
+  const ranked = sources.map((url, index) => ({ url, index,
+    score: imageSourceMatchScore(url, terms, facts),
+  })).sort((a,b) => b.score - a.score || a.index - b.index);
+  if (ranked[0].score > 0) return ranked[0].url;
+  // A generic intro/CTA can still reflect the campaign's named focus.
+  const focusTerms = sceneWords(campaign?.focus || "");
+  const focused = sources.map((url,index) => ({url,index,
+    score: imageSourceMatchScore(url, focusTerms, facts),
+  })).sort((a,b) => b.score - a.score || a.index - b.index);
+  return focused[0].score > 0 ? focused[0].url : sources[sceneIndex % sources.length];
+}
+
 export function planWebsiteSceneVisual({ campaign, brandKit, scene, sceneIndex = 0, sceneCount = 1, variant = 0 }) {
   const sourceUrls = campaign?.sourceUrls || [];
-  const preferredPage = sourceUrls[sceneIndex % Math.max(1, sourceUrls.length)] || campaign?.analysisUrl || brandKit?.websiteUrl;
+  const preferredPage = relevantSourcePage(campaign, scene, sceneIndex) || brandKit?.websiteUrl;
   const assets = (brandKit?.assets || []).filter(asset => sourceUrls.includes(asset.sourcePageUrl));
   const best = assets.find(asset => asset.sourcePageUrl === preferredPage && asset.role === "product")
     || assets.find(asset => asset.role === "product")
@@ -89,6 +133,7 @@ export function planWebsiteSceneVisual({ campaign, brandKit, scene, sceneIndex =
     visualSource: best ? "website_image_and_branded_layout" : "generated_branded_layout",
     focusSourceUrl: best?.sourcePageUrl || preferredPage || null,
     sourceImageUrl: best?.url || null,
+    sourceImageRole: best?.role || null,
     brandName: campaign?.brandName || brandKit?.brandName || "Business",
     headline: String(scene?.title || campaign?.focus || "").slice(0, 140),
     palette: brandKit?.palette || fallback,
@@ -96,5 +141,7 @@ export function planWebsiteSceneVisual({ campaign, brandKit, scene, sceneIndex =
     stockUsed: false,
     rightsReviewRequired: Boolean(best),
     variant,
+    sceneIndex,
+    sceneCount,
   };
 }

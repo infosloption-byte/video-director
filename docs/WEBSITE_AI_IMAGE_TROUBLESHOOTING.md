@@ -59,6 +59,8 @@ sudo docker logs --since=15m voxora-api-1 2>&1 | \
 | `IMAGE_NO_OUTPUT` | Provider responded but returned no usable image part. |
 | `IMAGE_INVALID_RESPONSE` / `IMAGE_INVALID_OUTPUT` | Unexpected provider format or image bytes. |
 | `BAD_IMAGE_DIMENSIONS` | Image dimensions failed validation. |
+| `BAD_IMAGE_ASPECT_RATIO` | Image is not sufficiently close to portrait 9:16; no aggressive crop accepted. |
+| `BAD_IMAGE_OUTPUT` | FFmpeg output failed basic PNG signature/size checks. |
 | `IMAGE_PROVIDER_ERROR` / `IMAGE_GENERATION_UNAVAILABLE` | Provider/server or conversion issue; review sanitized logs and FFmpeg availability. |
 
 Avoid full-storyboard AI generation until one paid per-scene test shows **Gemini AI-generated illustration**. Gemini may charge for a request even when conversion or persistence fails.
@@ -72,3 +74,12 @@ node --test server/test/websiteAiBrandImages.test.js
 ```
 
 Unit tests use an injected fake provider and never call live Gemini. This change requires no Prisma migration. Release through the pull request and do not recreate production API/frontend services until the tests and change review are complete.
+
+## Scene relevance and image-quality safeguards
+
+- If a concept has multiple approved source pages, the scene title, narration and visual search text are used to match the correct product/service page; an unrelated product image is no longer chosen solely by scene position when the subject can be identified.
+- Gemini uses a common brand palette and visual treatment but different deterministic compositions for hook, feature and closing scenes. Prompts use facts from the selected approved product page rather than indiscriminately mixing facts across products.
+- Public-site logo files are not sent as Gemini visual reference images. This does not waive the customer's responsibility to review rights for separately used source imagery.
+- The generated source image must have supported dimensions and a portrait aspect ratio approximately matching 9:16. The converted output must be a nontrivial PNG file; otherwise Voxora explicitly records a **local branded fallback** and a safe diagnostic code.
+- For bulk AI generation, a shared authorization/model/quota/request rejection stops remaining paid requests instead of repeatedly attempting scenes. The already completed scenes remain saved.
+- These safeguards verify input relevance rules, technical image validity and failure behavior, **not** artistic quality or factual accuracy. Review the first real produced scene on the website, in the storyboard, and in a rendered preview before using bulk generation.

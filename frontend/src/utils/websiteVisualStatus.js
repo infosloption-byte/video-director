@@ -11,6 +11,8 @@ const FALLBACK_REASONS = {
   IMAGE_INVALID_OUTPUT: "Gemini returned invalid or unsupported image data.",
   IMAGE_INVALID_RESPONSE: "Gemini returned an unreadable response.",
   BAD_IMAGE_DIMENSIONS: "The returned image had unsupported dimensions.",
+  BAD_IMAGE_ASPECT_RATIO: "Gemini returned an image with an incorrect aspect ratio.",
+  BAD_IMAGE_OUTPUT: "The generated image could not be validated after conversion.",
   IMAGE_GENERATION_UNAVAILABLE: "AI generation or image processing failed; check the API logs.",
 };
 

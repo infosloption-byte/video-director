@@ -3,7 +3,7 @@
 // Output remains an authenticated project/scene PNG and is never a provider URL.
 import crypto from "node:crypto";
 import path from "node:path";
-import { writeFile, rm, rename, mkdir } from "node:fs/promises";
+import { writeFile, rm, rename, mkdir, open, stat } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createWebsiteBrandedVisual, brandSceneImagePath, brandSceneImageUrl, resolveMarketingBrandKit } from "./websiteBrandedVisualService.js";
@@ -54,7 +54,7 @@ export async function createWebsiteMarketingVisual({
     // Optional public website reference image: the fetcher checks DNS,
     // redirects and file signatures. Avoid downloading random third-party
     // assets or sending customer/private assets to a hosted model.
-    if (plan.sourceImageUrl) {
+    if (plan.sourceImageUrl && plan.sourceImageRole !== "logo") {
       try {
         const original = await imageFetch(plan.sourceImageUrl,campaign.analysisUrl);
         candidate = { bytes:original.bytes, mimeType:
@@ -79,12 +79,32 @@ export async function createWebsiteMarketingVisual({
     if (!(width>=320&&width<=4096&&height>=540&&height<=4096&&width*height<=12_000_000)) {
       throw Object.assign(new Error("Invalid AI image dimensions."),{code:"BAD_IMAGE_DIMENSIONS"});
     }
+    // The provider was asked for 9:16. Reject landscape or near-square
+    // results rather than cropping the actual product subject out of frame.
+    if (width / height < 0.48 || width / height > 0.68) {
+      throw Object.assign(new Error("AI image does not match vertical aspect ratio."),{code:"BAD_IMAGE_ASPECT_RATIO"});
+    }
     await runCommand("ffmpeg",[
       "-hide_banner","-loglevel","error","-max_alloc","134217728","-y",
       "-i",sourcePath,"-vf",
       "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,format=rgb24",
       "-frames:v","1","-update","1",tempOutput,
     ],{timeout:45000,maxBuffer:1024*1024});
+    // FFmpeg's successful exit code is not enough: a corrupt or empty PNG
+    // must never be reported as a successfully generated AI image.
+    const composed = await stat(tempOutput);
+    if (!composed.isFile() || composed.size < 1024 || composed.size > 16 * 1024 * 1024) {
+      throw Object.assign(new Error("Composed AI image output is invalid."),{code:"BAD_IMAGE_OUTPUT"});
+    }
+    const file = await open(tempOutput, "r");
+    let signature;
+    try {
+      signature = Buffer.alloc(8);
+      await file.read(signature,0,8,0);
+    } finally { await file.close(); }
+    if (!signature.equals(Buffer.from([137,80,78,71,13,10,26,10]))) {
+      throw Object.assign(new Error("Composed AI image output is not PNG."),{code:"BAD_IMAGE_OUTPUT"});
+    }
     await rename(tempOutput,output);
     const url = brandSceneImageUrl(project.id,sceneId,Date.now());
     return {
@@ -95,6 +115,7 @@ export async function createWebsiteMarketingVisual({
         visualSource:"gemini_generated_illustration",
         imageProvider:"gemini",
         imageModel:generated.model || "gemini-3.1-flash-lite-image",
+        imageWidth:width, imageHeight:height,
         sourceImageUrl:candidate ? plan.sourceImageUrl : null,
         stockUsed:false, rightsReviewRequired:Boolean(candidate),
         aiStatus:"generated",
@@ -106,6 +127,7 @@ export async function createWebsiteMarketingVisual({
     const fallback = await brandGenerate({ ...baseArgs, brandKit });
     const safeCode = [
       "IMAGE_RATE_LIMITED", "AI_IMAGES_DISABLED", "BAD_IMAGE_DIMENSIONS",
+      "BAD_IMAGE_ASPECT_RATIO", "BAD_IMAGE_OUTPUT",
       "IMAGE_AUTH_FAILED", "IMAGE_MODEL_UNAVAILABLE", "IMAGE_PROVIDER_REJECTED",
       "IMAGE_PROVIDER_ERROR", "IMAGE_TIMEOUT", "IMAGE_NO_OUTPUT",
       "IMAGE_INVALID_OUTPUT", "IMAGE_INVALID_RESPONSE",

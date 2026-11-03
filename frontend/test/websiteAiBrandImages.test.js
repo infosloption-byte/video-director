@@ -49,6 +49,20 @@ test("Distinct local and paid image paths show provenance and specific fallback 
   assert.match(websiteAiFallbackReason("NOT_A_KNOWN_CODE"), /check the API logs/);
 });
 
+test("paid image bulk run stops after shared provider or quota failure", async () => {
+  const page = await read("pages/StoryboardPage.jsx");
+  assert.match(page, /AI_BATCH_STOP_CODES = new Set/);
+  assert.match(page, /"IMAGE_RATE_LIMITED", "IMAGE_AUTH_FAILED", "IMAGE_MODEL_UNAVAILABLE"/);
+  assert.match(page, /AI_BATCH_STOP_CODES\.has\(plan\.aiFallbackCode\)/);
+  assert.match(page, /to avoid repeated paid requests/);
+  assert.match(page, /if \(!stopped && done === scenes\.length\)/);
+});
+
+test("image conversion and portrait-format failures remain understandable to users", async () => {
+  assert.match(websiteAiFallbackReason("BAD_IMAGE_ASPECT_RATIO"), /aspect ratio/);
+  assert.match(websiteAiFallbackReason("BAD_IMAGE_OUTPUT"), /validated after conversion/);
+});
+
 test("Brand-first visuals avoid text collisions with Remotion caption layers", async () => {
   const page = await read("pages/StoryboardPage.jsx");
   assert.match(page, /Brand labels and narration captions remain separate/);
