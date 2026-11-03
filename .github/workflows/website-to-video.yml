@@ -12,6 +12,7 @@ on:
       - 'server/src/services/websiteBrandedVisualService.js'
       - 'server/src/services/websiteAiImageService.js'
       - 'server/src/services/websiteMarketingVisualService.js'
+      - 'server/src/services/websiteSdxlImageService.js'
       - 'server/src/services/renderAssetService.js'
       - 'server/src/services/renderService.js'
       - 'server/src/remotion/Composition.jsx'
@@ -25,6 +26,7 @@ on:
       - 'server/test/websiteVideoProjectCreate.test.js'
       - 'server/test/websiteBrandVisuals.test.js'
       - 'server/test/websiteAiBrandImages.test.js'
+      - 'server/test/websiteSdxlImageService.test.js'
       - 'server/test/websiteToVideo.test.js'
       - 'server/src/app.js'
       - 'frontend/src/pages/WebsiteToVideoPage.*'
@@ -76,6 +78,8 @@ jobs:
           node --check src/services/websiteBrandedVisualService.js
           node --check src/services/websiteAiImageService.js
           node --check src/services/websiteMarketingVisualService.js
+          node --check src/services/websiteSdxlImageService.js
+          node --check src/routes/storyboard.js
           node --check scripts/smokeWebsiteAiVisual.js
           node --check scripts/smokeWebsiteBrandedVisual.js
           node --check src/services/renderAssetService.js
@@ -84,7 +88,7 @@ jobs:
           node --check src/services/storyboardService.js
       - name: Website crawler and API integration tests
         working-directory: server
-        run: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/websiteBatch2A.test.js test/websiteVideoProjectCreate.test.js test/websiteBrandVisuals.test.js test/websiteAiBrandImages.test.js test/generationPerformanceMonitoring.test.js
+        run: node --test test/websiteToVideo.test.js test/websiteToVideoMvp.test.js test/websiteBatch2A.test.js test/websiteVideoProjectCreate.test.js test/websiteBrandVisuals.test.js test/websiteAiBrandImages.test.js test/websiteSdxlImageService.test.js test/generationPerformanceMonitoring.test.js
       - name: Install frontend
         working-directory: frontend
         run: npm ci --no-audit --no-fund
