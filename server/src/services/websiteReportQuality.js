@@ -1,3 +1,4 @@
+import { createWebsiteBrandKit } from "./websiteBrandKit.js";
 // Presentation-only enhancement for persisted website snapshots.
 // Keep the raw extracted passages and citation URLs intact: marketing claims
 // must still come from the original business-published source pages.
@@ -122,6 +123,7 @@ export function refineWebsiteReport(raw) {
     name: brand,
     description: selectedDescription,
     summary: text(raw.summary || selectedDescription, 550),
+    brandKit: { ...createWebsiteBrandKit({ ...raw, name: brand }), brandName: brand },
     pages: pages.map(page => ({
       ...page,
       title: cleanWebsiteHeading(page.title || "", 180),
