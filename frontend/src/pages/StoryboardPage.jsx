@@ -20,6 +20,7 @@ import "./StoryboardPage.css";
 const AI_BATCH_STOP_CODES = new Set([
   "IMAGE_RATE_LIMITED", "IMAGE_AUTH_FAILED", "IMAGE_MODEL_UNAVAILABLE",
   "IMAGE_PROVIDER_REJECTED", "AI_IMAGES_DISABLED",
+  "SDXL_AUTH_FAILED", "SDXL_NOT_READY", "SDXL_QUEUE_FULL", "SDXL_UNAVAILABLE", "SDXL_NOT_CONFIGURED",
 ]);
 
 const TABS = [
@@ -399,7 +400,8 @@ export default function StoryboardPage() {
 
   async function generateAiImagesForScenes() {
     if (!aiImageStatus.enabled || aiVisualProgress || brandVisualLoading || renderLoading || sceneLoading) return;
-    const pendingScenes = scenes.filter(scene => scene.customization?.sceneVisualPlan?.aiStatus !== "generated");
+    const pendingScenes = scenes.filter(scene => scene.customization?.sceneVisualPlan?.aiStatus !== "generated" ||
+      (scene.customization?.sceneVisualPlan?.imageProvider || "gemini") !== aiImageStatus.provider);
     if (!pendingScenes.length) {
       setAiVisualNotice("All scenes already have verified AI illustrations.");
       return;
@@ -434,7 +436,7 @@ export default function StoryboardPage() {
       if (plan?.aiStatus === "fallback" && AI_BATCH_STOP_CODES.has(plan.aiFallbackCode)) {
         stopped = true;
         setAiVisualNotice("AI generation stopped after scene " + scene.sceneOrder +
-          " to avoid repeated paid requests: " + websiteAiFallbackReason(plan.aiFallbackCode) +
+          " to avoid repeated provider failures: " + websiteAiFallbackReason(plan.aiFallbackCode) +
           " Completed " + generated + " AI images and " + fallback + " local fallbacks.");
         break;
       }
@@ -575,7 +577,8 @@ export default function StoryboardPage() {
   const narratedSceneCount = narrationSummary?.readyScenes ?? scenes.filter((scene) => Boolean(scene.audioUrl)).length;
   const missingNarrationOrders = narrationSummary?.scenes?.filter((scene) => !scene.ready).map((scene) => scene.sceneOrder) || [];
   const customizedSceneCount = useMemo(() => scenes.filter((scene) => Boolean(scene.customization?.customized)).length, [scenes]);
-  const aiGeneratedCount = useMemo(() => scenes.filter((scene) => scene.customization?.sceneVisualPlan?.aiStatus === "generated").length, [scenes]);
+  const aiGeneratedCount = useMemo(() => scenes.filter((scene) => scene.customization?.sceneVisualPlan?.aiStatus === "generated" &&
+    (scene.customization?.sceneVisualPlan?.imageProvider || "gemini") === aiImageStatus.provider).length, [scenes, aiImageStatus.provider]);
   const aiPendingCount = Math.max(0, scenes.length - aiGeneratedCount);
 
   const activeSceneStep = useMemo(() => {
