@@ -145,6 +145,40 @@ export function readGeminiImage(result) {
   throw Object.assign(new Error("The image provider returned no image."), { code:"IMAGE_NO_OUTPUT" });
 }
 
+// Gemini 429 can mean per-minute saturation, daily quota, a spend cap,
+// or a zero-quota free-tier model. Only expose allow-listed diagnostic fields;
+// never pass through raw provider text, prompt contents, or API credentials.
+export function describeGeminiImageQuota(body = {}, retryAfterHeader = null) {
+  const error = body?.error && typeof body.error === "object" ? body.error : {};
+  const details = Array.isArray(error.details) ? error.details : [];
+  const quotaViolations = details.flatMap(item =>
+    Array.isArray(item?.violations) ? item.violations : []);
+  const descriptions = quotaViolations.flatMap(item =>
+    [item.quotaMetric, item.quotaId, item.quotaValue].map(value => String(value ?? "")));
+  // Google sometimes includes quota identifiers only in error.message.
+  const matchable = [...descriptions, String(error.message || "").slice(0, 2000)].join(" ");
+  const freeTier = /free[-_\s]?tier/i.test(matchable);
+  const zeroQuota = quotaViolations.some(item => Number(item.quotaValue) === 0) ||
+    /(?:limit|quota(?:value)?)\s*[:=]\s*0\b/i.test(matchable);
+  const isSpend = /spend|billing|budget/i.test(matchable);
+  const isDaily = /per[-_\s]?day|daily|perday|requestsperday|\brpd\b/i.test(matchable);
+  const isMinute = /per[-_\s]?minute|perminute|requestsperminute|\brpm\b|imagesperminute/i.test(matchable);
+  const quotaReason = freeTier && zeroQuota ? "FREE_TIER_ZERO"
+    : isSpend ? "SPEND_LIMIT"
+    : isDaily ? "DAILY_LIMIT"
+    : isMinute ? "MINUTE_LIMIT"
+    : "UNKNOWN";
+
+  const headerSeconds = /^\d+(?:\.\d+)?$/.test(String(retryAfterHeader || ""))
+    ? Number(retryAfterHeader) : null;
+  const retryInfo = details.find(item => typeof item?.retryDelay === "string")?.retryDelay;
+  const retryMatch = typeof retryInfo === "string" ? retryInfo.match(/^(\d+(?:\.\d+)?)s$/) : null;
+  const indicatedSeconds = headerSeconds ?? (retryMatch ? Number(retryMatch[1]) : null);
+  const retryAfterSeconds = indicatedSeconds != null && Number.isFinite(indicatedSeconds) &&
+    indicatedSeconds > 0 && indicatedSeconds <= 86400 ? Math.ceil(indicatedSeconds) : null;
+  return { quotaReason, retryAfterSeconds };
+}
+
 export async function generateWebsiteAiImage({
   campaign, brandKit, scene, plan, referenceImage = null,
   env = process.env, fetchFn = fetch,
@@ -189,6 +223,21 @@ export async function generateWebsiteAiImage({
         : status === 400 ? "IMAGE_PROVIDER_REJECTED"
         : "IMAGE_PROVIDER_ERROR";
       err.httpStatus = status;
+      if (status === 429) {
+        let providerError = {};
+        try {
+          // Error metadata is diagnostics only, never logged or returned raw.
+          // A bounded parse is sufficient for structured QuotaFailure/RetryInfo.
+          const contentLength = Number(res.headers?.get?.("content-length") || 0);
+          if (contentLength <= 16384 && typeof res.text === "function") {
+            const raw = await res.text();
+            if (raw.length <= 16384) providerError = JSON.parse(raw);
+          }
+        } catch { /* quota may still be diagnosed by status alone */ }
+        const quota = describeGeminiImageQuota(providerError, res.headers?.get?.("retry-after"));
+        err.quotaReason = quota.quotaReason;
+        err.retryAfterSeconds = quota.retryAfterSeconds;
+      }
       throw err;
     }
     // Refuse oversized JSON even if the provider's response does not
