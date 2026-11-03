@@ -6,6 +6,18 @@
 import { normalizeBrandColor } from "./websiteBrandKit.js";
 
 export const WEBSITE_IMAGE_MODEL = "gemini-3.1-flash-lite-image";
+
+export function imageHttpFailureCode(status) {
+  const code = Number(status);
+  if (code === 400) return "IMAGE_REQUEST_REJECTED";
+  if (code === 401) return "IMAGE_INVALID_API_KEY";
+  if (code === 403) return "IMAGE_ACCESS_DENIED";
+  if (code === 404) return "IMAGE_MODEL_UNAVAILABLE";
+  if (code === 429) return "IMAGE_RATE_LIMITED";
+  if (code >= 500) return "IMAGE_PROVIDER_UNAVAILABLE";
+  return "IMAGE_PROVIDER_ERROR";
+}
+
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 45000;
 
@@ -83,7 +95,9 @@ export function readGeminiImage(result) {
     const type = detectImageFormat(bytes, data.mimeType || data.mime_type);
     return { bytes, extension:type.extension, mimeType:type.mimeType };
   }
-  throw new Error("The image provider returned no image.");
+  const error = new Error("The image provider returned no image.");
+  error.code = "IMAGE_EMPTY_OUTPUT";
+  throw error;
 }
 
 export async function generateWebsiteAiImage({
@@ -121,7 +135,8 @@ export async function generateWebsiteAiImage({
     });
     if (!res.ok) {
       const err = new Error("Image provider unavailable (" + res.status + ").");
-      err.code = res.status === 429 ? "IMAGE_RATE_LIMITED" : "IMAGE_PROVIDER_ERROR";
+      err.code = imageHttpFailureCode(res.status);
+      err.httpStatus = Number(res.status);
       throw err;
     }
     // Refuse oversized JSON even if the provider's response does not
@@ -132,5 +147,15 @@ export async function generateWebsiteAiImage({
     if (raw.length > 13_000_000) throw new Error("Image provider response too large.");
     const image = readGeminiImage(JSON.parse(raw));
     return { ...image, model, provider:"gemini", usage:null };
+  } catch (error) {
+    if (ctrl.signal.aborted || error?.name === "AbortError") {
+      const timedOut = new Error("Image generation timed out.");
+      timedOut.code = "IMAGE_PROVIDER_TIMEOUT";
+      throw timedOut;
+    }
+    if (error?.code) throw error;
+    const network = new Error("Could not contact image provider.");
+    network.code = "IMAGE_NETWORK_ERROR";
+    throw network;
   } finally { clearTimeout(timeout); }
 }
