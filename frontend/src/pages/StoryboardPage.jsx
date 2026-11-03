@@ -66,6 +66,7 @@ export default function StoryboardPage() {
   const [selectedAssetByScene, setSelectedAssetByScene] = useState({});
   const [playing, setPlaying] = useState(false);
   const [sceneLoading, setSceneLoading] = useState(false);
+  const [brandVisualLoading, setBrandVisualLoading] = useState(false);
   const [sceneError, setSceneError] = useState("");
   const [sceneRetry, setSceneRetry] = useState(0);
   const [persisting, setPersisting] = useState(false);
@@ -337,6 +338,26 @@ export default function StoryboardPage() {
 
 
 
+  async function regenerateAllWebsiteVisuals() {
+    if (brandVisualLoading || !project?.research?.sources?.websiteMarketing) return;
+    setBrandVisualLoading(true);
+    setSceneEditError("");
+    try {
+      const response = await fetch("/api/projects/" + encodeURIComponent(id) + "/regenerate-brand-visuals", {
+        method: "POST",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to regenerate website artwork.");
+      setScenes(data.scenes || []);
+      setSelectedAssetByScene(Object.fromEntries((data.scenes || []).map(scene => [scene.id, 0])));
+      setProject(current => ({ ...current, renderUrl: null, status: "storyboard" }));
+    } catch (error) {
+      setSceneEditError(error.message || "Unable to regenerate branded visuals.");
+    } finally {
+      setBrandVisualLoading(false);
+    }
+  }
+
   function changeTab(nextTab) {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("stage", nextTab.toLowerCase());
@@ -509,11 +530,17 @@ export default function StoryboardPage() {
                   <p className="eyebrow">Storyboard editor</p>
                   <h2>Review every cut, then tune only what needs changing.</h2>
                   <p>Each scene inherits the project Setup. Customize a single scene without regenerating the rest of the storyboard.</p>
+                  {project?.research?.sources?.websiteMarketing && <div className="storyboard-brand-visual-action">
+                    <button type="button" className="btn btn-ghost" onClick={() => void regenerateAllWebsiteVisuals()} disabled={brandVisualLoading || sceneLoading || renderLoading || !scenes.length}>
+                      {brandVisualLoading ? "Building branded artwork…" : "Replace all stock with branded visuals"}
+                    </button>
+                    <small>Uses site-supported images and generated layouts; your existing narration stays unchanged. Confirm brand asset rights before publishing.</small>
+                  </div>}
                 </div>
                 <div className="storyboard-editor-intro__stats" aria-label="Storyboard summary">
                   <span><strong>{scenes.length}</strong><small>Scenes</small></span>
                   <span><strong>{narratedSceneCount}</strong><small>Narrated</small></span>
-                  <span><strong>{scenes.length * 5}</strong><small>Visuals</small></span>
+                  <span><strong>{scenes.reduce((total, scene) => total + (scene.assets?.length || 0), 0)}</strong><small>Visuals</small></span>
                   <span><strong>{customizedSceneCount}</strong><small>Customized</small></span>
                 </div>
               </section>
@@ -530,7 +557,7 @@ export default function StoryboardPage() {
                 {sceneError && <div className="storyboard-error"><strong>Storyboard couldn't load.</strong><span>{sceneError}</span><button className="btn btn-ghost" onClick={() => setSceneRetry((value) => value + 1)}>Retry</button></div>}
                 {voiceError && <div className="storyboard-error"><strong>Narration couldn't be generated.</strong><span>{voiceError}</span></div>}
                 {sceneEditError && <div className="storyboard-error storyboard-error--scene"><strong>Scene update couldn't be applied.</strong><span>{sceneEditError}</span></div>}
-                {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>Voxora is writing the scenes, fetching five visuals per cut, and generating narration with your selected voice…</strong></div>}
+                {sceneLoading && <div className="storyboard-loading"><span className="eyebrow">Generating storyboard</span><strong>{project?.research?.sources?.websiteMarketing ? "Voxora is building website-branded artwork for each scene and preparing narration…" : "Voxora is writing the scenes, fetching five visuals per cut, and generating narration with your selected voice…"}</strong></div>}
                 {!sceneLoading && !sceneError && scenes.length > 0 && (
                   <>
                     <div className="hx-steps">
