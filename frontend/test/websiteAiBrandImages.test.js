@@ -11,10 +11,23 @@ test("Storyboard checks capability and requires confirmation before paid Gemini 
   assert.match(page, /provider may charge/);
   assert.match(page, /Generate AI visuals for all scenes/);
   assert.match(page, /aiVisualProgress\.done/);
-  assert.match(page, /for \(const scene of scenes\)/);
+  assert.match(page, /for \(const scene of pendingScenes\)/);
   assert.match(page, /confirmAiSceneImage\(scene\.id\)/);
   assert.match(page, /Provider charges may apply/);
   assert.match(page, /regenerateSceneVisuals\(scene\.id, "", "ai", \{ quiet: true \}\)/);
+});
+
+test("marketing storyboard explains local placeholders and generates only missing real AI images", async () => {
+  const page = await read("pages/StoryboardPage.jsx");
+  assert.match(page, /local FFmpeg starter placeholders, NOT Gemini artwork/);
+  assert.match(page, /aiGeneratedCount/);
+  assert.match(page, /const pendingScenes = scenes\.filter\(/);
+  assert.match(page, /scene\.customization\?\.sceneVisualPlan\?\.aiStatus !== "generated"/);
+  assert.match(page, /pendingScenes\.length \+ " Gemini AI image/);
+  assert.match(page, /AI requests may be billable/);
+  assert.match(page, /Gemini AI images are disabled or not configured/);
+  assert.match(page, /aiImageStatus\.model/);
+  assert.match(page, /Generate AI visuals for all scenes/);
 });
 
 test("Per-scene controls travel through StepCard to SceneCustomizePanel for website projects", async () => {
@@ -55,7 +68,7 @@ test("paid image bulk run stops after shared provider or quota failure", async (
   assert.match(page, /"IMAGE_RATE_LIMITED", "IMAGE_AUTH_FAILED", "IMAGE_MODEL_UNAVAILABLE"/);
   assert.match(page, /AI_BATCH_STOP_CODES\.has\(plan\.aiFallbackCode\)/);
   assert.match(page, /to avoid repeated paid requests/);
-  assert.match(page, /if \(!stopped && done === scenes\.length\)/);
+  assert.match(page, /if \(!stopped && done === pendingScenes\.length\)/);
 });
 
 test("image conversion and portrait-format failures remain understandable to users", async () => {
