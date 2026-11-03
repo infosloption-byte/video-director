@@ -7,6 +7,8 @@ from contextlib import contextmanager
 from .gpu_client import create_gpu_redis_client
 from .gpu_lease import GPULease, LeaseUnavailable
 from .gpu_admission import assert_gpu_admitted
+from .sdxl_runtime import (SDXL_MODEL_ID, SDXL_WIDTH, SDXL_HEIGHT,
+                           sdxl_model_options, image_job_enabled, video_job_enabled)
 from pathlib import Path
 
 from rq import get_current_job
@@ -57,16 +59,18 @@ def transcribe(job_id: str, input_path: Path, output_path: Path, language: str |
             "durationSeconds": round(duration, 3), "segmentCount": len(items)}
 
 def image_generate(output_path: Path, prompt: str, negative: str):
-    if os.getenv("GPU_MEDIA_HEAVY_ENABLED", "false").lower() != "true":
-        raise RuntimeError("GPU heavy jobs are disabled until coordinated TTS scheduling is enabled.")
+    if not image_job_enabled():
+        raise RuntimeError("SDXL image jobs are disabled until shared TTS coordination is enabled.")
+    cache_options = sdxl_model_options()
     import torch
     from diffusers import StableDiffusionXLPipeline
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA unavailable.")
     progress(5)
     pipe = StableDiffusionXLPipeline.from_pretrained(
-        "stabilityai/stable-diffusion-xl-base-1.0",
-        torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+        SDXL_MODEL_ID,
+        torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+        **cache_options)
     pipe.enable_model_cpu_offload()
     pipe.vae.enable_slicing()
     progress(35)
@@ -77,7 +81,7 @@ def image_generate(output_path: Path, prompt: str, negative: str):
     with torch.inference_mode():
         result = pipe(
             prompt=prompt, negative_prompt=negative,
-            width=768, height=1024, num_inference_steps=20,
+            width=SDXL_WIDTH, height=SDXL_HEIGHT, num_inference_steps=20,
             guidance_scale=7.0, generator=torch.Generator(device="cpu").manual_seed(42),
             callback_on_step_end=on_step,
         ).images[0]
@@ -85,12 +89,12 @@ def image_generate(output_path: Path, prompt: str, negative: str):
     result.save(tmp, format="PNG")
     os.replace(tmp, output_path)
     progress(95)
-    return {"engine": "sdxl-base-1.0", "width": 768, "height": 1024,
+    return {"engine": "sdxl-base-1.0", "width": SDXL_WIDTH, "height": SDXL_HEIGHT,
             "peakPyTorchGiB": round(torch.cuda.max_memory_allocated() / (1024**3), 2)}
 
 def video_generate(output_path: Path, prompt: str, negative: str):
-    if os.getenv("GPU_MEDIA_HEAVY_ENABLED", "false").lower() != "true":
-        raise RuntimeError("GPU heavy jobs are disabled until coordinated TTS scheduling is enabled.")
+    if not video_job_enabled():
+        raise RuntimeError("GPU video jobs remain disabled until separately approved.")
     import torch
     from diffusers import AutoencoderKLWan, WanPipeline, UniPCMultistepScheduler
     from diffusers.utils import export_to_video
