@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./SceneCustomizePanel.css";
+import { websiteVisualStatus } from "../utils/websiteVisualStatus";
 
 const FRAMEWORKS = [
   { key: "disruptor", label: "The Disruptor" },
@@ -126,6 +127,7 @@ function SceneCustomizeDraft({
   onRegenerateVisuals,
   onRegenerateAiVisuals,
   aiImagesEnabled = false,
+  isWebsiteMarketing = false,
   onClose,
   busy = "",
 }) {
@@ -372,14 +374,13 @@ function SceneCustomizeDraft({
           <div className="scene-customize__section-head">
             <div>
               <span className="mono-label">VISUALS</span>
-              <strong>{scene.customization?.sceneVisualPlan ? "Regenerate branded marketing artwork" : "Regenerate visuals from the current narration"}</strong>
-              {scene.customization?.sceneVisualPlan && <p className="scene-customize__hint">
-                Artwork and product visuals are kept separate from narration captions. No Pexels fallback. Verify usage rights.
-              </p>}
+              <strong>{isWebsiteMarketing ? "Website marketing visuals" : "Regenerate visuals from the current narration"}</strong>
+              {isWebsiteMarketing && <>
+                <p className="scene-customize__hint">Artwork and product visuals are kept separate from narration captions. No Pexels fallback. Verify usage rights.</p>
+                <p className="scene-customize__hint" role="status">{websiteVisualStatus(scene.customization?.sceneVisualPlan)}</p>
+              </>}
               {scene.customization?.sceneVisualPlan?.visualMode === "ai_generated_background" &&
                 <p className="scene-customize__hint">AI illustration — not an authentic product screenshot.</p>}
-              {scene.customization?.sceneVisualPlan?.aiStatus === "fallback" &&
-                <p className="scene-customize__hint">AI image unavailable — branded layout used instead.</p>}
             </div>
             <button
               type="button"
@@ -387,17 +388,17 @@ function SceneCustomizeDraft({
               onClick={() => void refreshSceneVisuals()}
               disabled={Boolean(busy)}
             >
-              {busy === "visuals" ? "Regenerating…" : scene.customization?.sceneVisualPlan ? "Regenerate branded visual" : "Regenerate Visuals"}
+              {busy === "visuals" ? "Regenerating…" : isWebsiteMarketing ? "Refresh local brand layout (not AI)" : "Regenerate Visuals"}
             </button>
-            {aiImagesEnabled && scene.customization?.sceneVisualPlan && <button
+            {aiImagesEnabled && isWebsiteMarketing && <button
               type="button" className="scene-customize__refresh"
               onClick={() => void onRegenerateAiVisuals?.()} disabled={Boolean(busy)}
-              title="Generate a branded illustration with the configured paid image model"
+              title="Explicitly request one paid Gemini image; it may incur provider charges"
             >{busy === "visuals" ? "Generating…" : "Generate AI brand image"}</button>}
           </div>
 
           <div className="scene-customize__visual-group">
-            <span className="scene-customize__visual-label">{scene.customization?.sceneVisualPlan ? "WEBSITE BRAND ARTWORK · SOURCE-ALIGNED" : "VISUALS · SELECT ONE"}</span>
+            <span className="scene-customize__visual-label">{isWebsiteMarketing ? (scene.customization?.sceneVisualPlan?.aiStatus === "generated" ? "GEMINI AI ARTWORK · ILLUSTRATIVE" : "LOCAL WEBSITE BRAND ARTWORK · NOT AI") : "VISUALS · SELECT ONE"}</span>
             <div className="scene-customize__visual-strip">
               {(Array.isArray(scene.assets) ? scene.assets.slice(0, 5) : []).map((asset, index) => (
                 <button

@@ -5,6 +5,7 @@ import RenderQuota from "../components/RenderQuota";
 import { useRenderQuota } from "../hooks/useRenderQuota";
 import PhonePreview from "../components/PhonePreview";
 import StepCard from "../components/StepCard";
+import { websiteAiFallbackReason, websiteVisualStatus } from "../utils/websiteVisualStatus";
 import SetupPanel from "../components/SetupPanel";
 import FinalizePanel from "../components/FinalizePanel";
 import ResearchReport from "../components/ResearchReport";
@@ -47,7 +48,7 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     whyLine: scene.whyLine || "Voxora uses the strongest evidence-led line for this beat.",
     whyPicture: scene.whyPicture || "The visual makes the mechanism concrete before the next cut.",
     thumb: selectedAsset ? `url(${selectedAsset.thumbnailUrl}) center / cover no-repeat` : "linear-gradient(145deg, #17304a, #09131f)",
-    thumbLabel: selectedAsset ? (scene.customization?.sceneVisualPlan ? "Website branded visual" : "Pexels B-roll") : "Visual pending",
+    thumbLabel: selectedAsset ? (scene.customization?.sceneVisualPlan?.aiStatus === "generated" ? "Gemini AI image" : scene.customization?.sceneVisualPlan ? "Local branded layout" : "Pexels B-roll") : "Visual pending",
     swatches: (scene.assets || []).map((asset) => `url(${asset.thumbnailUrl}) center / cover no-repeat`),
     selectedAsset,
     assets: scene.assets || [],
@@ -344,9 +345,22 @@ export default function StoryboardPage() {
     return runSceneAction(sceneId, "voice", "/api/scenes/" + encodeURIComponent(sceneId) + "/voice", body);
   }
 
-  async function regenerateSceneVisuals(sceneId, query = "", visualMode = "brand") {
-    return runSceneAction(sceneId, "visuals", "/api/scenes/" + encodeURIComponent(sceneId) + "/regenerate-assets",
+  async function regenerateSceneVisuals(sceneId, query = "", visualMode = "brand", { quiet = false } = {}) {
+    const result = await runSceneAction(sceneId, "visuals", "/api/scenes/" + encodeURIComponent(sceneId) + "/regenerate-assets",
       { ...(query ? { query } : {}), visualMode });
+    if (result && !quiet && project?.research?.sources?.websiteMarketing) {
+      setAiVisualNotice(websiteVisualStatus(result.scene?.customization?.sceneVisualPlan));
+    }
+    return result;
+  }
+
+  async function confirmAiSceneImage(sceneId) {
+    if (!aiImageStatus.enabled || brandVisualLoading || aiVisualProgress || renderLoading || sceneLoading) return;
+    if (typeof window !== "undefined" && !window.confirm(
+      "Generate a paid Gemini AI image for this scene? Provider charges may apply. Narration and timing will remain unchanged."
+    )) return;
+    setAiVisualNotice("");
+    await regenerateSceneVisuals(sceneId, "", "ai");
   }
 
   async function generateAiImagesForScenes() {
@@ -357,21 +371,28 @@ export default function StoryboardPage() {
     setSceneEditError("");
     setAiVisualNotice("");
     let generated = 0, fallback = 0, done = 0;
+    const fallbackDetails = [];
     setAiVisualProgress({ done:0, total:scenes.length });
     for (const scene of scenes) {
-      const result = await regenerateSceneVisuals(scene.id, "", "ai");
+      const result = await regenerateSceneVisuals(scene.id, "", "ai", { quiet: true });
       if (!result) {
         setAiVisualNotice("AI artwork stopped after " + done + " scenes. Earlier visual changes were saved.");
         break;
       }
-      if (result.scene?.customization?.sceneVisualPlan?.aiStatus === "generated") generated++;
-      else fallback++;
+      const plan = result.scene?.customization?.sceneVisualPlan;
+      if (plan?.aiStatus === "generated") generated++;
+      else {
+        fallback++;
+        fallbackDetails.push("Scene " + scene.sceneOrder + ": " + websiteAiFallbackReason(plan?.aiFallbackCode));
+      }
       done++;
       setAiVisualProgress({ done, total:scenes.length });
     }
     if (done === scenes.length) {
-      setAiVisualNotice(generated + " AI scene images created; " + fallback +
-        " used branded fallback. Original narration and timing were preserved.");
+      setAiVisualNotice(generated + " Gemini AI scene images created; " + fallback +
+        " used local FFmpeg fallback. Original narration and timing were preserved." +
+        (fallbackDetails.length ? " " + fallbackDetails.slice(0, 3).join(" ") +
+          (fallbackDetails.length > 3 ? " See individual scenes for other reasons." : "") : ""));
     }
     setAiVisualProgress(null);
   }
@@ -391,6 +412,7 @@ export default function StoryboardPage() {
       setScenes(data.scenes || []);
       setSelectedAssetByScene(Object.fromEntries((data.scenes || []).map(scene => [scene.id, 0])));
       setProject(current => ({ ...current, renderUrl: null, status: "storyboard" }));
+      setAiVisualNotice("Local FFmpeg branded layouts updated for " + (data.scenes || []).length + " scenes. Gemini AI was not called.");
     } catch (error) {
       setSceneEditError(error.message || "Unable to regenerate branded visuals.");
     } finally {
@@ -582,8 +604,8 @@ export default function StoryboardPage() {
                         : "Generate AI visuals for all scenes"}
                     </button>}
                     <small>{aiImageStatus.enabled
-                      ? "AI images may incur provider charges. Brand labels and narration captions remain separate. Source-backed artwork replaces generic stock."
-                      : "Brand-only artwork is available. AI imagery requires explicit server enablement."}</small>
+                      ? "Refresh/Replace builds local FFmpeg layouts, not AI images. Generate AI uses the paid Gemini model. AI images may incur provider charges. Brand labels and narration captions remain separate."
+                      : "Refresh/Replace builds local FFmpeg artwork, not AI images. AI imagery requires explicit server enablement."}</small>
                     {aiVisualNotice && <p role="status" className="storyboard-brand-visual-action__notice">{aiVisualNotice}</p>}
                   </div>}
                 </div>
@@ -629,8 +651,9 @@ export default function StoryboardPage() {
                         onRewriteScene={(options) => rewriteScene(scene.id, options)}
                         onChangeSceneVoice={(voice, narration) => changeSceneVoice(scene.id, voice, narration)}
                         onRegenerateVisuals={(query) => regenerateSceneVisuals(scene.id, query)}
-                        onRegenerateAiVisuals={() => regenerateSceneVisuals(scene.id, "", "ai")}
+                        onRegenerateAiVisuals={() => confirmAiSceneImage(scene.id)}
                         aiImagesEnabled={aiImageStatus.enabled}
+                        isWebsiteMarketing={Boolean(project?.research?.sources?.websiteMarketing)}
                         sceneBusy={sceneActionFor(scene.id)}
                       />)}
                     </div>

@@ -16,7 +16,7 @@ export function imageModelFromEnv(env = process.env) {
   // Allow-list image-generating models, never arbitrary user-supplied endpoints.
   const chosen = env.VOXORA_MARKETING_IMAGE_MODEL || WEBSITE_IMAGE_MODEL;
   if (!["gemini-3.1-flash-lite-image", "gemini-3.1-flash-image"].includes(chosen)) {
-    throw new Error("Unsupported configured marketing image model.");
+    throw Object.assign(new Error("Unsupported configured marketing image model."), { code:"IMAGE_MODEL_UNAVAILABLE" });
   }
   return chosen;
 }
@@ -83,7 +83,7 @@ export function readGeminiImage(result) {
     const type = detectImageFormat(bytes, data.mimeType || data.mime_type);
     return { bytes, extension:type.extension, mimeType:type.mimeType };
   }
-  throw new Error("The image provider returned no image.");
+  throw Object.assign(new Error("The image provider returned no image."), { code:"IMAGE_NO_OUTPUT" });
 }
 
 export async function generateWebsiteAiImage({
@@ -120,17 +120,42 @@ export async function generateWebsiteAiImage({
       signal:ctrl.signal,
     });
     if (!res.ok) {
-      const err = new Error("Image provider unavailable (" + res.status + ").");
-      err.code = res.status === 429 ? "IMAGE_RATE_LIMITED" : "IMAGE_PROVIDER_ERROR";
+      // Keep diagnostic codes safe for UI/logs: never echo provider response
+      // bodies (which can contain user-provided prompts or account details).
+      const status = Number(res.status);
+      const err = new Error("Image provider unavailable (" + status + ").");
+      err.code = status === 429 ? "IMAGE_RATE_LIMITED"
+        : status === 401 || status === 403 ? "IMAGE_AUTH_FAILED"
+        : status === 404 ? "IMAGE_MODEL_UNAVAILABLE"
+        : status === 400 ? "IMAGE_PROVIDER_REJECTED"
+        : "IMAGE_PROVIDER_ERROR";
+      err.httpStatus = status;
       throw err;
     }
     // Refuse oversized JSON even if the provider's response does not
     // advertise a Content-Length. No arbitrary remote URLs are downloaded.
     const length = Number(res.headers?.get?.("content-length") || 0);
-    if (length > 13_000_000) throw new Error("Image provider response too large.");
+    if (length > 13_000_000) throw Object.assign(new Error("Image provider response too large."), { code:"IMAGE_INVALID_OUTPUT" });
     const raw = await res.text();
-    if (raw.length > 13_000_000) throw new Error("Image provider response too large.");
-    const image = readGeminiImage(JSON.parse(raw));
+    if (raw.length > 13_000_000) throw Object.assign(new Error("Image provider response too large."), { code:"IMAGE_INVALID_OUTPUT" });
+    let response;
+    try {
+      response = JSON.parse(raw);
+    } catch {
+      throw Object.assign(new Error("Image provider returned invalid JSON."), { code:"IMAGE_INVALID_RESPONSE" });
+    }
+    let image;
+    try {
+      image = readGeminiImage(response);
+    } catch (error) {
+      if (!error.code) error.code = "IMAGE_INVALID_OUTPUT";
+      throw error;
+    }
     return { ...image, model, provider:"gemini", usage:null };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw Object.assign(new Error("Image provider request timed out."), { code:"IMAGE_TIMEOUT" });
+    }
+    throw error;
   } finally { clearTimeout(timeout); }
 }

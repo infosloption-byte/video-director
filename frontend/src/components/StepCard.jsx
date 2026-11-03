@@ -1,4 +1,5 @@
 import SceneCustomizePanel from "./SceneCustomizePanel";
+import { websiteVisualStatus } from "../utils/websiteVisualStatus";
 import { IconCheck } from "./Icons";
 import "./StepCard.css";
 
@@ -19,12 +20,16 @@ export default function StepCard({
   onRewriteScene,
   onChangeSceneVoice,
   onRegenerateVisuals,
+  onRegenerateAiVisuals,
+  aiImagesEnabled = false,
+  isWebsiteMarketing = false,
   sceneBusy = "",
 }) {
   const selected = Math.max(0, Math.min(selectedAssetIndex, (step.swatches || []).length - 1));
   const busy = Boolean(sceneBusy);
   const sceneVoiceLabel = step.customization?.voice?.name || customSetup?.voice?.name || "Project voice";
   const isCustomized = Boolean(step.customization?.customized);
+  const visualPlan = step.customization?.sceneVisualPlan;
 
   return (
     <article
@@ -56,6 +61,7 @@ export default function StepCard({
         <p className="step-card__line">{step.line}</p>
         <p className="step-card__why"><span className="mono-label">WHY THIS LINE</span> {step.whyLine}</p>
         <p className="step-card__why"><span className="mono-label">WHY THIS PICTURE</span> {step.whyPicture}</p>
+        {isWebsiteMarketing && <p className="step-card__visual-provenance" role="status">{websiteVisualStatus(visualPlan)}</p>}
 
         <div className="step-card__toolbar" onClick={(event) => event.stopPropagation()}>
           <div className="step-card__voice-summary">
@@ -68,7 +74,7 @@ export default function StepCard({
               {customizeOpen ? "Close editor" : "Customize scene"}
             </button>
             <button type="button" className="step-card__tool" onClick={() => onRegenerateVisuals?.()} disabled={busy}>
-              {sceneBusy === "visuals" ? "Refreshing…" : "Refresh visuals"}
+              {sceneBusy === "visuals" ? "Refreshing…" : isWebsiteMarketing ? "Refresh local brand layout" : "Refresh visuals"}
             </button>
           </div>
         </div>
@@ -112,6 +118,9 @@ export default function StepCard({
               onChangeVoice={onChangeSceneVoice}
               onSelectAsset={onSelectAsset}
               onRegenerateVisuals={onRegenerateVisuals}
+              onRegenerateAiVisuals={onRegenerateAiVisuals}
+              aiImagesEnabled={aiImagesEnabled}
+              isWebsiteMarketing={isWebsiteMarketing}
               onClose={onCloseCustomize}
               busy={sceneBusy}
             />
