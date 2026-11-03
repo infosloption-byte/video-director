@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import {
   WEBSITE_IMAGE_MODEL, isMarketingAiImagesEnabled, imageModelFromEnv, marketingVisualPrompt,
-  marketingVisualSubject, detectImageFormat, readGeminiImage, generateWebsiteAiImage,
+  marketingVisualSubject, detectImageFormat, readGeminiImage, generateWebsiteAiImage, describeGeminiImageQuota,
 } from "../src/services/websiteAiImageService.js";
 import { createWebsiteMarketingVisual, marketingImageAvailable } from "../src/services/websiteMarketingVisualService.js";
 import { brandSceneImagePath } from "../src/services/websiteBrandedVisualService.js";
@@ -168,6 +168,36 @@ test("Gemini HTTP failures return safe codes instead of opaque successful image 
     }),error=>error.code===code && error.httpStatus===httpStatus);
   }
 });
+test("structured Gemini 429 details identify zero free-tier quota without exposing provider text",async()=>{
+  const response={
+    error:{code:429,status:"RESOURCE_EXHAUSTED",message:"Quota exceeded for this project",
+      details:[{violations:[{quotaMetric:"generativelanguage.googleapis.com/generate_content_free_tier_requests",
+        quotaId:"GenerateRequestsPerDayPerProjectPerModel-FreeTier",quotaValue:"0"}]},
+        {retryDelay:"42s"}],
+    },
+  };
+  const details=describeGeminiImageQuota(response,null);
+  assert.deepEqual(details,{quotaReason:"FREE_TIER_ZERO",retryAfterSeconds:42});
+  const noDetails=describeGeminiImageQuota({},null);
+  assert.deepEqual(noDetails,{quotaReason:"UNKNOWN",retryAfterSeconds:null});
+  const minute=describeGeminiImageQuota({error:{details:[{
+    violations:[{quotaId:"GenerateRequestsPerMinutePerProjectPerModel",quotaValue:"10"}],
+  }]}}, "7");
+  assert.deepEqual(minute,{quotaReason:"MINUTE_LIMIT",retryAfterSeconds:7});
+  const spend=describeGeminiImageQuota({error:{message:"spend rate limit exceeded"}},null);
+  assert.equal(spend.quotaReason,"SPEND_LIMIT");
+
+  await assert.rejects(generateWebsiteAiImage({
+    campaign,brandKit:kit,scene,plan,env:enabled,
+    fetchFn:async()=>({ok:false,status:429,
+      headers:{get:(name)=>name==="retry-after"?"5":null},
+      text:async()=>JSON.stringify(response),
+    }),
+  }),error=>error.code==="IMAGE_RATE_LIMITED" && error.httpStatus===429 &&
+    error.quotaReason==="FREE_TIER_ZERO" && error.retryAfterSeconds===5 &&
+    !String(error.message).includes("Quota exceeded for this project"));
+});
+
 test("Gemini malformed responses distinguish invalid JSON from no generated image",async()=>{
   for (const [body,code] of [
     ["not-json","IMAGE_INVALID_RESPONSE"],
