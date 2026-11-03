@@ -59,6 +59,17 @@ test("SDXL scene prompts are short, visual and reject fabricated UI",()=>{
   assert.match(prompt,/No letters, text/);
 });
 
+test("SDXL never submits while its private GPU integration is disabled",async()=>{
+  let calls=0;
+  await assert.rejects(submitSdxlSceneImage({
+    campaign:{focus:"Software engineering"},brandKit:{},
+    scene:{title:"Mobile apps"},plan:{scenePurpose:"feature"},
+    env:{...env,VOXORA_SDXL_ENABLED:"false"},
+    fetchFn:async()=>{calls++;throw new Error("The network must not be used");},
+  }),error=>error.code==="SDXL_NOT_CONFIGURED");
+  assert.equal(calls,0);
+});
+
 test("SDXL queue submission includes no secret in URL or response and uses bearer auth",async()=>{
   const calls=[];
   const job=await submitSdxlSceneImage({
