@@ -42,6 +42,9 @@ export function buildWebsiteBrief(report, idea) {
     sourceUrls: urls,
     sourceFacts: (idea.sourceFacts || []).filter(fact => urls.includes(fact.url)).slice(0, 5),
     evidenceClassification: "business_published_not_independently_verified",
+    visualSourcePolicy: "website_brand_first",
+    allowStock: false,
+    brandKit: report.brandKit || null,
   };
   return {
     executive_summary: [
