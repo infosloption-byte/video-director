@@ -19,13 +19,13 @@ test("Storyboard checks capability and requires confirmation before paid Gemini 
 
 test("marketing storyboard explains local placeholders and generates only missing real AI images", async () => {
   const page = await read("pages/StoryboardPage.jsx");
-  assert.match(page, /local FFmpeg starter placeholders, NOT Gemini artwork/);
+  assert.match(page, /local FFmpeg starter placeholders, NOT AI artwork/);
   assert.match(page, /aiGeneratedCount/);
   assert.match(page, /const pendingScenes = scenes\.filter\(/);
   assert.match(page, /scene\.customization\?\.sceneVisualPlan\?\.aiStatus !== "generated"/);
-  assert.match(page, /pendingScenes\.length \+ " Gemini AI image/);
+  assert.match(page, /pendingScenes\.length \+ " " \+ \(aiImageStatus.paid \? "Gemini" : "local SDXL"\)/);
   assert.match(page, /Requests are billable; check model quotas in Google AI Studio/);
-  assert.match(page, /Gemini AI images are disabled or not configured/);
+  assert.match(page, /AI image generation is disabled or not configured/);
   assert.match(page, /aiImageStatus\.model/);
   assert.match(page, /Generate AI visuals for all scenes/);
 });
@@ -51,7 +51,7 @@ test("Distinct local and paid image paths show provenance and specific fallback 
   const panel = await read("components/SceneCustomizePanel.jsx");
   assert.match(step, /Refresh local brand layout/);
   assert.match(panel, /Refresh local brand layout \(not AI\)/);
-  assert.match(page, /Gemini AI was not called/);
+  assert.match(page, /No AI image provider was called/);
   assert.match(page, /used local FFmpeg fallback/);
   assert.match(panel, /websiteVisualStatus/);
   assert.match(step, /websiteVisualStatus/);
@@ -67,7 +67,7 @@ test("paid image bulk run stops after shared provider or quota failure", async (
   assert.match(page, /AI_BATCH_STOP_CODES = new Set/);
   assert.match(page, /"IMAGE_RATE_LIMITED", "IMAGE_AUTH_FAILED", "IMAGE_MODEL_UNAVAILABLE"/);
   assert.match(page, /AI_BATCH_STOP_CODES\.has\(plan\.aiFallbackCode\)/);
-  assert.match(page, /to avoid repeated paid requests/);
+  assert.match(page, /to avoid repeated provider failures/);
   assert.match(page, /if \(!stopped && done === pendingScenes\.length\)/);
 });
 
@@ -87,7 +87,7 @@ test("preview warns when video would still use non-AI placeholder layouts", asyn
   const page = await read("pages/StoryboardPage.jsx");
   assert.match(page, /tab === "Preview"/);
   assert.match(page, /aiPendingCount > 0/);
-  assert.match(page, /still use local placeholders instead of Gemini imagery/);
+  assert.match(page, /still use local placeholders instead of AI imagery/);
   assert.match(page, /Go to storyboard to generate AI imagery/);
 });
 
@@ -107,9 +107,21 @@ test("image-quota UI separates free-tier billing requirements from minute and da
   assert.match(unknown,/no free API tier/);
 });
 
+test("SDXL submits an async scene image job and polls it through the owned scene API", async () => {
+  const page = await read("pages/StoryboardPage.jsx");
+  assert.match(page, /data.provider === "sdxl_local"/);
+  assert.match(page, /response.status === 202/);
+  assert.match(page, /\/ai-image-jobs\//);
+  assert.match(page, /poll.status === 202/);
+  assert.match(page, /aiImageStatus.provider/);
+  assert.match(page, /Existing successful AI scenes are skipped/);
+  assert.match(websiteVisualStatus({aiStatus:"generated",imageProvider:"sdxl_local",imageModel:"sdxl-base-1.0"}),/Local SDXL AI-generated/);
+  assert.match(websiteAiFallbackReason("SDXL_NOT_READY"),/Shared GPU scheduling/);
+});
+
 test("Brand-first artwork keeps caption overlays separate and local refresh distinct from Gemini", async () => {
   const panel = await read("components/SceneCustomizePanel.jsx");
   const page = await read("pages/StoryboardPage.jsx");
   assert.match(panel, /Artwork and product visuals are kept separate from narration captions/);
-  assert.match(page, /Local refresh does not call Gemini/);
+  assert.match(page, /Local refresh does not call the AI provider/);
 });
