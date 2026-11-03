@@ -23,6 +23,9 @@ services:
       GPU_MEDIA_REDIS_URL: redis://redis:6379/0
       GPU_MEDIA_DATA_ROOT: /media/jobs
       GPU_MEDIA_HEAVY_ENABLED: "${GPU_MEDIA_HEAVY_ENABLED:-false}"
+      GPU_MEDIA_IMAGE_ENABLED: "${GPU_MEDIA_IMAGE_ENABLED:-false}"
+      GPU_MEDIA_VIDEO_ENABLED: "${GPU_MEDIA_VIDEO_ENABLED:-false}"
+      GPU_COORDINATION_ENABLED: "${GPU_COORDINATION_ENABLED:-false}"
     volumes:
       - media-artifacts:/media/jobs
     ports:
@@ -42,6 +45,9 @@ services:
       GPU_MEDIA_REDIS_URL: redis://redis:6379/0
       GPU_MEDIA_DATA_ROOT: /media/jobs
       GPU_MEDIA_HEAVY_ENABLED: "${GPU_MEDIA_HEAVY_ENABLED:-false}"
+      GPU_MEDIA_IMAGE_ENABLED: "${GPU_MEDIA_IMAGE_ENABLED:-false}"
+      GPU_MEDIA_VIDEO_ENABLED: "${GPU_MEDIA_VIDEO_ENABLED:-false}"
+      GPU_COORDINATION_ENABLED: "${GPU_COORDINATION_ENABLED:-false}"
       HF_HOME: /hf-cache
       OMP_NUM_THREADS: "2"
       TORCH_NUM_THREADS: "2"
