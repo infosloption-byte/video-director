@@ -192,3 +192,21 @@ node scripts/smokeWebsiteAiVisual.js
 ```
 
 The AI smoke uses local mock output and makes **no paid provider calls**. Verify frontend `npm run test:unit` and the production build separately. Only merge/deploy with queues idle. Then verify brand artwork on OREL IT, the AI-enabled status endpoint and a single live Gemini scene before any full-storyboard image generation.
+
+
+## Batch 2B.2 hotfix: distinguish AI generation from basic branded layouts
+
+Live symptom: an OREL IT storyboard continued showing red block layouts after the Gemini switch was enabled. The underlying controls had two bugs: StepCard did not forward `onRegenerateAiVisuals` or `aiImagesEnabled` into SceneCustomizePanel, and the generic Refresh visuals button deliberately requested `visualMode=brand`, not AI.
+
+After this hotfix:
+- StepCard forwards the AI callback and capability flag; the dedicated Generate AI image action appears on marketing scene cards and inside Customize scene when enabled.
+- Rebuild basic layout is explicitly labeled as **not an AI generation** action. This uses local FFmpeg art and incurs no Gemini image charge.
+- GET `/api/marketing-visuals/status` reports enabled state (requires session). POST `/api/scenes/:sceneId/regenerate-assets` must carry JSON `{ "visualMode": "ai" }` for actual Gemini generation.
+- The POST response now includes a `visualOutcome` describing requestedMode, status (generated, fallback or basic_branded_layout), fallback failureCode and selected model without exposing keys.
+- In the scene card, generated versus fallback versus basic-layout provenance is visible. A 200 response with fallback is no longer presented as an AI success.
+- API error messages for Gemini 400/401/403/404/429/5xx, timeouts and empty output are classified and logged by safe code/status only. The backend never logs API keys, prompts, uploaded images or response bodies.
+- PhonePreview no longer overlays a second storyboard scene title over the video preview for website marketing; narration captions are preserved.
+
+After validation and safe deployment, inspect a single scene: DevTools Network -> `regenerate-assets` -> Payload must show `visualMode=ai`; the Response must show `visualOutcome.status=generated`. A result of `fallback` explains why the basic layout appeared. In API logs, search for `[website-ai-image]` if the provider fails. Before paid calls, confirm the API `/api/marketing-visuals/status` reports enabled=true.
+
+Do not disable rate limits or expose API credentials to diagnose a failed provider. Verify billing/model availability through the provider dashboard if 401/403/404/429 continues.
