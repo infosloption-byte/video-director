@@ -214,4 +214,10 @@
 
 .storyboard-brand-visual-action{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px}
 .storyboard-brand-visual-action .btn{min-height:42px;border-radius:10px}
-.storyboard-brand-visual-action small{max-width:48ch;color:var(--muted);font-size:12px;line-height:1.45}
+.storyboard-brand-visual-action small{max-width:65ch;color:var(--muted);font-size:12px;line-height:1.45}
+.storyboard-brand-visual-action__summary{display:grid;gap:6px;flex:1 1 100%;max-width:680px;padding:13px 15px;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface-soft)}
+.storyboard-brand-visual-action__summary strong{color:var(--ink);font-size:14px;line-height:1.4}
+.storyboard-brand-visual-action__summary span{color:var(--muted);font-size:13px;line-height:1.5}
+.storyboard-brand-visual-action__disabled{flex:1 1 100%;max-width:680px;font-size:13px;line-height:1.5;color:var(--body)}
+.storyboard-brand-visual-action__notice{flex-basis:100%;max-width:680px;overflow-wrap:anywhere}
+@media(max-width:640px){.storyboard-brand-visual-action .btn{width:100%;justify-content:center}.storyboard-brand-visual-action__summary{max-width:100%}}
