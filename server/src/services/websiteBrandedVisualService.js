@@ -170,10 +170,11 @@ export async function createWebsiteBrandedVisual({
       plan.sourceImageUrl = null;
       plan.visualSource = "generated_branded_layout";
       plan.rightsReviewRequired = false;
-      const fallback = args.slice(0, 7).concat(
-        ["-filter_complex", "[0:v]" + filters.join(",") + "[final]",
+      const fallback = ["-hide_banner", "-loglevel", "error", "-y",
+        "-f", "lavfi", "-i", "color=c=" + background + ":s=720x1280:r=1",
+        "-filter_complex", "[0:v]" + filters.join(",") + "[final]",
           "-map", "[final]", "-frames:v", "1", "-update", "1",
-          "-compression_level", "4", tempImage]);
+          "-compression_level", "4", tempImage];
       await runFfmpeg("ffmpeg", fallback, { timeout: 60000, maxBuffer: 1024 * 1024 });
     }
     await rename(tempImage, output);
