@@ -47,7 +47,7 @@ function sceneToStep(scene, selectedAssetIndex = 0) {
     whyLine: scene.whyLine || "Voxora uses the strongest evidence-led line for this beat.",
     whyPicture: scene.whyPicture || "The visual makes the mechanism concrete before the next cut.",
     thumb: selectedAsset ? `url(${selectedAsset.thumbnailUrl}) center / cover no-repeat` : "linear-gradient(145deg, #17304a, #09131f)",
-    thumbLabel: selectedAsset ? "Pexels B-roll" : "Visual pending",
+    thumbLabel: selectedAsset ? (scene.customization?.sceneVisualPlan ? "Website branded visual" : "Pexels B-roll") : "Visual pending",
     swatches: (scene.assets || []).map((asset) => `url(${asset.thumbnailUrl}) center / cover no-repeat`),
     selectedAsset,
     assets: scene.assets || [],
