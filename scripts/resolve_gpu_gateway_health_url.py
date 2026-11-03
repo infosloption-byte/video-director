@@ -13,6 +13,10 @@ import subprocess
 import sys
 
 PORT_KEY = "8000/tcp"
+ALLOWED_HOST_NETWORKS = tuple(
+    ipaddress.ip_network(network)
+    for network in ("127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+)
 
 
 class UnsafeGatewayBinding(ValueError):
@@ -39,8 +43,7 @@ def resolve_health_url(ports: dict) -> str:
         raise UnsafeGatewayBinding("Gateway health binding must use a private IPv4 address.")
     # Explicitly refuse published wildcard, Internet-facing, special and
     # link-local addresses even if Python classifies some as 'private'.
-    if (not ip.is_private or ip.is_unspecified or ip.is_multicast or
-            ip.is_link_local or ip.is_reserved or ip.is_broadcast if hasattr(ip, 'is_broadcast') else False):
+    if not any(ip in network for network in ALLOWED_HOST_NETWORKS):
         raise UnsafeGatewayBinding("Gateway health must be bound to private IPv4, not public/wildcard.")
     if not (1 <= port <= 65535) or str(port) != str(raw_port):
         raise UnsafeGatewayBinding("Gateway host port is invalid.")
