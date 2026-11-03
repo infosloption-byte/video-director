@@ -120,3 +120,16 @@ test("rendering uses local brand still with Remotion Img, and normal stock retai
   assert.match(comp,/<OffthreadVideo/);
   assert.match(comp,/scene\.brandName \|\| "HELIX"/);
 });
+
+
+test("bulk website artwork replacement keeps narration, respects render state and stays stock-free", async () => {
+  const file = new URL("../src/routes/storyboard.js", import.meta.url);
+  const source = await readFile(file,"utf8");
+  assert.match(source,/router\.post\("\/projects\/:id\/regenerate-brand-visuals"/);
+  assert.match(source,/project\.status === "rendering"/);
+  assert.match(source,/policy: "website_brand_first_no_stock"/);
+  assert.match(source,/sceneVisualPlan: visual\.visualPlan/);
+  const route = source.slice(source.indexOf('router.post("/projects/:id/regenerate-brand-visuals"'),source.indexOf('router.post("/scenes/:sceneId/regenerate-assets"'));
+  assert.doesNotMatch(route,/searchPexelsVideos/);
+  assert.doesNotMatch(route,/synthesizeSpeech|audioUrl:|wordTimestamps:/);
+});
