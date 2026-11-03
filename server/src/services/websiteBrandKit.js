@@ -35,6 +35,13 @@ export function createWebsiteBrandKit(report) {
   const url = report?.url;
   if (!url) return null;
   const colors = unique(pages.map(page => normalizeBrandColor(page.brandColor)));
+  const luminance = color => {
+    const value = String(color || "").replace("#", "");
+    return (0.2126 * parseInt(value.slice(0, 2), 16) +
+      0.7152 * parseInt(value.slice(2, 4), 16) +
+      0.0722 * parseInt(value.slice(4, 6), 16)) / 255;
+  };
+  const hasDarkTheme = colors.length && luminance(colors[0]) < 0.54;
   const assets = [];
   const seen = new Set();
   for (const page of pages) {
@@ -54,8 +61,8 @@ export function createWebsiteBrandKit(report) {
     websiteUrl: url,
     logoUrl: logo?.url || null,
     palette: {
-      background: colors[0] || fallback.background,
-      accent: colors[1] || fallback.accent,
+      background: hasDarkTheme ? colors[0] : fallback.background,
+      accent: colors.find(color => luminance(color) > 0.28 && luminance(color) < 0.88) || fallback.accent,
       text: fallback.text,
     },
     paletteSource: colors.length ? "website_meta_theme_color" : "neutral_fallback_not_verified",
