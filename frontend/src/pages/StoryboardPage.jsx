@@ -5,7 +5,7 @@ import RenderQuota from "../components/RenderQuota";
 import { useRenderQuota } from "../hooks/useRenderQuota";
 import PhonePreview from "../components/PhonePreview";
 import StepCard from "../components/StepCard";
-import { websiteAiFallbackReason, websiteVisualStatus } from "../utils/websiteVisualStatus";
+import { websiteAiFallbackReason, websiteAiQuotaExplanation, websiteVisualStatus } from "../utils/websiteVisualStatus";
 import SetupPanel from "../components/SetupPanel";
 import FinalizePanel from "../components/FinalizePanel";
 import ResearchReport from "../components/ResearchReport";
@@ -316,7 +316,7 @@ export default function StoryboardPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (type === "visuals" && body?.visualMode === "ai" && data.code) {
-          throw new Error(websiteAiFallbackReason(data.code) +
+          throw new Error(websiteAiQuotaExplanation(data) +
             " Your previous scene image remains unchanged.");
         }
         if (response.status === 429) {
@@ -644,7 +644,7 @@ export default function StoryboardPage() {
                       {brandVisualLoading ? "Building local layouts…" : "Replace all stock with branded visuals (local only)"}
                     </button>
                     <small>{aiImageStatus.enabled
-                      ? "Gemini model: " + (aiImageStatus.model || "configured provider") + ". AI requests may be billable. Existing successful AI scenes are skipped. Local refresh does not call Gemini. Brand labels and narration captions remain separate."
+                      ? "Gemini model: " + (aiImageStatus.model || "configured provider") + ". Image-generation API access requires a paid Google project. Requests are billable; check model quotas in Google AI Studio. Existing successful AI scenes are skipped. Local refresh does not call Gemini."
                       : "Existing layouts are free, local placeholders. Enabling Gemini is a server-side configuration change; the key is never sent to the browser."}</small>
                     {aiVisualNotice && <p role="status" className="storyboard-brand-visual-action__notice">{aiVisualNotice}</p>}
                   </div>}
