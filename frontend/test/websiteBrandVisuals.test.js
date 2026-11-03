@@ -15,7 +15,7 @@ test("storyboard keeps existing marketing narration and offers bulk stock replac
   assert.match(board,/regenerateAllWebsiteVisuals/);
   assert.match(board,/regenerate-brand-visuals/);
   assert.match(board,/Replace all stock with branded visuals/);
-  assert.match(board,/your existing narration stays unchanged/);
+  assert.match(board,/Original narration and timing were preserved\./);
   assert.match(board,/scene\.assets\?\.length/);
   assert.match(board,/Website branded visual/);
 });
