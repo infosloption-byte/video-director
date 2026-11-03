@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import {
   WEBSITE_IMAGE_MODEL, isMarketingAiImagesEnabled, imageModelFromEnv, marketingVisualPrompt,
-  detectImageFormat, readGeminiImage, generateWebsiteAiImage,
+  detectImageFormat, readGeminiImage, generateWebsiteAiImage, imageHttpFailureCode,
 } from "../src/services/websiteAiImageService.js";
 import { createWebsiteMarketingVisual, marketingImageAvailable } from "../src/services/websiteMarketingVisualService.js";
 import { brandSceneImagePath } from "../src/services/websiteBrandedVisualService.js";
@@ -165,4 +165,35 @@ test("billable AI image request budget is shared across distinct scenes",async()
     if(before==null)delete process.env.MARKETING_AI_IMAGE_RATE_LIMIT;
     else process.env.MARKETING_AI_IMAGE_RATE_LIMIT=before;
   }
+});
+
+
+test("Gemini API errors retain safe actionable codes for auth, model, quota and provider downtime", async () => {
+  const cases = [[400,"IMAGE_REQUEST_REJECTED"],[401,"IMAGE_INVALID_API_KEY"],
+    [403,"IMAGE_ACCESS_DENIED"],[404,"IMAGE_MODEL_UNAVAILABLE"],
+    [429,"IMAGE_RATE_LIMITED"],[503,"IMAGE_PROVIDER_UNAVAILABLE"]];
+  for (const [status, expected] of cases) {
+    assert.equal(imageHttpFailureCode(status), expected);
+    await assert.rejects(generateWebsiteAiImage({
+      campaign,brandKit:kit,scene,plan,env:enabled,
+      fetchFn:async()=>({ok:false,status,headers:{get:()=>null}}),
+    }), error => error.code === expected && error.httpStatus === status);
+  }
+});
+
+test("an image-only Gemini reply without an image reports a distinct empty-output reason", async () => {
+  await assert.rejects(generateWebsiteAiImage({
+    campaign,brandKit:kit,scene,plan,env:enabled,
+    fetchFn:async()=>({
+      ok:true,headers:{get:()=>null},
+      text:async()=>JSON.stringify({candidates:[{content:{parts:[{text:"Unable to generate"}]}}]}),
+    }),
+  }), error => error.code === "IMAGE_EMPTY_OUTPUT");
+});
+
+test("website scene response provides generated-vs-basic-vs-fallback state to the UI", async () => {
+  const source=await readFile(new URL("../src/routes/storyboard.js",import.meta.url),"utf8");
+  assert.match(source,/visualOutcome:\s*\{/);
+  assert.match(source,/requestedMode:/);
+  assert.match(source,/failureCode: reportedPlan\?\.aiFallbackCode/);
 });
