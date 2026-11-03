@@ -370,7 +370,10 @@ function SceneCustomizeDraft({
           <div className="scene-customize__section-head">
             <div>
               <span className="mono-label">VISUALS</span>
-              <strong>Regenerate visuals from the current narration</strong>
+              <strong>{scene.customization?.sceneVisualPlan ? "Regenerate branded marketing artwork" : "Regenerate visuals from the current narration"}</strong>
+              {scene.customization?.sceneVisualPlan && <p className="scene-customize__hint">
+                Website and product visuals only. No Pexels fallback. Verify asset-use rights before publishing.
+              </p>}
             </div>
             <button
               type="button"
@@ -378,12 +381,12 @@ function SceneCustomizeDraft({
               onClick={() => void refreshSceneVisuals()}
               disabled={Boolean(busy)}
             >
-              {busy === "visuals" ? "Regenerating…" : "Regenerate Visuals"}
+              {busy === "visuals" ? "Regenerating…" : scene.customization?.sceneVisualPlan ? "Regenerate branded visual" : "Regenerate Visuals"}
             </button>
           </div>
 
           <div className="scene-customize__visual-group">
-            <span className="scene-customize__visual-label">VISUALS · SELECT ONE</span>
+            <span className="scene-customize__visual-label">{scene.customization?.sceneVisualPlan ? "WEBSITE BRAND ARTWORK · SOURCE-ALIGNED" : "VISUALS · SELECT ONE"}</span>
             <div className="scene-customize__visual-strip">
               {(Array.isArray(scene.assets) ? scene.assets.slice(0, 5) : []).map((asset, index) => (
                 <button
