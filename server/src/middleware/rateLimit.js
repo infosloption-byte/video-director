@@ -24,6 +24,13 @@ function policyFor(req) {
   if (path === "/" && method === "POST") {
     return { windowMs: numberEnv("PROJECT_CREATE_RATE_WINDOW_MS", 10 * 60 * 1000), max: numberEnv("PROJECT_CREATE_RATE_LIMIT", 10) };
   }
+  // Billable image generations share one account/IP budget across all
+  // scenes; per-scene route IDs cannot create independent budgets.
+  if (/^\/scenes\/[^/]+\/regenerate-assets$/.test(path) &&
+      method === "POST" && req.body?.visualMode === "ai") {
+    return { windowMs: numberEnv("MARKETING_AI_IMAGE_RATE_WINDOW_MS",10*60*1000),
+      max: numberEnv("MARKETING_AI_IMAGE_RATE_LIMIT",12) };
+  }
   if (/^\/[^/]+\/(generate-scenes|generate-voice)$/.test(path) && method === "POST") {
     return { windowMs: numberEnv("PROVIDER_RATE_WINDOW_MS", 10 * 60 * 1000), max: numberEnv("PROVIDER_RATE_LIMIT", 10) };
   }
@@ -54,7 +61,9 @@ export function expensiveOperationRateLimit(req, res, next) {
   const scope = isBillingLink && req.user?.id
     ? `billing:user:${req.user.id}`
     : clientKey(req);
-  const routeKey = isBillingLink
+  const aiImageRoute = /^\/scenes\/[^/]+\/regenerate-assets$/.test(req.path) &&
+    req.method === "POST" && req.body?.visualMode === "ai";
+  const routeKey = aiImageRoute ? "/scenes/ai-image" : isBillingLink
     ? req.path === "/dashboard/manage" ? "/dashboard/manage" : "/dashboard/invoice"
     : req.path;
   const key = `${scope}:${req.method}:${routeKey}`;
