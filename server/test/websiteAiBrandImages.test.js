@@ -41,6 +41,37 @@ test("prompts use brand facts and visual safe zones, never request generated log
   assert.match(p,/untrusted/);
   assert.ok(!p.includes("https://169.254"));
 });
+test("AI scene prompts keep one brand style but vary focal composition and cite only matching product facts",()=>{
+  const secondProduct=siteUrl+"products/aiso";
+  const twoProductCampaign={...campaign,
+    sourceUrls:[productUrl,secondProduct],
+    sourceFacts:[
+      campaign.sourceFacts[0],
+      {url:secondProduct,detail:"AISO supports a distinct search-content product."},
+    ],
+  };
+  const hook=marketingVisualPrompt({campaign:twoProductCampaign,brandKit:kit,scene,plan:{
+    ...plan,scenePurpose:"hook",focusSourceUrl:productUrl,sceneIndex:0,
+  }});
+  const feature=marketingVisualPrompt({campaign:twoProductCampaign,brandKit:kit,scene,plan:{
+    ...plan,scenePurpose:"feature",focusSourceUrl:productUrl,sceneIndex:2,
+  }});
+  const closing=marketingVisualPrompt({campaign:twoProductCampaign,brandKit:kit,scene,plan:{
+    ...plan,scenePurpose:"cta",focusSourceUrl:productUrl,sceneIndex:3,
+  }});
+  assert.match(hook,/Opening hero frame/);
+  assert.match(feature,/Specific composition for this cut/);
+  assert.match(closing,/Closing frame/);
+  assert.notEqual(hook,feature);
+  assert.notEqual(feature,closing);
+  for(const prompt of [hook,feature,closing]){
+    assert.match(prompt,/SAME palette/);
+    assert.match(prompt,/CommOps helps businesses/);
+    assert.doesNotMatch(prompt,/AISO supports a distinct/);
+    assert.match(prompt,/DO NOT include any readable text/);
+  }
+});
+
 test("provider image bytes must match MIME and be safely bounded",()=>{
   assert.equal(detectImageFormat(png,"image/png").extension,"png");
   assert.throws(()=>detectImageFormat(png,"image/jpeg"),/invalid or mismatched/);
@@ -118,7 +149,7 @@ test("one AI scene writes only authenticated PNG and preserves provider provenan
       trace:async(meta,work)=>{traces.push(meta);return work();},
       runCommand:async(name,args)=>{
         if(name==="ffprobe")return {stdout:JSON.stringify({streams:[{width:768,height:1376}]})};
-        await writeFile(args.at(-1),png);return {stdout:""};
+        await writeFile(args.at(-1),Buffer.concat([png,Buffer.alloc(2048)]));return {stdout:""};
       },
     });
     assert.equal(result.visualPlan.visualSource,"gemini_generated_illustration");
@@ -129,6 +160,55 @@ test("one AI scene writes only authenticated PNG and preserves provider provenan
     assert.match(result.videoUrl,/\/api\/render-assets\/.*\.png\?v=/);
   }finally{await rm(pathname,{force:true});}
 });
+test("AI output quality gates reject wrong aspect ratio and corrupt converted PNG without claiming AI success",async()=>{
+  const projectId=crypto.randomUUID(),sceneId=crypto.randomUUID();
+  const project={id:projectId,userId:"u",signal:{category:"WEBSITE_MARKETING"},
+    researchSources:{websiteMarketing:campaign}};
+  let fallbackCalls=0,ffmpegCalls=0;
+  for (const [width,height,writeCorrupt,reason] of [
+    [1280,720,false,"BAD_IMAGE_ASPECT_RATIO"],
+    [768,1376,true,"BAD_IMAGE_OUTPUT"],
+  ]) {
+    const result=await createWebsiteMarketingVisual({
+      project,sceneId,scene,visualMode:"ai",brandKit:kit,env:enabled,
+      aiGenerate:async()=>({bytes:png,extension:"png",model:WEBSITE_IMAGE_MODEL}),
+      trace:async(_meta,work)=>work(),
+      runCommand:async(name,args)=>{
+        if(name==="ffprobe")return {stdout:JSON.stringify({streams:[{width,height}]})};
+        ffmpegCalls++;
+        await writeFile(args.at(-1),Buffer.alloc(2048));
+        return {stdout:""};
+      },
+      brandGenerate:async()=>{fallbackCalls++;return {videoUrl:"/local.png",
+        visualPlan:{visualMode:"branded_composition",stockUsed:false}};},
+    });
+    assert.equal(result.visualPlan.aiStatus,"fallback");
+    assert.equal(result.visualPlan.aiFallbackCode,reason);
+  }
+  assert.equal(ffmpegCalls,1,"off-ratio images never reach FFmpeg conversion");
+  assert.equal(fallbackCalls,2);
+});
+
+test("AI provider never receives a company logo as its visual reference",async()=>{
+  const projectId=crypto.randomUUID(),sceneId=crypto.randomUUID();
+  const project={id:projectId,userId:"u",signal:{category:"WEBSITE_MARKETING"},
+    researchSources:{websiteMarketing:campaign}};
+  const logoKit={...kit,assets:[{
+    url:siteUrl+"assets/logo.png",sourcePageUrl:productUrl,role:"logo",
+  }]};
+  let imageFetchCount=0, referenceImage=null;
+  const result=await createWebsiteMarketingVisual({
+    project,sceneId,scene,visualMode:"ai",brandKit:logoKit,env:enabled,
+    imageFetch:async()=>{imageFetchCount++;throw new Error("logo should not be fetched");},
+    aiGenerate:async(opts)=>{referenceImage=opts.referenceImage;throw Object.assign(new Error("mock provider unavailable"),{code:"IMAGE_RATE_LIMITED"});},
+    trace:async(_meta,work)=>work(),
+    brandGenerate:async()=>({videoUrl:"/local.png",visualPlan:{stockUsed:false}}),
+  });
+  assert.equal(result.visualPlan.aiStatus,"fallback");
+  assert.equal(imageFetchCount,0);
+  assert.equal(referenceImage,null);
+});
+
 test("provider failure yields a transparent branded fallback, without retrying stock providers",async()=>{
   const projectId=crypto.randomUUID(),sceneId=crypto.randomUUID();
   const project={id:projectId,userId:"u",signal:{category:"WEBSITE_MARKETING"},
