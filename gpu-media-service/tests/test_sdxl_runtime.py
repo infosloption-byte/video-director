@@ -38,3 +38,4 @@ def test_sdxl_rejects_partial_activation_and_does_not_enable_video():
     baseline["GPU_MEDIA_VIDEO_ENABLED"] = "true"
     assert video_job_enabled(baseline)
     assert not image_job_enabled({})
+    assert not video_job_enabled({})
