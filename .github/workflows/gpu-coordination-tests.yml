@@ -12,6 +12,8 @@ on:
       - "scripts/rollout_gpu_gateway.sh"
       - "scripts/resolve_gpu_gateway_health_url.py"
       - "scripts/tests/test_gpu_gateway_health_binding.py"
+      - "scripts/tts_gateway_worker_dns_snapshot.py"
+      - "scripts/tests/test_tts_gateway_worker_dns_snapshot.py"
       - ".github/workflows/gpu-coordination-tests.yml"
   push:
     branches: [main]
@@ -25,6 +27,8 @@ on:
       - "scripts/rollout_gpu_gateway.sh"
       - "scripts/resolve_gpu_gateway_health_url.py"
       - "scripts/tests/test_gpu_gateway_health_binding.py"
+      - "scripts/tts_gateway_worker_dns_snapshot.py"
+      - "scripts/tests/test_tts_gateway_worker_dns_snapshot.py"
       - ".github/workflows/gpu-coordination-tests.yml"
 permissions:
   contents: read
@@ -40,6 +44,8 @@ jobs:
         run: bash -n scripts/rollout_gpu_gateway.sh
       - name: Test private Docker host binding and rollback health probe
         run: python -m unittest discover -s scripts/tests -p "test_gpu_gateway_health_binding.py" -v
+      - name: Test optional engine DNS preservation across gateway recreation
+        run: python -m unittest discover -s scripts/tests -p "test_tts_gateway_worker_dns_snapshot.py" -v
   lease-unit-tests:
     runs-on: ubuntu-latest
     steps:
