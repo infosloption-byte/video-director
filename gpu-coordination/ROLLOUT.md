@@ -261,6 +261,66 @@ gateway-only rollout, keep all GPU coordination and heavy inference flags
 disabled until Qwen/Kokoro synthesis, native GPU lock-loss behavior, and
 media-worker admission have separately passed controlled testing.
 
+### November 4: optional TTS DNS caused automatic rollback
+
+The gateway-only deployment recreated the new gateway, then Python raised
+`socket.gaierror: [Errno -3] Temporary failure in name resolution` at
+the `getaddrinfo(parsed.hostname, parsed.port)` check. The script had
+required DNS resolution of **every** configured TTS engine. The gateway's
+`WORKERS` mapping has four endpoints (Kokoro, MeloTTS-v3, Chatterbox-Nano,
+Qwen3-TTS 0.6B), whereas the observed running host has only Kokoro and
+Qwen engine containers. **The failed hostname was not logged, so the exact
+missing endpoint is still unconfirmed**. The automatic rollback passed;
+the restored gateway returned `{"ok":true,"service":"helix-tts",...}` and
+`GPU_COORDINATION_ENABLED=false`.
+
+The revised rollout snapshots DNS from the **existing live gateway** before
+recreation. It requires the configured default engine to resolve, then
+checks the *same originally resolvable engine labels, hostnames, ports and
+resolved DNS addresses* on the new gateway and on any rollback.
+Optional endpoints that already did not resolve are reported as missing,
+not counted as a new regression. The coordinator's private Redis DNS and
+authenticated `PING` are still required. This does not claim that missing
+optional TTS engines can synthesize audio: test actual Kokoro and Qwen
+speech separately.
+
+**The first snapshot is now stale.** The rollback recreated the original
+gateway and changed its Docker container ID. Do not reuse
+`/home/ubuntu/voxora-gpu-rollout-bVXnmzNQ` for `deploy`. Keep it as
+a protected historical rollback record. Do not delete its saved images.
+
+After merging the fix, perform only read-only validation first:
+
+```bash
+cd /opt/voxora-gpu/video-director
+git pull --ff-only origin main
+bash -n scripts/rollout_gpu_gateway.sh
+python3 -m unittest discover -s scripts/tests \
+  -p test_tts_gateway_worker_dns_snapshot.py -v
+sudo docker exec -i voxora-gpu-gateway-1 python -B - \
+  < scripts/tts_gateway_worker_dns_snapshot.py
+curl --noproxy '*' -fsS --max-time 5 \
+  http://172.31.64.234:8000/health
+```
+
+Confirm the default worker appears under `resolved`, inspect the names in
+`missing` without assuming their endpoints are operational, and verify a
+small authenticated Kokoro synthesis via the existing Voxora application.
+
+Next create a **new** protected rollback snapshot, and validate the new path:
+
+```bash
+bash scripts/prepare_gpu_coordination_rollout.sh
+# Use the ACTUAL new path printed above:
+bash scripts/plan_gpu_gateway_rollout.sh /home/ubuntu/voxora-gpu-rollout-NEW
+bash scripts/rollout_gpu_gateway.sh check /home/ubuntu/voxora-gpu-rollout-NEW
+```
+
+These checks do not restart running containers. Only after they all pass,
+and after confirming a fresh quiet maintenance window, is another
+gateway-only `deploy` appropriate. Shared GPU scheduling and SDXL inference
+remain **OFF** regardless of gateway deployment.
+
 ### Live TTS Compose service-name compatibility
 
 The first gateway rollout command on the GPU host stopped safely with
