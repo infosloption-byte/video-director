@@ -84,6 +84,20 @@ gateway_health_url="$(python3 "$root/scripts/resolve_gpu_gateway_health_url.py" 
   echo "BLOCKED: current gateway has no safe private health binding." >&2; exit 1;
 }
 
+# Probe exactly which configured workers resolve in the EXISTING gateway.
+# Some optional endpoints remain configured while their containers are absent.
+# Preserve every working endpoint, including DNS addresses and port numbers.
+# This fingerprint does not expose internal endpoint URLs or credentials.
+snapshot_worker_dns() {
+  local container_id="$1"
+  sudo docker exec -i "$container_id" python -B - \
+    < "$root/scripts/tts_gateway_worker_dns_snapshot.py"
+}
+worker_dns_before="$(snapshot_worker_dns "$gateway")" || {
+  echo "BLOCKED: original TTS gateway's default worker is not resolvable." >&2
+  exit 1
+}
+
 # Discover every existing non-gateway container in the LIVE TTS Compose project.
 # This includes locally renamed engine services and protects their image and start time.
 peer_fingerprint_before="$(python3 "$root/scripts/tts_peer_fingerprint.py" "$gateway")"
@@ -125,8 +139,9 @@ restore() {
   local id
   id="$(cd "$tts" && sudo docker compose -p voxora-gpu -f docker-compose.gpu.yml ps -q gateway)"
   [[ "$(sudo docker inspect "$id" --format '{{.Image}}')" == "$old_gateway_image" ]] &&
-    healthy && peers_unchanged && {
-      echo "PASS: rollback gateway image and health restored, other TTS containers unchanged."
+    healthy && peers_unchanged &&
+    [[ "$(snapshot_worker_dns "$id")" == "$worker_dns_before" ]] && {
+      echo "PASS: rollback gateway image, original worker DNS, and health restored; TTS peers unchanged."
       return 0
     }
   echo "URGENT: rollback did not fully verify; investigate TTS gateway." >&2
@@ -139,7 +154,7 @@ if [[ "$mode" == check ]]; then
   }
   bash "$root/scripts/plan_gpu_gateway_rollout.sh" "$snapshot"
   probe_health || { echo "BLOCKED: original gateway health failed at its actual private Docker binding." >&2; exit 1; }
-  echo "PASS: gateway health verified on its unchanged private Docker binding."
+  echo "PASS: original gateway default worker DNS baseline and private health verified."
   echo "PASS: deployment checks completed. No containers changed."
   exit 0
 fi
@@ -148,8 +163,8 @@ if [[ "$mode" == rollback ]]; then
   [[ "$gateway_image" == "$old_gateway_image" || "$gateway_image" == "$new_image" ]] || {
     echo "BLOCKED: gateway image unrelated to this rollout." >&2; exit 1;
   }
-  if [[ "$gateway" == "$old_gateway" && "$gateway_image" == "$old_gateway_image" ]]; then
-    echo "PASS: gateway is already the original snapshot container and image."
+  if [[ "$gateway_image" == "$old_gateway_image" ]] && probe_health; then
+    echo "PASS: gateway already runs the original rollback image with correct health."
     echo "No rollback needed; no services were changed."
     exit 0
   fi
@@ -192,6 +207,14 @@ gateway_new="$(cd "$tts" && sudo docker compose -p voxora-gpu \
   -f docker-compose.gpu.yml ps -q gateway)"
 [[ -n "$gateway_new" && "$gateway_new" != "$old_gateway" &&
    "$(sudo docker inspect "$gateway_new" --format '{{.Image}}')" == "$new_image" ]]
+# The new gateway must preserve all originally resolvable workers. Do not
+# require optional engines that were not running/resolvable in the baseline.
+# Full synthesis validation still takes place separately after this rollout.
+worker_dns_after="$(snapshot_worker_dns "$gateway_new")"
+[[ "$worker_dns_after" == "$worker_dns_before" ]] || {
+  echo "BLOCKED: configured TTS worker endpoints or DNS changed during rollout." >&2
+  exit 1
+}
 sudo docker exec "$gateway_new" python -c '
 import os
 from pathlib import Path
@@ -199,13 +222,6 @@ assert os.environ.get("GPU_COORDINATION_ENABLED") == "false"
 assert os.environ.get("GPU_COORDINATION_REDIS_HOST") == "voxora-gpu-coordinator"
 assert Path("/run/secrets/coordinator_password").is_file()
 import socket
-from urllib.parse import urlparse
-from gateway.app import WORKERS
-assert WORKERS, "No configured TTS workers"
-for endpoint in WORKERS.values():
-    parsed = urlparse(endpoint)
-    assert parsed.hostname and parsed.scheme in ("http", "https")
-    socket.getaddrinfo(parsed.hostname, parsed.port)
 socket.getaddrinfo("voxora-gpu-coordinator", 6379)
 from gateway.gpu_client import create_gpu_redis_client
 client = create_gpu_redis_client()
@@ -213,7 +229,7 @@ try:
     assert client.ping() is True
 finally:
     client.close()
-print("PASS: configured TTS worker DNS and coordinator Redis access, GPU coordination OFF")
+print("PASS: original worker DNS preserved, coordinator Redis authenticated, GPU coordination OFF")
 '
 healthy
 peers_unchanged
