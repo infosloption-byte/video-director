@@ -26,7 +26,7 @@
     "@remotion/renderer": "4.0.518",
     "bullmq": "^5.0.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^18.0.10",
     "express": "^4.21.2",
     "ioredis": "^5.4.0",
     "node-cron": "^4.2.1",
