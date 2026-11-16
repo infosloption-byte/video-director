@@ -27,7 +27,7 @@
     "bullmq": "^5.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2",
+    "express": "^5.3.0",
     "ioredis": "^5.4.0",
     "node-cron": "^4.2.1",
     "nodemailer": "10.2.1",
